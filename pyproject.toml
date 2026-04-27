@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stroke-order"
+version = "0.13.0"
+description = "中文字元 → 向量筆跡轉換器（給寫字機器人用）"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "seyen37", email = "seyen37@gmail.com"},
+]
+dependencies = [
+    "requests>=2.28",
+    "numpy>=1.24",
+    "svgpathtools>=1.6",              # KanjiVG path parsing
+    "opencc-python-reimplemented>=0.1.7",  # 繁↔簡 variant fallback
+    "fonttools>=4.0",                      # Phase 5al: CNS font outline extraction
+]
+
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "httpx>=0.25",                # required by fastapi.testclient for integration tests
+    "python-multipart>=0.0.9",    # required for POST file upload (塗鴉模式)
+    "Pillow>=10.0",               # 塗鴉 mode: image processing
+    "cairosvg>=2.7",              # ODP/GIF/sample rendering
+]
+gif = [
+    "cairosvg>=2.7",
+    "Pillow>=10.0",
+]
+all = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "httpx>=0.25",
+    "python-multipart>=0.0.9",
+    "cairosvg>=2.7",
+    "Pillow>=10.0",
+]
+dev = [
+    "pytest>=7",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "httpx>=0.25",
+    "python-multipart>=0.0.9",
+    "cairosvg>=2.7",
+    "Pillow>=10.0",
+]
+
+[project.scripts]
+stroke-order = "stroke_order.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"stroke_order.web" = ["static/*", "static/handwriting/*", "static/handwriting/vendor/*", "static/gallery/*"]
+"stroke_order.data" = ["*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-p no:cacheprovider"

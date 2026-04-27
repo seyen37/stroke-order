@@ -1,0 +1,43 @@
+MIT License
+
+Copyright (c) 2025-2026 許士彥 (seyen37) <seyen37@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+---
+
+## Third-party data sources
+
+This project consumes character stroke data from several upstream sources,
+each with its own license. The MIT license above applies only to the
+stroke-order Python code; data fetched / bundled at runtime retains its
+original license:
+
+- g0v/zh-stroke-data — see https://github.com/g0v/zh-stroke-data for
+  licensing terms (derived from MOE 教育部 standard kaishu data).
+- Make Me a Hanzi — LGPL 3.0 (https://github.com/skishore/makemeahanzi).
+- KanjiVG — CC BY-SA 3.0 (https://github.com/KanjiVG/kanjivg).
+- 教育部標準楷書 / 隸書 / 宋體 — Republic of China Ministry of Education;
+  consult the MOE font terms before redistributing the TTF files.
+- 全字庫 (CNS 11643) — Taiwan Government Open Data (政府資料開放授權條款 1.0).
+- 崇羲篆體 — CC BY-ND, by 季旭昇 + Institute of Information Science,
+  Academia Sinica.
+
+When redistributing or deploying this project, ensure compliance with the
+license of each data source you choose to bundle.

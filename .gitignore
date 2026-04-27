@@ -1,0 +1,87 @@
+# =====================================================================
+# stroke-order .gitignore
+# =====================================================================
+
+# --- Python -----------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+sdist/
+wheels/
+share/python-wheels/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# --- Tests / coverage -------------------------------------------------
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# --- Type checkers ----------------------------------------------------
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+
+# --- Secrets / environment variables ----------------------------------
+# NEVER commit these — they contain SMTP credentials + auth secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# --- Local runtime data ----------------------------------------------
+# Generated / cached at runtime, not source
+data/g0v_cache/*.json
+!data/g0v_cache/.gitkeep
+.stroke-order/
+gallery.db
+gallery.db-journal
+*.db
+*.db-journal
+uploads/
+
+# --- Editor / IDE -----------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Cowork / agent infrastructure (do NOT commit) --------------------
+# These are scratch / config from the development environment, not part
+# of the project itself.
+.auto-memory/
+.claude/
+.remote-plugins/
+
+# --- Build artefacts --------------------------------------------------
+docs/_build/
+docs/site/
+
+# --- OS / archive -----------------------------------------------------
+*.zip
+*.tar
+*.tar.gz
+*.tgz
