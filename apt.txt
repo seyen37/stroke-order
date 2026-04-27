@@ -1,0 +1,14 @@
+# =====================================================================
+# Render.com 系統套件需求
+#
+# Render 用 Ubuntu 22.04 base image。cairosvg + Pillow 需要 cairo 系列
+# 動態函式庫；標準 Python wheels 預期這些 .so 檔已存在。
+#
+# 此檔每行一個 apt 套件名，build 階段自動 apt-get install 上去。
+# =====================================================================
+libcairo2
+libpango-1.0-0
+libpangocairo-1.0-0
+libgdk-pixbuf-2.0-0
+libffi-dev
+shared-mime-info

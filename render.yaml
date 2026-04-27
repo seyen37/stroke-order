@@ -1,0 +1,59 @@
+# =====================================================================
+# Render.com Blueprint
+#
+# 一鍵部署整個 stroke-order app 到 Render.com 免費 tier。
+#
+# 使用方式：
+#   1. 把這個檔案 commit + push 到你的 GitHub repo
+#   2. 開 https://render.com/ 帳號 → 連 GitHub
+#   3. New + → Blueprint → 選你的 stroke-order repo
+#   4. Render 會自動讀這份檔案 → 建立 web service
+#   5. STROKE_ORDER_BASE_URL 環境變數要在部署後手動填（自動產生的 URL）
+#
+# 詳細：docs/PUBLIC_DEPLOYMENT.md
+# =====================================================================
+
+services:
+  - type: web
+    name: stroke-order
+    runtime: python
+    plan: free                       # cold start，但個人專案 demo 夠用
+    region: singapore                # 距台灣最近的免費區域
+    buildCommand: pip install -e ".[web]"
+    startCommand: uvicorn stroke_order.web.server:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /api/health     # /api/health 回 {"ok": true}
+
+    envVars:
+      # Python 版本（pin 到 3.11）
+      - key: PYTHON_VERSION
+        value: 3.11.7
+
+      # ---- Gallery (5g) auth ----
+      # AUTH_SECRET 用 Render 自動產生 32-byte 隨機值，永不外洩
+      - key: STROKE_ORDER_AUTH_SECRET
+        generateValue: true
+
+      # 預設 dev mode：登入連結印 console（Render Logs tab 看），
+      # 不需 SMTP 帳號就能跑全部功能。確認 app 部署 OK 後可改 false。
+      - key: STROKE_ORDER_AUTH_DEV_MODE
+        value: "true"
+
+      # 部署完成後，把這個值改成 Render 給你的 URL
+      # 例：https://stroke-order.onrender.com
+      # 在 Render Dashboard → Service → Environment 手動填
+      - key: STROKE_ORDER_BASE_URL
+        sync: false
+
+      # ---- (可選) SMTP — 一旦你準備接受真實使用者，把 dev mode 關掉、
+      # 填這幾個。詳細 docs/GALLERY_DEPLOYMENT.md。
+      # - key: STROKE_ORDER_SMTP_HOST
+      #   sync: false
+      # - key: STROKE_ORDER_SMTP_PORT
+      #   value: "587"
+      # - key: STROKE_ORDER_SMTP_USER
+      #   sync: false
+      # - key: STROKE_ORDER_SMTP_PASS
+      #   sync: false
+      # - key: STROKE_ORDER_SMTP_FROM
+      #   sync: false
