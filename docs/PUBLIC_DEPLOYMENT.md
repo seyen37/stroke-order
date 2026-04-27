@@ -1,79 +1,101 @@
-﻿---
+---
 layout: default
 ---
 
-# ??stroke-order ?祇??嗉身?啁雯頝臭?
+# 把 stroke-order 公開架設到網路上
 
-?敺?堆?2026-04-26
+最後更新：2026-04-26
 
 ---
 
-## ??蝑?github.io ?臭?暻?
-**`github.io` = GitHub Pages**嚗itHub ????鞎?*??蝬脤?**撖?????
-- 雿?push ?啁摰?branch嚗虜 `gh-pages` ??`main` ??`/docs` 摮??
-- GitHub ?芸??鈭?獢撣 `https://<username>.github.io/<repo>/`
-- 摰?祥嚗犖 public repo嚗?- ?芸? HTTPS
-- 銋隞亦??芸楛鞎瑞?蝬脣?嚗閂憒?`stroke-order.tw`嚗?
-**蝭?**嚗?- `https://seyen37.github.io/` ???犖擐?嚗??? `seyen37/seyen37.github.io` repo嚗?- `https://seyen37.github.io/stroke-order/` ??撠???
+## 先回答 github.io 是什麼
+
+**`github.io` = GitHub Pages**：GitHub 提供的免費**靜態網頁**寄存服務。
+
+- 你 push 到特定 branch（通常 `gh-pages` 或 `main` 的 `/docs` 子目錄）
+- GitHub 自動把那些檔案發布到 `https://<username>.github.io/<repo>/`
+- 完全免費（個人 public repo）
+- 自動 HTTPS
+- 也可以綁自己買的網域（譬如 `stroke-order.tw`）
+
+**範例**：
+- `https://seyen37.github.io/` — 個人首頁（如果有 `seyen37/seyen37.github.io` repo）
+- `https://seyen37.github.io/stroke-order/` — 專案頁
+
 ---
 
-## ??雿?GitHub Pages **銝??亥?** stroke-order
+## ⚠ 但 GitHub Pages **不適合直接跑** stroke-order
 
-??嚗?*GitHub Pages ?芾頝???獢?HTML / CSS / JS嚗?*??
-stroke-order ??憿?
+關鍵限制：**GitHub Pages 只能跑靜態檔案（HTML / CSS / JS）**。
 
-| ? | ?閬??梯正 | GitHub Pages ?質?嚗?|
+stroke-order 的問題：
+
+| 功能 | 需要的東西 | GitHub Pages 能跑？ |
 |---|---|---|
-| ?桀? / 摮? / 蝑? / 靽∠? / ????| Python FastAPI 敺垢 + cairosvg 皜脫? | ??|
-| ??璅∪? PDF 銝? | Python + cairosvg + Pillow | ??|
-| `/handwriting` 蝑?蝺渡???| ?垢?胯??閬?`/api/handwriting/reference` 敺垢 | ?典?嚗?蝻箏?敶?fetch嚗
-| `/gallery` ?祉?澈摨?| SQLite + SMTP + auth | ??|
-| `/api/*` ?券 API endpoints | Python 敺垢 | ??|
+| 單字 / 字帖 / 筆記 / 信紙 / 文字雲 | Python FastAPI 後端 + cairosvg 渲染 | ❌ |
+| 抄經模式 PDF 下載 | Python + cairosvg + Pillow | ❌ |
+| `/handwriting` 筆順練習頁 | 前端可、但需要 `/api/handwriting/reference` 後端 | 部分（但缺字形 fetch）|
+| `/gallery` 公眾分享庫 | SQLite + SMTP + auth | ❌ |
+| `/api/*` 全部 API endpoints | Python 後端 | ❌ |
 
-**蝯?**嚗?霈蝙?刻祕?蝙??stroke-order ?券?嚗??**?舀 Python 敺垢**?像?啜?
+**結論**：要讓使用者實際使用 stroke-order 全部功能，必須找**支援 Python 後端**的平台。
+
 ---
 
-## ?函蔡?賊?銝閬?
-| ?寞? | ?祥 | ??漲 | ?拙??湔 |
+## 部署選項一覽
+
+| 方案 | 月費 | 難度 | 適合場景 |
 |---|---|---|---|
-| **Render.com ?祥** | ?祥嚗? cold start嚗 雿?| 閰行偌皞怒犖撠? demo |
-| **Render.com 隞祥** | $7+ | 雿?| 蝛拙???? cold start |
-| **Fly.io ?祥** | ?祥嚗?璈嚗 銝?| 撠?Docker ???脤?雿輻??|
-| **DigitalOcean / Linode / Vultr / Hetzner VPS** | $5-6 | 擃?| 摰?批??帘摰敺? |
-| **?芣嚗振銝凋撩? + Cloudflare Tunnel嚗?* | 0嚗鞎鳴?| 擃?| 撌脫?蝖祇???摮?Linux |
-| **Hugging Face Spaces** | ?祥 | 銝?| AI demo 憸冽嚗? Docker |
-| **GitHub Pages**嚗?*????**嚗 ?祥 | 雿?| ?辣?anding page???敺垢 |
+| **Render.com 免費** | 免費（有 cold start）| 低 | 試水溫、個人專案 demo |
+| **Render.com 付費** | $7+ | 低 | 穩定運作、無 cold start |
+| **Fly.io 免費** | 免費（小機器）| 中 | 對 Docker 熟悉的進階使用者 |
+| **DigitalOcean / Linode / Vultr / Hetzner VPS** | $5-6 | 高 | 完全控制、長期穩定、用得久 |
+| **自架（家中伺服器 + Cloudflare Tunnel）** | 0（電費）| 高 | 已有硬體、要學 Linux |
+| **Hugging Face Spaces** | 免費 | 中 | AI demo 風格，需 Docker |
+| **GitHub Pages**（**僅靜態頁**）| 免費 | 低 | 文件、landing page、不需後端 |
 
 ---
 
-## ?刻頝舐?嚗??挾?函蔡
+## 推薦路線：分階段部署
 
-### ?挾 1嚗itHub Pages ?整?蝝寥? + ?辣???祥?收銝?剁?
+### 階段 1：GitHub Pages 放「介紹頁 + 文件」（免費、馬上能用）
 
-??`docs/` 霈??舐汗?雯蝡?雿**撠???憭???*??蝝?stroke-order ?臭?暻潦??芯???獐摰????芸???隞園??剁?雿?*撖阡?雿輻閬?clone 銝??芸楛頝?*??
-??畾萎??質?雿輻??乓雿?蝬脩?銝神摮?雿隞亥? stroke-order 鋡思犖?潛?? SEO??撘?孵潦?
-### ?挾 2嚗ender.com ?祥?函蔡???游?蝡胯??祥 + 5 ??嚗?
-霈蝙?刻隞亦?亦 `https://stroke-order.onrender.com/` 頝?典??賬?鞎?tier ?嚗?
-- **Cold start**嚗?5 ???∩犖閮芸??閬綽?銝活蝚砌???瘙?蝑?30 蝘???- 750 撠?/??銝????24h ? 31 憭?= 744h嚗?憟賜皛選?
-- SSL ?芸?
+把 `docs/` 變成可瀏覽的網站，作為**專案的對外門面**——介紹 stroke-order 是什麼、有哪些功能、怎麼安裝、有截圖、文件齊全，但**實際使用要 clone 下來自己跑**。
 
-撠犖 demo / ????血??典??具?*?犖?典?憭停??鞎餃?蝝?*嚗?撅?
-### ?挾 3嚗?賂?嚗??VPS ?摰嗡撩?
+這個階段不能讓使用者直接「在你的網站上寫字」，但可以讓 stroke-order 被人發現、有 SEO、有引用價值。
 
-?祕?蝙?刻?嚗閂憒?瘣?100+嚗????蝞?改?$5/?????賜帘摰 cold start??
+### 階段 2：Render.com 免費部署「完整後端」（免費 + 5 分鐘）
+
+讓使用者可以直接用 `https://stroke-order.onrender.com/` 跑全部功能。免費 tier 限制：
+
+- **Cold start**：15 分鐘無人訪問會睡覺，下次第一個請求要等 30 秒喚醒
+- 750 小時/月（一個服務 24h × 31 天 = 744h，剛好用滿）
+- SSL 自動
+
+對個人 demo / 朋友圈推薦完全夠用。**有人用得多就會付費升級**，無痛擴展。
+
+### 階段 3（可選）：自架 VPS 或自家伺服器
+
+有實際使用者後（譬如月活 100+）再考慮——預算可控（$5/月）、效能穩定、無 cold start。
+
 ---
 
-## ?挾 1嚗itHub Pages 閮剖?嚗? ??嚗?
-霈?`https://seyen37.github.io/stroke-order/` 憿舐內雿? README + docs??
-### ??repo ? Pages
+## 階段 1：GitHub Pages 設定（5 分鐘）
 
-1. ??<https://github.com/seyen37/stroke-order/settings/pages>
-2. **Source**: ?詻eploy from a branch??3. **Branch**: `main` / 鞈?憭暸 `/docs`
-4. 暺ave??
-蝑?1-2 ?? GitHub ?函蔡摰???
-### ??嚗itHub Pages ?身??Jekyll嚗?????瑼?
+讓 `https://seyen37.github.io/stroke-order/` 顯示你的 README + docs。
 
-???征 `.nojekyll` 瑼??
+### 在 repo 啟用 Pages
+
+1. 開 <https://github.com/seyen37/stroke-order/settings/pages>
+2. **Source**: 選「Deploy from a branch」
+3. **Branch**: `main` / 資料夾選 `/docs`
+4. 點「Save」
+
+等 1-2 分鐘 GitHub 部署完成。
+
+### 處理：GitHub Pages 預設用 Jekyll（會吃掉某些檔）
+
+加一個空 `.nojekyll` 檔避免：
 
 ```powershell
 cd C:\Users\USER\Documents\Cowork\stroke_order
@@ -83,33 +105,39 @@ git commit -m "docs: disable Jekyll on GitHub Pages"
 git push
 ```
 
-### 蝯?
+### 結果
 
-`https://seyen37.github.io/stroke-order/` ?芸?憿舐內 `docs/index.md`嚗???嚗??桅??”??
-> 雿? `docs/` ?桀?銝餉???.md 瑼?QUICK_START / GALLERY_DEPLOYMENT / WORK_LOG / PUSH_TO_GITHUB / decisions/嚗itHub Pages ??摰葡??瞍漁 HTML嚗??銝?syntax highlighting??
-### ?脤?嚗 MkDocs 蝢?嚗?賂?
+`https://seyen37.github.io/stroke-order/` 自動顯示 `docs/index.md`（如果有）或目錄列表。
 
-??docs/ 撘?甇???辣蝬脩?嚗? [docs.python.org](https://docs.python.org/) 憸冽嚗?
+> 你的 `docs/` 目前主要是 .md 檔（QUICK_START / GALLERY_DEPLOYMENT / WORK_LOG / PUSH_TO_GITHUB / decisions/）——GitHub Pages 會把它們渲染成漂亮 HTML，自動加上 syntax highlighting。
+
+### 進階：用 MkDocs 美化（可選）
+
+把 docs/ 弄成正式文件網站（像 [docs.python.org](https://docs.python.org/) 風格）：
 
 ```bash
 pip install mkdocs mkdocs-material
-mkdocs new .             # ?典?獢?桅?
-# 蝺刻摩 mkdocs.yml + ??docs/ 蝯???nav
-mkdocs gh-deploy         # 銝?菜??gh-pages branch
+mkdocs new .             # 在專案根目錄
+# 編輯 mkdocs.yml + 把 docs/ 結構配進 nav
+mkdocs gh-deploy         # 一鍵推到 gh-pages branch
 ```
 
-GitHub Pages ?芸??? `gh-pages` branch ?批捆??
+GitHub Pages 自動服務 `gh-pages` branch 內容。
+
 ---
 
-## ?挾 2嚗ender.com ?祥?函蔡摰敺垢嚗??刻嚗?
-霈?`https://stroke-order.onrender.com/`嚗??芷??嚗?雿??游?FastAPI app??
-### Step 1嚗遣 Render 撣唾?
+## 階段 2：Render.com 免費部署完整後端（最推薦）
 
-1. <https://render.com/> ??Sign up with GitHub嚗雿? seyen37 撣唾?嚗?2. ?? Render 霈雿? GitHub repos
+讓 `https://stroke-order.onrender.com/`（或自選名字）跑你的整個 FastAPI app。
 
-### Step 2嚗 repo ?蝵脰身摰?
+### Step 1：建 Render 帳號
 
-?典?獢?桅?撱?`render.yaml`嚗owerShell嚗?
+1. <https://render.com/> → Sign up with GitHub（用你的 seyen37 帳號）
+2. 授權 Render 讀你的 GitHub repos
+
+### Step 2：在 repo 加部署設定檔
+
+在專案根目錄建 `render.yaml`（PowerShell）：
 
 ```powershell
 @"
@@ -132,44 +160,61 @@ services:
 "@ | Out-File -FilePath render.yaml -Encoding ascii
 ```
 
-> `STROKE_ORDER_AUTH_DEV_MODE=true` ?身 true 霈??臭誑?葫閰色?g gallery 銝???撖縑嚗agic-link ?啣 Render log?Ⅱ隤?app 頝絲靘??? false + 閮?SMTP??
+> `STROKE_ORDER_AUTH_DEV_MODE=true` 先設 true 讓你可以先測試——5g gallery 不會真的寄信，magic-link 印到 Render log。確認 app 跑起來後再切 false + 設 SMTP。
+
 ```powershell
 git add render.yaml
 git commit -m "deploy: add Render.com configuration"
 git push
 ```
 
-### Step 3嚗 Render dashboard 撱?service
+### Step 3：在 Render dashboard 建 service
 
-1. ?餃 Render ??暺?*New +**????*Blueprint**??2. ?????`stroke-order` repo
-3. Render ?芸?霈 `render.yaml` ??暺?*Apply**??4. 蝑?5??0 ?? build + deploy
+1. 登入 Render → 點「**New +**」→「**Blueprint**」
+2. 連你的 `stroke-order` repo
+3. Render 自動讀 `render.yaml` → 點「**Apply**」
+4. 等 5–10 分鐘 build + deploy
 
-摰?敺?蝯虫? URL嚗https://stroke-order.onrender.com/`嚗?憿撮嚗?
-### Step 4嚗身 `STROKE_ORDER_BASE_URL` ?啣?霈
+完成後會給你 URL：`https://stroke-order.onrender.com/`（或類似）。
 
-? Render ?? dashboard嚗?
-1. ?nvironment?ab
-2. ?曉 `STROKE_ORDER_BASE_URL`嚗??身 `sync: false` 銵函內??銋??‵??
-3. 憛?`https://stroke-order.onrender.com`嚗?閬?撠曄? `/`嚗?4. 暺?Save ??Render ?芸? redeploy
+### Step 4：設 `STROKE_ORDER_BASE_URL` 環境變數
 
-### Step 5嚗葫閰?
-??`https://stroke-order.onrender.com/` ???府? stroke-order 銝駁???- 蝚砌?甈∟赤??15-30 蝘?cold start ??嚗?- 銋?敹怠?憭??游 15 ???∩犖閮芸??閬綽?
+回到 Render 服務 dashboard：
 
-閮芸??芋撘閰虫?銝?
-- `/handwriting` 蝑?蝺渡?
-- `/gallery` ?祉?澈摨恬?dev mode 銝?交???magic-link ??Render log嚗?
-### Step 6嚗?賂?嚗?甇?? SMTP嚗? /gallery ??撖縑嚗?
-?嗡?皞??亙??祕雿輻??
+1. 「Environment」tab
+2. 找到 `STROKE_ORDER_BASE_URL`（剛剛設 `sync: false` 表示「我之後再填」）
+3. 填 `https://stroke-order.onrender.com`（不要結尾的 `/`）
+4. 點 Save → Render 自動 redeploy
 
-1. ?唾? Gmail App Password ??SendGrid嚗? `docs/GALLERY_DEPLOYMENT.md`嚗?2. Render dashboard ??Environment嚗?   - ?? `STROKE_ORDER_AUTH_DEV_MODE`嚗?閮?`false`嚗?   - ??`STROKE_ORDER_SMTP_HOST` / `_USER` / `_PASS` / `_FROM`
-3. Save ???芸? redeploy
-4. 閰血? `/gallery` 撖?乩縑嚗?嗡辣憭暸?霅?
+### Step 5：測試
+
+開 `https://stroke-order.onrender.com/` —— 應該看到 stroke-order 主頁。
+- 第一次訪問：15-30 秒（cold start 喚醒）
+- 之後快很多（直到 15 分鐘無人訪問又睡覺）
+
+訪問各個模式都試一下：
+- `/handwriting` 筆順練習
+- `/gallery` 公眾分享庫（dev mode 下登入會印 magic-link 到 Render log）
+
+### Step 6（可選）：開正式 SMTP（讓 /gallery 真的寄信）
+
+當你準備接受真實使用者：
+
+1. 申請 Gmail App Password 或 SendGrid（見 `docs/GALLERY_DEPLOYMENT.md`）
+2. Render dashboard → Environment：
+   - 取消 `STROKE_ORDER_AUTH_DEV_MODE`（或設 `false`）
+   - 加 `STROKE_ORDER_SMTP_HOST` / `_USER` / `_PASS` / `_FROM`
+3. Save → 自動 redeploy
+4. 試從 `/gallery` 寄登入信，到收件夾驗證
+
 ---
 
-## ?挾 2 ?蹂誨嚗ly.io ?函蔡
+## 階段 2 替代：Fly.io 部署
 
-Fly.io ?祥 tier ?亙末嚗 cold start嚗? ??璈嚗?雿?撖?`Dockerfile` + 閮剖? `fly.toml`嚗?瑼餌擃?
-憒?雿歇蝬? Docker嚗?
+Fly.io 免費 tier 略好（無 cold start，3 個小機器），但要寫 `Dockerfile` + 設定 `fly.toml`，門檻略高。
+
+如果你已經會 Docker：
+
 ```dockerfile
 # Dockerfile
 FROM python:3.11-slim
@@ -183,24 +228,35 @@ CMD ["uvicorn", "stroke_order.web.server:app", "--host", "0.0.0.0", "--port", "8
 ```
 
 ```bash
-# 摰? flyctl
+# 安裝 flyctl
 curl -L https://fly.io/install.sh | sh
 
-# ?餃 + ?函蔡
+# 登入 + 部署
 flyctl auth login
-flyctl launch         # 鈭?撘?蝑??fly.toml
+flyctl launch         # 互動式問答產生 fly.toml
 flyctl deploy
 ```
 
 ---
 
-## ?挾 3嚗??VPS嚗igitalOcean / Hetzner嚗?
-**雿??澆?**嚗?- ?暑 100+ 雿輻??- ?閬?蝥?雿?銝 cold start嚗?- ?喳??冽?園蝵脩憓?
-**?靘踹??豢?**嚗?026 銵?嚗?
-- **Hetzner CX11**嚗4.51/??1 vCPU + 2GB RAM + 20GB SSD嚗甇散嚗??ping ~250ms嚗?- **Hetzner CCX13**嚗?瘣脣?敺?嚗?- **Vultr Tokyo**嚗?6/??1 vCPU + 1GB RAM嚗?啁餈?~50ms嚗?- **DigitalOcean SGP1**嚗?6/???啣???~80ms嚗?
-?函蔡瘚?璁?嚗?敺雿捱摰????臭誑撖怨底蝝唳???嚗?
+## 階段 3：自架 VPS（DigitalOcean / Hetzner）
+
+**何時值得**：
+- 月活 100+ 使用者
+- 需要持續運作（不能 cold start）
+- 想完全控制部署環境
+
+**最便宜選擇**（2026 行情）：
+- **Hetzner CX11**：€4.51/月，1 vCPU + 2GB RAM + 20GB SSD（在歐洲，台灣 ping ~250ms）
+- **Hetzner CCX13**（亞洲區待開）
+- **Vultr Tokyo**：$6/月，1 vCPU + 1GB RAM（離台灣近 ~50ms）
+- **DigitalOcean SGP1**：$6/月（新加坡 ~80ms）
+
+部署流程概要（之後若你決定要做我可以寫詳細指南）：
+
 ```bash
-# ??VPS 銝?sudo apt update && sudo apt install -y python3.11 python3.11-venv git nginx certbot python3-certbot-nginx
+# 在 VPS 上
+sudo apt update && sudo apt install -y python3.11 python3.11-venv git nginx certbot python3-certbot-nginx
 git clone git@github.com:seyen37/stroke-order.git
 cd stroke-order
 python3.11 -m venv .venv
@@ -208,7 +264,7 @@ source .venv/bin/activate
 pip install -e ".[web]"
 
 # Run via systemd
-sudo nano /etc/systemd/system/stroke-order.service   # 撖?service unit
+sudo nano /etc/systemd/system/stroke-order.service   # 寫 service unit
 sudo systemctl enable --now stroke-order
 
 # Nginx reverse proxy + HTTPS
@@ -218,70 +274,93 @@ sudo certbot --nginx -d stroke-order.tw
 
 ---
 
-## ?芸?蝢拍雯??蝬撌梁? .com嚗?
-銝??典?像?堆??賢隞亦??芸楛鞎瑞?蝬脣???
-### 1. 鞎瑞雯??
-- ?嚗Gandi](https://www.gandi.net/) / [Namecheap](https://www.namecheap.com/) / [?啁銝剛?颱縑 hinet.net](https://domain.hinet.net/)
-- `stroke-order.tw` 銝撟游之蝝?$15??0嚗?敺韌嚗?
-### 2. 閮?DNS
+## 自定義網域（綁自己的 .com）
 
-| 撟喳 | DNS 閮剖? |
+不論用哪個平台，都可以綁自己買的網域。
+
+### 1. 買網域
+
+- 國內：[Gandi](https://www.gandi.net/) / [Namecheap](https://www.namecheap.com/) / [台灣中華電信 hinet.net](https://domain.hinet.net/)
+- `stroke-order.tw` 一年大約 $15–30（看後綴）
+
+### 2. 設 DNS
+
+| 平台 | DNS 設定 |
 |---|---|
-| GitHub Pages | CNAME ??`seyen37.github.io.` |
-| Render | CNAME ??`stroke-order.onrender.com.` |
-| ?芣 VPS | A record ??雿? VPS IP |
+| GitHub Pages | CNAME → `seyen37.github.io.` |
+| Render | CNAME → `stroke-order.onrender.com.` |
+| 自架 VPS | A record → 你的 VPS IP |
 
-### 3. SSL 霅
+### 3. SSL 證書
 
-- GitHub Pages / Render嚗????Let's Encrypt嚗?- ?芣 VPS嚗sudo certbot --nginx`
-
----
-
-## 銝獢?瘙箇?璅?
-```
-雿??隞暻潘?
-???? ??霈犖?撠?摮????   ???挾 1嚗itHub Pages嚗? ??嚗????? ?霈犖?湔??/handwriting / /gallery????   ???挾 2嚗ender.com ?祥 tier嚗?5 ??嚗????? ???瑟??? + ?暑?渡 + 瘝?cold start??     ???挾 3嚗??VPS嚗?憭抵絲頝喉?
-```
+- GitHub Pages / Render：自動處理（Let's Encrypt）
+- 自架 VPS：`sudo certbot --nginx`
 
 ---
 
-## ?祕?璁汗嚗?撟港?靘?
+## 三個方案的決策樹
 
-| ?寞? | 銝撟渡蜇? | ? |
+```
+你想先做什麼？
+│
+├─ 「先讓人看到專案存在」
+│    → 階段 1：GitHub Pages（5 分鐘）
+│
+├─ 「想讓人直接用 /handwriting / /gallery」
+│    → 階段 2：Render.com 免費 tier（15 分鐘）
+│
+└─ 「要長期運作 + 月活破百 + 沒 cold start」
+     → 階段 3：自架 VPS（半天起跳）
+```
+
+---
+
+## 真實成本概覽（一年下來）
+
+| 方案 | 一年總成本 | 包含 |
 |---|---|---|
-| GitHub Pages嚗??辣嚗 0 | ?辣閮恣 |
-| Render.com ?祥 | 0 | + 摰 web app嚗old start嚗
-| Render.com Starter | $84 | + ??cold start |
-| Hetzner VPS + 蝬脣? | $90??10 | + 摰?批 + ??cold start |
-| ?芣摰嗡葉隡箸???| $30 (?餉祥) | + 摰?批 + 銝?唳??典???|
+| GitHub Pages（純文件）| 0 | 文件託管 |
+| Render.com 免費 | 0 | + 完整 web app（cold start）|
+| Render.com Starter | $84 | + 無 cold start |
+| Hetzner VPS + 網域 | $90–110 | + 完全控制 + 無 cold start |
+| 自架家中伺服器 | $30 (電費) | + 完全控制 + 一台機器另做別的 |
 
 ---
 
-## ???犖?刻
+## 我的個人推薦
 
-**?暸?畾?*嚗???*?挾 1 GitHub Pages**嚗? `docs/` ?祇?霈犖霈?辣?? ????嚗??餅? SEO 頝?憭耦鞊～?
-**?征????*嚗?**?挾 2 Render**嚗?鈭箄撖阡?閰衣 stroke-order???敹?demo ?鋡恍?撽?鞎?tier 撠犖撠?憭??
-**蝑蝝舐??祕雿輻??*嚗??**?挾 3 VPS**??????????
+**現階段**：先做**階段 1 GitHub Pages**，把 `docs/` 公開讓人讀文件——5 分鐘的事，立刻有 SEO 跟對外形象。
+
+**有空的時候**：做**階段 2 Render**，讓人能實際試用 stroke-order——你的核心 demo 才能被體驗。免費 tier 對個人專案夠用。
+
+**等到累積真實使用者**：再考慮**階段 3 VPS**——這是「真的營運」的成本。
+
 ---
 
-## 摰? GitHub Pages 敺? README ???
+## 完成 GitHub Pages 後的 README 連結
 
-?函蔡摰?敺?README ??臭誑??
+部署完成後，README 開頭可以加：
 
 ```markdown
-- ?? ?辣蝬脩?嚗ttps://seyen37.github.io/stroke-order/
-- ?? 蝺? demo嚗ttps://stroke-order.onrender.com/
-- ? GitHub repo嚗ttps://github.com/seyen37/stroke-order
+- 📖 文件網站：https://seyen37.github.io/stroke-order/
+- 🚀 線上 demo：https://stroke-order.onrender.com/
+- 📦 GitHub repo：https://github.com/seyen37/stroke-order
 ```
 
 ---
 
-## 撣貉???
+## 常見問題
 
-### Q: GitHub Pages 頝?GitHub Actions CI 銵???
-銝??itHub Actions ?胯?皜祈岫?ages ?胯???????鈭??詨僕?隞亙????
-### Q: Render ??cold start ??敶梢憭批?嚗??犖 demo 銝云敶梢嚗????唬?甈⊥暺停憟踝???*?漲雿輻??*??具??虫??瘚?蝛拙? ????$7/?停??cold start??
-### Q: ?? SQLite 鞈?摨怠 Render ??敺?瘨仃??
-**??*嚗?鞎?tier 瘝??? disk嚗?鞎?tier ?拙??雿輻???? demo???西?靽? gallery 銝鞈?嚗?- ??Starter plan ??disk
-- ??典???PostgreSQL嚗ender 銋??祥 PostgreSQL嚗?
-### Q: 閬?閬?隞祥嚗?銝?ender ?祥 tier ?函蔡摰????祕瘚??之?典?撠?瘞賊??典?鞎?tier 撠勗???
+### Q: GitHub Pages 跟 GitHub Actions CI 衝突嗎？
+不會。GitHub Actions 是「跑測試」、Pages 是「服務靜態檔」，互不相干。可以同時用。
+
+### Q: Render 的 cold start 真的影響大嗎？
+個人 demo 不太影響（朋友看到一次慢點就好）。**重度使用者**會抱怨。一旦你看到流量穩定 → 升 $7/月就無 cold start。
+
+### Q: 我的 SQLite 資料庫在 Render 重啟後會消失嗎？
+**會**（免費 tier 沒有持久 disk）。免費 tier 適合「無使用者狀態」的 demo。一旦要保留 gallery 上傳資料：
+- 升 Starter plan 加 disk
+- 或改用外部 PostgreSQL（Render 也有免費 PostgreSQL）
+
+### Q: 要不要先付費？
+不用。Render 免費 tier 部署完，先看真實流量——大部分專案永遠在免費 tier 就夠。

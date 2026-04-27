@@ -1,62 +1,78 @@
-﻿---
+---
 layout: default
 ---
 
-# stroke-order ?辣銝剖?
+# stroke-order 文件中心
 
-> 銝剜?摮? ????蝑楚頧??剁??格??舫今蝯血神摮??其犖??
+> 中文字元 → 向量筆跡轉換器，目標是餵給寫字機器人。
+
 ---
 
-## ?? 敹恍?憪?
-| ?喳?隞暻?| ?隞賣?隞?|
+## 🚀 快速開始
+
+| 想做什麼 | 看哪份文件 |
 |---|---|
-| 摰? + ???祆?隡箸???| [QUICK_START.md](QUICK_START.md) |
-| ??獢?啗撌梁? GitHub | [PUSH_TO_GITHUB.md](PUSH_TO_GITHUB.md) |
-| 閮剖? Git SSH / HTTPS 隤? | [GIT_AUTH_SETUP.md](GIT_AUTH_SETUP.md) |
-| 憭?GitHub 撣唾??啣?遢 | [MULTI_GITHUB_BACKUP.md](MULTI_GITHUB_BACKUP.md) |
-| ?祇??函蔡?啁雯頝臭? | [PUBLIC_DEPLOYMENT.md](PUBLIC_DEPLOYMENT.md) |
-| ?祉?澈摨恍蝵脩敦蝭 | [GALLERY_DEPLOYMENT.md](GALLERY_DEPLOYMENT.md) |
+| 安裝 + 啟動本機伺服器 | [QUICK_START.md](QUICK_START.md) |
+| 把專案推到自己的 GitHub | [PUSH_TO_GITHUB.md](PUSH_TO_GITHUB.md) |
+| 設定 Git SSH / HTTPS 認證 | [GIT_AUTH_SETUP.md](GIT_AUTH_SETUP.md) |
+| 多 GitHub 帳號異地備份 | [MULTI_GITHUB_BACKUP.md](MULTI_GITHUB_BACKUP.md) |
+| 公開部署到網路上 | [PUBLIC_DEPLOYMENT.md](PUBLIC_DEPLOYMENT.md) |
+| 公眾分享庫部署細節 | [GALLERY_DEPLOYMENT.md](GALLERY_DEPLOYMENT.md) |
 
 ---
 
-## ?? 閮剛??窗 / ?甇瑞?
+## 📚 設計脈絡 / 開發歷程
 
-| ? | 隤芣? |
+| 項目 | 說明 |
 |---|---|
-| [WORK_LOG_2026-04-26.md](WORK_LOG_2026-04-26.md) | 2026-04-26 撌乩?蝝??5d/5g 摰?蝮賜?嚗
-| [decisions/](decisions/) | 摰瘙箇??亥? ??瘥芋蝯?閮剛??????圾瘜?|
-| [decisions/_TEMPLATE.md](decisions/_TEMPLATE.md) | 瘙箇??亥?璅⊥ |
+| [WORK_LOG_2026-04-26.md](WORK_LOG_2026-04-26.md) | 2026-04-26 工作紀錄（5d/5g 完成總結）|
+| [decisions/](decisions/) | 完整決策日誌 — 每個模組的設計取捨、遭遇困難、解法 |
+| [decisions/_TEMPLATE.md](decisions/_TEMPLATE.md) | 決策日誌模板 |
 
-### 瘙箇??亥?蝝Ｗ?嚗?璅∠?嚗?
-#### 璅∪?嚗eb UI嚗?- [mode_01: ?桀?璅∪? + ?詨? IR 閮剛?](decisions/mode_01_single_char_and_ir.md)
-- mode_02: 摮?璅∪?嚗蕭皞臭葉嚗?- mode_03: 蝑?璅∪?嚗蕭皞臭葉嚗?- mode_04: 靽∠?璅∪?嚗蕭皞臭葉嚗?- mode_05: 蝔輻?璅∪?嚗蕭皞臭葉嚗?- mode_06: 憛?璅∪?嚗蕭皞臭葉嚗?- mode_07: ???脣振??餈賣滲銝哨?
-- mode_08: ??璅∪?嚗蕭皞臭葉嚗?- mode_09: 蝑?蝺渡???PSD嚗蕭皞臭葉嚗?- mode_10: ?祉?澈摨恬?餈賣滲銝哨?
+### 決策日誌索引（依模組）
 
-#### ?箇?撱箄身
-- [infra_01: 鞈?皞?chain嚗?皞?fallback嚗(decisions/infra_01_data_sources.md)
-- infra_02: 摮?憸冽嚗ilter vs swap嚗?餈賣滲銝哨?
-- infra_03??7嚗?餈賣滲銝哨?
+#### 模式（Web UI）
+- [mode_01: 單字模式 + 核心 IR 設計](decisions/mode_01_single_char_and_ir.md)
+- mode_02: 字帖模式（追溯中）
+- mode_03: 筆記模式（追溯中）
+- mode_04: 信紙模式（追溯中）
+- mode_05: 稿紙模式（追溯中）
+- mode_06: 塗鴉模式（追溯中）
+- mode_07: 文字雲家族（追溯中）
+- mode_08: 抄經模式（追溯中）
+- mode_09: 筆順練習頁 PSD（追溯中）
+- mode_10: 公眾分享庫（追溯中）
 
-#### 撌脣????挾?亥?
-- [2026-04-26: 5d 蝑?蝺渡???+ 5g ?祉?澈摨侷(decisions/2026-04-26_5d_5g.md)
+#### 基礎建設
+- [infra_01: 資料源 chain（多源 fallback）](decisions/infra_01_data_sources.md)
+- infra_02: 字型風格（filter vs swap）（追溯中）
+- infra_03–07：（追溯中）
+
+#### 已完成的階段日誌
+- [2026-04-26: 5d 筆順練習頁 + 5g 公眾分享庫](decisions/2026-04-26_5d_5g.md)
 
 ---
 
-## ?? ?銵?閬?
-- **敺垢**嚗ython 3.10+ FastAPI?tdlib SQLite + smtplib嚗 ORM? PyJWT? auth 靘陷嚗?- **?垢**嚗???ES modules嚗 React / Vue / build step嚗?- **鞈?皞?*嚗0v / Make Me a Hanzi / KanjiVG / CNS ?典?摨?/ ???璆???摰?/ 撏噙蝭? / 雿輻????- **?詨? IR**嚗M 2048 Y-down 摨扳?蝟颯haracter / Stroke / Point 銝惜 dataclass
-- **皜祈岫**嚗?057 璇?pytest嚗項??Phase 1 ??5g ?冽芋蝯?
+## 🛠 技術概覽
 
-閰喟敦嚗README.md](https://github.com/seyen37/stroke-order#readme)
+- **後端**：Python 3.10+ FastAPI、stdlib SQLite + smtplib（無 ORM、無 PyJWT、零 auth 依賴）
+- **前端**：原生 ES modules（無 React / Vue / build step）
+- **資料源**：g0v / Make Me a Hanzi / KanjiVG / CNS 全字庫 / 教育部 楷/隸/宋 / 崇羲篆體 / 使用者字典
+- **核心 IR**：EM 2048 Y-down 座標系、Character / Stroke / Point 三層 dataclass
+- **測試**：1057 條 pytest（涵蓋 Phase 1 → 5g 全模組）
+
+詳細：[README.md](https://github.com/seyen37/stroke-order#readme)
 
 ---
 
-## ?? 蝺?鞈?
+## 🌐 線上資源
 
-- ? GitHub repo嚗?https://github.com/seyen37/stroke-order>
-- ?? 蝺? demo嚗??函蔡銝哨??? `https://stroke-order.onrender.com/`嚗?
+- 📦 GitHub repo：<https://github.com/seyen37/stroke-order>
+- 🚀 線上 demo：（部署中，預計 `https://stroke-order.onrender.com/`）
+
 ---
 
-## ?? ??
+## 📜 授權
 
-- 蝔?蝣潘?MIT License嚗底閬?[LICENSE](https://github.com/seyen37/stroke-order/blob/main/LICENSE)嚗?- 蝚砌??寡???嚗?靽?????嚗?? LICENSE ?急挾
-
+- 程式碼：MIT License（詳見 [LICENSE](https://github.com/seyen37/stroke-order/blob/main/LICENSE)）
+- 第三方資料源：各保留原始授權，整理見 LICENSE 末段
