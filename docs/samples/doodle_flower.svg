@@ -1,0 +1,1366 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120.0" width="120mm" height="120.0mm">
+<rect x="0" y="0" width="120" height="120.0" fill="white"/>
+<g transform="translate(10.0,10.0)" stroke="#222" fill="none" stroke-width="0.4" stroke-linecap="round">
+<line x1="0.00" y1="0.25" x2="100.00" y2="0.25"/>
+<circle cx="0.25" cy="0.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="0.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="1.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="1.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="1.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="1.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="2.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="2.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="2.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="2.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="3.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="3.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="3.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="3.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="4.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="4.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="4.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="4.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="5.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="5.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="5.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="5.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="6.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="6.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="6.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="6.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="7.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="7.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="7.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="7.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="8.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="8.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="8.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="8.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="9.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="9.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="9.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="9.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="10.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="10.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="10.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="10.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="11.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="11.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="11.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="11.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="12.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="12.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="12.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="12.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="13.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="13.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="13.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="13.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="14.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="14.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="14.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="14.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="15.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="15.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="15.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="15.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="16.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="16.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="16.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="16.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="17.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="17.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="17.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="17.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="18.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="18.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="18.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="18.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="19.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="19.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="19.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="19.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="20.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="20.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="20.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="20.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="21.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="21.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="21.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="21.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="22.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="22.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="22.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="53.00" y1="22.75" x2="57.50" y2="22.75"/>
+<circle cx="99.75" cy="22.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="23.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="51.50" y1="23.25" x2="54.00" y2="23.25"/>
+<line x1="57.00" y1="23.25" x2="59.50" y2="23.25"/>
+<circle cx="99.75" cy="23.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="23.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="50.00" y1="23.75" x2="52.00" y2="23.75"/>
+<line x1="58.50" y1="23.75" x2="60.50" y2="23.75"/>
+<circle cx="99.75" cy="23.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="24.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="49.50" y1="24.25" x2="51.00" y2="24.25"/>
+<line x1="60.00" y1="24.25" x2="61.50" y2="24.25"/>
+<circle cx="99.75" cy="24.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="24.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="49.00" y1="24.75" x2="50.00" y2="24.75"/>
+<line x1="52.50" y1="24.75" x2="58.00" y2="24.75"/>
+<line x1="60.50" y1="24.75" x2="62.00" y2="24.75"/>
+<circle cx="99.75" cy="24.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="25.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="48.00" y1="25.25" x2="49.50" y2="25.25"/>
+<line x1="51.50" y1="25.25" x2="53.50" y2="25.25"/>
+<line x1="57.50" y1="25.25" x2="59.50" y2="25.25"/>
+<line x1="61.50" y1="25.25" x2="62.50" y2="25.25"/>
+<circle cx="99.75" cy="25.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="25.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="25.75" x2="48.50" y2="25.75"/>
+<line x1="50.50" y1="25.75" x2="52.00" y2="25.75"/>
+<line x1="58.50" y1="25.75" x2="60.50" y2="25.75"/>
+<line x1="62.00" y1="25.75" x2="63.50" y2="25.75"/>
+<circle cx="99.75" cy="25.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="26.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.00" y1="26.25" x2="48.00" y2="26.25"/>
+<line x1="49.50" y1="26.25" x2="51.00" y2="26.25"/>
+<line x1="59.50" y1="26.25" x2="61.00" y2="26.25"/>
+<line x1="62.50" y1="26.25" x2="63.50" y2="26.25"/>
+<circle cx="99.75" cy="26.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="26.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="47.25" cy="26.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="49.00" y1="26.75" x2="50.50" y2="26.75"/>
+<line x1="60.50" y1="26.75" x2="61.50" y2="26.75"/>
+<line x1="63.00" y1="26.75" x2="64.00" y2="26.75"/>
+<circle cx="99.75" cy="26.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="27.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.50" y1="27.25" x2="47.50" y2="27.25"/>
+<line x1="48.50" y1="27.25" x2="49.50" y2="27.25"/>
+<line x1="61.00" y1="27.25" x2="62.00" y2="27.25"/>
+<line x1="63.50" y1="27.25" x2="64.50" y2="27.25"/>
+<circle cx="99.75" cy="27.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="27.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.00" y1="27.75" x2="47.00" y2="27.75"/>
+<line x1="48.00" y1="27.75" x2="49.00" y2="27.75"/>
+<line x1="61.50" y1="27.75" x2="62.50" y2="27.75"/>
+<circle cx="64.25" cy="27.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="27.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="28.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.25" cy="28.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="48.25" cy="28.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="62.00" y1="28.25" x2="63.00" y2="28.25"/>
+<line x1="64.00" y1="28.25" x2="65.00" y2="28.25"/>
+<circle cx="99.75" cy="28.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="28.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="28.75" x2="46.50" y2="28.75"/>
+<line x1="47.50" y1="28.75" x2="48.50" y2="28.75"/>
+<circle cx="62.75" cy="28.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="64.50" y1="28.75" x2="65.50" y2="28.75"/>
+<circle cx="99.75" cy="28.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="29.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="32.50" y1="29.25" x2="39.00" y2="29.25"/>
+<circle cx="45.75" cy="29.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="47.75" cy="29.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="62.50" y1="29.25" x2="63.50" y2="29.25"/>
+<line x1="64.50" y1="29.25" x2="65.50" y2="29.25"/>
+<circle cx="99.75" cy="29.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="29.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="31.00" y1="29.75" x2="33.50" y2="29.75"/>
+<line x1="38.50" y1="29.75" x2="40.50" y2="29.75"/>
+<line x1="45.00" y1="29.75" x2="46.00" y2="29.75"/>
+<line x1="47.00" y1="29.75" x2="48.00" y2="29.75"/>
+<circle cx="63.25" cy="29.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.25" cy="29.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="29.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="30.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="30.50" y1="30.25" x2="32.00" y2="30.25"/>
+<line x1="40.00" y1="30.25" x2="41.50" y2="30.25"/>
+<line x1="45.00" y1="30.25" x2="46.00" y2="30.25"/>
+<circle cx="47.25" cy="30.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.00" y1="30.25" x2="64.00" y2="30.25"/>
+<line x1="65.00" y1="30.25" x2="66.00" y2="30.25"/>
+<circle cx="99.75" cy="30.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="30.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="29.50" y1="30.75" x2="31.00" y2="30.75"/>
+<line x1="34.00" y1="30.75" x2="37.50" y2="30.75"/>
+<line x1="41.00" y1="30.75" x2="42.00" y2="30.75"/>
+<circle cx="45.25" cy="30.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.50" y1="30.75" x2="47.50" y2="30.75"/>
+<circle cx="63.75" cy="30.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="65.00" y1="30.75" x2="66.00" y2="30.75"/>
+<circle cx="99.75" cy="30.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="31.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="29.00" y1="31.25" x2="30.00" y2="31.25"/>
+<line x1="32.50" y1="31.25" x2="36.00" y2="31.25"/>
+<line x1="36.50" y1="31.25" x2="39.50" y2="31.25"/>
+<line x1="41.50" y1="31.25" x2="43.00" y2="31.25"/>
+<line x1="44.50" y1="31.25" x2="45.50" y2="31.25"/>
+<line x1="46.50" y1="31.25" x2="47.50" y2="31.25"/>
+<circle cx="63.75" cy="31.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="31.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="31.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="31.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.00" y1="31.75" x2="29.50" y2="31.75"/>
+<line x1="31.50" y1="31.75" x2="33.00" y2="31.75"/>
+<line x1="38.50" y1="31.75" x2="40.50" y2="31.75"/>
+<line x1="42.00" y1="31.75" x2="43.50" y2="31.75"/>
+<line x1="44.50" y1="31.75" x2="45.50" y2="31.75"/>
+<circle cx="46.75" cy="31.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="31.75" x2="64.50" y2="31.75"/>
+<circle cx="65.75" cy="31.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="31.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="32.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.00" y1="32.25" x2="29.00" y2="32.25"/>
+<line x1="30.50" y1="32.25" x2="32.00" y2="32.25"/>
+<line x1="39.50" y1="32.25" x2="41.00" y2="32.25"/>
+<line x1="43.00" y1="32.25" x2="44.00" y2="32.25"/>
+<circle cx="44.75" cy="32.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.00" y1="32.25" x2="47.00" y2="32.25"/>
+<line x1="63.50" y1="32.25" x2="64.50" y2="32.25"/>
+<circle cx="65.75" cy="32.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="32.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="32.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.50" y1="32.75" x2="28.50" y2="32.75"/>
+<line x1="30.00" y1="32.75" x2="31.00" y2="32.75"/>
+<line x1="40.50" y1="32.75" x2="42.00" y2="32.75"/>
+<circle cx="43.75" cy="32.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.75" cy="32.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.75" cy="32.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="64.25" cy="32.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="32.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="32.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="33.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="33.25" x2="28.00" y2="33.25"/>
+<line x1="29.50" y1="33.25" x2="30.50" y2="33.25"/>
+<line x1="41.50" y1="33.25" x2="42.50" y2="33.25"/>
+<line x1="43.50" y1="33.25" x2="45.00" y2="33.25"/>
+<circle cx="46.75" cy="33.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="33.25" x2="64.50" y2="33.25"/>
+<circle cx="65.75" cy="33.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="33.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="33.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.50" y1="33.75" x2="27.50" y2="33.75"/>
+<line x1="29.00" y1="33.75" x2="30.00" y2="33.75"/>
+<line x1="42.00" y1="33.75" x2="43.00" y2="33.75"/>
+<line x1="44.00" y1="33.75" x2="45.00" y2="33.75"/>
+<circle cx="46.75" cy="33.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="64.25" cy="33.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="33.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="33.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="34.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.50" y1="34.25" x2="27.50" y2="34.25"/>
+<line x1="28.50" y1="34.25" x2="29.50" y2="34.25"/>
+<circle cx="42.75" cy="34.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.50" y1="34.25" x2="45.50" y2="34.25"/>
+<circle cx="46.75" cy="34.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="34.25" x2="64.50" y2="34.25"/>
+<circle cx="65.75" cy="34.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="34.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="34.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.00" y1="34.75" x2="27.00" y2="34.75"/>
+<line x1="28.00" y1="34.75" x2="29.00" y2="34.75"/>
+<line x1="42.50" y1="34.75" x2="43.50" y2="34.75"/>
+<line x1="44.50" y1="34.75" x2="45.50" y2="34.75"/>
+<circle cx="46.75" cy="34.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="34.75" x2="64.50" y2="34.75"/>
+<circle cx="65.75" cy="34.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="34.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="35.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="26.25" cy="35.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.00" y1="35.25" x2="29.00" y2="35.25"/>
+<line x1="43.00" y1="35.25" x2="44.00" y2="35.25"/>
+<circle cx="45.25" cy="35.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.75" cy="35.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="63.75" cy="35.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="35.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="35.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="35.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.50" y1="35.75" x2="26.50" y2="35.75"/>
+<line x1="27.50" y1="35.75" x2="28.50" y2="35.75"/>
+<circle cx="43.75" cy="35.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="45.25" cy="35.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.50" y1="35.75" x2="47.50" y2="35.75"/>
+<circle cx="63.75" cy="35.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="35.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="35.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="36.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.50" y1="36.25" x2="26.50" y2="36.25"/>
+<circle cx="27.75" cy="36.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="43.50" y1="36.25" x2="44.50" y2="36.25"/>
+<line x1="45.00" y1="36.25" x2="46.00" y2="36.25"/>
+<line x1="46.50" y1="36.25" x2="47.50" y2="36.25"/>
+<line x1="63.00" y1="36.25" x2="64.00" y2="36.25"/>
+<line x1="65.00" y1="36.25" x2="66.00" y2="36.25"/>
+<circle cx="99.75" cy="36.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="36.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.75" cy="36.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="36.75" x2="28.00" y2="36.75"/>
+<line x1="43.50" y1="36.75" x2="44.50" y2="36.75"/>
+<circle cx="45.75" cy="36.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="47.25" cy="36.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.00" y1="36.75" x2="64.00" y2="36.75"/>
+<circle cx="65.25" cy="36.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="36.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="37.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.75" cy="37.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="37.25" x2="28.00" y2="37.25"/>
+<circle cx="44.25" cy="37.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="45.75" cy="37.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.00" y1="37.25" x2="48.00" y2="37.25"/>
+<circle cx="63.25" cy="37.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="64.50" y1="37.25" x2="65.50" y2="37.25"/>
+<circle cx="99.75" cy="37.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="37.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.00" y1="37.75" x2="26.00" y2="37.75"/>
+<circle cx="27.25" cy="37.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.25" cy="37.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="37.75" x2="46.50" y2="37.75"/>
+<line x1="47.50" y1="37.75" x2="48.50" y2="37.75"/>
+<line x1="62.50" y1="37.75" x2="63.50" y2="37.75"/>
+<line x1="64.50" y1="37.75" x2="65.50" y2="37.75"/>
+<circle cx="99.75" cy="37.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="38.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="38.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="38.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="38.25" x2="45.00" y2="38.25"/>
+<circle cx="46.25" cy="38.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="38.25" x2="48.50" y2="38.25"/>
+<line x1="62.00" y1="38.25" x2="63.00" y2="38.25"/>
+<circle cx="64.75" cy="38.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="38.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="38.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="38.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="38.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="38.75" x2="45.00" y2="38.75"/>
+<line x1="46.00" y1="38.75" x2="47.00" y2="38.75"/>
+<line x1="48.00" y1="38.75" x2="49.00" y2="38.75"/>
+<circle cx="62.25" cy="38.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="64.00" y1="38.75" x2="65.00" y2="38.75"/>
+<circle cx="99.75" cy="38.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="39.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="39.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="39.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.75" cy="39.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.00" y1="39.25" x2="47.00" y2="39.25"/>
+<line x1="48.50" y1="39.25" x2="49.50" y2="39.25"/>
+<line x1="61.50" y1="39.25" x2="62.50" y2="39.25"/>
+<line x1="63.50" y1="39.25" x2="64.50" y2="39.25"/>
+<circle cx="99.75" cy="39.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="39.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="39.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="39.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="39.75" x2="45.00" y2="39.75"/>
+<line x1="46.00" y1="39.75" x2="47.50" y2="39.75"/>
+<line x1="49.00" y1="39.75" x2="50.00" y2="39.75"/>
+<line x1="61.00" y1="39.75" x2="62.00" y2="39.75"/>
+<line x1="63.00" y1="39.75" x2="71.00" y2="39.75"/>
+<circle cx="99.75" cy="39.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="40.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="40.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="40.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.75" cy="40.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.25" cy="40.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.00" y1="40.25" x2="48.00" y2="40.25"/>
+<line x1="49.50" y1="40.25" x2="50.50" y2="40.25"/>
+<line x1="60.00" y1="40.25" x2="61.50" y2="40.25"/>
+<line x1="63.00" y1="40.25" x2="65.00" y2="40.25"/>
+<line x1="70.00" y1="40.25" x2="72.50" y2="40.25"/>
+<circle cx="99.75" cy="40.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="40.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="40.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.50" y1="40.75" x2="27.50" y2="40.75"/>
+<line x1="44.00" y1="40.75" x2="45.00" y2="40.75"/>
+<circle cx="46.25" cy="40.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="40.75" x2="48.50" y2="40.75"/>
+<line x1="50.00" y1="40.75" x2="51.50" y2="40.75"/>
+<line x1="59.00" y1="40.75" x2="60.50" y2="40.75"/>
+<line x1="62.50" y1="40.75" x2="63.50" y2="40.75"/>
+<line x1="71.50" y1="40.75" x2="73.00" y2="40.75"/>
+<circle cx="99.75" cy="40.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="41.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.00" y1="41.25" x2="26.00" y2="41.25"/>
+<circle cx="27.25" cy="41.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="41.25" x2="45.00" y2="41.25"/>
+<circle cx="46.25" cy="41.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="41.25" x2="49.00" y2="41.25"/>
+<line x1="51.00" y1="41.25" x2="52.50" y2="41.25"/>
+<line x1="58.00" y1="41.25" x2="60.00" y2="41.25"/>
+<line x1="61.50" y1="41.25" x2="63.00" y2="41.25"/>
+<line x1="66.00" y1="41.25" x2="69.50" y2="41.25"/>
+<line x1="72.50" y1="41.25" x2="74.00" y2="41.25"/>
+<circle cx="99.75" cy="41.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="41.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.00" y1="41.75" x2="26.00" y2="41.75"/>
+<line x1="27.00" y1="41.75" x2="28.00" y2="41.75"/>
+<circle cx="44.25" cy="41.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.25" cy="41.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="48.50" y1="41.75" x2="49.50" y2="41.75"/>
+<line x1="52.00" y1="41.75" x2="55.50" y2="41.75"/>
+<line x1="56.00" y1="41.75" x2="59.00" y2="41.75"/>
+<line x1="61.00" y1="41.75" x2="62.00" y2="41.75"/>
+<line x1="64.00" y1="41.75" x2="67.00" y2="41.75"/>
+<line x1="67.50" y1="41.75" x2="71.00" y2="41.75"/>
+<line x1="73.50" y1="41.75" x2="74.50" y2="41.75"/>
+<circle cx="99.75" cy="41.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="42.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.75" cy="42.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="42.25" x2="28.00" y2="42.25"/>
+<circle cx="44.25" cy="42.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="42.25" x2="46.50" y2="42.25"/>
+<line x1="47.00" y1="42.25" x2="51.00" y2="42.25"/>
+<line x1="53.50" y1="42.25" x2="57.00" y2="42.25"/>
+<line x1="60.00" y1="42.25" x2="61.50" y2="42.25"/>
+<line x1="63.00" y1="42.25" x2="65.00" y2="42.25"/>
+<line x1="70.50" y1="42.25" x2="72.00" y2="42.25"/>
+<line x1="74.00" y1="42.25" x2="75.50" y2="42.25"/>
+<circle cx="99.75" cy="42.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="42.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.50" y1="42.75" x2="26.50" y2="42.75"/>
+<circle cx="27.75" cy="42.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="43.50" y1="42.75" x2="44.50" y2="42.75"/>
+<line x1="45.50" y1="42.75" x2="48.00" y2="42.75"/>
+<line x1="59.50" y1="42.75" x2="60.50" y2="42.75"/>
+<line x1="62.50" y1="42.75" x2="64.00" y2="42.75"/>
+<line x1="71.50" y1="42.75" x2="73.00" y2="42.75"/>
+<line x1="74.50" y1="42.75" x2="75.50" y2="42.75"/>
+<circle cx="99.75" cy="42.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="43.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.50" y1="43.25" x2="26.50" y2="43.25"/>
+<line x1="27.50" y1="43.25" x2="28.50" y2="43.25"/>
+<circle cx="43.75" cy="43.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="43.25" x2="46.50" y2="43.25"/>
+<line x1="58.00" y1="43.25" x2="60.00" y2="43.25"/>
+<line x1="61.50" y1="43.25" x2="63.00" y2="43.25"/>
+<line x1="72.50" y1="43.25" x2="73.50" y2="43.25"/>
+<line x1="75.00" y1="43.25" x2="76.00" y2="43.25"/>
+<circle cx="99.75" cy="43.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="43.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="26.25" cy="43.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="28.25" cy="43.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="43.00" y1="43.75" x2="44.00" y2="43.75"/>
+<line x1="45.00" y1="43.75" x2="46.00" y2="43.75"/>
+<line x1="48.50" y1="43.75" x2="51.50" y2="43.75"/>
+<line x1="54.00" y1="43.75" x2="60.00" y2="43.75"/>
+<line x1="61.00" y1="43.75" x2="62.00" y2="43.75"/>
+<line x1="73.00" y1="43.75" x2="74.00" y2="43.75"/>
+<line x1="75.50" y1="43.75" x2="76.50" y2="43.75"/>
+<circle cx="99.75" cy="43.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="44.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.00" y1="44.25" x2="27.00" y2="44.25"/>
+<line x1="28.00" y1="44.25" x2="29.00" y2="44.25"/>
+<circle cx="43.25" cy="44.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.50" y1="44.25" x2="45.50" y2="44.25"/>
+<line x1="47.00" y1="44.25" x2="49.50" y2="44.25"/>
+<line x1="51.00" y1="44.25" x2="53.00" y2="44.25"/>
+<line x1="55.00" y1="44.25" x2="56.50" y2="44.25"/>
+<line x1="58.50" y1="44.25" x2="59.50" y2="44.25"/>
+<line x1="60.50" y1="44.25" x2="61.50" y2="44.25"/>
+<line x1="73.50" y1="44.25" x2="74.50" y2="44.25"/>
+<line x1="76.00" y1="44.25" x2="77.00" y2="44.25"/>
+<circle cx="99.75" cy="44.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="44.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="26.75" cy="44.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="28.75" cy="44.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="42.50" y1="44.75" x2="43.50" y2="44.75"/>
+<circle cx="44.75" cy="44.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.50" y1="44.75" x2="48.00" y2="44.75"/>
+<line x1="52.50" y1="44.75" x2="54.00" y2="44.75"/>
+<line x1="55.50" y1="44.75" x2="56.50" y2="44.75"/>
+<line x1="58.00" y1="44.75" x2="59.00" y2="44.75"/>
+<circle cx="60.75" cy="44.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="74.00" y1="44.75" x2="75.00" y2="44.75"/>
+<line x1="76.00" y1="44.75" x2="77.00" y2="44.75"/>
+<circle cx="99.75" cy="44.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="45.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.50" y1="45.25" x2="27.50" y2="45.25"/>
+<line x1="28.50" y1="45.25" x2="29.50" y2="45.25"/>
+<line x1="42.00" y1="45.25" x2="43.00" y2="45.25"/>
+<circle cx="44.25" cy="45.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="45.25" x2="47.00" y2="45.25"/>
+<line x1="53.50" y1="45.25" x2="54.50" y2="45.25"/>
+<line x1="56.00" y1="45.25" x2="57.00" y2="45.25"/>
+<circle cx="58.25" cy="45.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="60.00" y1="45.25" x2="61.00" y2="45.25"/>
+<line x1="74.50" y1="45.25" x2="75.50" y2="45.25"/>
+<line x1="76.50" y1="45.25" x2="77.50" y2="45.25"/>
+<circle cx="99.75" cy="45.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="45.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="45.75" x2="28.00" y2="45.75"/>
+<line x1="29.00" y1="45.75" x2="30.00" y2="45.75"/>
+<line x1="41.50" y1="45.75" x2="42.50" y2="45.75"/>
+<line x1="45.00" y1="45.75" x2="46.00" y2="45.75"/>
+<line x1="54.00" y1="45.75" x2="55.00" y2="45.75"/>
+<line x1="56.50" y1="45.75" x2="58.50" y2="45.75"/>
+<line x1="59.50" y1="45.75" x2="60.50" y2="45.75"/>
+<line x1="74.50" y1="45.75" x2="75.50" y2="45.75"/>
+<circle cx="77.25" cy="45.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="45.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="46.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.75" cy="46.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="29.50" y1="46.25" x2="31.00" y2="46.25"/>
+<line x1="41.00" y1="46.25" x2="42.00" y2="46.25"/>
+<circle cx="43.75" cy="46.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="45.25" cy="46.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="54.50" y1="46.25" x2="55.50" y2="46.25"/>
+<line x1="56.50" y1="46.25" x2="58.50" y2="46.25"/>
+<circle cx="59.75" cy="46.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="75.00" y1="46.25" x2="76.00" y2="46.25"/>
+<line x1="77.00" y1="46.25" x2="78.00" y2="46.25"/>
+<circle cx="99.75" cy="46.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="46.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.50" y1="46.75" x2="28.50" y2="46.75"/>
+<line x1="30.00" y1="46.75" x2="31.50" y2="46.75"/>
+<line x1="40.00" y1="46.75" x2="41.50" y2="46.75"/>
+<circle cx="43.25" cy="46.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.50" y1="46.75" x2="45.50" y2="46.75"/>
+<line x1="55.00" y1="46.75" x2="56.00" y2="46.75"/>
+<line x1="57.00" y1="46.75" x2="58.00" y2="46.75"/>
+<line x1="59.00" y1="46.75" x2="60.00" y2="46.75"/>
+<circle cx="75.75" cy="46.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="77.00" y1="46.75" x2="78.00" y2="46.75"/>
+<circle cx="99.75" cy="46.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="47.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.00" y1="47.25" x2="29.00" y2="47.25"/>
+<line x1="31.00" y1="47.25" x2="32.50" y2="47.25"/>
+<line x1="39.00" y1="47.25" x2="41.00" y2="47.25"/>
+<line x1="42.50" y1="47.25" x2="43.50" y2="47.25"/>
+<line x1="44.00" y1="47.25" x2="45.00" y2="47.25"/>
+<line x1="55.00" y1="47.25" x2="56.00" y2="47.25"/>
+<line x1="57.00" y1="47.25" x2="58.00" y2="47.25"/>
+<line x1="59.00" y1="47.25" x2="60.00" y2="47.25"/>
+<line x1="75.50" y1="47.25" x2="76.50" y2="47.25"/>
+<circle cx="77.75" cy="47.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="47.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="47.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.50" y1="47.75" x2="30.00" y2="47.75"/>
+<line x1="32.00" y1="47.75" x2="34.00" y2="47.75"/>
+<line x1="38.00" y1="47.75" x2="40.00" y2="47.75"/>
+<line x1="42.00" y1="47.75" x2="43.00" y2="47.75"/>
+<line x1="44.00" y1="47.75" x2="45.00" y2="47.75"/>
+<circle cx="55.75" cy="47.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="57.75" cy="47.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="59.25" cy="47.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="75.50" y1="47.75" x2="76.50" y2="47.75"/>
+<circle cx="77.75" cy="47.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="47.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="48.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="29.50" y1="48.25" x2="30.50" y2="48.25"/>
+<line x1="33.00" y1="48.25" x2="38.50" y2="48.25"/>
+<line x1="41.00" y1="48.25" x2="42.50" y2="48.25"/>
+<circle cx="44.25" cy="48.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="55.50" y1="48.25" x2="56.50" y2="48.25"/>
+<circle cx="57.75" cy="48.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="59.25" cy="48.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="76.25" cy="48.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="77.50" y1="48.25" x2="78.50" y2="48.25"/>
+<circle cx="99.75" cy="48.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="48.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="30.00" y1="48.75" x2="31.50" y2="48.75"/>
+<line x1="40.50" y1="48.75" x2="42.50" y2="48.75"/>
+<line x1="43.50" y1="48.75" x2="44.50" y2="48.75"/>
+<circle cx="56.25" cy="48.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="58.50" y1="48.75" x2="59.50" y2="48.75"/>
+<circle cx="76.25" cy="48.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="78.25" cy="48.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="48.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="49.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="30.50" y1="49.25" x2="32.50" y2="49.25"/>
+<line x1="39.00" y1="49.25" x2="41.00" y2="49.25"/>
+<circle cx="42.25" cy="49.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="43.50" y1="49.25" x2="44.50" y2="49.25"/>
+<line x1="56.00" y1="49.25" x2="57.00" y2="49.25"/>
+<line x1="58.50" y1="49.25" x2="59.50" y2="49.25"/>
+<circle cx="76.25" cy="49.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="78.25" cy="49.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="49.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="49.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="32.00" y1="49.75" x2="40.00" y2="49.75"/>
+<line x1="41.50" y1="49.75" x2="42.50" y2="49.75"/>
+<circle cx="43.75" cy="49.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="56.25" cy="49.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="58.75" cy="49.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="76.25" cy="49.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="78.25" cy="49.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="49.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="50.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="32.00" y1="50.25" x2="40.00" y2="50.25"/>
+<line x1="41.50" y1="50.25" x2="42.50" y2="50.25"/>
+<circle cx="43.75" cy="50.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="56.25" cy="50.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="58.50" y1="50.25" x2="59.50" y2="50.25"/>
+<circle cx="76.25" cy="50.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="78.25" cy="50.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="50.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="50.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="30.50" y1="50.75" x2="32.50" y2="50.75"/>
+<line x1="39.00" y1="50.75" x2="41.00" y2="50.75"/>
+<circle cx="42.25" cy="50.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="43.75" cy="50.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="56.25" cy="50.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="58.75" cy="50.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="76.25" cy="50.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="78.25" cy="50.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="50.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="51.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="30.00" y1="51.25" x2="31.50" y2="51.25"/>
+<line x1="40.50" y1="51.25" x2="42.50" y2="51.25"/>
+<line x1="43.50" y1="51.25" x2="44.50" y2="51.25"/>
+<circle cx="56.25" cy="51.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="58.50" y1="51.25" x2="59.50" y2="51.25"/>
+<line x1="76.00" y1="51.25" x2="77.00" y2="51.25"/>
+<circle cx="78.25" cy="51.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="51.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="51.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="29.50" y1="51.75" x2="30.50" y2="51.75"/>
+<line x1="33.00" y1="51.75" x2="38.50" y2="51.75"/>
+<line x1="41.00" y1="51.75" x2="42.50" y2="51.75"/>
+<line x1="43.50" y1="51.75" x2="44.50" y2="51.75"/>
+<line x1="55.50" y1="51.75" x2="56.50" y2="51.75"/>
+<circle cx="57.75" cy="51.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="58.50" y1="51.75" x2="59.50" y2="51.75"/>
+<circle cx="76.25" cy="51.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="77.50" y1="51.75" x2="78.50" y2="51.75"/>
+<circle cx="99.75" cy="51.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="52.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.50" y1="52.25" x2="30.00" y2="52.25"/>
+<line x1="32.00" y1="52.25" x2="34.00" y2="52.25"/>
+<line x1="38.00" y1="52.25" x2="40.00" y2="52.25"/>
+<line x1="42.00" y1="52.25" x2="43.00" y2="52.25"/>
+<circle cx="44.25" cy="52.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="55.50" y1="52.25" x2="56.50" y2="52.25"/>
+<circle cx="57.75" cy="52.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="59.25" cy="52.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="75.50" y1="52.25" x2="76.50" y2="52.25"/>
+<line x1="77.50" y1="52.25" x2="78.50" y2="52.25"/>
+<circle cx="99.75" cy="52.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="52.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.00" y1="52.75" x2="29.00" y2="52.75"/>
+<line x1="31.00" y1="52.75" x2="32.50" y2="52.75"/>
+<line x1="39.00" y1="52.75" x2="41.00" y2="52.75"/>
+<circle cx="42.75" cy="52.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="52.75" x2="45.00" y2="52.75"/>
+<circle cx="55.75" cy="52.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="57.00" y1="52.75" x2="58.00" y2="52.75"/>
+<circle cx="59.25" cy="52.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="75.50" y1="52.75" x2="76.50" y2="52.75"/>
+<circle cx="77.75" cy="52.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="52.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="53.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.50" y1="53.25" x2="28.50" y2="53.25"/>
+<line x1="30.00" y1="53.25" x2="31.50" y2="53.25"/>
+<line x1="40.00" y1="53.25" x2="41.50" y2="53.25"/>
+<circle cx="43.25" cy="53.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.75" cy="53.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="55.00" y1="53.25" x2="56.00" y2="53.25"/>
+<line x1="57.00" y1="53.25" x2="58.00" y2="53.25"/>
+<line x1="59.00" y1="53.25" x2="60.00" y2="53.25"/>
+<circle cx="75.75" cy="53.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="77.00" y1="53.25" x2="78.00" y2="53.25"/>
+<circle cx="99.75" cy="53.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="53.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.75" cy="53.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="29.50" y1="53.75" x2="31.00" y2="53.75"/>
+<line x1="41.00" y1="53.75" x2="42.00" y2="53.75"/>
+<line x1="44.50" y1="53.75" x2="45.50" y2="53.75"/>
+<circle cx="55.25" cy="53.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="57.00" y1="53.75" x2="58.00" y2="53.75"/>
+<circle cx="59.75" cy="53.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="75.00" y1="53.75" x2="76.00" y2="53.75"/>
+<line x1="77.00" y1="53.75" x2="78.00" y2="53.75"/>
+<circle cx="99.75" cy="53.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="54.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="54.25" x2="28.00" y2="54.25"/>
+<line x1="29.00" y1="54.25" x2="30.00" y2="54.25"/>
+<line x1="41.50" y1="54.25" x2="42.50" y2="54.25"/>
+<line x1="45.00" y1="54.25" x2="46.00" y2="54.25"/>
+<line x1="54.50" y1="54.25" x2="55.50" y2="54.25"/>
+<line x1="56.50" y1="54.25" x2="58.50" y2="54.25"/>
+<line x1="59.50" y1="54.25" x2="60.50" y2="54.25"/>
+<circle cx="75.25" cy="54.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="77.25" cy="54.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="54.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="54.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.50" y1="54.75" x2="27.50" y2="54.75"/>
+<line x1="28.50" y1="54.75" x2="29.50" y2="54.75"/>
+<line x1="42.00" y1="54.75" x2="43.00" y2="54.75"/>
+<line x1="45.50" y1="54.75" x2="46.50" y2="54.75"/>
+<line x1="53.50" y1="54.75" x2="55.00" y2="54.75"/>
+<line x1="56.00" y1="54.75" x2="57.00" y2="54.75"/>
+<line x1="57.50" y1="54.75" x2="58.50" y2="54.75"/>
+<circle cx="60.25" cy="54.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="74.50" y1="54.75" x2="75.50" y2="54.75"/>
+<line x1="76.50" y1="54.75" x2="77.50" y2="54.75"/>
+<circle cx="99.75" cy="54.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="55.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="26.75" cy="55.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="28.75" cy="55.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="42.50" y1="55.25" x2="43.50" y2="55.25"/>
+<line x1="46.00" y1="55.25" x2="47.50" y2="55.25"/>
+<line x1="53.00" y1="55.25" x2="54.50" y2="55.25"/>
+<line x1="55.50" y1="55.25" x2="57.00" y2="55.25"/>
+<line x1="58.00" y1="55.25" x2="59.00" y2="55.25"/>
+<line x1="60.00" y1="55.25" x2="61.00" y2="55.25"/>
+<circle cx="74.75" cy="55.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="76.75" cy="55.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="55.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="55.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.00" y1="55.75" x2="27.00" y2="55.75"/>
+<line x1="28.00" y1="55.75" x2="29.00" y2="55.75"/>
+<circle cx="43.25" cy="55.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.50" y1="55.75" x2="45.50" y2="55.75"/>
+<line x1="46.50" y1="55.75" x2="48.50" y2="55.75"/>
+<line x1="51.50" y1="55.75" x2="53.50" y2="55.75"/>
+<line x1="55.00" y1="55.75" x2="56.50" y2="55.75"/>
+<circle cx="58.75" cy="55.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="60.50" y1="55.75" x2="61.50" y2="55.75"/>
+<line x1="74.00" y1="55.75" x2="75.00" y2="55.75"/>
+<line x1="76.00" y1="55.75" x2="77.00" y2="55.75"/>
+<circle cx="99.75" cy="55.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="56.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="26.25" cy="56.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="28.25" cy="56.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="43.00" y1="56.25" x2="44.00" y2="56.25"/>
+<circle cx="45.25" cy="56.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="48.00" y1="56.25" x2="52.50" y2="56.25"/>
+<line x1="54.50" y1="56.25" x2="59.50" y2="56.25"/>
+<line x1="61.00" y1="56.25" x2="62.00" y2="56.25"/>
+<line x1="73.50" y1="56.25" x2="74.50" y2="56.25"/>
+<line x1="75.50" y1="56.25" x2="76.50" y2="56.25"/>
+<circle cx="99.75" cy="56.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="56.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.50" y1="56.75" x2="26.50" y2="56.75"/>
+<line x1="27.50" y1="56.75" x2="28.50" y2="56.75"/>
+<circle cx="43.75" cy="56.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.00" y1="56.75" x2="46.50" y2="56.75"/>
+<line x1="58.00" y1="56.75" x2="60.00" y2="56.75"/>
+<line x1="61.50" y1="56.75" x2="62.50" y2="56.75"/>
+<line x1="72.50" y1="56.75" x2="74.00" y2="56.75"/>
+<circle cx="75.75" cy="56.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="56.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="57.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.50" y1="57.25" x2="26.50" y2="57.25"/>
+<circle cx="27.75" cy="57.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="43.50" y1="57.25" x2="44.50" y2="57.25"/>
+<line x1="45.50" y1="57.25" x2="47.50" y2="57.25"/>
+<line x1="59.50" y1="57.25" x2="60.50" y2="57.25"/>
+<line x1="62.00" y1="57.25" x2="63.50" y2="57.25"/>
+<line x1="72.00" y1="57.25" x2="73.50" y2="57.25"/>
+<line x1="75.00" y1="57.25" x2="76.00" y2="57.25"/>
+<circle cx="99.75" cy="57.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="57.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.75" cy="57.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="57.75" x2="28.00" y2="57.75"/>
+<circle cx="44.25" cy="57.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="57.75" x2="49.00" y2="57.75"/>
+<line x1="49.50" y1="57.75" x2="50.50" y2="57.75"/>
+<line x1="53.50" y1="57.75" x2="57.00" y2="57.75"/>
+<line x1="60.00" y1="57.75" x2="61.00" y2="57.75"/>
+<line x1="62.50" y1="57.75" x2="64.50" y2="57.75"/>
+<line x1="71.00" y1="57.75" x2="72.50" y2="57.75"/>
+<line x1="74.50" y1="57.75" x2="75.50" y2="57.75"/>
+<circle cx="99.75" cy="57.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="58.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.00" y1="58.25" x2="26.00" y2="58.25"/>
+<line x1="27.00" y1="58.25" x2="28.00" y2="58.25"/>
+<circle cx="44.25" cy="58.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.25" cy="58.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="48.00" y1="58.25" x2="50.00" y2="58.25"/>
+<line x1="52.00" y1="58.25" x2="55.50" y2="58.25"/>
+<line x1="56.00" y1="58.25" x2="59.00" y2="58.25"/>
+<circle cx="61.25" cy="58.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="58.25" x2="65.50" y2="58.25"/>
+<line x1="69.50" y1="58.25" x2="71.50" y2="58.25"/>
+<line x1="73.50" y1="58.25" x2="75.00" y2="58.25"/>
+<circle cx="99.75" cy="58.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="58.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.00" y1="58.75" x2="26.00" y2="58.75"/>
+<circle cx="27.25" cy="58.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="58.75" x2="45.00" y2="58.75"/>
+<circle cx="46.25" cy="58.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="58.75" x2="49.00" y2="58.75"/>
+<line x1="51.00" y1="58.75" x2="52.50" y2="58.75"/>
+<line x1="58.00" y1="58.75" x2="60.00" y2="58.75"/>
+<line x1="61.50" y1="58.75" x2="62.50" y2="58.75"/>
+<line x1="65.00" y1="58.75" x2="70.50" y2="58.75"/>
+<line x1="73.00" y1="58.75" x2="74.00" y2="58.75"/>
+<circle cx="99.75" cy="58.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="59.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="59.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.50" y1="59.25" x2="27.50" y2="59.25"/>
+<line x1="44.00" y1="59.25" x2="45.00" y2="59.25"/>
+<circle cx="46.25" cy="59.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="59.25" x2="48.50" y2="59.25"/>
+<line x1="50.00" y1="59.25" x2="51.50" y2="59.25"/>
+<line x1="59.00" y1="59.25" x2="60.50" y2="59.25"/>
+<line x1="62.50" y1="59.25" x2="63.50" y2="59.25"/>
+<line x1="72.00" y1="59.25" x2="73.50" y2="59.25"/>
+<circle cx="99.75" cy="59.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="59.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="59.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="59.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.75" cy="59.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.25" cy="59.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.00" y1="59.75" x2="48.00" y2="59.75"/>
+<line x1="49.50" y1="59.75" x2="50.50" y2="59.75"/>
+<line x1="60.00" y1="59.75" x2="61.50" y2="59.75"/>
+<line x1="63.00" y1="59.75" x2="64.50" y2="59.75"/>
+<line x1="71.00" y1="59.75" x2="73.00" y2="59.75"/>
+<circle cx="99.75" cy="59.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="60.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="60.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="60.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="60.25" x2="45.00" y2="60.25"/>
+<line x1="46.00" y1="60.25" x2="47.50" y2="60.25"/>
+<line x1="49.00" y1="60.25" x2="50.00" y2="60.25"/>
+<line x1="61.00" y1="60.25" x2="62.00" y2="60.25"/>
+<line x1="63.00" y1="60.25" x2="66.00" y2="60.25"/>
+<line x1="69.00" y1="60.25" x2="71.50" y2="60.25"/>
+<circle cx="99.75" cy="60.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="60.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="60.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="60.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.75" cy="60.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.00" y1="60.75" x2="47.00" y2="60.75"/>
+<line x1="48.50" y1="60.75" x2="49.50" y2="60.75"/>
+<line x1="61.50" y1="60.75" x2="62.50" y2="60.75"/>
+<line x1="63.50" y1="60.75" x2="64.50" y2="60.75"/>
+<line x1="65.00" y1="60.75" x2="70.00" y2="60.75"/>
+<circle cx="99.75" cy="60.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="61.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="61.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="61.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="61.25" x2="45.00" y2="61.25"/>
+<line x1="46.00" y1="61.25" x2="47.00" y2="61.25"/>
+<line x1="48.00" y1="61.25" x2="49.00" y2="61.25"/>
+<circle cx="62.25" cy="61.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="64.00" y1="61.25" x2="65.00" y2="61.25"/>
+<circle cx="99.75" cy="61.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="61.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.25" cy="61.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="27.25" cy="61.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.00" y1="61.75" x2="45.00" y2="61.75"/>
+<circle cx="46.25" cy="61.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="61.75" x2="48.50" y2="61.75"/>
+<line x1="62.00" y1="61.75" x2="63.00" y2="61.75"/>
+<circle cx="64.75" cy="61.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="61.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="62.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.00" y1="62.25" x2="26.00" y2="62.25"/>
+<circle cx="27.25" cy="62.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.25" cy="62.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="62.25" x2="46.50" y2="62.25"/>
+<line x1="47.50" y1="62.25" x2="48.50" y2="62.25"/>
+<line x1="49.00" y1="62.25" x2="51.50" y2="62.25"/>
+<line x1="62.50" y1="62.25" x2="63.50" y2="62.25"/>
+<line x1="64.50" y1="62.25" x2="65.50" y2="62.25"/>
+<circle cx="99.75" cy="62.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="62.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.75" cy="62.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="62.75" x2="28.00" y2="62.75"/>
+<circle cx="44.25" cy="62.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="45.75" cy="62.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.00" y1="62.75" x2="48.00" y2="62.75"/>
+<circle cx="49.25" cy="62.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="62.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="63.25" cy="62.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="64.50" y1="62.75" x2="65.50" y2="62.75"/>
+<circle cx="99.75" cy="62.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="63.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="25.75" cy="63.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="63.25" x2="28.00" y2="63.25"/>
+<line x1="43.50" y1="63.25" x2="44.50" y2="63.25"/>
+<circle cx="45.75" cy="63.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="47.25" cy="63.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="63.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="63.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.00" y1="63.25" x2="64.00" y2="63.25"/>
+<circle cx="65.25" cy="63.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="63.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="63.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.50" y1="63.75" x2="26.50" y2="63.75"/>
+<circle cx="27.75" cy="63.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="43.50" y1="63.75" x2="44.50" y2="63.75"/>
+<line x1="45.00" y1="63.75" x2="46.00" y2="63.75"/>
+<line x1="46.50" y1="63.75" x2="47.50" y2="63.75"/>
+<circle cx="49.25" cy="63.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="63.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.00" y1="63.75" x2="64.00" y2="63.75"/>
+<line x1="65.00" y1="63.75" x2="66.00" y2="63.75"/>
+<circle cx="99.75" cy="63.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="64.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="25.50" y1="64.25" x2="26.50" y2="64.25"/>
+<line x1="27.50" y1="64.25" x2="28.50" y2="64.25"/>
+<circle cx="43.75" cy="64.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="45.25" cy="64.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.50" y1="64.25" x2="47.50" y2="64.25"/>
+<circle cx="49.25" cy="64.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="64.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="63.75" cy="64.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="64.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="64.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="26.25" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.00" y1="64.75" x2="29.00" y2="64.75"/>
+<line x1="43.00" y1="64.75" x2="44.00" y2="64.75"/>
+<circle cx="45.25" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.75" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="63.75" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="64.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="65.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.00" y1="65.25" x2="27.00" y2="65.25"/>
+<line x1="28.00" y1="65.25" x2="29.00" y2="65.25"/>
+<line x1="42.50" y1="65.25" x2="43.50" y2="65.25"/>
+<line x1="44.50" y1="65.25" x2="45.50" y2="65.25"/>
+<circle cx="46.75" cy="65.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="65.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="65.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="65.25" x2="64.50" y2="65.25"/>
+<circle cx="65.75" cy="65.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="65.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="65.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.50" y1="65.75" x2="27.50" y2="65.75"/>
+<line x1="28.50" y1="65.75" x2="29.50" y2="65.75"/>
+<circle cx="42.75" cy="65.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="44.50" y1="65.75" x2="45.50" y2="65.75"/>
+<circle cx="46.75" cy="65.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="65.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="65.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="65.75" x2="64.50" y2="65.75"/>
+<circle cx="65.75" cy="65.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="65.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="66.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="26.50" y1="66.25" x2="27.50" y2="66.25"/>
+<line x1="29.00" y1="66.25" x2="30.00" y2="66.25"/>
+<line x1="42.00" y1="66.25" x2="43.00" y2="66.25"/>
+<line x1="44.00" y1="66.25" x2="45.00" y2="66.25"/>
+<circle cx="46.75" cy="66.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="66.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="66.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="64.25" cy="66.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="66.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="66.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="66.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.00" y1="66.75" x2="28.00" y2="66.75"/>
+<line x1="29.50" y1="66.75" x2="30.50" y2="66.75"/>
+<line x1="41.50" y1="66.75" x2="42.50" y2="66.75"/>
+<line x1="43.50" y1="66.75" x2="45.00" y2="66.75"/>
+<circle cx="46.75" cy="66.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="66.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="66.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="66.75" x2="64.50" y2="66.75"/>
+<circle cx="65.75" cy="66.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="66.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="27.50" y1="67.25" x2="28.50" y2="67.25"/>
+<line x1="30.00" y1="67.25" x2="31.00" y2="67.25"/>
+<line x1="40.50" y1="67.25" x2="42.00" y2="67.25"/>
+<circle cx="43.75" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="44.75" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.75" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="64.25" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="67.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="67.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.00" y1="67.75" x2="29.00" y2="67.75"/>
+<line x1="30.50" y1="67.75" x2="32.00" y2="67.75"/>
+<line x1="39.50" y1="67.75" x2="41.00" y2="67.75"/>
+<line x1="43.00" y1="67.75" x2="44.00" y2="67.75"/>
+<circle cx="44.75" cy="67.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.00" y1="67.75" x2="47.00" y2="67.75"/>
+<circle cx="49.25" cy="67.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="67.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="67.75" x2="64.50" y2="67.75"/>
+<circle cx="65.75" cy="67.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="67.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="68.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="28.00" y1="68.25" x2="29.50" y2="68.25"/>
+<line x1="31.50" y1="68.25" x2="33.00" y2="68.25"/>
+<line x1="38.50" y1="68.25" x2="40.50" y2="68.25"/>
+<line x1="42.00" y1="68.25" x2="43.50" y2="68.25"/>
+<line x1="44.50" y1="68.25" x2="45.50" y2="68.25"/>
+<circle cx="46.75" cy="68.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="68.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="68.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.50" y1="68.25" x2="64.50" y2="68.25"/>
+<circle cx="65.75" cy="68.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="68.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="68.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="29.00" y1="68.75" x2="30.00" y2="68.75"/>
+<line x1="32.50" y1="68.75" x2="36.00" y2="68.75"/>
+<line x1="36.50" y1="68.75" x2="39.50" y2="68.75"/>
+<line x1="41.50" y1="68.75" x2="43.00" y2="68.75"/>
+<line x1="44.50" y1="68.75" x2="45.50" y2="68.75"/>
+<line x1="46.50" y1="68.75" x2="47.50" y2="68.75"/>
+<circle cx="49.25" cy="68.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="68.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="63.75" cy="68.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.75" cy="68.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="68.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="69.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="29.50" y1="69.25" x2="31.00" y2="69.25"/>
+<line x1="34.00" y1="69.25" x2="37.50" y2="69.25"/>
+<line x1="41.00" y1="69.25" x2="42.00" y2="69.25"/>
+<circle cx="45.25" cy="69.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.50" y1="69.25" x2="47.50" y2="69.25"/>
+<circle cx="49.25" cy="69.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="69.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="63.75" cy="69.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="65.00" y1="69.25" x2="66.00" y2="69.25"/>
+<circle cx="99.75" cy="69.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="69.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="30.50" y1="69.75" x2="32.00" y2="69.75"/>
+<line x1="40.00" y1="69.75" x2="41.50" y2="69.75"/>
+<line x1="45.00" y1="69.75" x2="46.00" y2="69.75"/>
+<circle cx="47.25" cy="69.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="69.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="69.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="63.00" y1="69.75" x2="64.00" y2="69.75"/>
+<line x1="65.00" y1="69.75" x2="66.00" y2="69.75"/>
+<circle cx="99.75" cy="69.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="70.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="31.00" y1="70.25" x2="33.50" y2="70.25"/>
+<line x1="38.50" y1="70.25" x2="40.50" y2="70.25"/>
+<line x1="45.00" y1="70.25" x2="46.00" y2="70.25"/>
+<line x1="47.00" y1="70.25" x2="48.00" y2="70.25"/>
+<circle cx="49.25" cy="70.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="70.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="63.25" cy="70.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="65.25" cy="70.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="70.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="70.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="32.50" y1="70.75" x2="39.00" y2="70.75"/>
+<circle cx="45.75" cy="70.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="47.75" cy="70.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="70.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="70.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="62.50" y1="70.75" x2="63.50" y2="70.75"/>
+<line x1="64.50" y1="70.75" x2="65.50" y2="70.75"/>
+<circle cx="99.75" cy="70.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="71.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="71.25" x2="46.50" y2="71.25"/>
+<line x1="47.50" y1="71.25" x2="48.50" y2="71.25"/>
+<circle cx="49.25" cy="71.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="71.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="62.75" cy="71.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="64.50" y1="71.25" x2="65.50" y2="71.25"/>
+<circle cx="99.75" cy="71.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="71.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="46.25" cy="71.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="48.00" y1="71.75" x2="49.50" y2="71.75"/>
+<circle cx="51.25" cy="71.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="62.00" y1="71.75" x2="63.00" y2="71.75"/>
+<line x1="64.00" y1="71.75" x2="65.00" y2="71.75"/>
+<circle cx="99.75" cy="71.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="72.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.00" y1="72.25" x2="47.00" y2="72.25"/>
+<line x1="48.00" y1="72.25" x2="49.50" y2="72.25"/>
+<circle cx="51.25" cy="72.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="61.50" y1="72.25" x2="62.50" y2="72.25"/>
+<circle cx="64.25" cy="72.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="72.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="72.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.50" y1="72.75" x2="47.50" y2="72.75"/>
+<line x1="48.50" y1="72.75" x2="49.50" y2="72.75"/>
+<circle cx="51.25" cy="72.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="61.00" y1="72.75" x2="62.00" y2="72.75"/>
+<line x1="63.50" y1="72.75" x2="64.50" y2="72.75"/>
+<circle cx="99.75" cy="72.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="73.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="47.25" cy="73.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="73.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="73.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="60.50" y1="73.25" x2="61.50" y2="73.25"/>
+<line x1="63.00" y1="73.25" x2="64.00" y2="73.25"/>
+<circle cx="99.75" cy="73.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="73.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.00" y1="73.75" x2="48.00" y2="73.75"/>
+<circle cx="51.25" cy="73.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="59.50" y1="73.75" x2="61.00" y2="73.75"/>
+<line x1="62.50" y1="73.75" x2="63.50" y2="73.75"/>
+<circle cx="99.75" cy="73.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="74.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="74.25" x2="48.50" y2="74.25"/>
+<line x1="51.00" y1="74.25" x2="52.00" y2="74.25"/>
+<line x1="58.50" y1="74.25" x2="60.50" y2="74.25"/>
+<line x1="62.00" y1="74.25" x2="63.50" y2="74.25"/>
+<circle cx="99.75" cy="74.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="74.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="38.50" y1="74.75" x2="44.50" y2="74.75"/>
+<line x1="48.00" y1="74.75" x2="49.50" y2="74.75"/>
+<line x1="51.00" y1="74.75" x2="53.50" y2="74.75"/>
+<line x1="57.50" y1="74.75" x2="59.50" y2="74.75"/>
+<line x1="61.50" y1="74.75" x2="62.50" y2="74.75"/>
+<circle cx="99.75" cy="74.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="75.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="37.50" y1="75.25" x2="39.00" y2="75.25"/>
+<circle cx="39.75" cy="75.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="43.50" y1="75.25" x2="45.50" y2="75.25"/>
+<line x1="48.50" y1="75.25" x2="49.50" y2="75.25"/>
+<line x1="52.50" y1="75.25" x2="58.00" y2="75.25"/>
+<line x1="60.50" y1="75.25" x2="62.00" y2="75.25"/>
+<circle cx="99.75" cy="75.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="75.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.50" y1="75.75" x2="38.00" y2="75.75"/>
+<line x1="45.00" y1="75.75" x2="46.00" y2="75.75"/>
+<circle cx="49.25" cy="75.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="60.00" y1="75.75" x2="61.50" y2="75.75"/>
+<circle cx="99.75" cy="75.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="76.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.00" y1="76.25" x2="37.00" y2="76.25"/>
+<circle cx="39.25" cy="76.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="40.00" y1="76.25" x2="43.00" y2="76.25"/>
+<line x1="45.50" y1="76.25" x2="46.50" y2="76.25"/>
+<circle cx="49.25" cy="76.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="51.00" y1="76.25" x2="52.00" y2="76.25"/>
+<line x1="58.50" y1="76.25" x2="60.50" y2="76.25"/>
+<circle cx="99.75" cy="76.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="76.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="35.50" y1="76.75" x2="36.50" y2="76.75"/>
+<line x1="38.00" y1="76.75" x2="40.50" y2="76.75"/>
+<line x1="42.00" y1="76.75" x2="44.50" y2="76.75"/>
+<line x1="46.00" y1="76.75" x2="47.00" y2="76.75"/>
+<circle cx="49.25" cy="76.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="51.00" y1="76.75" x2="54.00" y2="76.75"/>
+<line x1="57.00" y1="76.75" x2="59.50" y2="76.75"/>
+<circle cx="99.75" cy="76.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="77.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="35.00" y1="77.25" x2="36.00" y2="77.25"/>
+<line x1="37.50" y1="77.25" x2="39.00" y2="77.25"/>
+<line x1="43.50" y1="77.25" x2="45.00" y2="77.25"/>
+<line x1="46.50" y1="77.25" x2="47.50" y2="77.25"/>
+<circle cx="49.25" cy="77.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="77.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="53.00" y1="77.25" x2="57.50" y2="77.25"/>
+<circle cx="99.75" cy="77.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="77.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="35.25" cy="77.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="37.00" y1="77.75" x2="38.00" y2="77.75"/>
+<line x1="44.50" y1="77.75" x2="46.00" y2="77.75"/>
+<line x1="47.00" y1="77.75" x2="48.00" y2="77.75"/>
+<circle cx="49.25" cy="77.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="77.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="77.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="78.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="34.50" y1="78.25" x2="35.50" y2="78.25"/>
+<line x1="36.50" y1="78.25" x2="37.50" y2="78.25"/>
+<circle cx="45.75" cy="78.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="47.75" cy="78.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="78.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="78.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="78.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="78.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="34.50" y1="78.75" x2="35.50" y2="78.75"/>
+<circle cx="36.75" cy="78.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.50" y1="78.75" x2="46.50" y2="78.75"/>
+<line x1="47.50" y1="78.75" x2="48.50" y2="78.75"/>
+<circle cx="49.25" cy="78.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="78.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="78.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="79.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="34.75" cy="79.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.00" y1="79.25" x2="37.00" y2="79.25"/>
+<circle cx="46.25" cy="79.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="47.50" y1="79.25" x2="48.50" y2="79.25"/>
+<circle cx="49.25" cy="79.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="79.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="79.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="79.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="34.75" cy="79.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.00" y1="79.75" x2="37.00" y2="79.75"/>
+<line x1="46.00" y1="79.75" x2="47.00" y2="79.75"/>
+<circle cx="48.25" cy="79.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="79.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="79.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="79.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="80.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="34.75" cy="80.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="36.25" cy="80.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="46.00" y1="80.25" x2="47.00" y2="80.25"/>
+<line x1="47.50" y1="80.25" x2="48.50" y2="80.25"/>
+<circle cx="49.25" cy="80.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="80.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="80.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="80.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="34.75" cy="80.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.00" y1="80.75" x2="37.00" y2="80.75"/>
+<line x1="46.00" y1="80.75" x2="47.00" y2="80.75"/>
+<circle cx="48.25" cy="80.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="80.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="80.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="80.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="81.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="34.75" cy="81.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.00" y1="81.25" x2="37.00" y2="81.25"/>
+<line x1="45.50" y1="81.25" x2="46.50" y2="81.25"/>
+<line x1="47.50" y1="81.25" x2="48.50" y2="81.25"/>
+<circle cx="49.25" cy="81.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="81.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="81.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="81.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="34.50" y1="81.75" x2="35.50" y2="81.75"/>
+<line x1="36.50" y1="81.75" x2="37.50" y2="81.75"/>
+<line x1="45.50" y1="81.75" x2="46.50" y2="81.75"/>
+<circle cx="47.75" cy="81.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="81.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="81.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="81.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="82.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="35.25" cy="82.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.50" y1="82.25" x2="37.50" y2="82.25"/>
+<line x1="45.00" y1="82.25" x2="46.00" y2="82.25"/>
+<line x1="47.00" y1="82.25" x2="48.00" y2="82.25"/>
+<circle cx="49.25" cy="82.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="82.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="82.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="82.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="35.00" y1="82.75" x2="36.00" y2="82.75"/>
+<line x1="37.00" y1="82.75" x2="38.50" y2="82.75"/>
+<line x1="44.00" y1="82.75" x2="45.50" y2="82.75"/>
+<circle cx="47.25" cy="82.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="82.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="82.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="82.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="83.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="35.50" y1="83.25" x2="36.50" y2="83.25"/>
+<line x1="38.00" y1="83.25" x2="39.50" y2="83.25"/>
+<line x1="43.00" y1="83.25" x2="45.00" y2="83.25"/>
+<line x1="46.50" y1="83.25" x2="47.50" y2="83.25"/>
+<circle cx="49.25" cy="83.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="83.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="83.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="83.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.00" y1="83.75" x2="37.00" y2="83.75"/>
+<line x1="39.00" y1="83.75" x2="44.00" y2="83.75"/>
+<line x1="46.00" y1="83.75" x2="47.00" y2="83.75"/>
+<circle cx="49.25" cy="83.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="83.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="83.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="84.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="36.50" y1="84.25" x2="37.50" y2="84.25"/>
+<line x1="40.00" y1="84.25" x2="41.50" y2="84.25"/>
+<circle cx="42.25" cy="84.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="45.00" y1="84.25" x2="46.50" y2="84.25"/>
+<circle cx="49.25" cy="84.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="84.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="84.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="84.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="37.00" y1="84.75" x2="38.50" y2="84.75"/>
+<line x1="44.50" y1="84.75" x2="46.00" y2="84.75"/>
+<circle cx="49.25" cy="84.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="84.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="84.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="85.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="37.50" y1="85.25" x2="40.00" y2="85.25"/>
+<line x1="41.00" y1="85.25" x2="42.00" y2="85.25"/>
+<line x1="42.50" y1="85.25" x2="45.00" y2="85.25"/>
+<circle cx="49.25" cy="85.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="85.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="85.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="85.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="39.50" y1="85.75" x2="43.50" y2="85.75"/>
+<circle cx="49.25" cy="85.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="85.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="85.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="86.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="86.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="86.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="86.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="86.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="86.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="86.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="86.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="87.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="87.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="87.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="87.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="87.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="87.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="87.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="87.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="88.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="88.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="88.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="88.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="88.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="88.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="88.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="88.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="89.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="89.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="89.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="89.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="89.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="89.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="89.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="89.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="90.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="90.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="90.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="90.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="90.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="90.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="90.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="90.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="91.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="91.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="91.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="91.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="91.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="91.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="91.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="91.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="92.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="92.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="92.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="92.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="92.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="92.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="92.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="92.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="93.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="93.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="93.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="93.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="93.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="93.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="93.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="93.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="94.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="94.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="94.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="94.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="94.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="94.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="94.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="94.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="95.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="49.25" cy="95.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="51.25" cy="95.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="95.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="95.75" r="0.20" fill="#222" stroke="none"/>
+<line x1="49.00" y1="95.75" x2="51.50" y2="95.75"/>
+<circle cx="99.75" cy="95.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="96.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="96.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="96.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="96.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="97.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="97.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="97.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="97.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="98.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="98.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="98.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="98.75" r="0.20" fill="#222" stroke="none"/>
+<circle cx="0.25" cy="99.25" r="0.20" fill="#222" stroke="none"/>
+<circle cx="99.75" cy="99.25" r="0.20" fill="#222" stroke="none"/>
+<line x1="0.00" y1="99.75" x2="100.00" y2="99.75"/>
+</g>
+<g class="annotations" font-family="sans-serif"><text x="55" y="110" font-size="4" fill="#333">一朵花</text></g>
+</svg>
