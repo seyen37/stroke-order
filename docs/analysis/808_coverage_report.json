@@ -1,0 +1,219 @@
+{
+  "use_trad": true,
+  "char_count": 808,
+  "atomic_self_count": 77,
+  "distinct_leaf_components": 194,
+  "total_leaf_occurrences": 3045,
+  "avg_leaves_per_char": 3.77,
+  "top_30_components": [
+    {
+      "component": "一",
+      "count": 509,
+      "in_808": true
+    },
+    {
+      "component": "丿",
+      "count": 197,
+      "in_808": false
+    },
+    {
+      "component": "十",
+      "count": 162,
+      "in_808": true
+    },
+    {
+      "component": "口",
+      "count": 156,
+      "in_808": true
+    },
+    {
+      "component": "丶",
+      "count": 148,
+      "in_808": false
+    },
+    {
+      "component": "丨",
+      "count": 102,
+      "in_808": false
+    },
+    {
+      "component": "人",
+      "count": 84,
+      "in_808": true
+    },
+    {
+      "component": "八",
+      "count": 75,
+      "in_808": true
+    },
+    {
+      "component": "丷",
+      "count": 70,
+      "in_808": false
+    },
+    {
+      "component": "乚",
+      "count": 63,
+      "in_808": false
+    },
+    {
+      "component": "日",
+      "count": 61,
+      "in_808": true
+    },
+    {
+      "component": "木",
+      "count": 52,
+      "in_808": true
+    },
+    {
+      "component": "𠃌",
+      "count": 46,
+      "in_808": false
+    },
+    {
+      "component": "亅",
+      "count": 44,
+      "in_808": false
+    },
+    {
+      "component": "𠂊",
+      "count": 42,
+      "in_808": false
+    },
+    {
+      "component": "亻",
+      "count": 38,
+      "in_808": false
+    },
+    {
+      "component": "目",
+      "count": 35,
+      "in_808": true
+    },
+    {
+      "component": "氵",
+      "count": 33,
+      "in_808": false
+    },
+    {
+      "component": "言",
+      "count": 31,
+      "in_808": true
+    },
+    {
+      "component": "心",
+      "count": 31,
+      "in_808": true
+    },
+    {
+      "component": "宀",
+      "count": 28,
+      "in_808": false
+    },
+    {
+      "component": "又",
+      "count": 26,
+      "in_808": true
+    },
+    {
+      "component": "冂",
+      "count": 26,
+      "in_808": false
+    },
+    {
+      "component": "厶",
+      "count": 25,
+      "in_808": false
+    },
+    {
+      "component": "月",
+      "count": 24,
+      "in_808": true
+    },
+    {
+      "component": "辶",
+      "count": 21,
+      "in_808": false
+    },
+    {
+      "component": "寸",
+      "count": 20,
+      "in_808": true
+    },
+    {
+      "component": "夂",
+      "count": 19,
+      "in_808": false
+    },
+    {
+      "component": "囗",
+      "count": 18,
+      "in_808": false
+    },
+    {
+      "component": "攵",
+      "count": 18,
+      "in_808": false
+    }
+  ],
+  "coverage_stats": {
+    "common_total": 3500,
+    "fully_covered": 3363,
+    "partially_covered": 108,
+    "not_covered": 29,
+    "fully_covered_pct": 96.08571428571429
+  },
+  "sample_composed_chars": [
+    "稿",
+    "資",
+    "錄",
+    "係",
+    "於",
+    "港",
+    "司",
+    "簡",
+    "稱",
+    "甲",
+    "漫",
+    "之",
+    "提",
+    "供",
+    "演",
+    "據",
+    "雙",
+    "繁",
+    "其",
+    "象",
+    "組",
+    "標",
+    "碼",
+    "但",
+    "附",
+    "源",
+    "僅",
+    "且",
+    "轉",
+    "略",
+    "獲",
+    "繼",
+    "篆",
+    "楷",
+    "輔",
+    "製",
+    "尚",
+    "另",
+    "闡",
+    "述",
+    "棄",
+    "蓋",
+    "熟",
+    "背",
+    "囫",
+    "圇",
+    "呑",
+    "猶",
+    "似",
+    "碗"
+  ]
+}

@@ -1,0 +1,4860 @@
+{
+  "title": "中日韓共同常用 808 漢字表",
+  "english_title": "808 Commonly Used Chinese Characters in China, Japan and the ROK",
+  "source": "Trilateral Cooperation Secretariat (TCS)",
+  "publication_year": 2014,
+  "booklet_year": 2016,
+  "url": "https://www.tcs-asia.org/en/data/publications.php",
+  "char_count": 808,
+  "trad_simp_mismatch_count": 254,
+  "entries": [
+    {
+      "index": 1,
+      "simp": "一",
+      "trad": "一",
+      "same": true
+    },
+    {
+      "index": 2,
+      "simp": "七",
+      "trad": "七",
+      "same": true
+    },
+    {
+      "index": 3,
+      "simp": "三",
+      "trad": "三",
+      "same": true
+    },
+    {
+      "index": 4,
+      "simp": "上",
+      "trad": "上",
+      "same": true
+    },
+    {
+      "index": 5,
+      "simp": "下",
+      "trad": "下",
+      "same": true
+    },
+    {
+      "index": 6,
+      "simp": "不",
+      "trad": "不",
+      "same": true
+    },
+    {
+      "index": 7,
+      "simp": "世",
+      "trad": "世",
+      "same": true
+    },
+    {
+      "index": 8,
+      "simp": "中",
+      "trad": "中",
+      "same": true
+    },
+    {
+      "index": 9,
+      "simp": "主",
+      "trad": "主",
+      "same": true
+    },
+    {
+      "index": 10,
+      "simp": "久",
+      "trad": "久",
+      "same": true
+    },
+    {
+      "index": 11,
+      "simp": "乘",
+      "trad": "乘",
+      "same": true
+    },
+    {
+      "index": 12,
+      "simp": "九",
+      "trad": "九",
+      "same": true
+    },
+    {
+      "index": 13,
+      "simp": "事",
+      "trad": "事",
+      "same": true
+    },
+    {
+      "index": 14,
+      "simp": "二",
+      "trad": "二",
+      "same": true
+    },
+    {
+      "index": 15,
+      "simp": "五",
+      "trad": "五",
+      "same": true
+    },
+    {
+      "index": 16,
+      "simp": "井",
+      "trad": "井",
+      "same": true
+    },
+    {
+      "index": 17,
+      "simp": "亡",
+      "trad": "亡",
+      "same": true
+    },
+    {
+      "index": 18,
+      "simp": "交",
+      "trad": "交",
+      "same": true
+    },
+    {
+      "index": 19,
+      "simp": "京",
+      "trad": "京",
+      "same": true
+    },
+    {
+      "index": 20,
+      "simp": "人",
+      "trad": "人",
+      "same": true
+    },
+    {
+      "index": 21,
+      "simp": "仁",
+      "trad": "仁",
+      "same": true
+    },
+    {
+      "index": 22,
+      "simp": "今",
+      "trad": "今",
+      "same": true
+    },
+    {
+      "index": 23,
+      "simp": "他",
+      "trad": "他",
+      "same": true
+    },
+    {
+      "index": 24,
+      "simp": "仙",
+      "trad": "仙",
+      "same": true
+    },
+    {
+      "index": 25,
+      "simp": "代",
+      "trad": "代",
+      "same": true
+    },
+    {
+      "index": 26,
+      "simp": "令",
+      "trad": "令",
+      "same": true
+    },
+    {
+      "index": 27,
+      "simp": "以",
+      "trad": "以",
+      "same": true
+    },
+    {
+      "index": 28,
+      "simp": "仰",
+      "trad": "仰",
+      "same": true
+    },
+    {
+      "index": 29,
+      "simp": "伏",
+      "trad": "伏",
+      "same": true
+    },
+    {
+      "index": 30,
+      "simp": "伐",
+      "trad": "伐",
+      "same": true
+    },
+    {
+      "index": 31,
+      "simp": "休",
+      "trad": "休",
+      "same": true
+    },
+    {
+      "index": 32,
+      "simp": "位",
+      "trad": "位",
+      "same": true
+    },
+    {
+      "index": 33,
+      "simp": "低",
+      "trad": "低",
+      "same": true
+    },
+    {
+      "index": 34,
+      "simp": "住",
+      "trad": "住",
+      "same": true
+    },
+    {
+      "index": 35,
+      "simp": "何",
+      "trad": "何",
+      "same": true
+    },
+    {
+      "index": 36,
+      "simp": "佛",
+      "trad": "佛",
+      "same": true
+    },
+    {
+      "index": 37,
+      "simp": "作",
+      "trad": "作",
+      "same": true
+    },
+    {
+      "index": 38,
+      "simp": "使",
+      "trad": "使",
+      "same": true
+    },
+    {
+      "index": 39,
+      "simp": "来",
+      "trad": "來",
+      "same": false
+    },
+    {
+      "index": 40,
+      "simp": "例",
+      "trad": "例",
+      "same": true
+    },
+    {
+      "index": 41,
+      "simp": "依",
+      "trad": "依",
+      "same": true
+    },
+    {
+      "index": 42,
+      "simp": "便",
+      "trad": "便",
+      "same": true
+    },
+    {
+      "index": 43,
+      "simp": "俗",
+      "trad": "俗",
+      "same": true
+    },
+    {
+      "index": 44,
+      "simp": "保",
+      "trad": "保",
+      "same": true
+    },
+    {
+      "index": 45,
+      "simp": "信",
+      "trad": "信",
+      "same": true
+    },
+    {
+      "index": 46,
+      "simp": "修",
+      "trad": "修",
+      "same": true
+    },
+    {
+      "index": 47,
+      "simp": "个",
+      "trad": "個",
+      "same": false
+    },
+    {
+      "index": 48,
+      "simp": "借",
+      "trad": "借",
+      "same": true
+    },
+    {
+      "index": 49,
+      "simp": "假",
+      "trad": "假",
+      "same": true
+    },
+    {
+      "index": 50,
+      "simp": "伟",
+      "trad": "偉",
+      "same": false
+    },
+    {
+      "index": 51,
+      "simp": "停",
+      "trad": "停",
+      "same": true
+    },
+    {
+      "index": 52,
+      "simp": "备",
+      "trad": "備",
+      "same": false
+    },
+    {
+      "index": 53,
+      "simp": "传",
+      "trad": "傳",
+      "same": false
+    },
+    {
+      "index": 54,
+      "simp": "伤",
+      "trad": "傷",
+      "same": false
+    },
+    {
+      "index": 55,
+      "simp": "价",
+      "trad": "價",
+      "same": false
+    },
+    {
+      "index": 56,
+      "simp": "亿",
+      "trad": "億",
+      "same": false
+    },
+    {
+      "index": 57,
+      "simp": "元",
+      "trad": "元",
+      "same": true
+    },
+    {
+      "index": 58,
+      "simp": "兄",
+      "trad": "兄",
+      "same": true
+    },
+    {
+      "index": 59,
+      "simp": "充",
+      "trad": "充",
+      "same": true
+    },
+    {
+      "index": 60,
+      "simp": "兆",
+      "trad": "兆",
+      "same": true
+    },
+    {
+      "index": 61,
+      "simp": "先",
+      "trad": "先",
+      "same": true
+    },
+    {
+      "index": 62,
+      "simp": "光",
+      "trad": "光",
+      "same": true
+    },
+    {
+      "index": 63,
+      "simp": "免",
+      "trad": "免",
+      "same": true
+    },
+    {
+      "index": 64,
+      "simp": "儿",
+      "trad": "兒",
+      "same": false
+    },
+    {
+      "index": 65,
+      "simp": "入",
+      "trad": "入",
+      "same": true
+    },
+    {
+      "index": 66,
+      "simp": "内",
+      "trad": "內",
+      "same": false
+    },
+    {
+      "index": 67,
+      "simp": "全",
+      "trad": "全",
+      "same": true
+    },
+    {
+      "index": 68,
+      "simp": "两",
+      "trad": "兩",
+      "same": false
+    },
+    {
+      "index": 69,
+      "simp": "八",
+      "trad": "八",
+      "same": true
+    },
+    {
+      "index": 70,
+      "simp": "公",
+      "trad": "公",
+      "same": true
+    },
+    {
+      "index": 71,
+      "simp": "六",
+      "trad": "六",
+      "same": true
+    },
+    {
+      "index": 72,
+      "simp": "共",
+      "trad": "共",
+      "same": true
+    },
+    {
+      "index": 73,
+      "simp": "兵",
+      "trad": "兵",
+      "same": true
+    },
+    {
+      "index": 74,
+      "simp": "典",
+      "trad": "典",
+      "same": true
+    },
+    {
+      "index": 75,
+      "simp": "册",
+      "trad": "冊",
+      "same": false
+    },
+    {
+      "index": 76,
+      "simp": "再",
+      "trad": "再",
+      "same": true
+    },
+    {
+      "index": 77,
+      "simp": "冬",
+      "trad": "冬",
+      "same": true
+    },
+    {
+      "index": 78,
+      "simp": "冰",
+      "trad": "冰",
+      "same": true
+    },
+    {
+      "index": 79,
+      "simp": "冷",
+      "trad": "冷",
+      "same": true
+    },
+    {
+      "index": 80,
+      "simp": "出",
+      "trad": "出",
+      "same": true
+    },
+    {
+      "index": 81,
+      "simp": "刀",
+      "trad": "刀",
+      "same": true
+    },
+    {
+      "index": 82,
+      "simp": "分",
+      "trad": "分",
+      "same": true
+    },
+    {
+      "index": 83,
+      "simp": "刑",
+      "trad": "刑",
+      "same": true
+    },
+    {
+      "index": 84,
+      "simp": "列",
+      "trad": "列",
+      "same": true
+    },
+    {
+      "index": 85,
+      "simp": "初",
+      "trad": "初",
+      "same": true
+    },
+    {
+      "index": 86,
+      "simp": "判",
+      "trad": "判",
+      "same": true
+    },
+    {
+      "index": 87,
+      "simp": "别",
+      "trad": "別",
+      "same": false
+    },
+    {
+      "index": 88,
+      "simp": "利",
+      "trad": "利",
+      "same": true
+    },
+    {
+      "index": 89,
+      "simp": "到",
+      "trad": "到",
+      "same": true
+    },
+    {
+      "index": 90,
+      "simp": "则",
+      "trad": "則",
+      "same": false
+    },
+    {
+      "index": 91,
+      "simp": "前",
+      "trad": "前",
+      "same": true
+    },
+    {
+      "index": 92,
+      "simp": "力",
+      "trad": "力",
+      "same": true
+    },
+    {
+      "index": 93,
+      "simp": "功",
+      "trad": "功",
+      "same": true
+    },
+    {
+      "index": 94,
+      "simp": "加",
+      "trad": "加",
+      "same": true
+    },
+    {
+      "index": 95,
+      "simp": "助",
+      "trad": "助",
+      "same": true
+    },
+    {
+      "index": 96,
+      "simp": "勇",
+      "trad": "勇",
+      "same": true
+    },
+    {
+      "index": 97,
+      "simp": "勉",
+      "trad": "勉",
+      "same": true
+    },
+    {
+      "index": 98,
+      "simp": "动",
+      "trad": "動",
+      "same": false
+    },
+    {
+      "index": 99,
+      "simp": "务",
+      "trad": "務",
+      "same": false
+    },
+    {
+      "index": 100,
+      "simp": "胜",
+      "trad": "勝",
+      "same": false
+    },
+    {
+      "index": 101,
+      "simp": "劳",
+      "trad": "勞",
+      "same": false
+    },
+    {
+      "index": 102,
+      "simp": "势",
+      "trad": "勢",
+      "same": false
+    },
+    {
+      "index": 103,
+      "simp": "勤",
+      "trad": "勤",
+      "same": true
+    },
+    {
+      "index": 104,
+      "simp": "劝",
+      "trad": "勸",
+      "same": false
+    },
+    {
+      "index": 105,
+      "simp": "化",
+      "trad": "化",
+      "same": true
+    },
+    {
+      "index": 106,
+      "simp": "北",
+      "trad": "北",
+      "same": true
+    },
+    {
+      "index": 107,
+      "simp": "区",
+      "trad": "區",
+      "same": false
+    },
+    {
+      "index": 108,
+      "simp": "十",
+      "trad": "十",
+      "same": true
+    },
+    {
+      "index": 109,
+      "simp": "千",
+      "trad": "千",
+      "same": true
+    },
+    {
+      "index": 110,
+      "simp": "午",
+      "trad": "午",
+      "same": true
+    },
+    {
+      "index": 111,
+      "simp": "半",
+      "trad": "半",
+      "same": true
+    },
+    {
+      "index": 112,
+      "simp": "卒",
+      "trad": "卒",
+      "same": true
+    },
+    {
+      "index": 113,
+      "simp": "协",
+      "trad": "協",
+      "same": false
+    },
+    {
+      "index": 114,
+      "simp": "南",
+      "trad": "南",
+      "same": true
+    },
+    {
+      "index": 115,
+      "simp": "印",
+      "trad": "印",
+      "same": true
+    },
+    {
+      "index": 116,
+      "simp": "危",
+      "trad": "危",
+      "same": true
+    },
+    {
+      "index": 117,
+      "simp": "卷",
+      "trad": "卷",
+      "same": true
+    },
+    {
+      "index": 118,
+      "simp": "厚",
+      "trad": "厚",
+      "same": true
+    },
+    {
+      "index": 119,
+      "simp": "原",
+      "trad": "原",
+      "same": true
+    },
+    {
+      "index": 120,
+      "simp": "去",
+      "trad": "去",
+      "same": true
+    },
+    {
+      "index": 121,
+      "simp": "参",
+      "trad": "參",
+      "same": false
+    },
+    {
+      "index": 122,
+      "simp": "又",
+      "trad": "又",
+      "same": true
+    },
+    {
+      "index": 123,
+      "simp": "及",
+      "trad": "及",
+      "same": true
+    },
+    {
+      "index": 124,
+      "simp": "友",
+      "trad": "友",
+      "same": true
+    },
+    {
+      "index": 125,
+      "simp": "反",
+      "trad": "反",
+      "same": true
+    },
+    {
+      "index": 126,
+      "simp": "取",
+      "trad": "取",
+      "same": true
+    },
+    {
+      "index": 127,
+      "simp": "受",
+      "trad": "受",
+      "same": true
+    },
+    {
+      "index": 128,
+      "simp": "口",
+      "trad": "口",
+      "same": true
+    },
+    {
+      "index": 129,
+      "simp": "古",
+      "trad": "古",
+      "same": true
+    },
+    {
+      "index": 130,
+      "simp": "句",
+      "trad": "句",
+      "same": true
+    },
+    {
+      "index": 131,
+      "simp": "可",
+      "trad": "可",
+      "same": true
+    },
+    {
+      "index": 132,
+      "simp": "史",
+      "trad": "史",
+      "same": true
+    },
+    {
+      "index": 133,
+      "simp": "右",
+      "trad": "右",
+      "same": true
+    },
+    {
+      "index": 134,
+      "simp": "各",
+      "trad": "各",
+      "same": true
+    },
+    {
+      "index": 135,
+      "simp": "合",
+      "trad": "合",
+      "same": true
+    },
+    {
+      "index": 136,
+      "simp": "吉",
+      "trad": "吉",
+      "same": true
+    },
+    {
+      "index": 137,
+      "simp": "同",
+      "trad": "同",
+      "same": true
+    },
+    {
+      "index": 138,
+      "simp": "名",
+      "trad": "名",
+      "same": true
+    },
+    {
+      "index": 139,
+      "simp": "向",
+      "trad": "向",
+      "same": true
+    },
+    {
+      "index": 140,
+      "simp": "君",
+      "trad": "君",
+      "same": true
+    },
+    {
+      "index": 141,
+      "simp": "否",
+      "trad": "否",
+      "same": true
+    },
+    {
+      "index": 142,
+      "simp": "吹",
+      "trad": "吹",
+      "same": true
+    },
+    {
+      "index": 143,
+      "simp": "告",
+      "trad": "告",
+      "same": true
+    },
+    {
+      "index": 144,
+      "simp": "味",
+      "trad": "味",
+      "same": true
+    },
+    {
+      "index": 145,
+      "simp": "呼",
+      "trad": "呼",
+      "same": true
+    },
+    {
+      "index": 146,
+      "simp": "命",
+      "trad": "命",
+      "same": true
+    },
+    {
+      "index": 147,
+      "simp": "和",
+      "trad": "和",
+      "same": true
+    },
+    {
+      "index": 148,
+      "simp": "哀",
+      "trad": "哀",
+      "same": true
+    },
+    {
+      "index": 149,
+      "simp": "品",
+      "trad": "品",
+      "same": true
+    },
+    {
+      "index": 150,
+      "simp": "唱",
+      "trad": "唱",
+      "same": true
+    },
+    {
+      "index": 151,
+      "simp": "商",
+      "trad": "商",
+      "same": true
+    },
+    {
+      "index": 152,
+      "simp": "问",
+      "trad": "問",
+      "same": false
+    },
+    {
+      "index": 153,
+      "simp": "善",
+      "trad": "善",
+      "same": true
+    },
+    {
+      "index": 154,
+      "simp": "喜",
+      "trad": "喜",
+      "same": true
+    },
+    {
+      "index": 155,
+      "simp": "丧",
+      "trad": "喪",
+      "same": false
+    },
+    {
+      "index": 156,
+      "simp": "单",
+      "trad": "單",
+      "same": false
+    },
+    {
+      "index": 157,
+      "simp": "严",
+      "trad": "嚴",
+      "same": false
+    },
+    {
+      "index": 158,
+      "simp": "四",
+      "trad": "四",
+      "same": true
+    },
+    {
+      "index": 159,
+      "simp": "回",
+      "trad": "回",
+      "same": true
+    },
+    {
+      "index": 160,
+      "simp": "因",
+      "trad": "因",
+      "same": true
+    },
+    {
+      "index": 161,
+      "simp": "困",
+      "trad": "困",
+      "same": true
+    },
+    {
+      "index": 162,
+      "simp": "固",
+      "trad": "固",
+      "same": true
+    },
+    {
+      "index": 163,
+      "simp": "国",
+      "trad": "國",
+      "same": false
+    },
+    {
+      "index": 164,
+      "simp": "园",
+      "trad": "園",
+      "same": false
+    },
+    {
+      "index": 165,
+      "simp": "圆",
+      "trad": "圓",
+      "same": false
+    },
+    {
+      "index": 166,
+      "simp": "图",
+      "trad": "圖",
+      "same": false
+    },
+    {
+      "index": 167,
+      "simp": "团",
+      "trad": "團",
+      "same": false
+    },
+    {
+      "index": 168,
+      "simp": "土",
+      "trad": "土",
+      "same": true
+    },
+    {
+      "index": 169,
+      "simp": "在",
+      "trad": "在",
+      "same": true
+    },
+    {
+      "index": 170,
+      "simp": "地",
+      "trad": "地",
+      "same": true
+    },
+    {
+      "index": 171,
+      "simp": "均",
+      "trad": "均",
+      "same": true
+    },
+    {
+      "index": 172,
+      "simp": "城",
+      "trad": "城",
+      "same": true
+    },
+    {
+      "index": 173,
+      "simp": "执",
+      "trad": "執",
+      "same": false
+    },
+    {
+      "index": 174,
+      "simp": "基",
+      "trad": "基",
+      "same": true
+    },
+    {
+      "index": 175,
+      "simp": "堂",
+      "trad": "堂",
+      "same": true
+    },
+    {
+      "index": 176,
+      "simp": "坚",
+      "trad": "堅",
+      "same": false
+    },
+    {
+      "index": 177,
+      "simp": "报",
+      "trad": "報",
+      "same": false
+    },
+    {
+      "index": 178,
+      "simp": "场",
+      "trad": "場",
+      "same": false
+    },
+    {
+      "index": 179,
+      "simp": "增",
+      "trad": "增",
+      "same": true
+    },
+    {
+      "index": 180,
+      "simp": "士",
+      "trad": "士",
+      "same": true
+    },
+    {
+      "index": 181,
+      "simp": "壮",
+      "trad": "壯",
+      "same": false
+    },
+    {
+      "index": 182,
+      "simp": "寿",
+      "trad": "壽",
+      "same": false
+    },
+    {
+      "index": 183,
+      "simp": "夏",
+      "trad": "夏",
+      "same": true
+    },
+    {
+      "index": 184,
+      "simp": "夕",
+      "trad": "夕",
+      "same": true
+    },
+    {
+      "index": 185,
+      "simp": "外",
+      "trad": "外",
+      "same": true
+    },
+    {
+      "index": 186,
+      "simp": "多",
+      "trad": "多",
+      "same": true
+    },
+    {
+      "index": 187,
+      "simp": "夜",
+      "trad": "夜",
+      "same": true
+    },
+    {
+      "index": 188,
+      "simp": "大",
+      "trad": "大",
+      "same": true
+    },
+    {
+      "index": 189,
+      "simp": "天",
+      "trad": "天",
+      "same": true
+    },
+    {
+      "index": 190,
+      "simp": "太",
+      "trad": "太",
+      "same": true
+    },
+    {
+      "index": 191,
+      "simp": "夫",
+      "trad": "夫",
+      "same": true
+    },
+    {
+      "index": 192,
+      "simp": "央",
+      "trad": "央",
+      "same": true
+    },
+    {
+      "index": 193,
+      "simp": "失",
+      "trad": "失",
+      "same": true
+    },
+    {
+      "index": 194,
+      "simp": "奉",
+      "trad": "奉",
+      "same": true
+    },
+    {
+      "index": 195,
+      "simp": "女",
+      "trad": "女",
+      "same": true
+    },
+    {
+      "index": 196,
+      "simp": "好",
+      "trad": "好",
+      "same": true
+    },
+    {
+      "index": 197,
+      "simp": "如",
+      "trad": "如",
+      "same": true
+    },
+    {
+      "index": 198,
+      "simp": "妙",
+      "trad": "妙",
+      "same": true
+    },
+    {
+      "index": 199,
+      "simp": "妹",
+      "trad": "妹",
+      "same": true
+    },
+    {
+      "index": 200,
+      "simp": "妻",
+      "trad": "妻",
+      "same": true
+    },
+    {
+      "index": 201,
+      "simp": "姊",
+      "trad": "姊",
+      "same": true
+    },
+    {
+      "index": 202,
+      "simp": "始",
+      "trad": "始",
+      "same": true
+    },
+    {
+      "index": 203,
+      "simp": "姓",
+      "trad": "姓",
+      "same": true
+    },
+    {
+      "index": 204,
+      "simp": "威",
+      "trad": "威",
+      "same": true
+    },
+    {
+      "index": 205,
+      "simp": "婚",
+      "trad": "婚",
+      "same": true
+    },
+    {
+      "index": 206,
+      "simp": "妇",
+      "trad": "婦",
+      "same": false
+    },
+    {
+      "index": 207,
+      "simp": "子",
+      "trad": "子",
+      "same": true
+    },
+    {
+      "index": 208,
+      "simp": "字",
+      "trad": "字",
+      "same": true
+    },
+    {
+      "index": 209,
+      "simp": "存",
+      "trad": "存",
+      "same": true
+    },
+    {
+      "index": 210,
+      "simp": "孝",
+      "trad": "孝",
+      "same": true
+    },
+    {
+      "index": 211,
+      "simp": "季",
+      "trad": "季",
+      "same": true
+    },
+    {
+      "index": 212,
+      "simp": "孙",
+      "trad": "孫",
+      "same": false
+    },
+    {
+      "index": 213,
+      "simp": "学",
+      "trad": "學",
+      "same": false
+    },
+    {
+      "index": 214,
+      "simp": "宅",
+      "trad": "宅",
+      "same": true
+    },
+    {
+      "index": 215,
+      "simp": "宇",
+      "trad": "宇",
+      "same": true
+    },
+    {
+      "index": 216,
+      "simp": "守",
+      "trad": "守",
+      "same": true
+    },
+    {
+      "index": 217,
+      "simp": "安",
+      "trad": "安",
+      "same": true
+    },
+    {
+      "index": 218,
+      "simp": "完",
+      "trad": "完",
+      "same": true
+    },
+    {
+      "index": 219,
+      "simp": "宗",
+      "trad": "宗",
+      "same": true
+    },
+    {
+      "index": 220,
+      "simp": "官",
+      "trad": "官",
+      "same": true
+    },
+    {
+      "index": 221,
+      "simp": "宙",
+      "trad": "宙",
+      "same": true
+    },
+    {
+      "index": 222,
+      "simp": "定",
+      "trad": "定",
+      "same": true
+    },
+    {
+      "index": 223,
+      "simp": "客",
+      "trad": "客",
+      "same": true
+    },
+    {
+      "index": 224,
+      "simp": "室",
+      "trad": "室",
+      "same": true
+    },
+    {
+      "index": 225,
+      "simp": "害",
+      "trad": "害",
+      "same": true
+    },
+    {
+      "index": 226,
+      "simp": "家",
+      "trad": "家",
+      "same": true
+    },
+    {
+      "index": 227,
+      "simp": "容",
+      "trad": "容",
+      "same": true
+    },
+    {
+      "index": 228,
+      "simp": "宿",
+      "trad": "宿",
+      "same": true
+    },
+    {
+      "index": 229,
+      "simp": "密",
+      "trad": "密",
+      "same": true
+    },
+    {
+      "index": 230,
+      "simp": "富",
+      "trad": "富",
+      "same": true
+    },
+    {
+      "index": 231,
+      "simp": "寒",
+      "trad": "寒",
+      "same": true
+    },
+    {
+      "index": 232,
+      "simp": "察",
+      "trad": "察",
+      "same": true
+    },
+    {
+      "index": 233,
+      "simp": "实",
+      "trad": "實",
+      "same": false
+    },
+    {
+      "index": 234,
+      "simp": "写",
+      "trad": "寫",
+      "same": false
+    },
+    {
+      "index": 235,
+      "simp": "寸",
+      "trad": "寸",
+      "same": true
+    },
+    {
+      "index": 236,
+      "simp": "寺",
+      "trad": "寺",
+      "same": true
+    },
+    {
+      "index": 237,
+      "simp": "射",
+      "trad": "射",
+      "same": true
+    },
+    {
+      "index": 238,
+      "simp": "将",
+      "trad": "將",
+      "same": false
+    },
+    {
+      "index": 239,
+      "simp": "尊",
+      "trad": "尊",
+      "same": true
+    },
+    {
+      "index": 240,
+      "simp": "对",
+      "trad": "對",
+      "same": false
+    },
+    {
+      "index": 241,
+      "simp": "小",
+      "trad": "小",
+      "same": true
+    },
+    {
+      "index": 242,
+      "simp": "少",
+      "trad": "少",
+      "same": true
+    },
+    {
+      "index": 243,
+      "simp": "就",
+      "trad": "就",
+      "same": true
+    },
+    {
+      "index": 244,
+      "simp": "尺",
+      "trad": "尺",
+      "same": true
+    },
+    {
+      "index": 245,
+      "simp": "尾",
+      "trad": "尾",
+      "same": true
+    },
+    {
+      "index": 246,
+      "simp": "局",
+      "trad": "局",
+      "same": true
+    },
+    {
+      "index": 247,
+      "simp": "居",
+      "trad": "居",
+      "same": true
+    },
+    {
+      "index": 248,
+      "simp": "屋",
+      "trad": "屋",
+      "same": true
+    },
+    {
+      "index": 249,
+      "simp": "展",
+      "trad": "展",
+      "same": true
+    },
+    {
+      "index": 250,
+      "simp": "山",
+      "trad": "山",
+      "same": true
+    },
+    {
+      "index": 251,
+      "simp": "岛",
+      "trad": "島",
+      "same": false
+    },
+    {
+      "index": 252,
+      "simp": "崇",
+      "trad": "崇",
+      "same": true
+    },
+    {
+      "index": 253,
+      "simp": "川",
+      "trad": "川",
+      "same": true
+    },
+    {
+      "index": 254,
+      "simp": "工",
+      "trad": "工",
+      "same": true
+    },
+    {
+      "index": 255,
+      "simp": "左",
+      "trad": "左",
+      "same": true
+    },
+    {
+      "index": 256,
+      "simp": "巨",
+      "trad": "巨",
+      "same": true
+    },
+    {
+      "index": 257,
+      "simp": "己",
+      "trad": "己",
+      "same": true
+    },
+    {
+      "index": 258,
+      "simp": "已",
+      "trad": "已",
+      "same": true
+    },
+    {
+      "index": 259,
+      "simp": "市",
+      "trad": "市",
+      "same": true
+    },
+    {
+      "index": 260,
+      "simp": "布",
+      "trad": "布",
+      "same": true
+    },
+    {
+      "index": 261,
+      "simp": "希",
+      "trad": "希",
+      "same": true
+    },
+    {
+      "index": 262,
+      "simp": "师",
+      "trad": "師",
+      "same": false
+    },
+    {
+      "index": 263,
+      "simp": "席",
+      "trad": "席",
+      "same": true
+    },
+    {
+      "index": 264,
+      "simp": "常",
+      "trad": "常",
+      "same": true
+    },
+    {
+      "index": 265,
+      "simp": "平",
+      "trad": "平",
+      "same": true
+    },
+    {
+      "index": 266,
+      "simp": "年",
+      "trad": "年",
+      "same": true
+    },
+    {
+      "index": 267,
+      "simp": "幸",
+      "trad": "幸",
+      "same": true
+    },
+    {
+      "index": 268,
+      "simp": "幼",
+      "trad": "幼",
+      "same": true
+    },
+    {
+      "index": 269,
+      "simp": "序",
+      "trad": "序",
+      "same": true
+    },
+    {
+      "index": 270,
+      "simp": "店",
+      "trad": "店",
+      "same": true
+    },
+    {
+      "index": 271,
+      "simp": "度",
+      "trad": "度",
+      "same": true
+    },
+    {
+      "index": 272,
+      "simp": "庭",
+      "trad": "庭",
+      "same": true
+    },
+    {
+      "index": 273,
+      "simp": "广",
+      "trad": "廣",
+      "same": false
+    },
+    {
+      "index": 274,
+      "simp": "建",
+      "trad": "建",
+      "same": true
+    },
+    {
+      "index": 275,
+      "simp": "式",
+      "trad": "式",
+      "same": true
+    },
+    {
+      "index": 276,
+      "simp": "弓",
+      "trad": "弓",
+      "same": true
+    },
+    {
+      "index": 277,
+      "simp": "引",
+      "trad": "引",
+      "same": true
+    },
+    {
+      "index": 278,
+      "simp": "弟",
+      "trad": "弟",
+      "same": true
+    },
+    {
+      "index": 279,
+      "simp": "弱",
+      "trad": "弱",
+      "same": true
+    },
+    {
+      "index": 280,
+      "simp": "强",
+      "trad": "強",
+      "same": false
+    },
+    {
+      "index": 281,
+      "simp": "形",
+      "trad": "形",
+      "same": true
+    },
+    {
+      "index": 282,
+      "simp": "彼",
+      "trad": "彼",
+      "same": true
+    },
+    {
+      "index": 283,
+      "simp": "往",
+      "trad": "往",
+      "same": true
+    },
+    {
+      "index": 284,
+      "simp": "待",
+      "trad": "待",
+      "same": true
+    },
+    {
+      "index": 285,
+      "simp": "律",
+      "trad": "律",
+      "same": true
+    },
+    {
+      "index": 286,
+      "simp": "後",
+      "trad": "後",
+      "same": true
+    },
+    {
+      "index": 287,
+      "simp": "徒",
+      "trad": "徒",
+      "same": true
+    },
+    {
+      "index": 288,
+      "simp": "得",
+      "trad": "得",
+      "same": true
+    },
+    {
+      "index": 289,
+      "simp": "从",
+      "trad": "從",
+      "same": false
+    },
+    {
+      "index": 290,
+      "simp": "德",
+      "trad": "德",
+      "same": true
+    },
+    {
+      "index": 291,
+      "simp": "心",
+      "trad": "心",
+      "same": true
+    },
+    {
+      "index": 292,
+      "simp": "必",
+      "trad": "必",
+      "same": true
+    },
+    {
+      "index": 293,
+      "simp": "忍",
+      "trad": "忍",
+      "same": true
+    },
+    {
+      "index": 294,
+      "simp": "志",
+      "trad": "志",
+      "same": true
+    },
+    {
+      "index": 295,
+      "simp": "忘",
+      "trad": "忘",
+      "same": true
+    },
+    {
+      "index": 296,
+      "simp": "忙",
+      "trad": "忙",
+      "same": true
+    },
+    {
+      "index": 297,
+      "simp": "忠",
+      "trad": "忠",
+      "same": true
+    },
+    {
+      "index": 298,
+      "simp": "快",
+      "trad": "快",
+      "same": true
+    },
+    {
+      "index": 299,
+      "simp": "念",
+      "trad": "念",
+      "same": true
+    },
+    {
+      "index": 300,
+      "simp": "怒",
+      "trad": "怒",
+      "same": true
+    },
+    {
+      "index": 301,
+      "simp": "思",
+      "trad": "思",
+      "same": true
+    },
+    {
+      "index": 302,
+      "simp": "急",
+      "trad": "急",
+      "same": true
+    },
+    {
+      "index": 303,
+      "simp": "性",
+      "trad": "性",
+      "same": true
+    },
+    {
+      "index": 304,
+      "simp": "怨",
+      "trad": "怨",
+      "same": true
+    },
+    {
+      "index": 305,
+      "simp": "恨",
+      "trad": "恨",
+      "same": true
+    },
+    {
+      "index": 306,
+      "simp": "恩",
+      "trad": "恩",
+      "same": true
+    },
+    {
+      "index": 307,
+      "simp": "悟",
+      "trad": "悟",
+      "same": true
+    },
+    {
+      "index": 308,
+      "simp": "患",
+      "trad": "患",
+      "same": true
+    },
+    {
+      "index": 309,
+      "simp": "悲",
+      "trad": "悲",
+      "same": true
+    },
+    {
+      "index": 310,
+      "simp": "情",
+      "trad": "情",
+      "same": true
+    },
+    {
+      "index": 311,
+      "simp": "惜",
+      "trad": "惜",
+      "same": true
+    },
+    {
+      "index": 312,
+      "simp": "惠",
+      "trad": "惠",
+      "same": true
+    },
+    {
+      "index": 313,
+      "simp": "恶",
+      "trad": "惡",
+      "same": false
+    },
+    {
+      "index": 314,
+      "simp": "想",
+      "trad": "想",
+      "same": true
+    },
+    {
+      "index": 315,
+      "simp": "愁",
+      "trad": "愁",
+      "same": true
+    },
+    {
+      "index": 316,
+      "simp": "意",
+      "trad": "意",
+      "same": true
+    },
+    {
+      "index": 317,
+      "simp": "爱",
+      "trad": "愛",
+      "same": false
+    },
+    {
+      "index": 318,
+      "simp": "感",
+      "trad": "感",
+      "same": true
+    },
+    {
+      "index": 319,
+      "simp": "慈",
+      "trad": "慈",
+      "same": true
+    },
+    {
+      "index": 320,
+      "simp": "庆",
+      "trad": "慶",
+      "same": false
+    },
+    {
+      "index": 321,
+      "simp": "忧",
+      "trad": "憂",
+      "same": false
+    },
+    {
+      "index": 322,
+      "simp": "忆",
+      "trad": "憶",
+      "same": false
+    },
+    {
+      "index": 323,
+      "simp": "应",
+      "trad": "應",
+      "same": false
+    },
+    {
+      "index": 324,
+      "simp": "成",
+      "trad": "成",
+      "same": true
+    },
+    {
+      "index": 325,
+      "simp": "我",
+      "trad": "我",
+      "same": true
+    },
+    {
+      "index": 326,
+      "simp": "战",
+      "trad": "戰",
+      "same": false
+    },
+    {
+      "index": 327,
+      "simp": "户",
+      "trad": "戶",
+      "same": false
+    },
+    {
+      "index": 328,
+      "simp": "所",
+      "trad": "所",
+      "same": true
+    },
+    {
+      "index": 329,
+      "simp": "手",
+      "trad": "手",
+      "same": true
+    },
+    {
+      "index": 330,
+      "simp": "才",
+      "trad": "才",
+      "same": true
+    },
+    {
+      "index": 331,
+      "simp": "打",
+      "trad": "打",
+      "same": true
+    },
+    {
+      "index": 332,
+      "simp": "扶",
+      "trad": "扶",
+      "same": true
+    },
+    {
+      "index": 333,
+      "simp": "承",
+      "trad": "承",
+      "same": true
+    },
+    {
+      "index": 334,
+      "simp": "技",
+      "trad": "技",
+      "same": true
+    },
+    {
+      "index": 335,
+      "simp": "投",
+      "trad": "投",
+      "same": true
+    },
+    {
+      "index": 336,
+      "simp": "抱",
+      "trad": "抱",
+      "same": true
+    },
+    {
+      "index": 337,
+      "simp": "招",
+      "trad": "招",
+      "same": true
+    },
+    {
+      "index": 338,
+      "simp": "拜",
+      "trad": "拜",
+      "same": true
+    },
+    {
+      "index": 339,
+      "simp": "拾",
+      "trad": "拾",
+      "same": true
+    },
+    {
+      "index": 340,
+      "simp": "持",
+      "trad": "持",
+      "same": true
+    },
+    {
+      "index": 341,
+      "simp": "指",
+      "trad": "指",
+      "same": true
+    },
+    {
+      "index": 342,
+      "simp": "授",
+      "trad": "授",
+      "same": true
+    },
+    {
+      "index": 343,
+      "simp": "采",
+      "trad": "採",
+      "same": false
+    },
+    {
+      "index": 344,
+      "simp": "探",
+      "trad": "探",
+      "same": true
+    },
+    {
+      "index": 345,
+      "simp": "接",
+      "trad": "接",
+      "same": true
+    },
+    {
+      "index": 346,
+      "simp": "推",
+      "trad": "推",
+      "same": true
+    },
+    {
+      "index": 347,
+      "simp": "扬",
+      "trad": "揚",
+      "same": false
+    },
+    {
+      "index": 348,
+      "simp": "支",
+      "trad": "支",
+      "same": true
+    },
+    {
+      "index": 349,
+      "simp": "收",
+      "trad": "收",
+      "same": true
+    },
+    {
+      "index": 350,
+      "simp": "改",
+      "trad": "改",
+      "same": true
+    },
+    {
+      "index": 351,
+      "simp": "放",
+      "trad": "放",
+      "same": true
+    },
+    {
+      "index": 352,
+      "simp": "政",
+      "trad": "政",
+      "same": true
+    },
+    {
+      "index": 353,
+      "simp": "故",
+      "trad": "故",
+      "same": true
+    },
+    {
+      "index": 354,
+      "simp": "效",
+      "trad": "效",
+      "same": true
+    },
+    {
+      "index": 355,
+      "simp": "救",
+      "trad": "救",
+      "same": true
+    },
+    {
+      "index": 356,
+      "simp": "败",
+      "trad": "敗",
+      "same": false
+    },
+    {
+      "index": 357,
+      "simp": "教",
+      "trad": "教",
+      "same": true
+    },
+    {
+      "index": 358,
+      "simp": "敢",
+      "trad": "敢",
+      "same": true
+    },
+    {
+      "index": 359,
+      "simp": "散",
+      "trad": "散",
+      "same": true
+    },
+    {
+      "index": 360,
+      "simp": "敬",
+      "trad": "敬",
+      "same": true
+    },
+    {
+      "index": 361,
+      "simp": "敌",
+      "trad": "敵",
+      "same": false
+    },
+    {
+      "index": 362,
+      "simp": "数",
+      "trad": "數",
+      "same": false
+    },
+    {
+      "index": 363,
+      "simp": "文",
+      "trad": "文",
+      "same": true
+    },
+    {
+      "index": 364,
+      "simp": "料",
+      "trad": "料",
+      "same": true
+    },
+    {
+      "index": 365,
+      "simp": "新",
+      "trad": "新",
+      "same": true
+    },
+    {
+      "index": 366,
+      "simp": "方",
+      "trad": "方",
+      "same": true
+    },
+    {
+      "index": 367,
+      "simp": "施",
+      "trad": "施",
+      "same": true
+    },
+    {
+      "index": 368,
+      "simp": "旅",
+      "trad": "旅",
+      "same": true
+    },
+    {
+      "index": 369,
+      "simp": "族",
+      "trad": "族",
+      "same": true
+    },
+    {
+      "index": 370,
+      "simp": "日",
+      "trad": "日",
+      "same": true
+    },
+    {
+      "index": 371,
+      "simp": "早",
+      "trad": "早",
+      "same": true
+    },
+    {
+      "index": 372,
+      "simp": "明",
+      "trad": "明",
+      "same": true
+    },
+    {
+      "index": 373,
+      "simp": "易",
+      "trad": "易",
+      "same": true
+    },
+    {
+      "index": 374,
+      "simp": "昔",
+      "trad": "昔",
+      "same": true
+    },
+    {
+      "index": 375,
+      "simp": "星",
+      "trad": "星",
+      "same": true
+    },
+    {
+      "index": 376,
+      "simp": "春",
+      "trad": "春",
+      "same": true
+    },
+    {
+      "index": 377,
+      "simp": "昨",
+      "trad": "昨",
+      "same": true
+    },
+    {
+      "index": 378,
+      "simp": "是",
+      "trad": "是",
+      "same": true
+    },
+    {
+      "index": 379,
+      "simp": "时",
+      "trad": "時",
+      "same": false
+    },
+    {
+      "index": 380,
+      "simp": "晚",
+      "trad": "晚",
+      "same": true
+    },
+    {
+      "index": 381,
+      "simp": "昼",
+      "trad": "晝",
+      "same": false
+    },
+    {
+      "index": 382,
+      "simp": "景",
+      "trad": "景",
+      "same": true
+    },
+    {
+      "index": 383,
+      "simp": "晴",
+      "trad": "晴",
+      "same": true
+    },
+    {
+      "index": 384,
+      "simp": "暑",
+      "trad": "暑",
+      "same": true
+    },
+    {
+      "index": 385,
+      "simp": "暖",
+      "trad": "暖",
+      "same": true
+    },
+    {
+      "index": 386,
+      "simp": "暗",
+      "trad": "暗",
+      "same": true
+    },
+    {
+      "index": 387,
+      "simp": "暮",
+      "trad": "暮",
+      "same": true
+    },
+    {
+      "index": 388,
+      "simp": "暴",
+      "trad": "暴",
+      "same": true
+    },
+    {
+      "index": 389,
+      "simp": "曲",
+      "trad": "曲",
+      "same": true
+    },
+    {
+      "index": 390,
+      "simp": "更",
+      "trad": "更",
+      "same": true
+    },
+    {
+      "index": 391,
+      "simp": "书",
+      "trad": "書",
+      "same": false
+    },
+    {
+      "index": 392,
+      "simp": "最",
+      "trad": "最",
+      "same": true
+    },
+    {
+      "index": 393,
+      "simp": "会",
+      "trad": "會",
+      "same": false
+    },
+    {
+      "index": 394,
+      "simp": "月",
+      "trad": "月",
+      "same": true
+    },
+    {
+      "index": 395,
+      "simp": "有",
+      "trad": "有",
+      "same": true
+    },
+    {
+      "index": 396,
+      "simp": "服",
+      "trad": "服",
+      "same": true
+    },
+    {
+      "index": 397,
+      "simp": "望",
+      "trad": "望",
+      "same": true
+    },
+    {
+      "index": 398,
+      "simp": "朝",
+      "trad": "朝",
+      "same": true
+    },
+    {
+      "index": 399,
+      "simp": "期",
+      "trad": "期",
+      "same": true
+    },
+    {
+      "index": 400,
+      "simp": "木",
+      "trad": "木",
+      "same": true
+    },
+    {
+      "index": 401,
+      "simp": "未",
+      "trad": "未",
+      "same": true
+    },
+    {
+      "index": 402,
+      "simp": "末",
+      "trad": "末",
+      "same": true
+    },
+    {
+      "index": 403,
+      "simp": "本",
+      "trad": "本",
+      "same": true
+    },
+    {
+      "index": 404,
+      "simp": "朱",
+      "trad": "朱",
+      "same": true
+    },
+    {
+      "index": 405,
+      "simp": "材",
+      "trad": "材",
+      "same": true
+    },
+    {
+      "index": 406,
+      "simp": "村",
+      "trad": "村",
+      "same": true
+    },
+    {
+      "index": 407,
+      "simp": "东",
+      "trad": "東",
+      "same": false
+    },
+    {
+      "index": 408,
+      "simp": "松",
+      "trad": "松",
+      "same": true
+    },
+    {
+      "index": 409,
+      "simp": "林",
+      "trad": "林",
+      "same": true
+    },
+    {
+      "index": 410,
+      "simp": "果",
+      "trad": "果",
+      "same": true
+    },
+    {
+      "index": 411,
+      "simp": "枝",
+      "trad": "枝",
+      "same": true
+    },
+    {
+      "index": 412,
+      "simp": "柔",
+      "trad": "柔",
+      "same": true
+    },
+    {
+      "index": 413,
+      "simp": "校",
+      "trad": "校",
+      "same": true
+    },
+    {
+      "index": 414,
+      "simp": "根",
+      "trad": "根",
+      "same": true
+    },
+    {
+      "index": 415,
+      "simp": "栽",
+      "trad": "栽",
+      "same": true
+    },
+    {
+      "index": 416,
+      "simp": "案",
+      "trad": "案",
+      "same": true
+    },
+    {
+      "index": 417,
+      "simp": "植",
+      "trad": "植",
+      "same": true
+    },
+    {
+      "index": 418,
+      "simp": "业",
+      "trad": "業",
+      "same": false
+    },
+    {
+      "index": 419,
+      "simp": "极",
+      "trad": "極",
+      "same": false
+    },
+    {
+      "index": 420,
+      "simp": "荣",
+      "trad": "榮",
+      "same": false
+    },
+    {
+      "index": 421,
+      "simp": "乐",
+      "trad": "樂",
+      "same": false
+    },
+    {
+      "index": 422,
+      "simp": "树",
+      "trad": "樹",
+      "same": false
+    },
+    {
+      "index": 423,
+      "simp": "桥",
+      "trad": "橋",
+      "same": false
+    },
+    {
+      "index": 424,
+      "simp": "权",
+      "trad": "權",
+      "same": false
+    },
+    {
+      "index": 425,
+      "simp": "次",
+      "trad": "次",
+      "same": true
+    },
+    {
+      "index": 426,
+      "simp": "欲",
+      "trad": "欲",
+      "same": true
+    },
+    {
+      "index": 427,
+      "simp": "歌",
+      "trad": "歌",
+      "same": true
+    },
+    {
+      "index": 428,
+      "simp": "欢",
+      "trad": "歡",
+      "same": false
+    },
+    {
+      "index": 429,
+      "simp": "止",
+      "trad": "止",
+      "same": true
+    },
+    {
+      "index": 430,
+      "simp": "正",
+      "trad": "正",
+      "same": true
+    },
+    {
+      "index": 431,
+      "simp": "步",
+      "trad": "步",
+      "same": true
+    },
+    {
+      "index": 432,
+      "simp": "武",
+      "trad": "武",
+      "same": true
+    },
+    {
+      "index": 433,
+      "simp": "岁",
+      "trad": "歲",
+      "same": false
+    },
+    {
+      "index": 434,
+      "simp": "历",
+      "trad": "歷",
+      "same": false
+    },
+    {
+      "index": 435,
+      "simp": "归",
+      "trad": "歸",
+      "same": false
+    },
+    {
+      "index": 436,
+      "simp": "死",
+      "trad": "死",
+      "same": true
+    },
+    {
+      "index": 437,
+      "simp": "杀",
+      "trad": "殺",
+      "same": false
+    },
+    {
+      "index": 438,
+      "simp": "母",
+      "trad": "母",
+      "same": true
+    },
+    {
+      "index": 439,
+      "simp": "每",
+      "trad": "每",
+      "same": true
+    },
+    {
+      "index": 440,
+      "simp": "比",
+      "trad": "比",
+      "same": true
+    },
+    {
+      "index": 441,
+      "simp": "毛",
+      "trad": "毛",
+      "same": true
+    },
+    {
+      "index": 442,
+      "simp": "氏",
+      "trad": "氏",
+      "same": true
+    },
+    {
+      "index": 443,
+      "simp": "民",
+      "trad": "民",
+      "same": true
+    },
+    {
+      "index": 444,
+      "simp": "气",
+      "trad": "氣",
+      "same": false
+    },
+    {
+      "index": 445,
+      "simp": "水",
+      "trad": "水",
+      "same": true
+    },
+    {
+      "index": 446,
+      "simp": "永",
+      "trad": "永",
+      "same": true
+    },
+    {
+      "index": 447,
+      "simp": "江",
+      "trad": "江",
+      "same": true
+    },
+    {
+      "index": 448,
+      "simp": "决",
+      "trad": "決",
+      "same": false
+    },
+    {
+      "index": 449,
+      "simp": "河",
+      "trad": "河",
+      "same": true
+    },
+    {
+      "index": 450,
+      "simp": "油",
+      "trad": "油",
+      "same": true
+    },
+    {
+      "index": 451,
+      "simp": "治",
+      "trad": "治",
+      "same": true
+    },
+    {
+      "index": 452,
+      "simp": "泉",
+      "trad": "泉",
+      "same": true
+    },
+    {
+      "index": 453,
+      "simp": "法",
+      "trad": "法",
+      "same": true
+    },
+    {
+      "index": 454,
+      "simp": "波",
+      "trad": "波",
+      "same": true
+    },
+    {
+      "index": 455,
+      "simp": "泣",
+      "trad": "泣",
+      "same": true
+    },
+    {
+      "index": 456,
+      "simp": "注",
+      "trad": "注",
+      "same": true
+    },
+    {
+      "index": 457,
+      "simp": "泰",
+      "trad": "泰",
+      "same": true
+    },
+    {
+      "index": 458,
+      "simp": "洋",
+      "trad": "洋",
+      "same": true
+    },
+    {
+      "index": 459,
+      "simp": "洗",
+      "trad": "洗",
+      "same": true
+    },
+    {
+      "index": 460,
+      "simp": "活",
+      "trad": "活",
+      "same": true
+    },
+    {
+      "index": 461,
+      "simp": "流",
+      "trad": "流",
+      "same": true
+    },
+    {
+      "index": 462,
+      "simp": "浪",
+      "trad": "浪",
+      "same": true
+    },
+    {
+      "index": 463,
+      "simp": "浮",
+      "trad": "浮",
+      "same": true
+    },
+    {
+      "index": 464,
+      "simp": "浴",
+      "trad": "浴",
+      "same": true
+    },
+    {
+      "index": 465,
+      "simp": "海",
+      "trad": "海",
+      "same": true
+    },
+    {
+      "index": 466,
+      "simp": "消",
+      "trad": "消",
+      "same": true
+    },
+    {
+      "index": 467,
+      "simp": "凉",
+      "trad": "涼",
+      "same": false
+    },
+    {
+      "index": 468,
+      "simp": "净",
+      "trad": "淨",
+      "same": false
+    },
+    {
+      "index": 469,
+      "simp": "深",
+      "trad": "深",
+      "same": true
+    },
+    {
+      "index": 470,
+      "simp": "混",
+      "trad": "混",
+      "same": true
+    },
+    {
+      "index": 471,
+      "simp": "浅",
+      "trad": "淺",
+      "same": false
+    },
+    {
+      "index": 472,
+      "simp": "清",
+      "trad": "清",
+      "same": true
+    },
+    {
+      "index": 473,
+      "simp": "减",
+      "trad": "減",
+      "same": false
+    },
+    {
+      "index": 474,
+      "simp": "湖",
+      "trad": "湖",
+      "same": true
+    },
+    {
+      "index": 475,
+      "simp": "温",
+      "trad": "溫",
+      "same": false
+    },
+    {
+      "index": 476,
+      "simp": "满",
+      "trad": "滿",
+      "same": false
+    },
+    {
+      "index": 477,
+      "simp": "渔",
+      "trad": "漁",
+      "same": false
+    },
+    {
+      "index": 478,
+      "simp": "汉",
+      "trad": "漢",
+      "same": false
+    },
+    {
+      "index": 479,
+      "simp": "洁",
+      "trad": "潔",
+      "same": false
+    },
+    {
+      "index": 480,
+      "simp": "火",
+      "trad": "火",
+      "same": true
+    },
+    {
+      "index": 481,
+      "simp": "烈",
+      "trad": "烈",
+      "same": true
+    },
+    {
+      "index": 482,
+      "simp": "无",
+      "trad": "無",
+      "same": false
+    },
+    {
+      "index": 483,
+      "simp": "然",
+      "trad": "然",
+      "same": true
+    },
+    {
+      "index": 484,
+      "simp": "烟",
+      "trad": "煙",
+      "same": false
+    },
+    {
+      "index": 485,
+      "simp": "热",
+      "trad": "熱",
+      "same": false
+    },
+    {
+      "index": 486,
+      "simp": "灯",
+      "trad": "燈",
+      "same": false
+    },
+    {
+      "index": 487,
+      "simp": "争",
+      "trad": "爭",
+      "same": false
+    },
+    {
+      "index": 488,
+      "simp": "父",
+      "trad": "父",
+      "same": true
+    },
+    {
+      "index": 489,
+      "simp": "片",
+      "trad": "片",
+      "same": true
+    },
+    {
+      "index": 490,
+      "simp": "牛",
+      "trad": "牛",
+      "same": true
+    },
+    {
+      "index": 491,
+      "simp": "物",
+      "trad": "物",
+      "same": true
+    },
+    {
+      "index": 492,
+      "simp": "特",
+      "trad": "特",
+      "same": true
+    },
+    {
+      "index": 493,
+      "simp": "犬",
+      "trad": "犬",
+      "same": true
+    },
+    {
+      "index": 494,
+      "simp": "独",
+      "trad": "獨",
+      "same": false
+    },
+    {
+      "index": 495,
+      "simp": "玉",
+      "trad": "玉",
+      "same": true
+    },
+    {
+      "index": 496,
+      "simp": "王",
+      "trad": "王",
+      "same": true
+    },
+    {
+      "index": 497,
+      "simp": "现",
+      "trad": "現",
+      "same": false
+    },
+    {
+      "index": 498,
+      "simp": "球",
+      "trad": "球",
+      "same": true
+    },
+    {
+      "index": 499,
+      "simp": "理",
+      "trad": "理",
+      "same": true
+    },
+    {
+      "index": 500,
+      "simp": "甘",
+      "trad": "甘",
+      "same": true
+    },
+    {
+      "index": 501,
+      "simp": "生",
+      "trad": "生",
+      "same": true
+    },
+    {
+      "index": 502,
+      "simp": "产",
+      "trad": "產",
+      "same": false
+    },
+    {
+      "index": 503,
+      "simp": "用",
+      "trad": "用",
+      "same": true
+    },
+    {
+      "index": 504,
+      "simp": "田",
+      "trad": "田",
+      "same": true
+    },
+    {
+      "index": 505,
+      "simp": "由",
+      "trad": "由",
+      "same": true
+    },
+    {
+      "index": 506,
+      "simp": "申",
+      "trad": "申",
+      "same": true
+    },
+    {
+      "index": 507,
+      "simp": "男",
+      "trad": "男",
+      "same": true
+    },
+    {
+      "index": 508,
+      "simp": "界",
+      "trad": "界",
+      "same": true
+    },
+    {
+      "index": 509,
+      "simp": "留",
+      "trad": "留",
+      "same": true
+    },
+    {
+      "index": 510,
+      "simp": "番",
+      "trad": "番",
+      "same": true
+    },
+    {
+      "index": 511,
+      "simp": "画",
+      "trad": "畫",
+      "same": false
+    },
+    {
+      "index": 512,
+      "simp": "异",
+      "trad": "異",
+      "same": false
+    },
+    {
+      "index": 513,
+      "simp": "当",
+      "trad": "當",
+      "same": false
+    },
+    {
+      "index": 514,
+      "simp": "病",
+      "trad": "病",
+      "same": true
+    },
+    {
+      "index": 515,
+      "simp": "登",
+      "trad": "登",
+      "same": true
+    },
+    {
+      "index": 516,
+      "simp": "发",
+      "trad": "發",
+      "same": false
+    },
+    {
+      "index": 517,
+      "simp": "白",
+      "trad": "白",
+      "same": true
+    },
+    {
+      "index": 518,
+      "simp": "百",
+      "trad": "百",
+      "same": true
+    },
+    {
+      "index": 519,
+      "simp": "的",
+      "trad": "的",
+      "same": true
+    },
+    {
+      "index": 520,
+      "simp": "皆",
+      "trad": "皆",
+      "same": true
+    },
+    {
+      "index": 521,
+      "simp": "皇",
+      "trad": "皇",
+      "same": true
+    },
+    {
+      "index": 522,
+      "simp": "皮",
+      "trad": "皮",
+      "same": true
+    },
+    {
+      "index": 523,
+      "simp": "益",
+      "trad": "益",
+      "same": true
+    },
+    {
+      "index": 524,
+      "simp": "盛",
+      "trad": "盛",
+      "same": true
+    },
+    {
+      "index": 525,
+      "simp": "尽",
+      "trad": "盡",
+      "same": false
+    },
+    {
+      "index": 526,
+      "simp": "目",
+      "trad": "目",
+      "same": true
+    },
+    {
+      "index": 527,
+      "simp": "直",
+      "trad": "直",
+      "same": true
+    },
+    {
+      "index": 528,
+      "simp": "相",
+      "trad": "相",
+      "same": true
+    },
+    {
+      "index": 529,
+      "simp": "省",
+      "trad": "省",
+      "same": true
+    },
+    {
+      "index": 530,
+      "simp": "看",
+      "trad": "看",
+      "same": true
+    },
+    {
+      "index": 531,
+      "simp": "真",
+      "trad": "真",
+      "same": true
+    },
+    {
+      "index": 532,
+      "simp": "眠",
+      "trad": "眠",
+      "same": true
+    },
+    {
+      "index": 533,
+      "simp": "眼",
+      "trad": "眼",
+      "same": true
+    },
+    {
+      "index": 534,
+      "simp": "着",
+      "trad": "着",
+      "same": true
+    },
+    {
+      "index": 535,
+      "simp": "知",
+      "trad": "知",
+      "same": true
+    },
+    {
+      "index": 536,
+      "simp": "短",
+      "trad": "短",
+      "same": true
+    },
+    {
+      "index": 537,
+      "simp": "石",
+      "trad": "石",
+      "same": true
+    },
+    {
+      "index": 538,
+      "simp": "破",
+      "trad": "破",
+      "same": true
+    },
+    {
+      "index": 539,
+      "simp": "硏",
+      "trad": "硏",
+      "same": true
+    },
+    {
+      "index": 540,
+      "simp": "示",
+      "trad": "示",
+      "same": true
+    },
+    {
+      "index": 541,
+      "simp": "祖",
+      "trad": "祖",
+      "same": true
+    },
+    {
+      "index": 542,
+      "simp": "祝",
+      "trad": "祝",
+      "same": true
+    },
+    {
+      "index": 543,
+      "simp": "神",
+      "trad": "神",
+      "same": true
+    },
+    {
+      "index": 544,
+      "simp": "祭",
+      "trad": "祭",
+      "same": true
+    },
+    {
+      "index": 545,
+      "simp": "禁",
+      "trad": "禁",
+      "same": true
+    },
+    {
+      "index": 546,
+      "simp": "福",
+      "trad": "福",
+      "same": true
+    },
+    {
+      "index": 547,
+      "simp": "礼",
+      "trad": "禮",
+      "same": false
+    },
+    {
+      "index": 548,
+      "simp": "秀",
+      "trad": "秀",
+      "same": true
+    },
+    {
+      "index": 549,
+      "simp": "私",
+      "trad": "私",
+      "same": true
+    },
+    {
+      "index": 550,
+      "simp": "秋",
+      "trad": "秋",
+      "same": true
+    },
+    {
+      "index": 551,
+      "simp": "科",
+      "trad": "科",
+      "same": true
+    },
+    {
+      "index": 552,
+      "simp": "移",
+      "trad": "移",
+      "same": true
+    },
+    {
+      "index": 553,
+      "simp": "税",
+      "trad": "稅",
+      "same": false
+    },
+    {
+      "index": 554,
+      "simp": "种",
+      "trad": "種",
+      "same": false
+    },
+    {
+      "index": 555,
+      "simp": "谷",
+      "trad": "谷",
+      "same": true
+    },
+    {
+      "index": 556,
+      "simp": "究",
+      "trad": "究",
+      "same": true
+    },
+    {
+      "index": 557,
+      "simp": "空",
+      "trad": "空",
+      "same": true
+    },
+    {
+      "index": 558,
+      "simp": "窗",
+      "trad": "窗",
+      "same": true
+    },
+    {
+      "index": 559,
+      "simp": "立",
+      "trad": "立",
+      "same": true
+    },
+    {
+      "index": 560,
+      "simp": "章",
+      "trad": "章",
+      "same": true
+    },
+    {
+      "index": 561,
+      "simp": "童",
+      "trad": "童",
+      "same": true
+    },
+    {
+      "index": 562,
+      "simp": "端",
+      "trad": "端",
+      "same": true
+    },
+    {
+      "index": 563,
+      "simp": "竞",
+      "trad": "競",
+      "same": false
+    },
+    {
+      "index": 564,
+      "simp": "竹",
+      "trad": "竹",
+      "same": true
+    },
+    {
+      "index": 565,
+      "simp": "笑",
+      "trad": "笑",
+      "same": true
+    },
+    {
+      "index": 566,
+      "simp": "第",
+      "trad": "第",
+      "same": true
+    },
+    {
+      "index": 567,
+      "simp": "笔",
+      "trad": "筆",
+      "same": false
+    },
+    {
+      "index": 568,
+      "simp": "等",
+      "trad": "等",
+      "same": true
+    },
+    {
+      "index": 569,
+      "simp": "答",
+      "trad": "答",
+      "same": true
+    },
+    {
+      "index": 570,
+      "simp": "算",
+      "trad": "算",
+      "same": true
+    },
+    {
+      "index": 571,
+      "simp": "节",
+      "trad": "節",
+      "same": false
+    },
+    {
+      "index": 572,
+      "simp": "米",
+      "trad": "米",
+      "same": true
+    },
+    {
+      "index": 573,
+      "simp": "精",
+      "trad": "精",
+      "same": true
+    },
+    {
+      "index": 574,
+      "simp": "约",
+      "trad": "約",
+      "same": false
+    },
+    {
+      "index": 575,
+      "simp": "红",
+      "trad": "紅",
+      "same": false
+    },
+    {
+      "index": 576,
+      "simp": "纯",
+      "trad": "純",
+      "same": false
+    },
+    {
+      "index": 577,
+      "simp": "纸",
+      "trad": "紙",
+      "same": false
+    },
+    {
+      "index": 578,
+      "simp": "素",
+      "trad": "素",
+      "same": true
+    },
+    {
+      "index": 579,
+      "simp": "细",
+      "trad": "細",
+      "same": false
+    },
+    {
+      "index": 580,
+      "simp": "终",
+      "trad": "終",
+      "same": false
+    },
+    {
+      "index": 581,
+      "simp": "结",
+      "trad": "結",
+      "same": false
+    },
+    {
+      "index": 582,
+      "simp": "绝",
+      "trad": "絕",
+      "same": false
+    },
+    {
+      "index": 583,
+      "simp": "给",
+      "trad": "給",
+      "same": false
+    },
+    {
+      "index": 584,
+      "simp": "统",
+      "trad": "統",
+      "same": false
+    },
+    {
+      "index": 585,
+      "simp": "经",
+      "trad": "經",
+      "same": false
+    },
+    {
+      "index": 586,
+      "simp": "绿",
+      "trad": "綠",
+      "same": false
+    },
+    {
+      "index": 587,
+      "simp": "线",
+      "trad": "線",
+      "same": false
+    },
+    {
+      "index": 588,
+      "simp": "练",
+      "trad": "練",
+      "same": false
+    },
+    {
+      "index": 589,
+      "simp": "续",
+      "trad": "續",
+      "same": false
+    },
+    {
+      "index": 590,
+      "simp": "罪",
+      "trad": "罪",
+      "same": true
+    },
+    {
+      "index": 591,
+      "simp": "羊",
+      "trad": "羊",
+      "same": true
+    },
+    {
+      "index": 592,
+      "simp": "美",
+      "trad": "美",
+      "same": true
+    },
+    {
+      "index": 593,
+      "simp": "义",
+      "trad": "義",
+      "same": false
+    },
+    {
+      "index": 594,
+      "simp": "习",
+      "trad": "習",
+      "same": false
+    },
+    {
+      "index": 595,
+      "simp": "老",
+      "trad": "老",
+      "same": true
+    },
+    {
+      "index": 596,
+      "simp": "考",
+      "trad": "考",
+      "same": true
+    },
+    {
+      "index": 597,
+      "simp": "者",
+      "trad": "者",
+      "same": true
+    },
+    {
+      "index": 598,
+      "simp": "耕",
+      "trad": "耕",
+      "same": true
+    },
+    {
+      "index": 599,
+      "simp": "耳",
+      "trad": "耳",
+      "same": true
+    },
+    {
+      "index": 600,
+      "simp": "圣",
+      "trad": "聖",
+      "same": false
+    },
+    {
+      "index": 601,
+      "simp": "闻",
+      "trad": "聞",
+      "same": false
+    },
+    {
+      "index": 602,
+      "simp": "声",
+      "trad": "聲",
+      "same": false
+    },
+    {
+      "index": 603,
+      "simp": "听",
+      "trad": "聽",
+      "same": false
+    },
+    {
+      "index": 604,
+      "simp": "肉",
+      "trad": "肉",
+      "same": true
+    },
+    {
+      "index": 605,
+      "simp": "育",
+      "trad": "育",
+      "same": true
+    },
+    {
+      "index": 606,
+      "simp": "胸",
+      "trad": "胸",
+      "same": true
+    },
+    {
+      "index": 607,
+      "simp": "能",
+      "trad": "能",
+      "same": true
+    },
+    {
+      "index": 608,
+      "simp": "脱",
+      "trad": "脫",
+      "same": false
+    },
+    {
+      "index": 609,
+      "simp": "臣",
+      "trad": "臣",
+      "same": true
+    },
+    {
+      "index": 610,
+      "simp": "自",
+      "trad": "自",
+      "same": true
+    },
+    {
+      "index": 611,
+      "simp": "至",
+      "trad": "至",
+      "same": true
+    },
+    {
+      "index": 612,
+      "simp": "致",
+      "trad": "致",
+      "same": true
+    },
+    {
+      "index": 613,
+      "simp": "与",
+      "trad": "與",
+      "same": false
+    },
+    {
+      "index": 614,
+      "simp": "兴",
+      "trad": "興",
+      "same": false
+    },
+    {
+      "index": 615,
+      "simp": "举",
+      "trad": "舉",
+      "same": false
+    },
+    {
+      "index": 616,
+      "simp": "旧",
+      "trad": "舊",
+      "same": false
+    },
+    {
+      "index": 617,
+      "simp": "舌",
+      "trad": "舌",
+      "same": true
+    },
+    {
+      "index": 618,
+      "simp": "舍",
+      "trad": "舍",
+      "same": true
+    },
+    {
+      "index": 619,
+      "simp": "舞",
+      "trad": "舞",
+      "same": true
+    },
+    {
+      "index": 620,
+      "simp": "船",
+      "trad": "船",
+      "same": true
+    },
+    {
+      "index": 621,
+      "simp": "良",
+      "trad": "良",
+      "same": true
+    },
+    {
+      "index": 622,
+      "simp": "色",
+      "trad": "色",
+      "same": true
+    },
+    {
+      "index": 623,
+      "simp": "花",
+      "trad": "花",
+      "same": true
+    },
+    {
+      "index": 624,
+      "simp": "若",
+      "trad": "若",
+      "same": true
+    },
+    {
+      "index": 625,
+      "simp": "苦",
+      "trad": "苦",
+      "same": true
+    },
+    {
+      "index": 626,
+      "simp": "英",
+      "trad": "英",
+      "same": true
+    },
+    {
+      "index": 627,
+      "simp": "茶",
+      "trad": "茶",
+      "same": true
+    },
+    {
+      "index": 628,
+      "simp": "草",
+      "trad": "草",
+      "same": true
+    },
+    {
+      "index": 629,
+      "simp": "菜",
+      "trad": "菜",
+      "same": true
+    },
+    {
+      "index": 630,
+      "simp": "华",
+      "trad": "華",
+      "same": false
+    },
+    {
+      "index": 631,
+      "simp": "万",
+      "trad": "萬",
+      "same": false
+    },
+    {
+      "index": 632,
+      "simp": "落",
+      "trad": "落",
+      "same": true
+    },
+    {
+      "index": 633,
+      "simp": "叶",
+      "trad": "葉",
+      "same": false
+    },
+    {
+      "index": 634,
+      "simp": "著",
+      "trad": "著",
+      "same": true
+    },
+    {
+      "index": 635,
+      "simp": "艺",
+      "trad": "藝",
+      "same": false
+    },
+    {
+      "index": 636,
+      "simp": "药",
+      "trad": "藥",
+      "same": false
+    },
+    {
+      "index": 637,
+      "simp": "虎",
+      "trad": "虎",
+      "same": true
+    },
+    {
+      "index": 638,
+      "simp": "处",
+      "trad": "處",
+      "same": false
+    },
+    {
+      "index": 639,
+      "simp": "虚",
+      "trad": "虛",
+      "same": false
+    },
+    {
+      "index": 640,
+      "simp": "号",
+      "trad": "號",
+      "same": false
+    },
+    {
+      "index": 641,
+      "simp": "虫",
+      "trad": "蟲",
+      "same": false
+    },
+    {
+      "index": 642,
+      "simp": "血",
+      "trad": "血",
+      "same": true
+    },
+    {
+      "index": 643,
+      "simp": "众",
+      "trad": "衆",
+      "same": false
+    },
+    {
+      "index": 644,
+      "simp": "行",
+      "trad": "行",
+      "same": true
+    },
+    {
+      "index": 645,
+      "simp": "街",
+      "trad": "街",
+      "same": true
+    },
+    {
+      "index": 646,
+      "simp": "衣",
+      "trad": "衣",
+      "same": true
+    },
+    {
+      "index": 647,
+      "simp": "表",
+      "trad": "表",
+      "same": true
+    },
+    {
+      "index": 648,
+      "simp": "制",
+      "trad": "制",
+      "same": true
+    },
+    {
+      "index": 649,
+      "simp": "西",
+      "trad": "西",
+      "same": true
+    },
+    {
+      "index": 650,
+      "simp": "要",
+      "trad": "要",
+      "same": true
+    },
+    {
+      "index": 651,
+      "simp": "见",
+      "trad": "見",
+      "same": false
+    },
+    {
+      "index": 652,
+      "simp": "视",
+      "trad": "視",
+      "same": false
+    },
+    {
+      "index": 653,
+      "simp": "亲",
+      "trad": "親",
+      "same": false
+    },
+    {
+      "index": 654,
+      "simp": "观",
+      "trad": "觀",
+      "same": false
+    },
+    {
+      "index": 655,
+      "simp": "角",
+      "trad": "角",
+      "same": true
+    },
+    {
+      "index": 656,
+      "simp": "解",
+      "trad": "解",
+      "same": true
+    },
+    {
+      "index": 657,
+      "simp": "言",
+      "trad": "言",
+      "same": true
+    },
+    {
+      "index": 658,
+      "simp": "计",
+      "trad": "計",
+      "same": false
+    },
+    {
+      "index": 659,
+      "simp": "训",
+      "trad": "訓",
+      "same": false
+    },
+    {
+      "index": 660,
+      "simp": "记",
+      "trad": "記",
+      "same": false
+    },
+    {
+      "index": 661,
+      "simp": "访",
+      "trad": "訪",
+      "same": false
+    },
+    {
+      "index": 662,
+      "simp": "设",
+      "trad": "設",
+      "same": false
+    },
+    {
+      "index": 663,
+      "simp": "许",
+      "trad": "許",
+      "same": false
+    },
+    {
+      "index": 664,
+      "simp": "试",
+      "trad": "試",
+      "same": false
+    },
+    {
+      "index": 665,
+      "simp": "诗",
+      "trad": "詩",
+      "same": false
+    },
+    {
+      "index": 666,
+      "simp": "话",
+      "trad": "話",
+      "same": false
+    },
+    {
+      "index": 667,
+      "simp": "认",
+      "trad": "認",
+      "same": false
+    },
+    {
+      "index": 668,
+      "simp": "语",
+      "trad": "語",
+      "same": false
+    },
+    {
+      "index": 669,
+      "simp": "诚",
+      "trad": "誠",
+      "same": false
+    },
+    {
+      "index": 670,
+      "simp": "误",
+      "trad": "誤",
+      "same": false
+    },
+    {
+      "index": 671,
+      "simp": "说",
+      "trad": "說",
+      "same": false
+    },
+    {
+      "index": 672,
+      "simp": "谁",
+      "trad": "誰",
+      "same": false
+    },
+    {
+      "index": 673,
+      "simp": "课",
+      "trad": "課",
+      "same": false
+    },
+    {
+      "index": 674,
+      "simp": "调",
+      "trad": "調",
+      "same": false
+    },
+    {
+      "index": 675,
+      "simp": "谈",
+      "trad": "談",
+      "same": false
+    },
+    {
+      "index": 676,
+      "simp": "请",
+      "trad": "請",
+      "same": false
+    },
+    {
+      "index": 677,
+      "simp": "论",
+      "trad": "論",
+      "same": false
+    },
+    {
+      "index": 678,
+      "simp": "诸",
+      "trad": "諸",
+      "same": false
+    },
+    {
+      "index": 679,
+      "simp": "讲",
+      "trad": "講",
+      "same": false
+    },
+    {
+      "index": 680,
+      "simp": "谢",
+      "trad": "謝",
+      "same": false
+    },
+    {
+      "index": 681,
+      "simp": "证",
+      "trad": "證",
+      "same": false
+    },
+    {
+      "index": 682,
+      "simp": "识",
+      "trad": "識",
+      "same": false
+    },
+    {
+      "index": 683,
+      "simp": "议",
+      "trad": "議",
+      "same": false
+    },
+    {
+      "index": 684,
+      "simp": "读",
+      "trad": "讀",
+      "same": false
+    },
+    {
+      "index": 685,
+      "simp": "变",
+      "trad": "變",
+      "same": false
+    },
+    {
+      "index": 686,
+      "simp": "让",
+      "trad": "讓",
+      "same": false
+    },
+    {
+      "index": 687,
+      "simp": "豆",
+      "trad": "豆",
+      "same": true
+    },
+    {
+      "index": 688,
+      "simp": "丰",
+      "trad": "豐",
+      "same": false
+    },
+    {
+      "index": 689,
+      "simp": "贝",
+      "trad": "貝",
+      "same": false
+    },
+    {
+      "index": 690,
+      "simp": "财",
+      "trad": "財",
+      "same": false
+    },
+    {
+      "index": 691,
+      "simp": "贫",
+      "trad": "貧",
+      "same": false
+    },
+    {
+      "index": 692,
+      "simp": "货",
+      "trad": "貨",
+      "same": false
+    },
+    {
+      "index": 693,
+      "simp": "责",
+      "trad": "責",
+      "same": false
+    },
+    {
+      "index": 694,
+      "simp": "贮",
+      "trad": "貯",
+      "same": false
+    },
+    {
+      "index": 695,
+      "simp": "贵",
+      "trad": "貴",
+      "same": false
+    },
+    {
+      "index": 696,
+      "simp": "买",
+      "trad": "買",
+      "same": false
+    },
+    {
+      "index": 697,
+      "simp": "贺",
+      "trad": "賀",
+      "same": false
+    },
+    {
+      "index": 698,
+      "simp": "赏",
+      "trad": "賞",
+      "same": false
+    },
+    {
+      "index": 699,
+      "simp": "贤",
+      "trad": "賢",
+      "same": false
+    },
+    {
+      "index": 700,
+      "simp": "卖",
+      "trad": "賣",
+      "same": false
+    },
+    {
+      "index": 701,
+      "simp": "质",
+      "trad": "質",
+      "same": false
+    },
+    {
+      "index": 702,
+      "simp": "赤",
+      "trad": "赤",
+      "same": true
+    },
+    {
+      "index": 703,
+      "simp": "走",
+      "trad": "走",
+      "same": true
+    },
+    {
+      "index": 704,
+      "simp": "起",
+      "trad": "起",
+      "same": true
+    },
+    {
+      "index": 705,
+      "simp": "足",
+      "trad": "足",
+      "same": true
+    },
+    {
+      "index": 706,
+      "simp": "路",
+      "trad": "路",
+      "same": true
+    },
+    {
+      "index": 707,
+      "simp": "身",
+      "trad": "身",
+      "same": true
+    },
+    {
+      "index": 708,
+      "simp": "车",
+      "trad": "車",
+      "same": false
+    },
+    {
+      "index": 709,
+      "simp": "军",
+      "trad": "軍",
+      "same": false
+    },
+    {
+      "index": 710,
+      "simp": "轻",
+      "trad": "輕",
+      "same": false
+    },
+    {
+      "index": 711,
+      "simp": "辛",
+      "trad": "辛",
+      "same": true
+    },
+    {
+      "index": 712,
+      "simp": "农",
+      "trad": "農",
+      "same": false
+    },
+    {
+      "index": 713,
+      "simp": "迎",
+      "trad": "迎",
+      "same": true
+    },
+    {
+      "index": 714,
+      "simp": "近",
+      "trad": "近",
+      "same": true
+    },
+    {
+      "index": 715,
+      "simp": "追",
+      "trad": "追",
+      "same": true
+    },
+    {
+      "index": 716,
+      "simp": "退",
+      "trad": "退",
+      "same": true
+    },
+    {
+      "index": 717,
+      "simp": "送",
+      "trad": "送",
+      "same": true
+    },
+    {
+      "index": 718,
+      "simp": "逆",
+      "trad": "逆",
+      "same": true
+    },
+    {
+      "index": 719,
+      "simp": "通",
+      "trad": "通",
+      "same": true
+    },
+    {
+      "index": 720,
+      "simp": "速",
+      "trad": "速",
+      "same": true
+    },
+    {
+      "index": 721,
+      "simp": "造",
+      "trad": "造",
+      "same": true
+    },
+    {
+      "index": 722,
+      "simp": "连",
+      "trad": "連",
+      "same": false
+    },
+    {
+      "index": 723,
+      "simp": "进",
+      "trad": "進",
+      "same": false
+    },
+    {
+      "index": 724,
+      "simp": "遇",
+      "trad": "遇",
+      "same": true
+    },
+    {
+      "index": 725,
+      "simp": "游",
+      "trad": "遊",
+      "same": false
+    },
+    {
+      "index": 726,
+      "simp": "运",
+      "trad": "運",
+      "same": false
+    },
+    {
+      "index": 727,
+      "simp": "过",
+      "trad": "過",
+      "same": false
+    },
+    {
+      "index": 728,
+      "simp": "道",
+      "trad": "道",
+      "same": true
+    },
+    {
+      "index": 729,
+      "simp": "达",
+      "trad": "達",
+      "same": false
+    },
+    {
+      "index": 730,
+      "simp": "远",
+      "trad": "遠",
+      "same": false
+    },
+    {
+      "index": 731,
+      "simp": "适",
+      "trad": "適",
+      "same": false
+    },
+    {
+      "index": 732,
+      "simp": "选",
+      "trad": "選",
+      "same": false
+    },
+    {
+      "index": 733,
+      "simp": "遗",
+      "trad": "遺",
+      "same": false
+    },
+    {
+      "index": 734,
+      "simp": "部",
+      "trad": "部",
+      "same": true
+    },
+    {
+      "index": 735,
+      "simp": "都",
+      "trad": "都",
+      "same": true
+    },
+    {
+      "index": 736,
+      "simp": "乡",
+      "trad": "鄉",
+      "same": false
+    },
+    {
+      "index": 737,
+      "simp": "酒",
+      "trad": "酒",
+      "same": true
+    },
+    {
+      "index": 738,
+      "simp": "医",
+      "trad": "醫",
+      "same": false
+    },
+    {
+      "index": 739,
+      "simp": "里",
+      "trad": "裏",
+      "same": false
+    },
+    {
+      "index": 740,
+      "simp": "重",
+      "trad": "重",
+      "same": true
+    },
+    {
+      "index": 741,
+      "simp": "野",
+      "trad": "野",
+      "same": true
+    },
+    {
+      "index": 742,
+      "simp": "量",
+      "trad": "量",
+      "same": true
+    },
+    {
+      "index": 743,
+      "simp": "金",
+      "trad": "金",
+      "same": true
+    },
+    {
+      "index": 744,
+      "simp": "针",
+      "trad": "針",
+      "same": false
+    },
+    {
+      "index": 745,
+      "simp": "银",
+      "trad": "銀",
+      "same": false
+    },
+    {
+      "index": 746,
+      "simp": "钱",
+      "trad": "錢",
+      "same": false
+    },
+    {
+      "index": 747,
+      "simp": "钟",
+      "trad": "鍾",
+      "same": false
+    },
+    {
+      "index": 748,
+      "simp": "铁",
+      "trad": "鐵",
+      "same": false
+    },
+    {
+      "index": 749,
+      "simp": "长",
+      "trad": "長",
+      "same": false
+    },
+    {
+      "index": 750,
+      "simp": "门",
+      "trad": "門",
+      "same": false
+    },
+    {
+      "index": 751,
+      "simp": "闭",
+      "trad": "閉",
+      "same": false
+    },
+    {
+      "index": 752,
+      "simp": "开",
+      "trad": "開",
+      "same": false
+    },
+    {
+      "index": 753,
+      "simp": "闲",
+      "trad": "閒",
+      "same": false
+    },
+    {
+      "index": 754,
+      "simp": "间",
+      "trad": "間",
+      "same": false
+    },
+    {
+      "index": 755,
+      "simp": "关",
+      "trad": "關",
+      "same": false
+    },
+    {
+      "index": 756,
+      "simp": "防",
+      "trad": "防",
+      "same": true
+    },
+    {
+      "index": 757,
+      "simp": "降",
+      "trad": "降",
+      "same": true
+    },
+    {
+      "index": 758,
+      "simp": "限",
+      "trad": "限",
+      "same": true
+    },
+    {
+      "index": 759,
+      "simp": "除",
+      "trad": "除",
+      "same": true
+    },
+    {
+      "index": 760,
+      "simp": "阴",
+      "trad": "陰",
+      "same": false
+    },
+    {
+      "index": 761,
+      "simp": "陆",
+      "trad": "陸",
+      "same": false
+    },
+    {
+      "index": 762,
+      "simp": "阳",
+      "trad": "陽",
+      "same": false
+    },
+    {
+      "index": 763,
+      "simp": "雄",
+      "trad": "雄",
+      "same": true
+    },
+    {
+      "index": 764,
+      "simp": "集",
+      "trad": "集",
+      "same": true
+    },
+    {
+      "index": 765,
+      "simp": "难",
+      "trad": "難",
+      "same": false
+    },
+    {
+      "index": 766,
+      "simp": "雨",
+      "trad": "雨",
+      "same": true
+    },
+    {
+      "index": 767,
+      "simp": "雪",
+      "trad": "雪",
+      "same": true
+    },
+    {
+      "index": 768,
+      "simp": "云",
+      "trad": "雲",
+      "same": false
+    },
+    {
+      "index": 769,
+      "simp": "电",
+      "trad": "電",
+      "same": false
+    },
+    {
+      "index": 770,
+      "simp": "露",
+      "trad": "露",
+      "same": true
+    },
+    {
+      "index": 771,
+      "simp": "青",
+      "trad": "青",
+      "same": true
+    },
+    {
+      "index": 772,
+      "simp": "静",
+      "trad": "靜",
+      "same": false
+    },
+    {
+      "index": 773,
+      "simp": "非",
+      "trad": "非",
+      "same": true
+    },
+    {
+      "index": 774,
+      "simp": "面",
+      "trad": "面",
+      "same": true
+    },
+    {
+      "index": 775,
+      "simp": "革",
+      "trad": "革",
+      "same": true
+    },
+    {
+      "index": 776,
+      "simp": "韩",
+      "trad": "韓",
+      "same": false
+    },
+    {
+      "index": 777,
+      "simp": "音",
+      "trad": "音",
+      "same": true
+    },
+    {
+      "index": 778,
+      "simp": "顶",
+      "trad": "頂",
+      "same": false
+    },
+    {
+      "index": 779,
+      "simp": "顺",
+      "trad": "順",
+      "same": false
+    },
+    {
+      "index": 780,
+      "simp": "须",
+      "trad": "須",
+      "same": false
+    },
+    {
+      "index": 781,
+      "simp": "领",
+      "trad": "領",
+      "same": false
+    },
+    {
+      "index": 782,
+      "simp": "头",
+      "trad": "頭",
+      "same": false
+    },
+    {
+      "index": 783,
+      "simp": "题",
+      "trad": "題",
+      "same": false
+    },
+    {
+      "index": 784,
+      "simp": "愿",
+      "trad": "願",
+      "same": false
+    },
+    {
+      "index": 785,
+      "simp": "风",
+      "trad": "風",
+      "same": false
+    },
+    {
+      "index": 786,
+      "simp": "飞",
+      "trad": "飛",
+      "same": false
+    },
+    {
+      "index": 787,
+      "simp": "食",
+      "trad": "食",
+      "same": true
+    },
+    {
+      "index": 788,
+      "simp": "饭",
+      "trad": "飯",
+      "same": false
+    },
+    {
+      "index": 789,
+      "simp": "饮",
+      "trad": "飲",
+      "same": false
+    },
+    {
+      "index": 790,
+      "simp": "养",
+      "trad": "養",
+      "same": false
+    },
+    {
+      "index": 791,
+      "simp": "馀",
+      "trad": "餘",
+      "same": false
+    },
+    {
+      "index": 792,
+      "simp": "首",
+      "trad": "首",
+      "same": true
+    },
+    {
+      "index": 793,
+      "simp": "香",
+      "trad": "香",
+      "same": true
+    },
+    {
+      "index": 794,
+      "simp": "马",
+      "trad": "馬",
+      "same": false
+    },
+    {
+      "index": 795,
+      "simp": "惊",
+      "trad": "驚",
+      "same": false
+    },
+    {
+      "index": 796,
+      "simp": "骨",
+      "trad": "骨",
+      "same": true
+    },
+    {
+      "index": 797,
+      "simp": "体",
+      "trad": "體",
+      "same": false
+    },
+    {
+      "index": 798,
+      "simp": "高",
+      "trad": "高",
+      "same": true
+    },
+    {
+      "index": 799,
+      "simp": "鱼",
+      "trad": "魚",
+      "same": false
+    },
+    {
+      "index": 800,
+      "simp": "鲜",
+      "trad": "鮮",
+      "same": false
+    },
+    {
+      "index": 801,
+      "simp": "鸟",
+      "trad": "鳥",
+      "same": false
+    },
+    {
+      "index": 802,
+      "simp": "鸣",
+      "trad": "鳴",
+      "same": false
+    },
+    {
+      "index": 803,
+      "simp": "麦",
+      "trad": "麥",
+      "same": false
+    },
+    {
+      "index": 804,
+      "simp": "黄",
+      "trad": "黃",
+      "same": false
+    },
+    {
+      "index": 805,
+      "simp": "黑",
+      "trad": "黑",
+      "same": true
+    },
+    {
+      "index": 806,
+      "simp": "点",
+      "trad": "點",
+      "same": false
+    },
+    {
+      "index": 807,
+      "simp": "鼻",
+      "trad": "鼻",
+      "same": true
+    },
+    {
+      "index": 808,
+      "simp": "齿",
+      "trad": "齒",
+      "same": false
+    }
+  ]
+}
