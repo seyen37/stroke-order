@@ -85,3 +85,26 @@ docs/site/
 *.tar
 *.tar.gz
 *.tgz
+
+# === 根目錄的測試 / 範例輸出（不該進版本控制）===
+/*.png
+/*.svg
+/*.gcode
+/*.gif
+/*.odp
+/*.zip
+/*.tar
+# 注意：不排除 *.json — pyproject 之類的 .json 可能有用
+# 但根目錄的範例 *.json 列出來：
+/sample*.json
+/test*.json
+/[0-9][a-z]_*.json
+/[0-9][a-z]_*.gcode
+
+# === 補強：根目錄所有 .json 排除（測試輸出 / 字符 IR 範例）===
+/*.json
+
+# === 資料源 cache 整個資料夾排除（runtime 自動產生）===
+/data/g0v_cache/
+/data/kanjivg_cache/
+/data/mmh_cache/

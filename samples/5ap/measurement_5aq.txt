@@ -1,0 +1,74 @@
+==============================================================================
+Phase 5aq — CNS skeleton alignment: v1 (legacy) vs +Path 1 (g0v prior)
+==============================================================================
+
+簡單 (1-3 strokes):  v1= 51.9%  +Path1=100.0%  (27 chars)
+   一  canon=1   v1=1    ✓   +g0v=1    ✓
+   二  canon=2   v1=2    ✓   +g0v=2    ✓
+   三  canon=3   v1=3    ✓   +g0v=3    ✓
+   十  canon=2   v1=2    ✓   +g0v=2    ✓
+   人  canon=2   v1=2    ✓   +g0v=2    ✓
+   入  canon=2   v1=2    ✓   +g0v=2    ✓
+   大  canon=3   v1=3    ✓   +g0v=3    ✓
+   小  canon=3   v1=4    ✗   +g0v=3    ✓
+   山  canon=3   v1=3    ✓   +g0v=3    ✓
+   子  canon=3   v1=6    ✗   +g0v=3    ✓
+   ... (17 more)
+
+中等 (4-6 strokes):  v1= 25.0%  +Path1= 95.8%  (24 chars)
+   永  canon=5   v1=5    ✓   +g0v=5    ✓
+   王  canon=4   v1=5    ✗   +g0v=4    ✓
+   玉  canon=5   v1=6    ✗   +g0v=5    ✓
+   田  canon=5   v1=3    ✗   +g0v=5    ✓
+   白  canon=5   v1=4    ✗   +g0v=5    ✓
+   用  canon=5   v1=3    ✗   +g0v=5    ✓
+   石  canon=5   v1=5    ✓   +g0v=5    ✓
+   立  canon=5   v1=4    ✗   +g0v=5    ✓
+   目  canon=5   v1=3    ✗   +g0v=5    ✓
+   石  canon=5   v1=5    ✓   +g0v=5    ✓
+   ... (14 more)
+
+中重 (7-10 strokes):  v1= 37.5%  +Path1= 95.8%  (24 chars)
+   李  canon=7   v1=10   ✗   +g0v=7    ✓
+   吳  canon=7   v1=7    ✓   +g0v=7    ✓
+   張  canon=11  v1=11   ✓   +g0v=11   ✓
+   陳  canon=11  v1=8    ✗   +g0v=11   ✓
+   林  canon=8   v1=8    ✓   +g0v=8    ✓
+   東  canon=8   v1=6    ✗   +g0v=8    ✓
+   京  canon=8   v1=7    ✗   +g0v=8    ✓
+   冷  canon=7   v1=8    ✗   +g0v=7    ✓
+   雨  canon=8   v1=8    ✓   +g0v=8    ✓
+   青  canon=8   v1=6    ✗   +g0v=8    ✓
+   ... (14 more)
+
+複雜 (11-15 strokes):  v1=  8.7%  +Path1=100.0%  (23 chars)
+   國  canon=11  v1=2    ✗   +g0v=11   ✓
+   園  canon=13  v1=3    ✗   +g0v=13   ✓
+   圓  canon=13  v1=2    ✗   +g0v=13   ✓
+   圈  canon=11  v1=3    ✗   +g0v=11   ✓
+   得  canon=11  v1=9    ✗   +g0v=11   ✓
+   從  canon=11  v1=10   ✗   +g0v=11   ✓
+   接  canon=11  v1=15   ✗   +g0v=11   ✓
+   著  canon=12  v1=13   ✗   +g0v=12   ✓
+   復  canon=12  v1=11   ✗   +g0v=12   ✓
+   雜  canon=18  v1=17   ✗   +g0v=18   ✓
+   ... (13 more)
+
+極複雜 (16+ strokes):  v1=  5.6%  +Path1=100.0%  (18 chars)
+   學  canon=16  v1=18   ✗   +g0v=16   ✓
+   藝  canon=19  v1=23   ✗   +g0v=19   ✓
+   鬱  canon=29  v1=30   ✗   +g0v=29   ✓
+   繁  canon=17  v1=21   ✗   +g0v=17   ✓
+   戀  canon=23  v1=29   ✗   +g0v=23   ✓
+   體  canon=23  v1=17   ✗   +g0v=23   ✓
+   鏡  canon=19  v1=17   ✗   +g0v=19   ✓
+   鸞  canon=30  v1=29   ✗   +g0v=30   ✓
+   讚  canon=26  v1=26   ✓   +g0v=26   ✓
+   襲  canon=22  v1=21   ✗   +g0v=22   ✓
+   ... (8 more)
+
+==============================================================================
+OVERALL  v1:      27.6%  (32/116)
+OVERALL  +Path1:  98.3%  (114/116)
+IMPROVEMENT: +70.7 percentage points from Path 1 (g0v prior)
+==============================================================================

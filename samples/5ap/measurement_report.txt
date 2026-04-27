@@ -1,0 +1,98 @@
+==============================================================================
+Phase 5ap-A3a — CNS skeleton vs canonical N-stroke alignment
+==============================================================================
+
+簡單 (1-3 strokes): 14/27 = 51.9%
+   一  canonical=1  actual=1  ✓
+   二  canonical=2  actual=2  ✓
+   三  canonical=3  actual=3  ✓
+   十  canonical=2  actual=2  ✓
+   人  canonical=2  actual=2  ✓
+   入  canonical=2  actual=2  ✓
+   大  canonical=3  actual=3  ✓
+   小  canonical=3  actual=4  ✗
+   山  canonical=3  actual=3  ✓
+   子  canonical=3  actual=6  ✗
+   木  canonical=4  actual=5  ✗
+   水  canonical=4  actual=5  ✗
+   火  canonical=4  actual=4  ✓
+   土  canonical=3  actual=4  ✗
+   ... (13 more)
+
+中等 (4-6 strokes): 6/24 = 25.0%
+   永  canonical=5  actual=5  ✓
+   王  canonical=4  actual=5  ✗
+   玉  canonical=5  actual=6  ✗
+   田  canonical=5  actual=3  ✗
+   白  canonical=5  actual=4  ✗
+   用  canonical=5  actual=3  ✗
+   石  canonical=5  actual=5  ✓
+   立  canonical=5  actual=4  ✗
+   目  canonical=5  actual=3  ✗
+   石  canonical=5  actual=5  ✓
+   生  canonical=5  actual=5  ✓
+   甲  canonical=5  actual=4  ✗
+   申  canonical=5  actual=5  ✓
+   先  canonical=6  actual=9  ✗
+   ... (10 more)
+
+中重 (7-10 strokes): 9/24 = 37.5%
+   李  canonical=7  actual=10  ✗
+   吳  canonical=7  actual=7  ✓
+   張  canonical=11  actual=11  ✓
+   陳  canonical=11  actual=8  ✗
+   林  canonical=8  actual=8  ✓
+   東  canonical=8  actual=6  ✗
+   京  canonical=8  actual=7  ✗
+   冷  canonical=7  actual=8  ✗
+   雨  canonical=8  actual=8  ✓
+   青  canonical=8  actual=6  ✗
+   草  canonical=10  actual=10  ✓
+   花  canonical=8  actual=9  ✗
+   長  canonical=8  actual=9  ✗
+   明  canonical=8  actual=6  ✗
+   ... (10 more)
+
+複雜 (11-15 strokes): 2/23 = 8.7%
+   國  canonical=11  actual=2  ✗
+   園  canonical=13  actual=3  ✗
+   圓  canonical=13  actual=2  ✗
+   圈  canonical=11  actual=3  ✗
+   得  canonical=11  actual=9  ✗
+   從  canonical=11  actual=10  ✗
+   接  canonical=11  actual=15  ✗
+   著  canonical=12  actual=13  ✗
+   復  canonical=12  actual=11  ✗
+   雜  canonical=18  actual=17  ✗
+   想  canonical=13  actual=12  ✗
+   感  canonical=13  actual=15  ✗
+   新  canonical=13  actual=12  ✗
+   領  canonical=14  actual=11  ✗
+   ... (9 more)
+
+極複雜 (16+ strokes): 1/18 = 5.6%
+   學  canonical=16  actual=18  ✗
+   藝  canonical=19  actual=23  ✗
+   鬱  canonical=29  actual=30  ✗
+   繁  canonical=17  actual=21  ✗
+   戀  canonical=23  actual=29  ✗
+   體  canonical=23  actual=17  ✗
+   鏡  canonical=19  actual=17  ✗
+   鸞  canonical=30  actual=29  ✗
+   讚  canonical=26  actual=26  ✓
+   襲  canonical=22  actual=21  ✗
+   議  canonical=20  actual=27  ✗
+   護  canonical=21  actual=19  ✗
+   驗  canonical=23  actual=20  ✗
+   鑽  canonical=27  actual=28  ✗
+   ... (4 more)
+
+==============================================================================
+OVERALL: 32/116 = 27.6%
+==============================================================================
+
+Decision guide for A3b (junction-aware splitting):
+  >= 90%  →  current heuristic is good enough; A3b not needed
+  70-89%  →  A3b would yield ~10-20% improvement; do it
+  < 70%   →  current approach broken on common chars; A3b critical
+  Result: 27.6%
