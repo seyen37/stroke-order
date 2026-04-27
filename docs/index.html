@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>stroke-order 文件中心</title>
+  <style>
+    :root {
+      --bg: #f6f8fa; --fg: #1f2328; --muted: #59636e;
+      --accent: #0969da; --line: #d1d9e0; --card: #fff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, "Segoe UI", "Microsoft JhengHei",
+                   "Noto Sans CJK TC", "PingFang TC", sans-serif;
+      color: var(--fg); background: var(--bg); line-height: 1.65;
+    }
+    header {
+      background: linear-gradient(135deg, #155799 0%, #159957 100%);
+      color: #fff; padding: 60px 20px 50px; text-align: center;
+    }
+    header h1 { margin: 0 0 10px; font-size: 2.4em; }
+    header .tag { font-size: 1.1em; opacity: 0.95; }
+    header .links {
+      margin-top: 30px;
+      display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    }
+    header .links a {
+      background: rgba(255,255,255,0.2);
+      color: #fff; text-decoration: none;
+      padding: 9px 18px; border-radius: 6px;
+      transition: background 0.2s;
+    }
+    header .links a:hover { background: rgba(255,255,255,0.35); }
+    main {
+      max-width: 920px; margin: 0 auto; padding: 32px 20px;
+    }
+    h2 {
+      font-size: 1.5em; border-bottom: 1px solid var(--line);
+      padding-bottom: 6px; margin-top: 38px;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 8px; padding: 18px 22px; margin: 12px 0;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 1.1em; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.95em; }
+    .card a {
+      color: var(--accent); text-decoration: none;
+      font-weight: 600;
+    }
+    .card a:hover { text-decoration: underline; }
+    table {
+      width: 100%; border-collapse: collapse; margin: 16px 0;
+      background: var(--card); border-radius: 8px; overflow: hidden;
+      border: 1px solid var(--line);
+    }
+    th, td {
+      padding: 11px 16px; text-align: left;
+      border-bottom: 1px solid var(--line);
+    }
+    th { background: #f6f8fa; font-weight: 600; }
+    tr:last-child td { border-bottom: 0; }
+    td a { color: var(--accent); text-decoration: none; font-weight: 500; }
+    td a:hover { text-decoration: underline; }
+    .pill {
+      display: inline-block;
+      background: #ddf4ff; color: #0969da;
+      padding: 2px 9px; border-radius: 12px;
+      font-size: 0.85em; margin-left: 6px;
+    }
+    code {
+      background: #eaeef2; padding: 1px 6px;
+      border-radius: 3px; font-size: 0.9em;
+    }
+    footer {
+      text-align: center; color: var(--muted);
+      font-size: 0.9em; padding: 24px 16px;
+      border-top: 1px solid var(--line); margin-top: 48px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>stroke-order 文件中心</h1>
+  <div class="tag">中文字元 → 向量筆跡轉換器（給寫字機器人用）</div>
+  <div class="links">
+    <a href="https://github.com/seyen37/stroke-order">📦 GitHub Repo</a>
+    <a href="https://github.com/seyen37/stroke-order/blob/main/README.md">📖 README</a>
+  </div>
+</header>
+
+<main>
+
+<h2>🚀 快速開始</h2>
+<table>
+  <thead>
+    <tr><th>想做什麼</th><th>看哪份文件</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>安裝 + 啟動本機伺服器</td>
+        <td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/QUICK_START.md">QUICK_START.md</a></td></tr>
+    <tr><td>把專案推到自己的 GitHub</td>
+        <td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/PUSH_TO_GITHUB.md">PUSH_TO_GITHUB.md</a></td></tr>
+    <tr><td>設定 Git SSH / HTTPS 認證</td>
+        <td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/GIT_AUTH_SETUP.md">GIT_AUTH_SETUP.md</a></td></tr>
+    <tr><td>多 GitHub 帳號異地備份</td>
+        <td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/MULTI_GITHUB_BACKUP.md">MULTI_GITHUB_BACKUP.md</a></td></tr>
+    <tr><td>公開部署到網路上</td>
+        <td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/PUBLIC_DEPLOYMENT.md">PUBLIC_DEPLOYMENT.md</a></td></tr>
+    <tr><td>立即部署：GitHub Pages + Render</td>
+        <td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/DEPLOY_NOW.md">DEPLOY_NOW.md</a></td></tr>
+    <tr><td>公眾分享庫部署細節</td>
+        <td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/GALLERY_DEPLOYMENT.md">GALLERY_DEPLOYMENT.md</a></td></tr>
+  </tbody>
+</table>
+
+<h2>📚 設計脈絡 / 開發歷程</h2>
+<div class="card">
+  <h3>📊 工作紀錄</h3>
+  <p>
+    <a href="https://github.com/seyen37/stroke-order/blob/main/docs/WORK_LOG_2026-04-26.md">WORK_LOG_2026-04-26.md</a>
+    — 2026-04-26 工作紀錄（5d 筆順練習 + 5g 公眾分享庫完成總結）
+  </p>
+</div>
+<div class="card">
+  <h3>🎯 決策日誌</h3>
+  <p>
+    <a href="https://github.com/seyen37/stroke-order/tree/main/docs/decisions">docs/decisions/</a>
+    — 完整決策日誌：每個模組的設計取捨、遭遇困難、解法
+  </p>
+</div>
+
+<h3>各模組決策日誌索引</h3>
+<table>
+  <thead><tr><th>模組</th><th>狀態</th></tr></thead>
+  <tbody>
+    <tr><td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/decisions/mode_01_single_char_and_ir.md">mode_01: 單字模式 + 核心 IR 設計</a></td><td>✅ 完成</td></tr>
+    <tr><td>mode_02: 字帖模式</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td>mode_03: 筆記模式</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td>mode_04: 信紙模式</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td>mode_05: 稿紙模式</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td>mode_06: 塗鴉模式</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td>mode_07: 文字雲家族</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td>mode_08: 抄經模式</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td>mode_09: 筆順練習頁 PSD</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td>mode_10: 公眾分享庫</td><td><span class="pill">追溯中</span></td></tr>
+    <tr><td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/decisions/infra_01_data_sources.md">infra_01: 資料源 chain（多源 fallback）</a></td><td>✅ 完成</td></tr>
+    <tr><td><a href="https://github.com/seyen37/stroke-order/blob/main/docs/decisions/2026-04-26_5d_5g.md">2026-04-26: 5d + 5g 階段決策</a></td><td>✅ 完成</td></tr>
+  </tbody>
+</table>
+
+<h2>🛠 技術概覽</h2>
+<div class="card">
+  <ul>
+    <li><b>後端</b>：Python 3.10+ FastAPI、stdlib SQLite + smtplib（無 ORM、無 PyJWT、零 auth 依賴）</li>
+    <li><b>前端</b>：原生 ES modules（無 React/Vue/build step）</li>
+    <li><b>資料源</b>：g0v / Make Me a Hanzi / KanjiVG / CNS 全字庫 / 教育部 楷·隸·宋 / 崇羲篆體 / 使用者字典</li>
+    <li><b>核心 IR</b>：EM 2048 Y-down 座標系、Character / Stroke / Point 三層 dataclass</li>
+    <li><b>測試</b>：1057 條 pytest（涵蓋 Phase 1 → 5g 全模組）</li>
+  </ul>
+</div>
+
+<h2>🌐 線上資源</h2>
+<div class="card">
+  <ul>
+    <li>📦 GitHub repo：<a href="https://github.com/seyen37/stroke-order">github.com/seyen37/stroke-order</a></li>
+    <li>🚀 線上 demo：（部署中，預計 <code>https://stroke-order.onrender.com/</code>）</li>
+  </ul>
+</div>
+
+<h2>📜 授權</h2>
+<div class="card">
+  <ul>
+    <li>程式碼：MIT License（<a href="https://github.com/seyen37/stroke-order/blob/main/LICENSE">LICENSE</a>）</li>
+    <li>第三方資料源：各保留原始授權，整理見 LICENSE 末段</li>
+  </ul>
+</div>
+
+</main>
+
+<footer>
+  © 2026 許士彥 (seyen37) ·
+  <a href="https://github.com/seyen37/stroke-order">GitHub</a> ·
+  本網站由 GitHub Pages 託管
+</footer>
+
+</body>
+</html>
