@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>經文編輯器 | stroke-order</title>
+<style>
+  :root {
+    --border: #d4d4d4;
+    --muted: #888;
+    --accent: #c33;
+    --bg: #fafaf8;
+    --panel: #fff;
+    --shaded: #f0f0ec;
+    --readonly-bg: #f5f5f0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; font-family:
+    -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", sans-serif;
+    background: var(--bg); color: #222; font-size: 14px; }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 17px; flex: 1; }
+  header a, header button {
+    font-size: 12px; padding: 4px 12px;
+    background: #fafaf8; border: 1px solid var(--border);
+    border-radius: 4px; cursor: pointer; text-decoration: none; color: #222;
+  }
+  header a:hover, header button:hover { background: var(--shaded); }
+  .layout { display: flex; height: calc(100vh - 48px); }
+  aside {
+    width: 240px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 8px 0;
+    flex-shrink: 0;
+  }
+  .group-label {
+    font-size: 11px; color: var(--muted); padding: 8px 14px 4px;
+    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  }
+  .item {
+    padding: 6px 14px; cursor: pointer;
+    border-left: 3px solid transparent;
+    font-size: 13px; line-height: 1.4;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .item:hover { background: var(--shaded); }
+  .item.active {
+    background: var(--shaded);
+    border-left-color: var(--accent);
+    font-weight: 600;
+  }
+  .item .badge {
+    font-size: 10px; color: var(--muted);
+    padding: 1px 5px; border-radius: 8px; background: rgba(0,0,0,.06);
+    margin-left: 6px;
+  }
+  .item.builtin .badge { background: #e8e0d0; color: #644; }
+  .add-row {
+    margin: 4px 10px; padding: 6px 12px;
+    background: #fafaf8; border: 1px dashed var(--border);
+    border-radius: 4px; cursor: pointer; font-size: 12px;
+    text-align: center; color: #444;
+  }
+  .add-row:hover { background: var(--shaded); }
+  main {
+    flex: 1; overflow-y: auto; padding: 18px 24px;
+    background: var(--bg);
+  }
+  .form-card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 6px; padding: 16px 20px; margin-bottom: 14px;
+  }
+  .row {
+    display: flex; gap: 10px; margin-bottom: 8px; align-items: center;
+    flex-wrap: wrap;
+  }
+  .row label {
+    min-width: 70px; color: #444; font-size: 12px;
+  }
+  .row input[type="text"], .row input[type="url"], .row select {
+    flex: 1; min-width: 120px; padding: 4px 8px;
+    border: 1px solid var(--border); border-radius: 3px;
+    font-size: 13px; font-family: inherit;
+    background: white;
+  }
+  .row input[readonly], .row select[disabled] {
+    background: var(--readonly-bg); color: #555;
+  }
+  textarea {
+    width: 100%; padding: 8px;
+    border: 1px solid var(--border); border-radius: 3px;
+    font-family: "Noto Sans TC", "PingFang TC", monospace;
+    font-size: 14px; line-height: 1.6; resize: vertical;
+    background: white;
+  }
+  textarea[readonly] { background: var(--readonly-bg); }
+  .text-stats {
+    font-size: 11px; color: var(--muted); margin-top: 4px;
+  }
+  .actions {
+    display: flex; gap: 8px; margin-top: 12px; align-items: center;
+  }
+  .btn-primary {
+    background: var(--accent); color: white;
+    border: 1px solid var(--accent); border-radius: 3px;
+    padding: 6px 14px; cursor: pointer; font-size: 13px;
+  }
+  .btn-primary:disabled {
+    background: #ccc; border-color: #ccc; cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: white; color: #333;
+    border: 1px solid var(--border); border-radius: 3px;
+    padding: 6px 14px; cursor: pointer; font-size: 13px;
+  }
+  .btn-danger {
+    background: white; color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 3px;
+    padding: 6px 14px; cursor: pointer; font-size: 13px;
+  }
+  .status {
+    font-size: 12px; margin-left: 8px;
+  }
+  .source-link {
+    font-size: 11px; color: var(--accent); margin-left: 4px;
+    text-decoration: none;
+  }
+  .source-link:hover { text-decoration: underline; }
+  .readonly-banner {
+    background: #fff8e0; border: 1px solid #e8c060; padding: 6px 10px;
+    border-radius: 3px; font-size: 12px; color: #704000; margin-bottom: 10px;
+  }
+  h3 { margin: 0 0 6px; font-size: 13px; color: #444;
+       text-transform: uppercase; letter-spacing: 0.5px;
+       border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📜 經文編輯器</h1>
+  <a href="/" title="回到主頁">← 回主頁</a>
+</header>
+
+<div class="layout">
+  <aside id="sidebar">
+    <div class="add-row" id="add-new">＋ 新增自用經文</div>
+    <div id="list-builtin"></div>
+    <div id="list-user"></div>
+  </aside>
+
+  <main>
+    <div id="readonly-banner" class="readonly-banner" style="display:none;">
+      ⓘ 內建經文 — metadata 改動會儲存到 <code>builtin/{key}.json</code>
+      override 檔；內文改動直接覆寫 <code>builtin/{key}.txt</code>。
+      分類 / 重複型欄位是結構性鎖定（不能改）。
+      想保留原版？請按「另存新檔」複製成自訂條目。
+    </div>
+
+    <div class="form-card">
+      <h3>基本資料</h3>
+      <div class="row">
+        <label>標題</label>
+        <input id="f-title" type="text" placeholder="如：道德經">
+        <label>副標</label>
+        <input id="f-subtitle" type="text" value="手抄本" style="max-width:160px;">
+      </div>
+      <div class="row">
+        <label>分類</label>
+        <select id="f-category">
+          <option value="buddhist">佛教</option>
+          <option value="taoist">道家</option>
+          <option value="confucian">儒家</option>
+          <option value="classical">文學經典</option>
+          <option value="christian">基督宗教</option>
+          <option value="inspirational">勵志家訓</option>
+          <option value="user_custom" selected>自訂</option>
+        </select>
+        <label>標籤</label>
+        <input id="f-tags" type="text" placeholder="逗號分隔，如：哲學,道家">
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h3>學術資訊</h3>
+      <div class="row">
+        <label>撰者</label>
+        <input id="f-author" type="text" placeholder="如：老子（春秋）">
+        <label>編者</label>
+        <input id="f-editor" type="text" placeholder="如：朱熹（南宋）">
+      </div>
+      <div class="row">
+        <label>版本</label>
+        <input id="f-source" type="text" placeholder="如：王弼注本 / 大正藏 T0235">
+      </div>
+      <div class="row">
+        <label>來源網址</label>
+        <input id="f-source-url" type="url" placeholder="https://ctext.org/...">
+        <a id="f-source-link" class="source-link" href="#" target="_blank"
+           rel="noopener noreferrer" style="display:none;">↗ 開啟</a>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h3>文字描述</h3>
+      <div class="row">
+        <label>簡介</label>
+        <input id="f-description" type="text"
+               placeholder="一句話介紹這部經典的特色與用途">
+      </div>
+      <div class="row" style="align-items:flex-start;">
+        <label style="margin-top:4px;">校記</label>
+        <textarea id="f-notes" rows="4"
+                  placeholder="（可多行）關於此版本的校勘、註釋、抄寫感想等"
+                  style="flex:1;"></textarea>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h3>抄寫設定</h3>
+      <div class="row">
+        <label><input id="f-repeat" type="checkbox"> 重複型咒語</label>
+        <label>重複次數</label>
+        <input id="f-repeat-count" type="number" min="1" max="10000" value="108"
+               style="width:80px;">
+        <span style="color:var(--muted);font-size:11px;">
+          （勾選後內文只放一個循環，程式自動重複 N 遍。）
+        </span>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h3>結語頁（迴向 / 跋 / 自勉）</h3>
+      <div class="row" style="font-size:11px;color:var(--muted);">
+        若不填，列印結語頁時自動套用「分類預設模板」。可按右側按鈕快速載入該分類預設值再修改。
+        <button id="f-closing-load-template" type="button"
+                style="margin-left:auto;font-size:11px;padding:2px 10px;
+                       background:#fafaf8;border:1px solid var(--border);
+                       border-radius:3px;cursor:pointer;">
+          ↓ 載入分類預設模板
+        </button>
+        <button id="f-closing-clear" type="button"
+                style="margin-left:6px;font-size:11px;padding:2px 10px;
+                       background:#fafaf8;border:1px solid var(--border);
+                       border-radius:3px;cursor:pointer;"
+                title="清空所有結語頁欄位（恢復為「使用分類預設模板」）">
+          ✕ 清除 override
+        </button>
+      </div>
+      <div class="row">
+        <label>結語頁標題</label>
+        <input id="f-closing-title" type="text" placeholder="如：迴向文 / 跋 / 自勉"
+               style="max-width:200px;">
+        <label style="margin-left:10px;">填空 1 標籤</label>
+        <input id="f-closing-blank1" type="text" placeholder="如：弟子"
+               style="width:120px;">
+        <label style="margin-left:6px;">填空 2 標籤</label>
+        <input id="f-closing-blank2" type="text" placeholder="如：迴向"
+               style="width:120px;">
+      </div>
+      <div class="row" style="align-items:flex-start;">
+        <label style="margin-top:4px;">主文</label>
+        <textarea id="f-closing-verse" rows="3"
+                  placeholder="（會以淡灰描紅顯示在結語頁中央）"
+                  style="flex:1;"></textarea>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h3>經文內文</h3>
+      <textarea id="f-text" rows="14"
+                placeholder="貼上經文純文字（可含標點符號；空白與換行會自動忽略）"></textarea>
+      <div class="text-stats">
+        <span id="text-chars">字數：0</span>
+        <span id="text-pages">頁數：0</span>
+      </div>
+      <div class="row" style="margin-top:6px;font-size:11px;color:var(--muted);">
+        或選擇本機 .txt 檔：
+        <input id="f-file" type="file" accept=".txt,text/plain"
+               style="font-size:11px;">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btn-save" class="btn-primary">儲存</button>
+      <button id="btn-save-as" class="btn-secondary"
+              title="另存為新的自訂條目">另存新檔</button>
+      <button id="btn-cancel" class="btn-secondary">取消／重置</button>
+      <button id="btn-delete" class="btn-danger" style="display:none;">刪除</button>
+      <span id="status" class="status"></span>
+    </div>
+  </main>
+</div>
+
+<script>
+const API_BASE = "";
+const CELLS_PER_PAGE = 300;
+
+const STATE = {
+  presets: [],            // grouped flat list of all presets
+  current: null,          // {key, is_builtin, ...} or null = new
+};
+
+function $(id) { return document.getElementById(id); }
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+// ---------- list rendering ----------
+
+async function loadList() {
+  const r = await fetch(`${API_BASE}/api/sutra/presets?grouped=true`);
+  if (!r.ok) {
+    $("list-builtin").innerHTML = `<div class="group-label">載入失敗</div>`;
+    return;
+  }
+  const data = await r.json();
+  STATE.presets = [];
+  const builtinHtml = [];
+  const userHtml = [];
+  for (const g of data.categories) {
+    const builtinIn = g.presets.filter(p => p.is_builtin);
+    const userIn    = g.presets.filter(p => !p.is_builtin);
+    if (builtinIn.length) {
+      builtinHtml.push(`<div class="group-label">${escapeHtml(g.label)}（內建）</div>`);
+      builtinIn.forEach(p => {
+        STATE.presets.push(p);
+        const ready = p.ready ? "✓" : "ⓘ";
+        builtinHtml.push(`
+          <div class="item builtin" data-key="${escapeHtml(p.key)}"
+               data-builtin="1">
+            <span title="${escapeHtml(p.title)}">${ready} ${escapeHtml(p.title)}</span>
+            <span class="badge">${p.actual_chars || "—"}</span>
+          </div>`);
+      });
+    }
+    if (userIn.length) {
+      userHtml.push(`<div class="group-label">${escapeHtml(g.label)}（自訂）</div>`);
+      userIn.forEach(p => {
+        STATE.presets.push(p);
+        userHtml.push(`
+          <div class="item" data-key="${escapeHtml(p.key)}" data-builtin="0">
+            <span title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</span>
+            <span class="badge">${p.actual_chars}</span>
+          </div>`);
+      });
+    }
+  }
+  $("list-builtin").innerHTML = builtinHtml.join("");
+  $("list-user").innerHTML = userHtml.join("");
+  // Bind click
+  document.querySelectorAll(".item").forEach(el => {
+    el.addEventListener("click", () => loadItem(
+      el.dataset.key, el.dataset.builtin === "1"));
+  });
+}
+
+function highlightItem(key) {
+  document.querySelectorAll(".item").forEach(el => {
+    el.classList.toggle("active", el.dataset.key === key);
+  });
+}
+
+// ---------- item load ----------
+
+async function loadItem(key, isBuiltin) {
+  const path = isBuiltin
+    ? `/api/sutra/builtin/${encodeURIComponent(key)}`
+    : `/api/sutra/user/${encodeURIComponent(key)}`;
+  const r = await fetch(`${API_BASE}${path}`);
+  if (!r.ok) {
+    $("status").textContent = `讀取失敗 (${r.status})`;
+    $("status").style.color = "var(--accent)";
+    return;
+  }
+  const d = await r.json();
+  STATE.current = d;
+  fillForm(d);
+  setReadOnly(d.is_builtin);
+  highlightItem(key);
+  $("status").textContent = "";
+}
+
+function fillForm(d) {
+  $("f-title").value       = d.title || "";
+  $("f-subtitle").value    = d.subtitle || "手抄本";
+  $("f-category").value    = d.category || "user_custom";
+  $("f-tags").value        = (d.tags || []).join(",");
+  $("f-author").value      = d.author || "";
+  $("f-editor").value      = d.editor || "";
+  $("f-source").value      = d.source || "";
+  $("f-source-url").value  = d.source_url || "";
+  $("f-description").value = d.description || "";
+  $("f-notes").value       = d.notes || "";
+  $("f-repeat").checked    = !!d.is_mantra_repeat;
+  $("f-repeat-count").value = d.repeat_count || 1;
+  $("f-text").value        = d.raw_text || "";
+  // 5bg: closing override fields (empty if user hasn't customised)
+  const co = d.closing_override || {title:"", verse:"", blank1_label:"", blank2_label:""};
+  $("f-closing-title").value  = co.title || "";
+  $("f-closing-verse").value  = co.verse || "";
+  $("f-closing-blank1").value = co.blank1_label || "";
+  $("f-closing-blank2").value = co.blank2_label || "";
+  refreshSourceLink();
+  refreshTextStats();
+  $("btn-delete").style.display = (d.is_builtin === false) ? "" : "none";
+}
+
+function clearForm() {
+  STATE.current = null;
+  fillForm({
+    title: "", subtitle: "手抄本", category: "user_custom",
+    author: "", editor: "", source: "", source_url: "",
+    description: "", notes: "", tags: [],
+    is_mantra_repeat: false, repeat_count: 108,
+    raw_text: "", is_builtin: false,
+    closing_override: null,   // 5bg
+  });
+  setReadOnly(false);
+  highlightItem(null);
+  $("readonly-banner").style.display = "none";
+  $("btn-delete").style.display = "none";
+  $("status").textContent = "";
+}
+
+// 5be: builtin-mode only locks structural fields (category / repeat).
+// All other metadata + text are editable; changes write to builtin/.
+function setReadOnly(isBuiltin) {
+  // All metadata + text fields are always editable now.
+  const editable = ["f-title", "f-subtitle", "f-tags", "f-author", "f-editor",
+    "f-source", "f-source-url", "f-description", "f-notes",
+    "f-text",
+    // 5bg closing fields
+    "f-closing-title", "f-closing-verse", "f-closing-blank1", "f-closing-blank2"];
+  editable.forEach(id => $(id).readOnly = false);
+  $("f-file").disabled = false;
+  $("btn-save").disabled = false;
+  // Structural fields are locked when editing a builtin (changing them
+  // would break the key→file mapping or the loader's classification).
+  $("f-category").disabled       = isBuiltin;
+  $("f-repeat").disabled         = isBuiltin;
+  $("f-repeat-count").readOnly   = isBuiltin;
+  $("readonly-banner").style.display = isBuiltin ? "block" : "none";
+}
+
+// 5bg: cache closing templates fetched lazily on first load
+let CLOSING_TEMPLATES_CACHE = null;
+async function getClosingTemplates() {
+  if (CLOSING_TEMPLATES_CACHE) return CLOSING_TEMPLATES_CACHE;
+  try {
+    const r = await fetch(`${API_BASE}/api/sutra/closing-templates`);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const out = {};
+    for (const t of data.templates) out[t.category] = t.closing;
+    CLOSING_TEMPLATES_CACHE = out;
+    return out;
+  } catch { return null; }
+}
+
+async function loadClosingTemplate() {
+  const tpl = await getClosingTemplates();
+  if (!tpl) {
+    $("status").textContent = "讀取分類預設模板失敗";
+    return;
+  }
+  const cat = $("f-category").value;
+  const c = tpl[cat] || tpl.user_custom;
+  if (!c) return;
+  $("f-closing-title").value  = c.title || "";
+  $("f-closing-verse").value  = c.verse || "";
+  $("f-closing-blank1").value = c.blank1_label || "";
+  $("f-closing-blank2").value = c.blank2_label || "";
+  $("status").textContent = `✓ 已載入「${cat}」分類預設模板`;
+  $("status").style.color = "#080";
+}
+
+function clearClosingOverride() {
+  $("f-closing-title").value  = "";
+  $("f-closing-verse").value  = "";
+  $("f-closing-blank1").value = "";
+  $("f-closing-blank2").value = "";
+  $("status").textContent = "✓ 已清除結語頁 override（將使用分類預設）";
+  $("status").style.color = "var(--muted)";
+}
+
+function refreshSourceLink() {
+  const url = $("f-source-url").value.trim();
+  const link = $("f-source-link");
+  if (url) {
+    link.href = url;
+    link.style.display = "inline";
+  } else {
+    link.style.display = "none";
+  }
+}
+
+function refreshTextStats() {
+  const raw = $("f-text").value || "";
+  const stripped = raw.replace(/\s+/g, "");
+  let count = stripped.length;
+  if ($("f-repeat").checked) {
+    const rc = parseInt($("f-repeat-count").value) || 1;
+    count *= rc;
+  }
+  $("text-chars").textContent = `字數：${count}`;
+  const pages = Math.ceil(count / CELLS_PER_PAGE);
+  $("text-pages").textContent = `頁數：${pages}`;
+}
+
+// ---------- save / save-as / delete ----------
+
+function collectForm() {
+  const tags = $("f-tags").value.split(",").map(t => t.trim()).filter(Boolean);
+  // 5bg: only include closing if at least one field is non-empty
+  const ct = $("f-closing-title").value.trim();
+  const cv = $("f-closing-verse").value.trim();
+  const cb1 = $("f-closing-blank1").value.trim();
+  const cb2 = $("f-closing-blank2").value.trim();
+  const closing = (ct || cv || cb1 || cb2) ? {
+    title: ct, verse: cv, blank1_label: cb1, blank2_label: cb2,
+  } : null;
+  return {
+    text: $("f-text").value,
+    title: $("f-title").value || "未命名",
+    subtitle: $("f-subtitle").value || "手抄本",
+    category: $("f-category").value,
+    source: $("f-source").value,
+    description: $("f-description").value,
+    is_mantra_repeat: $("f-repeat").checked,
+    repeat_count: parseInt($("f-repeat-count").value) || 1,
+    tags,
+    author: $("f-author").value,
+    editor: $("f-editor").value,
+    notes: $("f-notes").value,
+    source_url: $("f-source-url").value,
+    closing,
+  };
+}
+
+async function saveCurrent() {
+  const status = $("status");
+  status.textContent = "儲存中…";
+  status.style.color = "var(--muted)";
+  const body = collectForm();
+  if (!body.text.trim()) {
+    status.textContent = "內文不能為空";
+    status.style.color = "var(--accent)";
+    return;
+  }
+  try {
+    // 5be: builtin path — PUT writes override JSON + overwrites .txt
+    if (STATE.current && STATE.current.is_builtin) {
+      const key = STATE.current.key;
+      // Strip locked structural fields the API would ignore anyway
+      const meta = {
+        title: body.title, subtitle: body.subtitle,
+        source: body.source, description: body.description,
+        tags: body.tags,
+        author: body.author, editor: body.editor,
+        notes: body.notes, source_url: body.source_url,
+        closing: body.closing,   // 5bg
+        // Include text only if changed, so we don't rewrite the file unnecessarily
+      };
+      if (STATE.current.raw_text !== body.text) {
+        meta.text = body.text;
+      }
+      const r = await fetch(
+        `${API_BASE}/api/sutra/builtin/${encodeURIComponent(key)}`, {
+          method: "PUT", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(meta),
+        });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({detail: r.statusText}));
+        throw new Error(err.detail || `HTTP ${r.status}`);
+      }
+      status.textContent = "✓ 已儲存（內建 override）";
+      status.style.color = "#080";
+      await loadList();
+      await loadItem(key, true);
+      return;
+    }
+    // Existing-user path
+    if (STATE.current && !STATE.current.is_builtin) {
+      const key = STATE.current.key;
+      const original = await (await fetch(
+        `${API_BASE}/api/sutra/user/${encodeURIComponent(key)}`)).json();
+      if (original.raw_text === body.text) {
+        // metadata-only PUT
+        const r = await fetch(
+          `${API_BASE}/api/sutra/user/${encodeURIComponent(key)}`, {
+            method: "PUT", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body),
+          });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      } else {
+        // text changed → delete + re-upload (preserves key)
+        await fetch(`${API_BASE}/api/sutra/user/${encodeURIComponent(key)}`,
+                    {method: "DELETE"});
+        const r = await fetch(`${API_BASE}/api/sutra/upload`, {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({...body, desired_key: key}),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      }
+      status.textContent = "✓ 已儲存";
+      status.style.color = "#080";
+      await loadList();
+      return;
+    }
+    // New entry
+    const r = await fetch(`${API_BASE}/api/sutra/upload`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({detail: r.statusText}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const newKey = (await r.json()).key;
+    status.textContent = `✓ 新增成功 (${newKey})`;
+    status.style.color = "#080";
+    await loadList();
+    await loadItem(newKey, false);
+  } catch (e) {
+    status.textContent = "儲存失敗：" + e.message;
+    status.style.color = "var(--accent)";
+  }
+}
+
+async function saveAsNew() {
+  // Strip current key so upload gets a fresh one
+  const status = $("status");
+  status.textContent = "另存中…";
+  status.style.color = "var(--muted)";
+  const body = collectForm();
+  if (!body.text.trim()) {
+    status.textContent = "內文不能為空";
+    status.style.color = "var(--accent)";
+    return;
+  }
+  // Force category to user_custom unless already in another non-builtin slot
+  if (STATE.current && STATE.current.is_builtin) {
+    body.title = body.title + "（自訂副本）";
+  }
+  try {
+    const r = await fetch(`${API_BASE}/api/sutra/upload`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({detail: r.statusText}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const newKey = (await r.json()).key;
+    status.textContent = `✓ 已另存為 ${newKey}`;
+    status.style.color = "#080";
+    await loadList();
+    await loadItem(newKey, false);
+  } catch (e) {
+    status.textContent = "另存失敗：" + e.message;
+    status.style.color = "var(--accent)";
+  }
+}
+
+async function deleteCurrent() {
+  if (!STATE.current || STATE.current.is_builtin) return;
+  const key = STATE.current.key;
+  if (!confirm(`確定刪除「${STATE.current.title}」？此動作無法復原。`)) return;
+  const status = $("status");
+  try {
+    const r = await fetch(`${API_BASE}/api/sutra/user/${encodeURIComponent(key)}`,
+                          {method: "DELETE"});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    status.textContent = "✓ 已刪除";
+    status.style.color = "#080";
+    clearForm();
+    await loadList();
+  } catch (e) {
+    status.textContent = "刪除失敗：" + e.message;
+    status.style.color = "var(--accent)";
+  }
+}
+
+// ---------- file picker ----------
+
+async function onFilePicked() {
+  const f = $("f-file").files[0];
+  if (!f) return;
+  const text = await f.text();
+  $("f-text").value = text;
+  if (!$("f-title").value.trim()) {
+    $("f-title").value = f.name.replace(/\.txt$/i, "");
+  }
+  refreshTextStats();
+}
+
+// ---------- init ----------
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadList();
+  $("add-new").onclick    = clearForm;
+  $("btn-save").onclick    = saveCurrent;
+  $("btn-save-as").onclick = saveAsNew;
+  $("btn-cancel").onclick  = () => {
+    if (STATE.current) loadItem(STATE.current.key, STATE.current.is_builtin);
+    else clearForm();
+  };
+  $("btn-delete").onclick  = deleteCurrent;
+  $("f-file").addEventListener("change", onFilePicked);
+  $("f-text").addEventListener("input", refreshTextStats);
+  $("f-repeat").addEventListener("change", refreshTextStats);
+  $("f-repeat-count").addEventListener("input", refreshTextStats);
+  $("f-source-url").addEventListener("input", refreshSourceLink);
+  // 5bg: closing template buttons
+  $("f-closing-load-template").onclick = loadClosingTemplate;
+  $("f-closing-clear").onclick = clearClosingOverride;
+  clearForm();
+});
+</script>
+</body>
+</html>

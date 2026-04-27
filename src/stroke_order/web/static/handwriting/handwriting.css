@@ -1,0 +1,384 @@
+/* ======================================================================
+   stroke-order — handwriting practice page (5d MVP)
+
+   Self-contained styles. RWD breakpoint: 768px.
+   Design language matches the main app (neutral greys + a single accent),
+   but lighter chrome so the canvas dominates.
+
+   Colour tokens
+   -------------
+     --hw-bg, --hw-surface     : page + card backgrounds
+     --hw-fg, --hw-muted        : text
+     --hw-accent                : primary actions
+     --hw-warn / --hw-info      : banner colours
+     --hw-grid                  : cell border / helper lines
+     --hw-canvas-bg             : canvas surface
+   ====================================================================== */
+
+:root {
+  --hw-bg: #fafafa;
+  --hw-surface: #ffffff;
+  --hw-fg: #222;
+  --hw-muted: #666;
+  --hw-line: #e0e0e0;
+  --hw-accent: #2c5cb8;
+  --hw-accent-fg: #fff;
+  --hw-warn-bg: #fff8e0;
+  --hw-warn-fg: #704000;
+  --hw-warn-border: #e8c060;
+  --hw-info-bg: #e8f3ff;
+  --hw-info-fg: #1a4480;
+  --hw-info-border: #b3d4f5;
+  --hw-positive-bg: #f0fff4;
+  --hw-positive-fg: #1d6b3a;
+  --hw-positive-border: #a8d8b9;
+  --hw-canvas-bg: #ffffff;
+  --hw-danger: #c33;
+  --hw-radius: 4px;
+}
+
+/* ----- reset -------------------------------------------------------- */
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: -apple-system, "Segoe UI", "Microsoft JhengHei",
+               "Noto Sans CJK TC", "PingFang TC", sans-serif;
+  font-size: 14px;
+  color: var(--hw-fg);
+  background: var(--hw-bg);
+  /* Stop iOS Safari from bouncing when the user drags on the canvas */
+  overscroll-behavior: none;
+}
+h1, h2, h3 { margin: 0; font-weight: 600; }
+
+button { font: inherit; cursor: pointer; }
+input, select { font: inherit; }
+input:focus, select:focus, button:focus-visible {
+  outline: 2px solid var(--hw-accent);
+  outline-offset: 1px;
+}
+
+/* ----- header ------------------------------------------------------- */
+
+.hw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--hw-surface);
+  border-bottom: 1px solid var(--hw-line);
+}
+.hw-title { display: flex; align-items: baseline; gap: 8px; }
+.hw-title h1 { font-size: 18px; }
+.hw-logo { font-size: 20px; }
+.hw-version {
+  color: var(--hw-muted);
+  font-size: 11px;
+  font-family: ui-monospace, "Menlo", monospace;
+}
+.hw-nav { display: flex; gap: 8px; }
+.hw-nav-btn {
+  background: transparent;
+  border: 1px solid var(--hw-line);
+  padding: 5px 11px;
+  border-radius: var(--hw-radius);
+  color: var(--hw-fg);
+  text-decoration: none;
+  font-size: 13px;
+}
+.hw-nav-btn:hover { background: var(--hw-bg); }
+
+/* ----- banners ------------------------------------------------------ */
+
+.hw-banner-stack {
+  padding: 8px 16px 0;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.hw-banner {
+  border-radius: var(--hw-radius);
+  padding: 8px 12px;
+  font-size: 12px;
+  border: 1px solid;
+}
+.hw-banner-warn {
+  background: var(--hw-warn-bg);
+  color: var(--hw-warn-fg);
+  border-color: var(--hw-warn-border);
+}
+.hw-banner-info {
+  background: var(--hw-info-bg);
+  color: var(--hw-info-fg);
+  border-color: var(--hw-info-border);
+}
+
+/* ----- main layout (>=768px: side-by-side; <768px: stacked) -------- */
+
+.hw-main {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  padding: 12px 16px;
+  align-items: start;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 767px) {
+  .hw-main {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 12px;
+  }
+}
+
+/* ----- left panel --------------------------------------------------- */
+
+.hw-panel {
+  display: flex; flex-direction: column; gap: 14px;
+  background: var(--hw-surface);
+  border: 1px solid var(--hw-line);
+  border-radius: var(--hw-radius);
+  padding: 14px;
+}
+.hw-section {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.hw-section + .hw-section {
+  border-top: 1px dashed var(--hw-line);
+  padding-top: 12px;
+}
+.hw-section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hw-muted);
+}
+
+.hw-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hw-radio-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--hw-line);
+  border-radius: var(--hw-radius);
+  background: var(--hw-bg);
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+.hw-radio-group label:has(input:checked) {
+  background: var(--hw-accent);
+  color: var(--hw-accent-fg);
+  border-color: var(--hw-accent);
+}
+.hw-radio-group input { accent-color: var(--hw-accent); }
+
+.hw-source-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hw-source-panel select,
+.hw-source-panel input[type="text"],
+.hw-source-panel input[type="file"] {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--hw-line);
+  border-radius: var(--hw-radius);
+  background: var(--hw-surface);
+}
+
+#hw-style, #hw-grid, #hw-tags {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--hw-line);
+  border-radius: var(--hw-radius);
+  background: var(--hw-surface);
+}
+
+.hw-hint {
+  font-size: 11px;
+  color: var(--hw-muted);
+  line-height: 1.45;
+}
+.hw-hint-positive {
+  background: var(--hw-positive-bg);
+  color: var(--hw-positive-fg);
+  border: 1px solid var(--hw-positive-border);
+  border-radius: var(--hw-radius);
+  padding: 6px 8px;
+}
+
+/* progress bar */
+.hw-progress {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 11px; color: var(--hw-muted);
+}
+.hw-progress-bar {
+  height: 4px;
+  background: var(--hw-line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.hw-progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--hw-accent);
+  transition: width .25s ease;
+}
+
+/* ----- right stage (canvas + controls) ----------------------------- */
+
+.hw-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--hw-surface);
+  border: 1px solid var(--hw-line);
+  border-radius: var(--hw-radius);
+  padding: 14px;
+}
+
+.hw-prompt-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hw-prompt-label { color: var(--hw-muted); font-size: 13px; }
+.hw-prompt-char {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--hw-fg);
+  font-family: "Microsoft JhengHei", "PingFang TC",
+               "Noto Sans CJK TC", sans-serif;
+  min-width: 1em;
+}
+.hw-prompt-meta { color: var(--hw-muted); font-size: 12px; }
+
+/* canvas wrap — keep aspect 1:1, max 600px square */
+.hw-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  background: var(--hw-canvas-bg);
+  border: 2px solid var(--hw-fg);
+  border-radius: var(--hw-radius);
+  overflow: hidden;
+}
+.hw-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  display: block;
+  /* Critical — disable native touch gestures on the writing surface so
+     pen/finger drawing isn't fighting the browser's scroll/zoom. */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.hw-canvas-bg  { z-index: 1; pointer-events: none; }
+.hw-canvas-ink { z-index: 2; }
+
+.hw-stats {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  font-size: 12px; color: var(--hw-muted);
+}
+.hw-stats b { color: var(--hw-fg); font-weight: 600; }
+
+.hw-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.hw-btn {
+  background: var(--hw-surface);
+  border: 1px solid var(--hw-line);
+  padding: 7px 14px;
+  border-radius: var(--hw-radius);
+  color: var(--hw-fg);
+  font-size: 13px;
+  min-height: 36px;   /* touch target ≥ 36px */
+}
+.hw-btn:hover:not(:disabled) { background: var(--hw-bg); }
+.hw-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.hw-btn-primary {
+  background: var(--hw-accent);
+  color: var(--hw-accent-fg);
+  border-color: var(--hw-accent);
+}
+.hw-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.07);
+  background: var(--hw-accent);
+}
+.hw-btn-danger {
+  color: var(--hw-danger);
+  border-color: var(--hw-danger);
+}
+.hw-btn-danger:hover:not(:disabled) {
+  background: #fff0f0;
+}
+
+.hw-session-count {
+  color: var(--hw-muted);
+  font-size: 12px;
+}
+.hw-session-count b { color: var(--hw-fg); }
+
+/* ----- data drawer ------------------------------------------------- */
+
+.hw-drawer {
+  max-width: 1400px;
+  margin: 0 auto 16px;
+  padding: 16px;
+  background: var(--hw-surface);
+  border: 1px solid var(--hw-line);
+  border-radius: var(--hw-radius);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.hw-data-stats {
+  display: flex; gap: 8px; align-items: baseline;
+  font-size: 13px; color: var(--hw-muted);
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--hw-line);
+}
+.hw-data-stats b { color: var(--hw-fg); font-weight: 600; }
+.hw-data-sep { color: var(--hw-line); }
+
+.hw-data-row {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.hw-data-row-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--hw-muted);
+}
+.hw-data-row .hw-btn {
+  align-self: flex-start;
+  margin-right: 6px;
+  margin-bottom: 4px;
+}
+.hw-data-danger {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--hw-line);
+}
+
+/* ----- footer ------------------------------------------------------ */
+
+.hw-footer {
+  text-align: center;
+  padding: 10px 16px 24px;
+  color: var(--hw-muted);
+  font-size: 11px;
+}

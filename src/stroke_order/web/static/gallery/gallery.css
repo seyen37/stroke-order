@@ -1,0 +1,347 @@
+/* ======================================================================
+   stroke-order — gallery (公眾分享庫) UI styles (5g MVP).
+   Design tokens parallel handwriting.css; uses native <dialog> for modals.
+   RWD breakpoint: 768px (single-column on phones).
+   ====================================================================== */
+
+:root {
+  --gl-bg:        #fafafa;
+  --gl-surface:   #ffffff;
+  --gl-fg:        #222;
+  --gl-muted:     #666;
+  --gl-line:      #e0e0e0;
+  --gl-accent:    #2c5cb8;
+  --gl-accent-fg: #fff;
+  --gl-info-bg:   #e8f3ff;
+  --gl-info-fg:   #1a4480;
+  --gl-info-border: #b3d4f5;
+  --gl-warn-bg:   #fff8e0;
+  --gl-warn-fg:   #704000;
+  --gl-success:   #1d6b3a;
+  --gl-danger:    #c33;
+  --gl-radius:    4px;
+  --gl-shadow:    0 1px 3px rgba(0, 0, 0, .08);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  font-family: -apple-system, "Segoe UI", "Microsoft JhengHei",
+               "Noto Sans CJK TC", "PingFang TC", sans-serif;
+  font-size: 14px;
+  color: var(--gl-fg);
+  background: var(--gl-bg);
+}
+h1, h2, h3 { margin: 0; font-weight: 600; }
+button { font: inherit; cursor: pointer; }
+input, select, textarea { font: inherit; }
+a { color: var(--gl-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+input:focus-visible, select:focus-visible, textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--gl-accent);
+  outline-offset: 1px;
+}
+
+/* ----- header ------------------------------------------------------- */
+.gl-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--gl-surface);
+  border-bottom: 1px solid var(--gl-line);
+}
+.gl-title { display: flex; align-items: baseline; gap: 8px; }
+.gl-title h1 { font-size: 18px; }
+.gl-logo { font-size: 20px; }
+.gl-version {
+  color: var(--gl-muted);
+  font-size: 11px;
+  font-family: ui-monospace, "Menlo", monospace;
+}
+.gl-nav { display: flex; align-items: center; gap: 6px; position: relative; }
+.gl-nav-btn {
+  background: transparent;
+  border: 1px solid var(--gl-line);
+  padding: 5px 11px;
+  border-radius: var(--gl-radius);
+  color: var(--gl-fg);
+  text-decoration: none;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gl-nav-btn:hover { background: var(--gl-bg); }
+
+.gl-user-menu { position: relative; }
+.gl-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--gl-surface);
+  border: 1px solid var(--gl-line);
+  border-radius: var(--gl-radius);
+  box-shadow: var(--gl-shadow);
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  z-index: 10;
+}
+.gl-dropdown button {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--gl-fg);
+  cursor: pointer;
+}
+.gl-dropdown button:hover { background: var(--gl-bg); }
+
+/* ----- banner ------------------------------------------------------- */
+.gl-banner {
+  margin: 10px 16px;
+  padding: 8px 12px;
+  border-radius: var(--gl-radius);
+  font-size: 12px;
+  border: 1px solid;
+}
+.gl-banner-info {
+  background: var(--gl-info-bg);
+  color: var(--gl-info-fg);
+  border-color: var(--gl-info-border);
+}
+
+/* ----- toolbar ------------------------------------------------------ */
+.gl-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--gl-surface);
+  border-bottom: 1px solid var(--gl-line);
+  flex-wrap: wrap;
+}
+.gl-toolbar-spacer { flex: 1 1 auto; }
+.gl-stats {
+  color: var(--gl-muted);
+  font-size: 12px;
+}
+
+/* ----- main / list -------------------------------------------------- */
+.gl-main {
+  padding: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.gl-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+@media (max-width: 480px) {
+  .gl-list { grid-template-columns: 1fr; }
+}
+
+.gl-card {
+  background: var(--gl-surface);
+  border: 1px solid var(--gl-line);
+  border-radius: var(--gl-radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--gl-shadow);
+}
+.gl-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.gl-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-word;
+}
+.gl-card-author {
+  color: var(--gl-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.gl-card-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--gl-muted);
+  font-size: 12px;
+}
+.gl-card-meta b { color: var(--gl-fg); font-weight: 600; }
+.gl-card-styles {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.gl-pill {
+  background: var(--gl-info-bg);
+  color: var(--gl-info-fg);
+  padding: 1px 7px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+.gl-card-comment {
+  font-size: 13px;
+  color: var(--gl-fg);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 4px 0 6px;
+}
+.gl-card-time {
+  color: var(--gl-muted);
+  font-size: 11px;
+}
+.gl-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  border-top: 1px dashed var(--gl-line);
+  padding-top: 8px;
+}
+
+/* ----- empty / error ----------------------------------------------- */
+.gl-empty, .gl-error {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--gl-muted);
+}
+.gl-error { color: var(--gl-danger); }
+
+/* ----- pagination --------------------------------------------------- */
+.gl-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 8px;
+}
+.gl-page-label {
+  font-size: 13px;
+  color: var(--gl-muted);
+  min-width: 80px;
+  text-align: center;
+}
+
+/* ----- buttons ------------------------------------------------------ */
+.gl-btn {
+  background: var(--gl-surface);
+  border: 1px solid var(--gl-line);
+  padding: 7px 14px;
+  border-radius: var(--gl-radius);
+  color: var(--gl-fg);
+  font-size: 13px;
+  min-height: 32px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gl-btn:hover:not(:disabled) { background: var(--gl-bg); }
+.gl-btn:disabled { opacity: .45; cursor: not-allowed; }
+.gl-btn-primary {
+  background: var(--gl-accent);
+  color: var(--gl-accent-fg);
+  border-color: var(--gl-accent);
+}
+.gl-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+.gl-btn-danger {
+  color: var(--gl-danger);
+  border-color: var(--gl-danger);
+}
+.gl-btn-danger:hover:not(:disabled) {
+  background: #fff0f0;
+}
+
+/* ----- dialogs (login / upload / profile) -------------------------- */
+.gl-dialog {
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  max-width: 480px;
+  width: calc(100% - 32px);
+  box-shadow: 0 10px 40px rgba(0,0,0,.2);
+}
+.gl-dialog::backdrop { background: rgba(0,0,0,.45); }
+.gl-dialog-form {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 20px;
+}
+.gl-dialog-form h2 { font-size: 18px; }
+.gl-dialog-form label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 13px;
+  color: var(--gl-muted);
+}
+.gl-dialog-form input[type="text"],
+.gl-dialog-form input[type="email"],
+.gl-dialog-form input[type="file"],
+.gl-dialog-form textarea {
+  padding: 7px 9px;
+  border: 1px solid var(--gl-line);
+  border-radius: var(--gl-radius);
+  font-size: 14px;
+  color: var(--gl-fg);
+  background: var(--gl-surface);
+  width: 100%;
+}
+.gl-dialog-form textarea { resize: vertical; }
+.gl-dialog-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  margin-top: 4px;
+}
+.gl-req { color: var(--gl-danger); }
+.gl-hint {
+  color: var(--gl-muted);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.gl-status {
+  padding: 8px 10px;
+  border-radius: var(--gl-radius);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.gl-status.ok    { background: #f0fff4; color: var(--gl-success);
+                    border: 1px solid #a8d8b9; }
+.gl-status.error { background: #fff0f0; color: var(--gl-danger);
+                    border: 1px solid #f0b8b8; }
+.gl-status.info  { background: var(--gl-info-bg); color: var(--gl-info-fg);
+                    border: 1px solid var(--gl-info-border); }
+
+/* ----- upload-preview block (file analysis) ------------------------ */
+.gl-upload-preview {
+  background: var(--gl-info-bg);
+  color: var(--gl-info-fg);
+  padding: 8px 12px;
+  border-radius: var(--gl-radius);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.gl-upload-preview b { color: var(--gl-info-fg); }
+.gl-upload-preview .pill { font-family: ui-monospace, monospace; }
+
+/* ----- footer ------------------------------------------------------- */
+.gl-footer {
+  text-align: center;
+  padding: 16px;
+  color: var(--gl-muted);
+  font-size: 11px;
+}

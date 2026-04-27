@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>公眾分享庫 — stroke-order</title>
+  <link rel="stylesheet" href="/static/gallery/gallery.css">
+</head>
+<body>
+
+<!-- ===================================================================
+     5g — 公眾分享庫 (Phase 5g MVP)
+     Independent SPA. Public list of user-uploaded PSD JSON files.
+     Auth via email magic-link + session cookie.
+     =================================================================== -->
+
+<header class="gl-header">
+  <div class="gl-title">
+    <span class="gl-logo">🖼</span>
+    <h1>公眾分享庫</h1>
+    <span class="gl-version">v0.13.0</span>
+  </div>
+  <nav class="gl-nav">
+    <a href="/" class="gl-nav-btn">↩ 回主頁</a>
+    <a href="/handwriting" class="gl-nav-btn">✒︎ 筆順練習</a>
+
+    <!-- Anonymous → "登入" button -->
+    <button id="gl-login-btn" class="gl-nav-btn" type="button" hidden>
+      登入
+    </button>
+
+    <!-- Logged-in → name button + dropdown -->
+    <div id="gl-user-menu" class="gl-user-menu" hidden>
+      <button id="gl-user-btn" class="gl-nav-btn" type="button">
+        <span id="gl-user-label">我</span> ▾
+      </button>
+      <div id="gl-user-dropdown" class="gl-dropdown" hidden>
+        <button data-action="open-profile" type="button">個人簡介</button>
+        <button data-action="logout"       type="button">登出</button>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<!-- 隱私 / 說明 banner（永遠可見） -->
+<div class="gl-banner gl-banner-info">
+  <b>📤 公眾分享庫</b>
+  ：分享您在筆順練習頁累積的 PSD JSON 檔。所有上傳的檔案皆為公開可下載；只有您本人能刪除自己上傳的內容。
+</div>
+
+<!-- main toolbar -->
+<section class="gl-toolbar">
+  <button id="gl-upload-btn" class="gl-btn gl-btn-primary" type="button">
+    ↑ 上傳 PSD
+  </button>
+  <input id="gl-search" type="search" placeholder="搜尋標題 / 評論 / 作者…"
+         autocomplete="off" hidden>
+  <span class="gl-toolbar-spacer"></span>
+  <span id="gl-stats" class="gl-stats">— 筆</span>
+</section>
+
+<!-- list / cards -->
+<main class="gl-main">
+  <div id="gl-list" class="gl-list" aria-live="polite"></div>
+  <div id="gl-list-empty" class="gl-empty" hidden>
+    <p>📭 目前還沒有任何上傳。</p>
+    <p>到 <a href="/handwriting">筆順練習</a> 累積您的字跡，
+       匯出 JSON 後回來上傳分享。</p>
+  </div>
+  <div id="gl-list-error" class="gl-error" hidden></div>
+
+  <div class="gl-pagination" id="gl-pagination" hidden>
+    <button id="gl-page-prev" class="gl-btn" type="button">上一頁</button>
+    <span id="gl-page-label" class="gl-page-label">1 / 1</span>
+    <button id="gl-page-next" class="gl-btn" type="button">下一頁</button>
+  </div>
+</main>
+
+<!-- =================== Login modal (5g-7) =================== -->
+<dialog id="gl-login-dialog" class="gl-dialog">
+  <form method="dialog" class="gl-dialog-form" id="gl-login-form">
+    <h2>登入</h2>
+    <p class="gl-hint">
+      輸入您的 email，我們會寄送一次性登入連結到信箱。
+      連結 15 分鐘內有效。
+    </p>
+    <label>
+      Email
+      <input id="gl-login-email" type="email" required
+             autocomplete="email" placeholder="例：me@example.com">
+    </label>
+    <div class="gl-dialog-actions">
+      <button value="cancel" class="gl-btn" type="button"
+              data-action="login-cancel">取消</button>
+      <button value="submit" class="gl-btn gl-btn-primary"
+              type="submit" id="gl-login-submit">寄出連結</button>
+    </div>
+    <div id="gl-login-status" class="gl-status" hidden></div>
+  </form>
+</dialog>
+
+<!-- =================== Upload modal (5g-9) =================== -->
+<dialog id="gl-upload-dialog" class="gl-dialog">
+  <form class="gl-dialog-form" id="gl-upload-form">
+    <h2>上傳 PSD</h2>
+    <p class="gl-hint">
+      上傳您從 <a href="/handwriting" target="_blank">筆順練習</a> 匯出的
+      JSON 檔（schema = <code>stroke-order-psd-v1</code>）。
+      檔案上限 10 MB，每日最多 20 次上傳。
+    </p>
+
+    <label>
+      檔案 <span class="gl-req">*</span>
+      <input id="gl-upload-file" type="file"
+             accept=".json,application/json" required>
+    </label>
+
+    <div id="gl-upload-preview" class="gl-upload-preview" hidden></div>
+
+    <label>
+      公開標題 <span class="gl-req">*</span>
+      <input id="gl-upload-title" type="text" maxlength="50" required
+             placeholder="例：我的隸書練字">
+      <small class="gl-hint">≤ 50 字</small>
+    </label>
+
+    <label>
+      簡短評論
+      <textarea id="gl-upload-comment" rows="3" maxlength="200"
+                placeholder="（選填）這份字跡的故事 / 練習動機 / 風格說明…"></textarea>
+      <small class="gl-hint">≤ 200 字</small>
+    </label>
+
+    <div class="gl-dialog-actions">
+      <button class="gl-btn" type="button"
+              data-action="upload-cancel">取消</button>
+      <button class="gl-btn gl-btn-primary" type="submit"
+              id="gl-upload-submit">上傳</button>
+    </div>
+    <div id="gl-upload-status" class="gl-status" hidden></div>
+  </form>
+</dialog>
+
+<!-- =================== Profile modal (5g-10) =================== -->
+<dialog id="gl-profile-dialog" class="gl-dialog">
+  <form class="gl-dialog-form" id="gl-profile-form">
+    <h2>個人簡介</h2>
+    <p class="gl-hint">
+      您的「公開名稱」會出現在卡片上。留空時，會顯示 email 帳號名（@ 之前的部分）。
+    </p>
+
+    <label>
+      公開名稱
+      <input id="gl-profile-display-name" type="text" maxlength="50"
+             placeholder="例：王小明">
+      <small class="gl-hint">≤ 50 字</small>
+    </label>
+
+    <label>
+      簡介
+      <textarea id="gl-profile-bio" rows="4" maxlength="500"
+                placeholder="（選填）關於您的書法風格、練習目標…"></textarea>
+      <small class="gl-hint">≤ 500 字</small>
+    </label>
+
+    <div class="gl-dialog-actions">
+      <button class="gl-btn" type="button"
+              data-action="profile-cancel">取消</button>
+      <button class="gl-btn gl-btn-primary" type="submit"
+              id="gl-profile-submit">儲存</button>
+    </div>
+    <div id="gl-profile-status" class="gl-status" hidden></div>
+  </form>
+</dialog>
+
+<footer class="gl-footer">
+  <small>
+    stroke-order 公眾分享庫 · 上傳資料以 SQLite + 本機檔案系統儲存於伺服器
+  </small>
+</footer>
+
+<script type="module" src="/static/gallery/gallery.js"></script>
+
+</body>
+</html>

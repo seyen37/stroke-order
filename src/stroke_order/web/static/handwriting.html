@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
+  <title>筆順練習 — stroke-order</title>
+  <link rel="stylesheet" href="/static/handwriting/handwriting.css">
+</head>
+<body>
+
+<!-- ===================================================================
+     5d MVP — handwriting practice page (Personal Stroke Database)
+     Independent SPA. Collects stroke trajectories (x, y, t_ms, pressure,
+     tilt) for driving handwriting robots. Data stays in IndexedDB on
+     the user's device unless they explicitly export.
+     =================================================================== -->
+
+<header class="hw-header">
+  <div class="hw-title">
+    <span class="hw-logo">✒︎</span>
+    <h1>筆順練習</h1>
+    <span class="hw-version">v0.13.0</span>
+  </div>
+  <nav class="hw-nav">
+    <a href="/" class="hw-nav-btn">↩ 回主頁</a>
+    <button id="hw-data-mgmt" class="hw-nav-btn" type="button">≡ 我的資料</button>
+  </nav>
+</header>
+
+<!-- 5d-12: warnings populated by JS (in-app browser, privacy notice) -->
+<div id="hw-banner-stack" class="hw-banner-stack">
+  <div id="hw-banner-inapp-browser" class="hw-banner hw-banner-warn"
+       hidden>
+    <b>⚠ 偵測到 App 內建瀏覽器</b>
+    （LINE / Facebook / Instagram 等）。觸控書寫可能異常。建議用「在外部瀏覽器開啟」選項，或改用 Safari / Chrome / Firefox。
+  </div>
+  <div id="hw-banner-privacy" class="hw-banner hw-banner-info">
+    <b>🔒 您的筆跡資料只存在這部裝置</b>
+    （IndexedDB）。除非您按下匯出或提交，否則不會傳送到任何地方。
+  </div>
+</div>
+
+<main class="hw-main">
+
+  <!-- ============= LEFT: control panel ============= -->
+  <aside class="hw-panel">
+
+    <!-- ─── 1. 素材來源 ─── -->
+    <section class="hw-section">
+      <h2 class="hw-section-title">素材</h2>
+      <div class="hw-radio-group" role="radiogroup" aria-label="素材來源">
+        <label><input type="radio" name="source-type" value="sutra" checked>
+          <span>經典</span></label>
+        <label><input type="radio" name="source-type" value="input">
+          <span>字串</span></label>
+        <label><input type="radio" name="source-type" value="upload">
+          <span>上傳</span></label>
+        <label><input type="radio" name="source-type" value="freehand">
+          <span>自由書寫</span></label>
+      </div>
+
+      <!-- 經典子面板 -->
+      <div class="hw-source-panel" data-for="sutra">
+        <select id="hw-sutra-preset"
+                aria-label="選擇經典">
+          <option value="" disabled selected>載入中…</option>
+        </select>
+        <div class="hw-progress" id="hw-progress" hidden>
+          <span id="hw-progress-label">0 / 0</span>
+          <div class="hw-progress-bar">
+            <div class="hw-progress-fill" id="hw-progress-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 字串子面板 -->
+      <div class="hw-source-panel" data-for="input" hidden>
+        <input id="hw-input-string" type="text"
+               placeholder="輸入要練習的字串（例：永和九年歲在癸丑）"
+               autocomplete="off">
+      </div>
+
+      <!-- 上傳子面板 -->
+      <div class="hw-source-panel" data-for="upload" hidden>
+        <input id="hw-upload-file" type="file" accept=".txt,text/plain">
+        <small class="hw-hint">純文字檔（.txt），UTF-8 編碼</small>
+      </div>
+
+      <!-- 自由書寫子面板 -->
+      <div class="hw-source-panel" data-for="freehand" hidden>
+        <small class="hw-hint">無素材限制——隨意書寫，寫完後手動標註是哪個字。</small>
+      </div>
+    </section>
+
+    <!-- ─── 2. 練習模式 ─── -->
+    <section class="hw-section">
+      <h2 class="hw-section-title">模式</h2>
+      <div class="hw-radio-group" role="radiogroup" aria-label="練習模式">
+        <label><input type="radio" name="practice-mode" value="trace" checked>
+          <span>臨摹（淡灰底圖）</span></label>
+        <label><input type="radio" name="practice-mode" value="prompt">
+          <span>提示（純文字）</span></label>
+        <label><input type="radio" name="practice-mode" value="freehand">
+          <span>自由（無提示）</span></label>
+      </div>
+    </section>
+
+    <!-- ─── 3. 字型風格 ─── -->
+    <section class="hw-section">
+      <h2 class="hw-section-title">字型</h2>
+      <select id="hw-style" aria-label="字型風格">
+        <option value="kaishu" selected>楷書</option>
+        <option value="mingti">宋體</option>
+        <option value="bold">粗楷</option>
+        <option value="lishu" data-priority="true">隸書（教育部）&nbsp;📥</option>
+        <option value="seal_script" data-priority="true">篆書（崇羲）&nbsp;📥</option>
+      </select>
+      <input id="hw-tags" type="text"
+             placeholder="自定義 tag（例：草書、行書、我的版本）"
+             autocomplete="off">
+
+      <!-- 隸/篆 priority hint (positive — encourage data collection) -->
+      <div id="hw-style-priority-hint" class="hw-hint hw-hint-positive" hidden>
+        💡 隸書/篆書內建筆順資料缺失。您寫的軌跡會先存在本機資料庫；日後可選擇匯出 JSON 或提交至公眾資料庫（5e 階段開放），協助寫字機器人取得真實軌跡。
+      </div>
+    </section>
+
+    <!-- ─── 4. 格線 ─── -->
+    <section class="hw-section">
+      <h2 class="hw-section-title">格線</h2>
+      <select id="hw-grid" aria-label="格線樣式">
+        <option value="mizi" selected>米字格</option>
+        <option value="jiugong">九宮格</option>
+        <option value="new-jiugong">新九宮格</option>
+        <option value="tianzi">田字格</option>
+        <option value="huizi">回字格</option>
+        <option value="frame">僅字身框</option>
+        <option value="none">無格線</option>
+      </select>
+    </section>
+
+  </aside>
+
+  <!-- ============= RIGHT: canvas + controls ============= -->
+  <section class="hw-stage">
+
+    <!-- 提示字 / 模式提示 -->
+    <div id="hw-prompt-row" class="hw-prompt-row">
+      <span class="hw-prompt-label">請寫：</span>
+      <span id="hw-prompt-char" class="hw-prompt-char">—</span>
+      <span id="hw-prompt-meta" class="hw-prompt-meta"></span>
+    </div>
+
+    <!-- 雙層 canvas — bg (reference glyph + grid) + ink (user) -->
+    <div class="hw-canvas-wrap" id="hw-canvas-wrap">
+      <canvas id="hw-canvas-bg"  class="hw-canvas hw-canvas-bg"
+              aria-hidden="true"></canvas>
+      <canvas id="hw-canvas-ink" class="hw-canvas hw-canvas-ink"
+              aria-label="書寫畫布"></canvas>
+    </div>
+
+    <!-- 軌跡狀態 -->
+    <div class="hw-stats">
+      <span>筆畫：<b id="hw-stat-strokes">0</b></span>
+      <span>取樣點：<b id="hw-stat-points">0</b></span>
+      <span>耗時：<b id="hw-stat-duration">0.0s</b></span>
+    </div>
+
+    <!-- 操作鈕 -->
+    <div class="hw-actions">
+      <button class="hw-btn"          data-action="clear"    type="button">清除</button>
+      <button class="hw-btn"          data-action="prev"     type="button">⏴ 上一字</button>
+      <button class="hw-btn hw-btn-primary"
+                                       data-action="commit"   type="button">✓ 完成本字</button>
+      <button class="hw-btn"          data-action="next"     type="button">下一字 ⏵</button>
+    </div>
+
+    <!-- session count -->
+    <div class="hw-session-count">
+      已紀錄：<b id="hw-session-count">0</b> 字（此次會期）
+    </div>
+  </section>
+
+</main>
+
+<!-- ============= BOTTOM: data management drawer ============= -->
+<section class="hw-drawer" id="hw-drawer" hidden>
+  <h2 class="hw-section-title">我的資料</h2>
+
+  <div class="hw-data-stats">
+    <span>資料庫總計：<b id="hw-db-count">0</b> 字</span>
+    <span class="hw-data-sep">·</span>
+    <span>不重複字：<b id="hw-db-unique">0</b></span>
+  </div>
+
+  <!-- 匯出 -->
+  <div class="hw-data-row">
+    <h3 class="hw-data-row-title">匯出</h3>
+    <button class="hw-btn"          data-action="export-json"      type="button">↓ JSON（全部）</button>
+    <button class="hw-btn"          data-action="export-svg-one"   type="button">↓ Plotter SVG（當前字）</button>
+    <button class="hw-btn"          data-action="export-svg-zip"   type="button">↓ Plotter SVG（zip 全部）</button>
+  </div>
+
+  <!-- 匯入 -->
+  <div class="hw-data-row">
+    <h3 class="hw-data-row-title">匯入</h3>
+    <input id="hw-import-file" type="file" accept=".json,application/json">
+  </div>
+
+  <!-- 跨機同步（5d 純下載；5e 才接 SMTP） -->
+  <div class="hw-data-row">
+    <h3 class="hw-data-row-title">跨機同步</h3>
+    <button class="hw-btn" data-action="email-self" disabled
+            title="待開發 (5e) — 目前請改用「下載 JSON」自行 email 給自己">
+      ✉ 寄到我的 email（待開發）
+    </button>
+    <button class="hw-btn" data-action="submit-public" disabled
+            title="待開發 (5e) — 提交匿名公眾資料庫">
+      🌐 提交匿名公眾資料庫（待開發）
+    </button>
+  </div>
+
+  <!-- 危險區 -->
+  <div class="hw-data-row hw-data-danger">
+    <h3 class="hw-data-row-title">清除</h3>
+    <button class="hw-btn hw-btn-danger"
+            data-action="clear-all" type="button">⚠ 清空整個資料庫</button>
+  </div>
+</section>
+
+<footer class="hw-footer">
+  <small>
+    stroke-order PSD · 軌跡含時間戳 + 筆壓 + 觸控筆角度，可直接餵入寫字機器人 pipeline
+  </small>
+</footer>
+
+<!-- 5d main module — canvas + storage + materials + grid + reference,
+     wired into 3 practice modes (trace / prompt / freehand). -->
+<script type="module">
+  import { WritingCanvas } from '/static/handwriting/canvas.js';
+  import {
+    saveTrace, getDbStats, uuid, listAllTraces, clearAllTraces,
+  } from '/static/handwriting/storage.js';
+  import {
+    loadSutraMaterial, loadInputMaterial,
+    loadUploadMaterial, loadFreehandMaterial,
+    fetchSutraPresets,
+  } from '/static/handwriting/materials.js';
+  import { drawGrid } from '/static/handwriting/grid.js';
+  import { fetchReference, drawReference, clearReferenceCache }
+    from '/static/handwriting/reference.js';
+  import {
+    exportAllJson, exportTraceSvg, exportAllSvgZip, importJson,
+  } from '/static/handwriting/exporter.js';
+
+  const $ = id => document.getElementById(id);
+
+  // ============================================================ state
+
+  const state = {
+    sourceType:    'sutra',
+    practiceMode:  'trace',
+    style:         'kaishu',
+    grid:          'mizi',
+    material:      null,                 // MaterialIterator
+    sessionCount:  0,
+  };
+
+  // ========================================================= UI utilities
+
+  const showSourcePanel = (val) => {
+    document.querySelectorAll('.hw-source-panel').forEach(p => {
+      p.hidden = p.dataset.for !== val;
+    });
+  };
+
+  const updateStyleHint = () => {
+    const v = $('hw-style').value;
+    $('hw-style-priority-hint').hidden =
+      !(v === 'lishu' || v === 'seal_script');
+  };
+
+  const updateProgress = () => {
+    const pBar = $('hw-progress');
+    if (!state.material || state.material.total === 0) {
+      pBar.hidden = true;
+      return;
+    }
+    const p = state.material.progress();
+    pBar.hidden = false;
+    $('hw-progress-label').textContent = `${p.index + 1} / ${p.total}`;
+    $('hw-progress-fill').style.width = p.percent + '%';
+  };
+
+  const updatePromptUI = () => {
+    const ch = state.material ? state.material.currentChar() : '';
+    $('hw-prompt-char').textContent = ch || '—';
+    if (state.practiceMode === 'freehand' || !ch) {
+      $('hw-prompt-meta').textContent =
+        state.practiceMode === 'freehand'
+          ? '（自由書寫；寫完後手動標註）'
+          : '';
+    } else {
+      const meta = state.material?.meta;
+      $('hw-prompt-meta').textContent =
+        meta?.title ? `（${meta.title}）` : '';
+    }
+  };
+
+  // ============================================================ canvas
+
+  const canvas = new WritingCanvas({
+    ink: $('hw-canvas-ink'),
+    bg:  $('hw-canvas-bg'),
+  });
+
+  // Re-render bg layer (grid + optional reference glyph)
+  async function renderBg() {
+    const ctx = canvas.bgContext();
+    if (!ctx) return;
+    const [w, h] = canvas.bgSize();
+    drawGrid(ctx, w, h, state.grid);
+
+    // Reference layer only in 臨摹 mode AND when a target char exists
+    if (state.practiceMode === 'trace' && state.material) {
+      const ch = state.material.currentChar();
+      if (ch) {
+        const strokes = await fetchReference(ch, state.style);
+        // Re-check that the still-current char hasn't changed while
+        // we were waiting on the network — common race when user
+        // hits Next quickly.
+        if (state.material.currentChar() === ch) {
+          drawReference(ctx, w, h, strokes);
+        }
+      }
+    }
+  }
+
+  const updateStats = () => {
+    const s = canvas.stats();
+    $('hw-stat-strokes').textContent  = s.strokes;
+    $('hw-stat-points').textContent   = s.points;
+    $('hw-stat-duration').textContent = s.duration_s.toFixed(1) + 's';
+  };
+  canvas.on('strokeEnd', updateStats);
+  canvas.on('clear',     updateStats);
+  canvas.on('strokePop', updateStats);
+  // 5d-7-bugfix: when the canvas is rebuilt (rotation, resize, RWD
+  // breakpoint), re-render the bg layer so grid + reference glyph stay
+  // crisp and centred at the new size.
+  canvas.on('resize', () => { renderBg(); });
+
+  // ============================================================ source
+
+  // Sutra picker: populate the dropdown.
+  async function populateSutraDropdown() {
+    const sel = $('hw-sutra-preset');
+    sel.innerHTML = '';
+    try {
+      const presets = await fetchSutraPresets();
+      if (presets.length === 0) {
+        const opt = document.createElement('option');
+        opt.disabled = true;
+        opt.selected = true;
+        opt.textContent = '（尚無已載入經典）';
+        sel.appendChild(opt);
+        return;
+      }
+      for (const p of presets) {
+        const opt = document.createElement('option');
+        opt.value = p.key;
+        opt.textContent = p.title;
+        sel.appendChild(opt);
+      }
+    } catch (e) {
+      console.warn('preset list failed', e);
+      const opt = document.createElement('option');
+      opt.disabled = true;
+      opt.selected = true;
+      opt.textContent = `（載入失敗：${e.message}）`;
+      sel.appendChild(opt);
+    }
+  }
+
+  // Re-load material based on current source type & inputs.
+  async function loadMaterial() {
+    try {
+      switch (state.sourceType) {
+        case 'sutra': {
+          const preset = $('hw-sutra-preset').value;
+          if (!preset) {
+            state.material = loadFreehandMaterial();
+            break;
+          }
+          state.material = await loadSutraMaterial(preset);
+          break;
+        }
+        case 'input':
+          state.material = loadInputMaterial($('hw-input-string').value);
+          break;
+        case 'upload': {
+          const file = $('hw-upload-file').files[0];
+          state.material = file
+            ? await loadUploadMaterial(file)
+            : loadFreehandMaterial();
+          break;
+        }
+        case 'freehand':
+        default:
+          state.material = loadFreehandMaterial();
+      }
+    } catch (e) {
+      console.error(e);
+      alert('素材載入失敗：' + (e.message || e));
+      state.material = loadFreehandMaterial();
+    }
+    updateProgress();
+    updatePromptUI();
+    canvas.clear();
+    await renderBg();
+  }
+
+  // ============================================================ events
+
+  // Source type radios
+  document.querySelectorAll('input[name="source-type"]').forEach(r => {
+    r.addEventListener('change', async () => {
+      state.sourceType = r.value;
+      showSourcePanel(r.value);
+      await loadMaterial();
+    });
+  });
+
+  // Practice mode radios
+  document.querySelectorAll('input[name="practice-mode"]').forEach(r => {
+    r.addEventListener('change', async () => {
+      state.practiceMode = r.value;
+      updatePromptUI();
+      canvas.clear();
+      await renderBg();
+    });
+  });
+
+  // Style change → invalidate ref cache (in case user revisits earlier
+  // chars under a new style) + re-render.
+  $('hw-style').addEventListener('change', async () => {
+    state.style = $('hw-style').value;
+    updateStyleHint();
+    clearReferenceCache();
+    await renderBg();
+  });
+
+  // Grid change → re-render bg only
+  $('hw-grid').addEventListener('change', async () => {
+    state.grid = $('hw-grid').value;
+    await renderBg();
+  });
+
+  // Sutra preset change
+  $('hw-sutra-preset').addEventListener('change', loadMaterial);
+
+  // Free-typed input — reload on blur (avoid thrashing each keystroke)
+  $('hw-input-string').addEventListener('change', loadMaterial);
+
+  // Upload
+  $('hw-upload-file').addEventListener('change', loadMaterial);
+
+  // Resize: re-render bg (canvas auto-resizes via ResizeObserver, but
+  // bg layer needs explicit redraw)
+  let resizeRaf = 0;
+  window.addEventListener('resize', () => {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(renderBg);
+  });
+
+  // ============================================================ actions
+
+  // CLEAR — wipe ink only
+  document.querySelector('[data-action="clear"]').addEventListener('click',
+    () => canvas.clear());
+
+  // COMMIT — save trace + advance to next char
+  document.querySelector('[data-action="commit"]').addEventListener('click',
+    async () => {
+      if (canvas.isEmpty()) {
+        alert('尚未書寫任何筆畫');
+        return;
+      }
+
+      // Determine label based on practice mode.
+      let label = '';
+      let label_source = 'given';
+      if (state.practiceMode === 'freehand' || !state.material?.currentChar()) {
+        // Free-write or no preset char → user types the label.
+        // 5e: replace prompt() with proper inline OCR + edit dialog.
+        label = (prompt('請問您寫的是哪個字？（單字）') || '').trim();
+        if (!label) return;
+        label_source = 'user_input';
+      } else {
+        label = state.material.currentChar();
+      }
+
+      const trace = canvas.getTrace();
+      const record = {
+        id:     uuid(),
+        char:   label,
+        label_source,
+        style:  state.style,
+        tags:   ($('hw-tags').value || '').trim()
+                  .split(/[,，\s]+/).filter(Boolean),
+        device: trace.device,
+        ts:     new Date().toISOString(),
+        canvas_size: trace.canvas_size,
+        em_size:     trace.em_size,
+        strokes:     trace.strokes,
+        source:      _sourceMeta(),
+      };
+      try {
+        await saveTrace(record);
+        state.sessionCount++;
+        $('hw-session-count').textContent = state.sessionCount;
+        canvas.clear();
+        // Auto-advance to next char if material has one
+        if (state.material && state.material.total > 0
+            && state.material.index < state.material.total - 1) {
+          state.material.next();
+          updateProgress();
+          updatePromptUI();
+          await renderBg();
+        }
+      } catch (e) {
+        console.error(e);
+        alert('儲存失敗：' + (e.message || e));
+      }
+    });
+
+  // PREV / NEXT
+  document.querySelector('[data-action="prev"]').addEventListener('click',
+    async () => {
+      if (!state.material) return;
+      state.material.prev();
+      canvas.clear();
+      updateProgress();
+      updatePromptUI();
+      await renderBg();
+    });
+  document.querySelector('[data-action="next"]').addEventListener('click',
+    async () => {
+      if (!state.material) return;
+      state.material.next();
+      canvas.clear();
+      updateProgress();
+      updatePromptUI();
+      await renderBg();
+    });
+
+  function _sourceMeta() {
+    if (!state.material) return { type: 'unknown' };
+    const m = state.material.meta;
+    const base = { type: m.type };
+    if (m.preset)   base.preset   = m.preset;
+    if (m.title)    base.title    = m.title;
+    if (m.filename) base.filename = m.filename;
+    if (state.material.total > 0) {
+      base.char_index = state.material.index;
+    }
+    return base;
+  }
+
+  // ============================================================ banners
+
+  // Style hint
+  $('hw-style').addEventListener('change', updateStyleHint);
+  updateStyleHint();
+
+  // In-app browser detection
+  const ua = navigator.userAgent || '';
+  const inAppPatterns = [
+    /Line\//i, /FBAN|FBAV/i, /Instagram/i, /WeChat/i, /MicroMessenger/i,
+  ];
+  if (inAppPatterns.some(re => re.test(ua))) {
+    $('hw-banner-inapp-browser').hidden = false;
+  }
+
+  // Data drawer toggle
+  $('hw-data-mgmt').addEventListener('click', async () => {
+    const d = $('hw-drawer');
+    d.hidden = !d.hidden;
+    if (!d.hidden) {
+      d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      await refreshDbStats();
+    }
+  });
+
+  async function refreshDbStats() {
+    try {
+      const s = await getDbStats();
+      $('hw-db-count').textContent  = s.count;
+      $('hw-db-unique').textContent = s.unique_chars;
+    } catch (e) {
+      console.warn('DB stats failed', e);
+    }
+  }
+
+  // ============================================================ export
+
+  // 5d-9: JSON export — entire IDB as a single .json
+  document.querySelector('[data-action="export-json"]').addEventListener('click',
+    async () => {
+      try {
+        const n = await exportAllJson();
+        if (n === 0) {
+          alert('資料庫沒有任何軌跡可匯出');
+        }
+      } catch (e) {
+        console.error(e);
+        alert('JSON 匯出失敗：' + (e.message || e));
+      }
+    });
+
+  // 5d-10: Plotter SVG export — current page's most recent trace.
+  // Best-effort: fetches the most recent record from IDB (any char).
+  // 5e: replace with "current selected" once the data drawer has a list view.
+  document.querySelector('[data-action="export-svg-one"]').addEventListener('click',
+    async () => {
+      try {
+        const all = await listAllTraces();
+        if (all.length === 0) {
+          alert('資料庫沒有軌跡');
+          return;
+        }
+        // newest first
+        all.sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+        exportTraceSvg(all[0]);
+      } catch (e) {
+        console.error(e);
+        alert('SVG 匯出失敗：' + (e.message || e));
+      }
+    });
+
+  // 5d-10: Plotter SVG zip — every trace, .zip download
+  document.querySelector('[data-action="export-svg-zip"]').addEventListener('click',
+    async () => {
+      try {
+        const n = await exportAllSvgZip();
+        // (info dialog below is for transparency — alert() is kludgy
+        // but adequate for MVP)
+        alert(`已匯出 ${n} 筆軌跡到 zip`);
+      } catch (e) {
+        console.error(e);
+        alert('zip 匯出失敗：' + (e.message || e));
+      }
+    });
+
+  // ============================================================ import
+
+  // 5d-9: JSON import. Mode chosen via confirm() — keep MVP simple.
+  $('hw-import-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    let mode = 'merge';
+    if (!confirm(
+      `匯入「${file.name}」\n\n` +
+      `按「確定」= 合併（保留現有資料 + 加入新軌跡）\n` +
+      `按「取消」= 取消整個動作\n\n` +
+      `(若要先清空再匯入，請先到「危險區」清空整個資料庫)`,
+    )) {
+      e.target.value = '';
+      return;
+    }
+    try {
+      const result = await importJson(file, mode);
+      alert(
+        `匯入完成：\n` +
+        `  匯入 ${result.imported} 筆\n` +
+        `  跳過 ${result.skipped} 筆（格式錯誤）`,
+      );
+      await refreshDbStats();
+    } catch (err) {
+      console.error(err);
+      alert('匯入失敗：' + (err.message || err));
+    } finally {
+      e.target.value = '';
+    }
+  });
+
+  // ============================================================ clear-all
+
+  document.querySelector('[data-action="clear-all"]').addEventListener('click',
+    async () => {
+      if (!confirm(
+        '⚠ 即將清空整個本機筆順資料庫，無法復原。\n\n' +
+        '建議先用「↓ JSON（全部）」匯出備份。\n\n' +
+        '確定清空？',
+      )) return;
+      try {
+        await clearAllTraces();
+        state.sessionCount = 0;
+        $('hw-session-count').textContent = '0';
+        await refreshDbStats();
+        alert('已清空');
+      } catch (e) {
+        console.error(e);
+        alert('清空失敗：' + (e.message || e));
+      }
+    });
+
+  // ============================================================ boot
+
+  showSourcePanel(state.sourceType);
+  await populateSutraDropdown();
+  await loadMaterial();      // sutra preset auto-loaded into material
+  await refreshDbStats();
+</script>
+
+</body>
+</html>
