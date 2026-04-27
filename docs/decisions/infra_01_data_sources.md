@@ -1,274 +1,206 @@
-# 決策日誌：infra_01 — 資料源 chain（多源 fallback 設計）
-
-**Phase 範圍**：Phase 1（g0v / mmh）→ Phase 5ai (punctuation) → 5ak (user_dict) → 5al (CNS font) → 5am (CNS Sung) → 5at (chongxi seal) → 5au (MoE Lishu) → 5av (MoE Sung) → 5aw (MoE Kaishu)
-**版號階段**：0.1 → 0.11.x
-**現存證據**：`src/stroke_order/sources/__init__.py`（AutoSource / RegionAutoSource）、`src/stroke_order/sources/*.py`（13 個 adapter）、`src/stroke_order/web/server.py:316` `_load()` + `_upgrade_to_*` chain
-
-> **追溯方式**：本檔由 v0.13.0 程式碼狀態反推。每個 source adapter 的 docstring 都明寫了它對應的 phase tag，所以時序可以從 phase 字母排列推算。
-
+﻿---
+layout: default
 ---
 
-## 整體脈絡
+# 瘙箇??亥?嚗nfra_01 ??鞈?皞?chain嚗?皞?fallback 閮剛?嚗?
+**Phase 蝭?**嚗hase 1嚗0v / mmh嚗? Phase 5ai (punctuation) ??5ak (user_dict) ??5al (CNS font) ??5am (CNS Sung) ??5at (chongxi seal) ??5au (MoE Lishu) ??5av (MoE Sung) ??5aw (MoE Kaishu)
+**???挾**嚗?.1 ??0.11.x
+**?曉?霅?**嚗src/stroke_order/sources/__init__.py`嚗utoSource / RegionAutoSource嚗src/stroke_order/sources/*.py`嚗?3 ??adapter嚗src/stroke_order/web/server.py:316` `_load()` + `_upgrade_to_*` chain
 
-stroke-order 從 Phase 1 的「兩個資料源」一路擴展到目前的 **9 個 source + 3 種風格升級鏈**——這個增長過程暴露了一個核心 tension：**「字符覆蓋率」 vs 「資料品質」**。
+> **餈賣滲?孵?**嚗瑼 v0.13.0 蝔?蝣潛????具???source adapter ??docstring ?賣?撖思?摰??? phase tag嚗?隞交?摨隞亙? phase 摮????函???
+---
 
-| 軸線 | 偏好 | 代價 |
+## ?湧??窗
+
+stroke-order 敺?Phase 1 ???????頝舀撅?桀???**9 ??source + 3 蝔桅◢?澆?蝝?**???琿?蝔?脖?銝?敹?tension嚗?*??蝚西?????vs ????鞈芥?*??
+| 頠貊? | ?末 | 隞? |
 |---|---|---|
-| 高品質筆順（含 raw_track + outline + 分類）| 寫字機器人友善 | 資料源稀少（g0v/mmh 約 9k 字）|
-| 高覆蓋率（outline-only）| 罕見字也有字形 | 機器人輸出沒「下筆順序」 |
+| 擃?鞈芰?????raw_track + outline + ??嚗 撖怠?璈鈭箏???| 鞈?皞?撠?g0v/mmh 蝝?9k 摮?|
+| 擃???嚗utline-only嚗 蝵?摮???敶?| 璈鈭箄撓?箸???蝑?摨?|
 
-這條 chain 的演進就是不斷在「再多塞一個 source 補覆蓋率」的同時，**保護 raw_track 優先順序**——讓有筆順資料的字優先用筆順資料、沒有的才退到 outline。
-
+?? chain ???脣停?臭??瑕??憭?銝??source 鋆???????嚗?*靽風 raw_track ?芸???**????????摮?蝑?鞈????????outline??
 ---
 
-## 決策 1：第一階段——g0v + MMH 雙源
+## 瘙箇? 1嚗洵銝?挾?0v + MMH ??
 
-**Phase**：1（最早） + 後續加 region 概念
+**Phase**嚗?嚗??抬? + 敺???region 璁艙
 
-**觸發**：Phase 1 寫 IR 時就決定要支援多源（見 `mode_01_single_char_and_ir.md` 決策 6），所以實作時 g0v 跟 mmh 同期出現
+**閫貊**嚗hase 1 撖?IR ?停瘙箏?閬?游?皞?閬?`mode_01_single_char_and_ir.md` 瘙箇? 6嚗??隞亙祕雿? g0v 頝?mmh ???箇
 
-**選項**（從這兩個下選首選）：
-
-| 編號 | 來源 | 字數 | 授權 | 含筆順？ | 含 outline？ |
+**?賊?**嚗?????賊??賂?嚗?
+| 蝺刻? | 靘? | 摮 | ?? | ?怎??? | ??outline嚗?|
 |---|---|---|---|---|---|
-| A | g0v/zh-stroke-data | ~6063 繁體 | open data（限制不明） | ✅ | ✅ |
-| B | Make Me a Hanzi | ~9574（簡繁混）| LGPL | ✅（部分） | ✅ |
-| C | KanjiVG | 日本漢字 | CC BY-SA 3.0 | ✅（centerline） | ❌ |
+| A | g0v/zh-stroke-data | ~6063 蝜? | open data嚗??嗡??? | ??| ??|
+| B | Make Me a Hanzi | ~9574嚗陛蝜毽嚗 LGPL | ???典?嚗?| ??|
+| C | KanjiVG | ?交瞍Ｗ? | CC BY-SA 3.0 | ??centerline嚗?| ??|
 
-**選擇**：☑ **g0v 為 tw 主、MMH 為 cn 主、KanjiVG 為 jp 主**（region-aware）
-
-**理由**：
-> 立足台灣 → tw 區用 g0v。MMH 是 LGPL 商用安全 → cn 區做副選。KanjiVG 補日漢字。三個 source 各有強項，**用「region」概念當路由器**而非單一 priority list。
-
-**程式碼證據**：
-- `sources/__init__.py:126-131` `_ORDERS = {"tw": (G0V, MMH), "cn": (MMH, G0V), "jp": (KanjiVG, MMH), "auto": (G0V, MMH, KanjiVG)}`
+**?豢?**嚗? **g0v ??tw 銝颯MH ??cn 銝颯anjiVG ??jp 銝?*嚗egion-aware嚗?
+**?**嚗?> 蝡雲?啁 ??tw ???g0v?MH ??LGPL ?摰 ??cn ???詻anjiVG 鋆瞍Ｗ?????source ??撘琿?嚗?*?具egion??敹萇頝舐??*???桐? priority list??
+**蝔?蝣潸???*嚗?- `sources/__init__.py:126-131` `_ORDERS = {"tw": (G0V, MMH), "cn": (MMH, G0V), "jp": (KanjiVG, MMH), "auto": (G0V, MMH, KanjiVG)}`
 - `sources/g0v.py` + `sources/mmh.py` + `sources/kanjivg.py`
 
 ---
 
-## 決策 2：5ai — 加入 PunctuationSource（手刻 25 個標點）
+## 瘙箇? 2嚗?ai ??? PunctuationSource嚗???25 ??暺?
 
-**Phase**：5ai
+**Phase**嚗?ai
 
-**觸發**：使用者餵「你好，世界！」這種帶標點的句子進寫字機器人時，標點被當作「missing character」直接丟掉 → 機器寫到一半留白
-
-**選項**：
-
-| 編號 | 方案 | 評估 |
+**閫貊**嚗蝙?刻今??憟踝?銝?嚗車撣嗆?暺??亙??脣神摮??其犖??璅?鋡怎雿issing character??乩?????璈撖怠銝????
+**?賊?**嚗?
+| 蝺刻? | ?寞? | 閰摯 |
 |---|---|---|
-| A | 把標點當作「missing」直接略過 | 失敗——句子斷掉 |
-| B | 用某個 CJK 字體的 outline 渲染標點 | outline-only，沒 raw_track，機器人 G-code 輸出空白 |
-| C | **手刻 ~25 個常用標點的 raw_track** | 工程量小、品質高、機器人輸出真實有筆觸 |
+| A | ??暺雿issing??亦??| 憭望??摮??|
+| B | ?冽???CJK 摮???outline 皜脫?璅? | outline-only嚗? raw_track嚗??其犖 G-code 頛詨蝛箇 |
+| C | **? ~25 ?虜?冽?暺? raw_track** | 撌亦?????鞈芷????其犖頛詨?祕??閫?|
 
-**遭遇的困難**：
-- B 看起來最快但會破壞「寫字機器人輸出」這個核心 use case——outline-only 字形寫 G-code 時是空 polyline，機器人筆抬下抬下沒實際移動
-- 標點種類不多（句號 / 逗號 / 引號 / 全形 / 半形）→ 手刻不會爆
+**?剝????*嚗?- B ?絲靘?敹思??憯神摮??其犖頛詨?敹?use case?utline-only 摮耦撖?G-code ?蝛?polyline嚗??其犖蝑銝銝?撖阡?蝘餃?
+- 璅?蝔桅?銝?嚗??/ ?? / 撘? / ?典耦 / ?耦嚗? ?銝???
+**?豢?**嚗? C嚗??鳴?
 
-**選擇**：☑ C（手刻）
+**蝔?蝣潸???*嚗sources/punctuation.py` ? ~25 ??暺? hand-authored stroke data
 
-**程式碼證據**：`sources/punctuation.py` 包含 ~25 個標點的 hand-authored stroke data
-
-**後續驗證**：✅ 5bi 抄經模式的「斷句點」功能直接利用了標點 raw_track（變成 polyline 描在格底）；如果當初選 B，5bi 整個功能無法成立
-
+**敺?撽?**嚗? 5bi ??璅∪???仿????賜?亙?其?璅? raw_track嚗???polyline ??澆?嚗?憒??嗅???B嚗?bi ?游??賜瘜?蝡?
 ---
 
-## 決策 3：5ak — UserDictSource 放在最高優先
+## 瘙箇? 3嚗?ak ??UserDictSource ?曉?擃??
+**Phase**嚗?ak
 
-**Phase**：5ak
-
-**觸發**：使用者反饋「g0v / mmh 沒有的罕用字（地名、姓名、PUA 字）我想自己畫加進去」
-
-**選項**：
-
-| 編號 | 方案 |
+**閫貊**嚗蝙?刻?擖0v / mmh 瘝????典?嚗???UA 摮???芸楛?怠??脣??
+**?賊?**嚗?
+| 蝺刻? | ?寞? |
 |---|---|
-| A | 把使用者的字加到內建 source 裡 → 程式碼污染 |
-| B | 寫一個 UserDictSource，**最高優先級** |
-| C | 寫一個 UserDictSource，最低優先級（fallback）|
+| A | ?蝙?刻?摮??啣撱?source 鋆???蝔?蝣潭情??|
+| B | 撖思???UserDictSource嚗?*?擃??** |
+| C | 撖思???UserDictSource嚗?雿??嚗allback嚗
 
-**選擇**：☑ B（最高優先級）
-
-**理由**：
-> **使用者自畫的字應該 override 內建版本**——譬如「我覺得 g0v 的『的』字寫法不對，我想用我的版本」。如果放最後 fallback，使用者改不了已經有的字，違反「自訂優先」直覺。
-
-**程式碼證據**：`sources/__init__.py:78` user_dict 第一個被嘗試
+**?豢?**嚗? B嚗?擃??嚗?
+**?**嚗?> **雿輻??怎?摮?閰?override ?批遣?**?閂憒?閬箏? g0v ????撖急?銝?嚗??喟???????敺?fallback嚗蝙?刻銝?撌脩???摮????閮?閬箝?
+**蝔?蝣潸???*嚗sources/__init__.py:78` user_dict 蝚砌??◤?岫
 ```python
 def get_character(self, char):
     try: return self.user_dict.get_character(char)
     except CharacterNotFound: pass
-    # 才接著嘗試 g0v / mmh / ...
+    # ???閰?g0v / mmh / ...
 ```
 
-**後續驗證**：✅ 後續 5d/5g 的 PSD（使用者筆順資料庫）的設計也繼承這個哲學——使用者的字最大
-
+**敺?撽?**嚗? 敺? 5d/5g ??PSD嚗蝙?刻????澈嚗?閮剛?銋匱?輸摮詹蝙?刻?摮?憭?
 ---
 
-## 決策 4：5al / 5am — CNS 全字庫 outline 補覆蓋率
+## 瘙箇? 4嚗?al / 5am ??CNS ?典?摨?outline 鋆???
 
-**Phase**：5al + 5am
+**Phase**嚗?al + 5am
 
-**觸發**：使用者反饋「我想寫古文 / 罕見字 / 異體字，但 g0v + mmh + 自畫都還不夠」
-
-**遭遇的困難**：
-- 全字庫有 ~95k 字（覆蓋率比 g0v/mmh 高 10 倍）→ 強烈誘惑加進來
-- 但全字庫**只有 outline 沒有筆順 / 沒有 raw_track**
-- 強制 skeletonize（用 Zhang-Suen 取中線）能擠出 polyline，但品質低
-
-**選項**：
-
-| 編號 | 方案 | 取捨 |
+**閫貊**嚗蝙?刻?擖??喳神?斗? / 蝵?摮?/ ?圈?摮?雿?g0v + mmh + ?芰?賡?銝???
+**?剝????*嚗?- ?典?摨急? ~95k 摮?閬??? g0v/mmh 擃?10 ????撘瑞?隤??脖?
+- 雿摮澈**?芣? outline 瘝?蝑? / 瘝? raw_track**
+- 撘瑕 skeletonize嚗 Zhang-Suen ?葉蝺??賣???polyline嚗??釭雿?
+**?賊?**嚗?
+| 蝺刻? | ?寞? | ? |
 |---|---|---|
-| A | 不用全字庫 | 罕用字無法寫 |
-| B | 全字庫直接放在 g0v / mmh **後面** fallback | 罕用字可寫但只有 outline 渲染（描紅可、筆順動畫不可） |
-| C | 全字庫放第一，用 skeletonize 出 polyline | 機器人輸出可，但品質差 |
+| A | 銝?典?摨?| 蝵摮瘜神 |
+| B | ?典?摨怎?交??g0v / mmh **敺** fallback | 蝵摮撖思??芣? outline 皜脫?嚗?蝝?????思??荔? |
+| C | ?典?摨急蝚砌?嚗 skeletonize ??polyline | 璈鈭箄撓?箏嚗??釭撌?|
 
-**選擇**：☑ B（fallback 模式）
+**?豢?**嚗? B嚗allback 璅∪?嚗?
+**?**嚗?> 銝憯??釭摮泵????0v ??摮匱蝥 g0v ??raw_track嚗?*?芣? g0v 瘝???**???CNS ??outline?誨?對?蝵摮神摮??其犖頛詨**?芾??outline**嚗???甇??蝑?嚗?雿??敺神?s???冽?敺神?????
+**蝔?蝣潸???*嚗?- `sources/__init__.py:108-113` CNS font ??chain ?敺?- `sources/cns_font.py` docstring 撘瑁矽?utline geometry only ??not stroke-by-stroke??
+**敺?撽?**嚗? ?典?????d 蝑?蝺渡?????撠望?蝣箸??綽??? outline-only 摮???甇?????蝻箏??d ???璈停?航?雿輻??*?神鋆脩?甇????*??
+**鈭??酉**嚗?ap (CNS_strokes_sequence.txt) 敺???鈭摮澈???寧??恍?摨???雿?troke type 摨????漣璅隞亦靘?憿?銝?湔皜脫???摰????
+---
 
-**理由**：
-> 不破壞高品質字符的優先級——g0v 有的字繼續用 g0v 的 raw_track，**只有 g0v 沒有的字**才退到 CNS 的 outline。代價：罕用字寫字機器人輸出**只能描 outline**（沒有真正的筆順），但這是「有得寫」vs「完全沒得寫」的取捨。
+## 瘙箇? 5嚗?at / 5au / 5av / 5aw ??摮?憸冽 source嚗?/??摰?璆瘀?
 
-**程式碼證據**：
-- `sources/__init__.py:108-113` CNS font 在 chain 最後
-- `sources/cns_font.py` docstring 強調「outline geometry only — not stroke-by-stroke」
+**Phase**嚗?at嚗?蝢脩?擃???5au嚗??脤?豢嚗? 5av嚗??脤摰?嚗? 5aw嚗??脤璅?璆瑟嚗?
+**閫貊**嚗??喳神蝭 / ?豢?? g0v / mmh ?賢?扑??
+**?剝????*嚗?- ??摮?皞?*蝯???*撠梯?璆瑟銝?嚗??詻?璈Ｗ?敶Ｖ??舀敶Ｕ?豢??函瘜Ｙ???扑??outline + filter嚗?摮?韏瑚???賂????賂??豢?摰嗥?銝?澆停?游?
+- 雿?**銝**?游頂蝯望?璆瑟撠惇??hook policy / 蝑??銝?嚗?隞芋撘???
+**?賊?**嚗?
+| 蝺刻? | ?寞? |
+|---|---|
+| A | 撖怒ilter?tyle?璆瑟鞈? + 閬死??嚗?隡詻?瘜Ｙ?嚗芋?砍隞?擃?|
+| B | 撖怒wap?ource??亙????? outline ?游? |
+| C | ?拙蒂?剁?filter 蝯行?摰?摮???fallback嚗wap 蝯行?摮???|
 
-**後續驗證**：⚠ 部分問題——5d 筆順練習頁規劃時就明確指出，這些 outline-only 字「沒有真正筆順資料」是缺口。5d 的整個動機就是讓使用者**手寫補進真正筆順**。
+**?豢?**嚗? **C嚗ilter + swap ?芋撘?**
 
-**事後備註**：5ap (CNS_strokes_sequence.txt) 後續又加了「全字庫的官方筆畫順序」資料，但只有「stroke type 序列」沒有「座標」——可以用來分類但不能直接渲染。是個未完整的補救。
+**?嗆?瘙箇?????*嚗?
+```
+?芋撘?5aj 銋?嚗?style = filter
+  璆瑟 IR ??filter嚗?aj LishuStyle ?郭蝤?squash嚗? ???
+?唳芋撘?5au/5av/5aw 銋?嚗?style = swap
+  雿輻??瘙?lishu ??閰?MoE ?豢摮? ???踹???outline
+                                  ??憭望? fallback 5aj ???filter
+```
+
+**?**嚗?> ????閬死?釭蝣曉? filter嚗??函蔡?瑼駁?嚗?摰? MoE 摮?嚗?璅∪?霈?摮? ????擃?摮? ???喳???filter ?見摮蝔桐蝙?刻憿批??
+**蝔?蝣潸???*嚗?- `web/server.py` ??`_upgrade_to_sung` / `_upgrade_to_seal` / `_upgrade_to_lishu` 銝撘?- 瘥?岫 swap嚗?摮?嚗? 憭望? fallthrough嚗???5aj ??filter style嚗?
+**鈭??剝???bug**嚗?- 5bw嚗ishu/seal **?身??skeleton 璅∪?**嚗? outline thinning ?葉蝺 raw_track嚗? outline 霈征 ????璅∪? outline-only 皜脫?霈征?賬?靘耨?keleton 璅∪?隞???outline???kip 璅∪??游歲??thinning???芋撘?- 5d-7-bugfix嚗ishu outline ??EM bbox 銝銝剖亢 ??reference 摮耦???嫘?靘? bbox-center 撠???
+**??瘙箇??誨??*嚗??????◢?潘?敺閬萱??outline 摨扳? / hook / classifier ?澆捆??bug ?賣?瘚桀靘?蝯?`_load()` 頝?server.py ??upgrade chain ?摩霈??貊銴????閬???vs ?釭?恥閫隞???
+---
+
+## 瘙箇? 6嚗ource chain ????蝯?獢?
+**Phase**嚗?aw 摰?敺帘摰?靘?
+**?蝯?AutoSource chain**嚗sources/__init__.py:46-113`嚗?
+
+```
+1. UserDictSource          ???擃??5ak嚗?2. G0VSource (primary)     ??擃?鞈芰???Phase 1嚗?3. MMHSource (secondary)   ??LGPL ?舫嚗hase 1嚗?4. PunctuationSource       ??BEFORE outline-only fallbacks嚗?ai ??嚗?5. MoeKaishuSource         ??outline-only 雿?憟賢?鞈迎?5aw嚗?6. CNSFontSource           ???敺??芰? ~95k 摮???5al嚗?```
+
+**?閮剛?**嚗unctuation ??? outline-only fallbacks 銋?
+
+**?箔?暻潮?摨?*嚗?
+| ?? | ?箔?暻?|
+|---|---|
+| user_dict 蝚砌? | 雿輻?閮??瘙箇? 3嚗?|
+| g0v / mmh 蝺 | 擃?鞈芰????瘙箇? 1嚗?|
+| **punctuation ?拇 outline-only** | CNS 摮??璅? outline嚗?**???神摮??其犖頛詨**????暺???raw_track??*??摨 5ai 閮剛??敹?*嚗??臭?蝵格???其犖頛詨??撏?|
+| moe_kaishu / cns_font ?敺?| outline-only 摮???????嚗???|
+
+**?????葫閰虫?霅?*嚗?- `tests/test_sources.py` 憭?皜祈岫 pin 甇駁?摨??踹?敺犖?孵?隤方萱嚗?- `tests/test_punctuation_source.py` 撽?璈鈭箄撓?箏璅? raw_track ?? outline
 
 ---
 
-## 決策 5：5at / 5au / 5av / 5aw — 字型風格 source（篆/隸/宋/楷）
+## 瘙箇? 7嚗egion-aware 頝舐嚗w / cn / jp / auto嚗?
+**Phase**嚗?嚗??+ 5ak/al/aw 鋆撥
 
-**Phase**：5at（崇羲篆體）→ 5au（教育部隸書）→ 5av（教育部宋體）→ 5aw（教育部標準楷書）
-
-**觸發**：「我想寫篆書 / 隸書」——但 g0v / mmh 都只有楷書
-
-**遭遇的困難**：
-- 這些字型源**結構性**就跟楷書不同：篆書「日」是橢圓形不是方形、隸書有獨特波磔——用「楷書 outline + filter（讓字看起來像隸書）」是假隸書，書法家看一眼就破功
-- 但又**不能**整個系統把楷書專屬的 hook policy / 筆畫分類丟掉，否則其他模式壞掉
-
-**選項**：
-
-| 編號 | 方案 |
+**閫貊**嚗陛蝜葉??+ ?交慰摮蝙?刻黎????閮剖?憟?
+**?賊?**嚗?
+| 蝺刻? | ?寞? |
 |---|---|
-| A | 寫「filter」style——用楷書資料 + 視覺處理（拉伸、加波磔）模擬其他字體 |
-| B | 寫「swap」source——直接從真字型抓 outline 整個換 |
-| C | 兩個並用：filter 給沒安裝字型的 fallback，swap 給有字型的 |
+| A | 蝯曹? chain嚗?閬?隞? |
+| B | 蝯虫蝙?刻?`--region tw/cn/jp/auto` ?頝舐銝? chain |
 
-**選擇**：☑ **C（filter + swap 雙模式）**
+**?豢?**嚗? B
 
-**架構決策的關鍵**：
-
-```
-舊模式（5aj 之前）：style = filter
-  楷書 IR → filter（5aj LishuStyle 加波磔/squash）→ 假隸書
-
-新模式（5au/5av/5aw 之後）：style = swap
-  使用者要求 lishu → 試 MoE 隸書字型 → 拿到真隸書 outline
-                                  → 失敗 fallback 5aj 假隸書 filter
-```
-
-**理由**：
-> 真字型的視覺品質碾壓 filter，但部署門檻高（要安裝 MoE 字型）。雙模式讓「有字型 → 真字體」「沒字型 → 至少有 filter 假樣子」兩種使用者都顧到。
-
-**程式碼證據**：
-- `web/server.py` 有 `_upgrade_to_sung` / `_upgrade_to_seal` / `_upgrade_to_lishu` 三個函式
-- 每個都先試 swap（真字型）→ 失敗 fallthrough（保留 5aj 的 filter style）
-
-**事後遭遇的 bug**：
-- 5bw：lishu/seal **預設用 skeleton 模式**（從 outline thinning 取中線當 raw_track）→ outline 變空 → 抄經模式 outline-only 渲染變空白。後來修成「skeleton 模式仍保留 outline」+「skip 模式整個跳過 thinning」的雙模式。
-- 5d-7-bugfix：lishu outline 的 EM bbox 不在中央 → reference 字形偏下方。後來加 bbox-center 對齊。
-
-**這條決策的代價**：每加一個字型風格，後面要踩的 outline 座標 / hook / classifier 兼容性 bug 都會浮出來。最終 `_load()` 跟 server.py 的 upgrade chain 邏輯變得相當複雜——但這是覆蓋率 vs 品質的客觀代價。
-
----
-
-## 決策 6：source chain 順序的最終定案
-
-**Phase**：5aw 完成後穩定下來
-
-**最終 AutoSource chain**（`sources/__init__.py:46-113`）：
-
-```
-1. UserDictSource          ← 最高優先（5ak）
-2. G0VSource (primary)     ← 高品質筆順（Phase 1）
-3. MMHSource (secondary)   ← LGPL 副選（Phase 1）
-4. PunctuationSource       ← BEFORE outline-only fallbacks（5ai 故意）
-5. MoeKaishuSource         ← outline-only 但較好品質（5aw）
-6. CNSFontSource           ← 最後保險的 ~95k 字覆蓋（5al）
-```
-
-**關鍵設計**：punctuation 故意排在 outline-only fallbacks 之前
-
-**為什麼這順序**：
-
-| 順序 | 為什麼 |
-|---|---|
-| user_dict 第一 | 使用者自訂優先（決策 3） |
-| g0v / mmh 緊接 | 高品質筆順優先（決策 1） |
-| **punctuation 早於 outline-only** | CNS 字型雖含標點 outline，但**會壞掉寫字機器人輸出**——拿手刻的標點才有 raw_track。**這個順序是 5ai 設計的核心**，搞錯位置整個機器人輸出鏈會崩 |
-| moe_kaishu / cns_font 最後 | outline-only 字源做覆蓋率兜底，盡量別用 |
-
-**這條順序的測試保護**：
-- `tests/test_sources.py` 多條測試 pin 死順序（避免後人改動誤踩）
-- `tests/test_punctuation_source.py` 驗證機器人輸出含標點 raw_track 而非 outline
-
----
-
-## 決策 7：region-aware 路由（tw / cn / jp / auto）
-
-**Phase**：1（早期）+ 5ak/al/aw 補強
-
-**觸發**：簡繁中文 + 日漢字使用者群有不同預設偏好
-
-**選項**：
-
-| 編號 | 方案 |
-|---|---|
-| A | 統一 chain（一視同仁） |
-| B | 給使用者 `--region tw/cn/jp/auto` 參數路由不同 chain |
-
-**選擇**：☑ B
-
-**理由**：
-> 台灣使用者寫「峰」想要繁體寫法，大陸使用者寫「峰」想要簡體寫法。同一個 codepoint 但兩個資料源的字形可能差異——region 路由讓使用者明示偏好。
-
-**程式碼證據**：`RegionAutoSource._ORDERS` (`__init__.py:126`)
+**?**嚗?> ?啁雿輻?神?陸?閬?擃神瘜?憭折雿輻?神?陸?閬陛擃神瘜?銝??codepoint 雿??????敶Ｗ?賢榆?售egion 頝舐霈蝙?刻?蝷箏?憟賬?
+**蝔?蝣潸???*嚗RegionAutoSource._ORDERS` (`__init__.py:126`)
 
 ```python
-"tw":   (G0VSource, MMHSource),       # 台灣繁體優先
-"cn":   (MMHSource, G0VSource),       # 大陸簡體優先  
-"jp":   (KanjiVGSource, MMHSource),   # 日本漢字優先
+"tw":   (G0VSource, MMHSource),       # ?啁蝜??芸?
+"cn":   (MMHSource, G0VSource),       # 憭折蝪⊿??芸?  
+"jp":   (KanjiVGSource, MMHSource),   # ?交瞍Ｗ??芸?
 "auto": (G0VSource, MMHSource, KanjiVGSource),
 ```
 
-**測試保護**：`tests/test_region.py` 確保 `_sources[0]` 對應 region 主資料源
+**皜祈岫靽風**嚗tests/test_region.py` 蝣箔? `_sources[0]` 撠? region 銝餉???
 
 ---
 
-## 沒做的決策（明確擱置）
-
-- **OpenCC 簡繁轉換融進 source chain**：考慮過但決定**只在 fallback 時做變體查找**（`opencc-python-reimplemented` 在 punctuation 跟 KanjiVG adapter 內），不污染主 chain
-- **加韓文 / 越南字喃 source**：覆蓋率有限的小眾需求，先擱置
-- **網路即時拉 g0v JSON**：g0v.py 雖然有這個能力但預設不用——避免使用者沒網路就壞掉
-
+## 瘝??捱蝑??Ⅱ?梁蔭嚗?
+- **OpenCC 蝪∠?頧???source chain**嚗??瘙箏?**?芸 fallback ??霈??交**嚗opencc-python-reimplemented` ??punctuation 頝?KanjiVG adapter ?改?嚗?瘙⊥?銝?chain
+- **????/ 頞?摮? source**嚗????????暸?瘙??蝵?- **蝬脰楝?單???g0v JSON**嚗0v.py ?????身銝??蝙?刻?蝬脰楝撠勗???
 ---
 
-## 學到的規則 / pattern（適用未來）
+## 摮詨????/ pattern嚗?冽靘?
 
-1. **Source chain 順序就是優先級政策**：每加一個 source 不是「塞個位置就好」——必須想清楚跟前後 source 的互動。punctuation 早於 outline-only 就是血淚教訓
-2. **Outline-only vs raw_track 是兩個世界**：outline 給「人看的字形」，raw_track 給「機器人寫的軌跡」——選錯會讓某個 use case 整個失能
-3. **Filter style vs Swap style 雙模式**：依賴外部字型的功能必須 fallback——「有最好、沒有也能堪用」
-4. **Region awareness 從第一日就該設計**：後加會打亂既有測試
-5. **每加一個 source 都要寫測試 pin 順序**：不然下次重構會誤改順序、bug 難察覺
-
+1. **Source chain ??撠望?芸?蝝蝑?*嚗?????source 銝????蝵桀停憟賬??皜?頝?敺?source ???unctuation ?拇 outline-only 撠望銵瘛?閮?2. **Outline-only vs raw_track ?臬????*嚗utline 蝯艾犖??摮耦??raw_track 蝯艾??其犖撖怎?頠楚??舀?霈???use case ?游仃??3. **Filter style vs Swap style ?芋撘?*嚗?鞈游??典????敹? fallback???憟賬????賢?具?4. **Region awareness 敺洵銝?亙停閰脰身閮?*嚗??????Ｘ?皜祈岫
+5. **瘥?銝??source ?質?撖急葫閰?pin ??**嚗??嗡?甈⊿?瑽?隤斗???ug ???閬?
 ---
 
-## 相關檔案
+## ?賊?瑼?
 
-- 主路由：`src/stroke_order/sources/__init__.py`
-- 9 個 adapter：`src/stroke_order/sources/{g0v,mmh,kanjivg,punctuation,user_dict,cns_font,cns_strokes,cns_components,chongxi_seal,moe_kaishu,moe_lishu,moe_song}.py`
-- _load() 統合：`src/stroke_order/web/server.py:316`
-- 字型風格升級鏈：`src/stroke_order/web/server.py:345-434` (`_upgrade_to_sung/seal/lishu`)
-- 測試：`tests/test_sources.py`、`tests/test_region.py`、`tests/test_punctuation_source.py`、`tests/test_user_dict.py`
-- 部分後續決策：`infra_02_styles_filters_vs_swaps.md`（filter/swap 細節）、`mode_08_sutra.md`（5bz outline-preserving 補救）
+- 銝餉楝?梧?`src/stroke_order/sources/__init__.py`
+- 9 ??adapter嚗src/stroke_order/sources/{g0v,mmh,kanjivg,punctuation,user_dict,cns_font,cns_strokes,cns_components,chongxi_seal,moe_kaishu,moe_lishu,moe_song}.py`
+- _load() 蝯勗?嚗src/stroke_order/web/server.py:316`
+- 摮?憸冽????`src/stroke_order/web/server.py:345-434` (`_upgrade_to_sung/seal/lishu`)
+- 皜祈岫嚗tests/test_sources.py`?tests/test_region.py`?tests/test_punctuation_source.py`?tests/test_user_dict.py`
+- ?典?敺?瘙箇?嚗infra_02_styles_filters_vs_swaps.md`嚗ilter/swap 蝝啁?嚗mode_08_sutra.md`嚗?bz outline-preserving 鋆?嚗?

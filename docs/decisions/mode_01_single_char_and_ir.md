@@ -1,281 +1,202 @@
-# 決策日誌：mode_01 — 單字模式 + 核心 IR 設計
-
-**Phase 範圍**：Phase 1（核心 pipeline）
-**版號階段**：0.1 → 0.2
-**現存證據**：`src/stroke_order/ir.py`、`src/stroke_order/cli.py`（cmd_convert / cmd_info）、`src/stroke_order/sources/g0v.py`、`src/stroke_order/sources/mmh.py`、`README.md` Phase 1 段、`REF_ANALYSIS_G0V.md`
-
-> **追溯方式**：本檔由 v0.13.0 程式碼狀態 + README 段落 + 程式碼 phase tag 反推。沒有原始 git history，故聚焦於「為什麼最終長這樣」而非「當時 commit 順序」。
-
+﻿---
+layout: default
 ---
 
-## 整體脈絡
+# 瘙箇??亥?嚗ode_01 ???桀?璅∪? + ?詨? IR 閮剛?
 
-stroke-order 專案最初的目標是把中文字元轉成可餵寫字機器人（AxiDraw 類繪圖機 / 自製筆型機械臂）的向量資料。市面已有 hanzi-writer / 教育部筆順網等工具但都是「給人類看」的動畫——機器需要的是 polyline / G-code / SVG path 等可執行格式。
+**Phase 蝭?**嚗hase 1嚗敹?pipeline嚗?**???挾**嚗?.1 ??0.2
+**?曉?霅?**嚗src/stroke_order/ir.py`?src/stroke_order/cli.py`嚗md_convert / cmd_info嚗src/stroke_order/sources/g0v.py`?src/stroke_order/sources/mmh.py`?README.md` Phase 1 畾萸REF_ANALYSIS_G0V.md`
 
-Phase 1 的任務：**把網路上現成的中文筆順資料源（g0v、Make Me a Hanzi）轉換成統一的 IR**，再從 IR 輸出機器讀得懂的格式。整個專案後續所有功能都以這個 IR 為地基。
-
+> **餈賣滲?孵?**嚗瑼 v0.13.0 蝔?蝣潛???+ README 畾菔 + 蝔?蝣?phase tag ?????憪?git history嚗???潦隞暻潭?蝯?見?????commit ????
 ---
 
-## 決策 1：座標系選用 EM 2048（Y-down）
+## ?湧??窗
 
-**觸發**：規劃 IR 時必須先鎖定座標系——後面所有資料源、所有渲染、所有測試都依賴這個
+stroke-order 撠?????格??舀?銝剜?摮?頧??舫今撖怠?璈鈭綽?AxiDraw 憿鼓?? / ?芾ˊ蝑?璈１?????????Ｗ歇??hanzi-writer / ??函??雯蝑極?瑚??賣?策鈭粹???????券?閬???polyline / G-code / SVG path 蝑?瑁??澆???
+Phase 1 ?遙??**?雯頝臭??暹??葉??????嚗0v?ake Me a Hanzi嚗???蝯曹???IR**嚗?敺?IR 頛詨璈霈敺??撘??獢?蝥????賡隞仿?IR ?箏?箝?
+---
 
-**選項**：
-
-| 編號 | 方案 | 來源 / 慣例 |
+## 瘙箇? 1嚗漣璅頂?貊 EM 2048嚗-down嚗?
+**閫貊**嚗???IR ??????摨扳?蝟領??Ｘ????????葡???葫閰阡靘陷??
+**?賊?**嚗?
+| 蝺刻? | ?寞? | 靘? / ??? |
 |---|---|---|
-| A | EM 2048（Y-down）| g0v / 教育部標準楷書 |
-| B | EM 1024（Y-up） | hanzi-writer / Make Me a Hanzi（Arphic 1024 + ascender=900）|
-| C | 自定義 0–1 normalized float | 抽象、無偏好 |
+| A | EM 2048嚗-down嚗 g0v / ??冽?皞扑??|
+| B | EM 1024嚗-up嚗?| hanzi-writer / Make Me a Hanzi嚗rphic 1024 + ascender=900嚗
+| C | ?芸?蝢?0?? normalized float | ?質情??末 |
 
-**考慮的因素**：
-- g0v 是台灣本地最完整的開源筆順資料集 → 跟它對齊降低轉換誤差累積
-- 教育部標準楷書字體（後來 5aw 加入）內部就是 2048 EM → 不用做雙重縮放
-- HTML Canvas / SVG 預設 Y-down → 跟瀏覽器渲染天然一致
-- 1024 EM 過小，未來高 DPI 渲染或 EM 內細節會失精度
-- 0–1 normalized 看似乾淨，但所有資料都要先除/再乘，bug 風險增加
+**???蝝?*嚗?- g0v ?臬???唳?摰??皞????? ??頝?撠???頧?隤文榆蝝舐?
+- ??冽?皞扑?詨?擃?敺? 5aw ?嚗?典停??2048 EM ??銝???葬??- HTML Canvas / SVG ?身 Y-down ??頝汗?冽葡?予?嗡???- 1024 EM ??嚗靘? DPI 皜脫???EM ?抒敦蝭?仃蝎曉漲
+- 0?? normalized ?撮銋暹楊嚗?????閬?????嚗ug 憸券憓?
 
-**選擇**：☑ A（EM 2048, Y-down）
-
-**理由**：
-> g0v 是「立足台灣」的核心資料源，跟它的內部表示一致 = 少一層轉換 = 少一個 bug 來源。Y-down 順著 SVG/Canvas 自然慣例。EM 2048 給未來的 outline 精細度足夠空間。
-
-**程式碼證據**：`ir.py:20` `EM_SIZE: int = 2048`，docstring 明寫「g0v uses 2048, MMH uses 1024 (adapters scale)」
-
-**後續驗證**：✅ 整個專案 67 個 phase 從未動過這個座標系。MMH 在 `mmh.py` adapter 自動 scale ×2 進入 IR，從未產生衝突。後來加入的全字庫 / 篆書 / 隸書 outlines 全都跟著 normalize 進 EM 2048，沒踩坑。
-
+**?豢?**嚗? A嚗M 2048, Y-down嚗?
+**?**嚗?> g0v ?胯?頞喳????詨?鞈?皞?頝???刻”蝷箔???= 撠?撅方???= 撠???bug 靘??-down ?? SVG/Canvas ?芰????M 2048 蝯行靘? outline 蝎曄敦摨西雲憭征??
+**蝔?蝣潸???*嚗ir.py:20` `EM_SIZE: int = 2048`嚗ocstring ?神?0v uses 2048, MMH uses 1024 (adapters scale)??
+**敺?撽?**嚗? ?游?獢?67 ??phase 敺???漣璅頂?MH ??`mmh.py` adapter ?芸? scale ?2 ?脣 IR嚗??芰??蝒?靘??亦??典?摨?/ 蝭 / ?豢 outlines ?券頝? normalize ??EM 2048嚗?頦拙???
 ---
 
-## 決策 2：IR 結構——Character → Stroke → Point 三層
+## 瘙箇? 2嚗R 蝯??haracter ??Stroke ??Point 銝惜
 
-**觸發**：IR 設計時要決定原子粒度
+**閫貊**嚗R 閮剛???瘙箏???蝎漲
 
-**選項**：
-
-| 編號 | 方案 | 描述 |
+**?賊?**嚗?
+| 蝺刻? | ?寞? | ?膩 |
 |---|---|---|
-| A | 單一大 dict + JSON | 全部塞進 dict，需要時 .get() |
-| B | 三層 dataclass：Character / Stroke / Point | 結構清晰，type-checked |
-| C | 物件 + 方法（OOP）：Character.draw() 直接渲染 | 物件導向，但混合 IR + 渲染 |
+| A | ?桐?憭?dict + JSON | ?券憛?dict嚗?閬? .get() |
+| B | 銝惜 dataclass嚗haracter / Stroke / Point | 蝯?皜嚗ype-checked |
+| C | ?拐辣 + ?寞?嚗OP嚗?Character.draw() ?湔皜脫? | ?拐辣撠?嚗?瘛瑕? IR + 皜脫? |
 
-**考慮的因素**：
-- Python 標準庫 `dataclass` 在 3.7+ 內建，零依賴
-- 後續測試會大量寫 fixture 字符 → dataclass 構造方便
-- 不想把渲染邏輯混在 IR 裡（單一職責）
-- frozen + slots 可降低記憶體 + 防意外修改
+**???蝝?*嚗?- Python 璅?摨?`dataclass` ??3.7+ ?批遣嚗靘陷
+- 敺?皜祈岫?之?神 fixture 摮泵 ??dataclass 瑽靘?- 銝?葡??頛舀毽??IR 鋆∴??桐??瑁痊嚗?- frozen + slots ?舫?雿??園? + ?脫?憭耨??
+**?豢?**嚗? B嚗?撅?dataclass嚗R ?葡???ｇ?
 
-**選擇**：☑ B（三層 dataclass，IR 與渲染分離）
-
-**理由**：
-> 純資料結構 + 渲染另放 `exporters/`。IR 在很多測試 fixture 裡需要被建立 / 比對 → dataclass 自動產生 `__eq__` / `__repr__` 省事。`Point` 設成 frozen+slots 因為座標不該變動且很多——記憶體成本累積快。
-
-**程式碼證據**：
-- `ir.py:29` `@dataclass(frozen=True, slots=True) class Point`
+**?**嚗?> 蝝???瑽?+ 皜脫??行 `exporters/`?R ?典?憭葫閰?fixture 鋆⊿?閬◤撱箇? / 瘥? ??dataclass ?芸??Ｙ? `__eq__` / `__repr__` ???Point` 閮剜? frozen+slots ?摨扳?銝府霈?銝?憭??園??蝝舐?敹怒?
+**蝔?蝣潸???*嚗?- `ir.py:29` `@dataclass(frozen=True, slots=True) class Point`
 - `ir.py:148` `@dataclass class Character`
-- 渲染邏輯全部在 `exporters/` 不在 IR
+- 皜脫??摩?券??`exporters/` 銝 IR
 
-**後續驗證**：✅ 5d 階段（筆順練習頁）的 trace JSON 格式直接用了這個結構（traces[].strokes[].points[]）；5g 上傳的 PSD JSON 也對齊；機器人 plotter SVG 同樣使用——IR 設計從未需要破壞性更新。
-
+**敺?撽?**嚗? 5d ?挾嚗??毀蝧?嚗? trace JSON ?澆??湔?其???瑽?traces[].strokes[].points[]嚗?5g 銝??PSD JSON 銋?朣?璈鈭?plotter SVG ?見雿輻?R 閮剛?敺?閬憯扳?啜?
 ---
 
-## 決策 3：Stroke 同時保留 outline + raw_track 兩套表示
+## 瘙箇? 3嚗troke ??靽? outline + raw_track ?拙?銵函內
 
-**觸發**：g0v 的資料本身就有「輪廓」(outline) 跟「中線軌跡」(track) 兩套——要選一個還是都留？
+**閫貊**嚗0v ???頨怠停?憚撱?outline) 頝葉蝺?頝～?track) ?拙????訾????舫??
 
-**選項**：
-
-| 編號 | 方案 | 描述 |
+**?賊?**嚗?
+| 蝺刻? | ?寞? | ?膩 |
 |---|---|---|
-| A | 只留 outline | 渲染填色字、不能畫成 polyline |
-| B | 只留 raw_track | 渲染 polyline、不能填色 |
-| C | 兩套都留 | 雙倍體積，但任何渲染需求都能滿足 |
+| A | ?芰? outline | 皜脫?憛怨摮??賜??polyline |
+| B | ?芰? raw_track | 皜脫? polyline???賢‵??|
+| C | ?拙??賜? | ??蝛?雿遙雿葡??瘙?賣遛頞?|
 
-**考慮的因素**：
-- 寫字機器人需要 **polyline**（一筆一線）→ 必要 raw_track
-- 要做「描紅版」(faded fill) → 必要 outline
-- g0v JSON 兩種都有 → 不留是浪費資料
-- 字源後來擴展：CNS 全字庫只有 outline、教育部隸書/篆書也只有 outline → 必須有 fallback 邏輯
+**???蝝?*嚗?- 撖怠?璈鈭粹?閬?**polyline**嚗?蝑?蝺???敹? raw_track
+- 閬???蝝???faded fill) ??敹? outline
+- g0v JSON ?拍車?賣? ??銝??舀答鞎餉???- 摮?敺??游?嚗NS ?典?摨怠??outline???脤?豢/蝭銋??outline ??敹???fallback ?摩
 
-**選擇**：☑ C（兩套都留）
+**?豢?**嚗? C嚗憟??
 
-**理由**：
-> 不知道未來會做什麼模式，但已經有資料的兩種表示都先吃下來。後續確實全用上：
-> - 寫字機器人輸出（plotter SVG）：raw_track polyline
-> - 字帖 / 描紅 / 抄經 reference：outline fill
-> - 5d 筆順練習頁的 reference layer：outline fill
-> - 5bw skeleton fallback：outline 為空時退回 raw_track
+**?**嚗?> 銝?靘???暻潭芋撘?雿歇蝬?鞈??蝔株”蝷粹??銝???蝥Ⅱ撖血?其?嚗?> - 撖怠?璈鈭箄撓?綽?plotter SVG嚗?raw_track polyline
+> - 摮? / ?? / ?? reference嚗utline fill
+> - 5d 蝑?蝺渡??? reference layer嚗utline fill
+> - 5bw skeleton fallback嚗utline ?箇征???raw_track
 
-**程式碼證據**：`ir.py:117-118` `raw_track: list[Point]; outline: list[OutlineCommand]`
+**蝔?蝣潸???*嚗ir.py:117-118` `raw_track: list[Point]; outline: list[OutlineCommand]`
 
-**後續驗證**：✅ 多次救命——尤其 5bw 修隸書/篆書空白 bug 時，正是「skeleton 模式 outline=[] 但 raw_track 有值」這個並存設計救了沒爆掉，只需加 fallback render path。
-
+**敺?撽?**嚗? 憭活??陘??5bw 靽桅??蝭蝛箇 bug ??甇??keleton 璅∪? outline=[] 雿?raw_track ?潦蒂摮身閮?鈭???嚗???fallback render path??
 ---
 
-## 決策 4：筆畫分類（kind_code 1-8）
-
-**觸發**：Phase 1 需要對每個 stroke 標分類（豎/橫/撇/捺…），給後續分析跟 signature 用
-
-**選項**：
-
-| 編號 | 方案 | 來源 |
+## 瘙箇? 4嚗??怠?憿?kind_code 1-8嚗?
+**閫貊**嚗hase 1 ?閬?瘥?stroke 璅?憿?鞊?璈????算佗?嚗策敺???頝?signature ??
+**?賊?**嚗?
+| 蝺刻? | ?寞? | 靘? |
 |---|---|---|
-| A | 直接用 g0v 自帶的 stroke type 欄位 | 但 g0v 不一定有 |
-| B | 用 hanzi-writer 風格的 32 類細分 | 太細、寫起來繁瑣 |
-| C | 自訂 1-8 簡化分類（豎/橫/豎點/橫點/順彎/逆彎/撇/捺）| 涵蓋常見筆型 |
+| A | ?湔??g0v ?芸葆??stroke type 甈? | 雿?g0v 銝?摰? |
+| B | ??hanzi-writer 憸冽??32 憿敦??| 憭芰敦?神韏瑚?蝜 |
+| C | ?芾? 1-8 蝪∪???嚗?/璈?鞊?/璈恍?/??/??/???綽?| 瘨菔?撣貉?蝑? |
 
-**考慮的因素**：
-- 8 類已涵蓋 95% 漢字筆畫
-- 0 = 未分類、9 = 其他 → 不確定的不勉強
-- 1-8 數字便於做「字符 signature」（如「恩」= "1527823644" 十位數字）
-- 教育部官方分類也是個位數量級
+**???蝝?*嚗?- 8 憿歇瘨菔? 95% 瞍Ｗ?蝑
+- 0 = ?芸?憿? = ?嗡? ??銝Ⅱ摰?銝?撘?- 1-8 ?詨?靘踵??蝚?signature??憒?? "1527823644" ???詨?嚗?- ??典??孵?憿??臬??賊?蝝?
+**?豢?**嚗? C嚗閮?1-8 + 0/9 ??嚗蜇??10 蝔殷?
 
-**選擇**：☑ C（自訂 1-8 + 0/9 兜底，總共 10 種）
-
-**理由**：
-> 「signature 字串」這個設計（每位數字代表一個 stroke kind）很重要——讓字符可以做機械式比對與分類。32 類太細、實際寫程式時 if-else 爆炸；3-4 類太粗，無法區分「橫」跟「橫折」。8 類是甜蜜點。
-
-**程式碼證據**：
-- `ir.py:78` `STROKE_KIND_NAMES` dict
-- `ir.py:174` `Character.signature` property（`恩 → '1527823644'`）
-- 「恩」這個字的 signature 還寫進 `REF_ANALYSIS_G0V.md §四`，算原始參考
-
-**後續驗證**：✅ Phase 4 的部首分類、Phase 3 的字符比對、Phase 5 多個模式都依賴 signature；測試裡也用 signature 做 fixture 比對
+**?**嚗?> ?ignature 摮葡?身閮?瘥??詨?隞?”銝??stroke kind嚗?????摮泵?臭誑??璇啣?瘥???憿?2 憿云蝝啜祕?神蝔???if-else ?嚗?-4 憿云蝎??⊥???帖???帖?? 憿??暺?
+**蝔?蝣潸???*嚗?- `ir.py:78` `STROKE_KIND_NAMES` dict
+- `ir.py:174` `Character.signature` property嚗????'1527823644'`嚗?- ?????signature ?神??`REF_ANALYSIS_G0V.md 禮?嚗?????
+**敺?撽?**嚗? Phase 4 ?擐?憿hase 3 ??蝚行?撠hase 5 憭芋撘靘陷 signature嚗葫閰西ㄐ銋 signature ??fixture 瘥?
 
 ---
 
-## 決策 5：BBox.overflows_em 的設計
-
-**觸發**：g0v 部分字符的 outline 會超出 [0, 2048] 範圍（譬如手寫風的捺鋒拖出 EM 框外）→ 後續排版需知道哪些字會「溢出」
-
-**選項**：
-
-| 編號 | 方案 |
+## 瘙箇? 5嚗Box.overflows_em ?身閮?
+**閫貊**嚗0v ?典?摮泵??outline ????[0, 2048] 蝭?嚗閂憒?撖恍◢?????EM 獢?嚗? 敺?????仿??芯?摮??滯?箝?
+**?賊?**嚗?
+| 蝺刻? | ?寞? |
 |---|---|
-| A | 渲染時自動裁切 / 縮放至 EM 框內 |
-| B | 把資訊保留下來、由消費端決定怎麼處理 |
+| A | 皜脫??????/ 蝮格??EM 獢 |
+| B | ??閮???靘瘨祥蝡舀捱摰獐?? |
 
-**考慮的因素**：
-- 強制裁切會破壞字形美感
-- 強制縮放會讓不同字大小不一致
-- 消費端（字帖、信紙、筆記）需求不同——有的允許溢出、有的不允許
+**???蝝?*嚗?- 撘瑕鋆??憯?敶Ｙ???- 撘瑕蝮格??銝?摮之撠?銝??- 瘨祥蝡荔?摮??縑蝝?閮??瘙?????閮望滯?箝????迂
 
-**選擇**：☑ B（在 IR 提供 `BBox.overflows_em` 訊號，由消費端自決）
+**?豢?**嚗? B嚗 IR ?? `BBox.overflows_em` 閮?嚗瘨祥蝡航瘙綽?
 
-**理由**：
-> IR 不該預設一個視覺政策。後續 `validation.py` 跟 `docs/overflow_scan_report.csv` 都用這個訊號做篩選。
-
-**程式碼證據**：`ir.py:55` `BBox.overflows_em` property
+**?**嚗?> IR 銝府?身銝??閬箸蝑?蝥?`validation.py` 頝?`docs/overflow_scan_report.csv` ?賜????蝭拚??
+**蝔?蝣潸???*嚗ir.py:55` `BBox.overflows_em` property
 
 ---
 
-## 決策 6：source-agnostic IR — 第一日就決定要支援多源
+## 瘙箇? 6嚗ource-agnostic IR ??蝚砌??亙停瘙箏?閬?游?皞?
+**閫貊**嚗hase 1 撖怎洵銝??source嚗0v嚗?撠梯?瘙箏?嚗R ?舐? g0v ?銝剜改?
 
-**觸發**：Phase 1 寫第一個 source（g0v）時就要決定：IR 是綁 g0v 還是中性？
-
-**選項**：
-
-| 編號 | 方案 |
+**?賊?**嚗?
+| 蝺刻? | ?寞? |
 |---|---|
-| A | IR 直接照搬 g0v 結構（最快） |
-| B | IR 中性，每個 source 寫一個 adapter 轉成 IR |
+| A | IR ?湔?扳 g0v 蝯?嚗?敹恬? |
+| B | IR 銝剜改?瘥?source 撖思???adapter 頧? IR |
 
-**考慮的因素**：
-- 已知未來會加 Make Me a Hanzi（不同 EM 1024、欄位名也不同）
-- 也想保留加 KanjiVG / 教育部字體 / 全字庫的可能性
-- B 多寫一個轉換層、A 之後要支援第二個 source 必然得重構
+**???蝝?*嚗?- 撌脩?芯??? Make Me a Hanzi嚗???EM 1024??雿?銋???
+- 銋靽???KanjiVG / ??典?擃?/ ?典?摨怎??航??- B 憭神銝???惜? 銋?閬?渡洵鈭?source 敹敺?瑽?
+**?豢?**嚗? B嚗R 銝剜?+ adapter pattern嚗?
+**?**嚗?> ir.py 蝚砌?畾?docstring ?神?he IR is **source-agnostic**???極蝔??仿?雿??????
+**蝔?蝣潸???*嚗?- `ir.py:1-8` 璅∠? docstring 撘瑁矽 source-agnostic
+- `Character.data_source: str = "unknown"` 甈?閮?摮泵靘?嚗0v / mmh / cns_font / chongxi_seal / moe_lishu / moe_song / moe_kaishu / kanjivg / user_dict嚗?- `sources/` 摮?? 13 ??adapter ??嗉
 
-**選擇**：☑ B（IR 中性 + adapter pattern）
-
-**理由**：
-> ir.py 第一段 docstring 明寫「The IR is **source-agnostic**」——刻意。短期工程量略高但避開了重構。
-
-**程式碼證據**：
-- `ir.py:1-8` 模組 docstring 強調 source-agnostic
-- `Character.data_source: str = "unknown"` 欄位記錄字符來源（g0v / mmh / cns_font / chongxi_seal / moe_lishu / moe_song / moe_kaishu / kanjivg / user_dict）
-- `sources/` 子目錄下 13 個 adapter 各司其職
-
-**後續驗證**：✅ 後續加入 mmh / kanjivg / cns_font / chongxi_seal / moe_lishu / moe_song / moe_kaishu / user_dict / punctuation 共 9 個額外資料源，**全部不用動 IR**——本決策是最有 leverage 的一個。
-
+**敺?撽?**嚗? 敺?? mmh / kanjivg / cns_font / chongxi_seal / moe_lishu / moe_song / moe_kaishu / user_dict / punctuation ??9 ??憭???嚗?*?券銝??IR**?瘙箇??舀???leverage ????
 ---
 
-## 決策 7：g0v 當作首選資料源
+## 瘙箇? 7嚗0v ?嗡?擐鞈?皞?
+**閫貊**嚗??訾???Phase 1 ?蜓鞈?皞?韏琿?
 
-**觸發**：要選一個 Phase 1 的「主資料源」當開發起點
-
-**選項**：
-
-| 編號 | 來源 | 優 | 缺 |
+**?賊?**嚗?
+| 蝺刻? | 靘? | ??| 蝻?|
 |---|---|---|---|
-| A | **g0v/zh-stroke-data** | 中文社群、open data、~9000 字、含 outline + track + 筆順 | 授權限商業使用（需確認）|
-| B | Make Me a Hanzi | LGPL 授權安全、~9000 字 | 簡體為主、Arphic 1024 EM、欄位較少 |
-| C | KanjiVG | SVG 直接可用 | 日本漢字為主，繁中覆蓋不全 |
-| D | 自己手動畫 | 完全自主 | 工作量爆表，不切實際 |
+| A | **g0v/zh-stroke-data** | 銝剜?蝷曄黎?pen data?9000 摮 outline + track + 蝑? | ????璆凋蝙?剁??蝣箄?嚗
+| B | Make Me a Hanzi | LGPL ??摰?9000 摮?| 蝪⊿??箔蜓?rphic 1024 EM??雿?撠?|
+| C | KanjiVG | SVG ?湔?舐 | ?交瞍Ｗ??箔蜓嚗?銝剛?????|
+| D | ?芸楛????| 摰?芯蜓 | 撌乩???銵剁?銝?撖阡? |
 
-**考慮的因素**：
-- 立足台灣，要繁體中文友善
-- g0v 資料品質高、有筆順資訊、座標系跟教育部對齊
-- 商用授權可後續用 mmh 補
+**???蝝?*嚗?- 蝡雲?啁嚗?蝜?銝剜???
+- g0v 鞈??釭擃?蝑?鞈??漣璅頂頝??脤撠?
+- ????臬?蝥 mmh 鋆?
+**?豢?**嚗? A嚗0v ?粹??賂?+ B (mmh) ?箏??
+**?**嚗?> g0v ??銝剜?渲? outline+track ??銵函內?憟? IR??甈?憿 mmh fallback 閫?捱?GPL ?摰嚗???璅?~9000 摮?
+**蝔?蝣潸???*嚗sources/g0v.py` + `sources/mmh.py` ???箇嚗_load()` ?賢?鋆?g0v ?芸??mh fallback
 
-**選擇**：☑ A（g0v 為首選）+ B (mmh) 為副選
-
-**理由**：
-> g0v 的繁中支援跟 outline+track 雙重表示最契合 IR。授權問題用 mmh fallback 解決——LGPL 商用安全，覆蓋同樣 ~9000 字。
-
-**程式碼證據**：`sources/g0v.py` + `sources/mmh.py` 同期出現，`_load()` 函式裡 g0v 優先、mmh fallback
-
-**後續驗證**：⚠ 部分驗證——後來發現 g0v 仍有覆蓋限制（罕見字 / 異體字 / 古文無），導致 5al 引入 CNS 全字庫（~95k 字）做最後 fallback。但 g0v 至今仍是主資料源。
-
+**敺?撽?**嚗? ?典?撽???靘??g0v 隞?閬??嚗?閬? / ?圈?摮?/ ?斗??∴?嚗???5al 撘 CNS ?典?摨恬?~95k 摮???敺?fallback?? g0v ?喃?隞銝餉?????
 ---
 
-## 決策 8：CLI 命令分四個子命令（convert / info / grid / serve）
-
-**觸發**：Phase 1–2 設計命令列界面
-
-**選項**：
-
-| 編號 | 方案 |
+## 瘙箇? 8嚗LI ?賭誘?????賭誘嚗onvert / info / grid / serve嚗?
+**閫貊**嚗hase 1?? 閮剛??賭誘????
+**?賊?**嚗?
+| 蝺刻? | ?寞? |
 |---|---|
-| A | 單一 `stroke-order CHAR` 命令，行為猜測 |
-| B | 子命令明確分工：convert / info / grid / serve |
-| C | 多個獨立 binary：`stroke-convert` / `stroke-info` / … |
+| A | ?桐? `stroke-order CHAR` ?賭誘嚗??箇?皜?|
+| B | 摮隞斗?蝣箏?撌伐?convert / info / grid / serve |
+| C | 憭蝡?binary嚗stroke-convert` / `stroke-info` / ??|
 
-**考慮的因素**：
-- CLI UX 慣例：git / kubectl / poetry 等都用子命令
-- 每個子命令有自己的參數集，混在一起會 flag 爆炸
-- 多個 binary 安裝部署複雜
+**???蝝?*嚗?- CLI UX ???嚗it / kubectl / poetry 蝑?典??賭誘
+- 瘥??賭誘?撌梁????瘛瑕銝韏瑟? flag ?
+- 憭?binary 摰??函蔡銴?
 
-**選擇**：☑ B（子命令模式）
-
-**理由**：
-> argparse `add_subparsers` 容易維護，每個 sub 自己定參數。`serve` 子命令把 Web UI 啟動跟 CLI 用法分開——使用者一看 `--help` 就知道有 web 界面。
-
-**程式碼證據**：`cli.py:177-251`
+**?豢?**嚗? B嚗??賭誘璅∪?嚗?
+**?**嚗?> argparse `add_subparsers` 摰寞?蝬剛風嚗???sub ?芸楛摰??詻serve` 摮隞斗? Web UI ??頝?CLI ?冽????蝙?刻???`--help` 撠梁?? web ???
+**蝔?蝣潸???*嚗cli.py:177-251`
 
 ---
 
-## 沒做的決策（明確擱置）
-
-- **單元換成 mm（毫米）**：考慮過讓 IR 直接帶物理單位，但決定維持 EM 抽象單位 + 在 exporter 層做最終 mm 換算（保持 source agnostic）
-- **multi-language 漢字（韓國 / 日本 / 越南字喃）**：Phase 1 只做中文，KanjiVG（日文）後來加但是次要
-- **stroke 順序的型別保證**：用 `index` 欄位 + list 順序兩重，但沒嚴格驗證是否連續，因為部分資料源會有跳號
+## 瘝??捱蝑??Ⅱ?梁蔭嚗?
+- **?桀??? mm嚗神蝐喉?**嚗?? IR ?湔撣嗥?雿?雿捱摰雁??EM ?質情?桐? + ??exporter 撅文??蝯?mm ??嚗???source agnostic嚗?- **multi-language 瞍Ｗ?嚗???/ ?交 / 頞?摮?嚗?*嚗hase 1 ?芸?銝剜?嚗anjiVG嚗??敺????舀活閬?- **stroke ?????乩?霅?*嚗 `index` 甈? + list ???拚?嚗?瘝?潮?霅?阡??嚗??粹??????頝唾?
 
 ---
 
-## 學到的規則 / pattern（適用未來）
+## 摮詨????/ pattern嚗?冽靘?
 
-1. **「先選座標系」是地基決策**：所有後續模組依賴，一旦選定就再也不該改（5d 寫字練習、5g 公眾分享庫的座標系都是繼承這個 EM 2048）
-2. **adapter pattern 對未知未來最有效**：IR 中性 + 每個 source 一個 adapter，13 年後加新字源只需要寫 adapter，IR 一行不動
-3. **不要讓 IR 預設視覺政策**：overflow / 縮放 / 裁切交給消費端決定，IR 只提供訊號
-4. **dataclass 比 dict 值得**：類型保護 + 自動 `__eq__` / `__repr__` 省去大量測試 fixture 工程
+1. **???詨漣璅頂??啣瘙箇?**嚗???蝥芋蝯?鞈湛?銝?阡摰停??銝府?對?5d 撖怠?蝺渡???g ?祉?澈摨怎?摨扳?蝟駁?舐匱?輸?EM 2048嚗?2. **adapter pattern 撠?交靘???**嚗R 銝剜?+ 瘥?source 銝??adapter嚗?3 撟游??摮??芷?閬神 adapter嚗R 銝銵???3. **銝?霈?IR ?身閬死?輻?**嚗verflow / 蝮格 / 鋆?鈭斤策瘨祥蝡舀捱摰?IR ?芣?靘???4. **dataclass 瘥?dict ?澆?**嚗???霅?+ ?芸? `__eq__` / `__repr__` ?憭折?皜祈岫 fixture 撌亦?
 
 ---
 
-## 相關檔案
+## ?賊?瑼?
 
-- 程式碼：`src/stroke_order/ir.py`（211 行）
-- CLI：`src/stroke_order/cli.py:177-251`
-- 第一資料源：`src/stroke_order/sources/g0v.py`
-- 副資料源：`src/stroke_order/sources/mmh.py`
-- 字符匯出：`src/stroke_order/exporters/`（多個 SVG/JSON exporter）
-- 參考分析：`REF_ANALYSIS_G0V.md`（g0v 資料格式逆向工程）
-- 後續資料源（不在 Phase 1）：`infra_01_data_sources.md`
+- 蝔?蝣潘?`src/stroke_order/ir.py`嚗?11 銵?
+- CLI嚗src/stroke_order/cli.py:177-251`
+- 蝚砌?鞈?皞?`src/stroke_order/sources/g0v.py`
+- ?航???嚗src/stroke_order/sources/mmh.py`
+- 摮泵?臬嚗src/stroke_order/exporters/`嚗???SVG/JSON exporter嚗?- ????`REF_ANALYSIS_G0V.md`嚗0v 鞈??澆???撌亦?嚗?- 敺?鞈?皞?銝 Phase 1嚗?`infra_01_data_sources.md`
+

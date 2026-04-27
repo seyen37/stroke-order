@@ -1,61 +1,58 @@
-# stroke-order 啟動指南
+﻿---
+layout: default
+---
 
-最後更新：2026-04-26 · v0.13.0
+# stroke-order ????
+
+?敺?堆?2026-04-26 繚 v0.13.0
 
 ---
 
-## 目錄
+## ?桅?
 
-1. [基本啟動（前 8 個模式）](#基本啟動前-8-個模式)
-2. [包含公眾分享庫（5g）的啟動](#包含公眾分享庫5g的啟動)
-3. [環境變數一覽](#環境變數一覽)
-4. [.env 檔做法](#env-檔做法)
-5. [瀏覽路徑](#瀏覽路徑)
-6. [啟動後快速驗證](#啟動後快速驗證)
-7. [停止 / 重啟 / 資料位置](#停止--重啟--資料位置)
-8. [常見問題排除](#常見問題排除)
+1. [?箸??嚗? 8 ?芋撘?](#?箸????8-?芋撘?
+2. [??祉?澈摨恬?5g嚗???](#??祉?澈摨?g????
+3. [?啣?霈銝閬稽(#?啣?霈銝閬?
+4. [.env 瑼?瘜(#env-瑼?瘜?
+5. [?汗頝臬?](#?汗頝臬?)
+6. [??敺翰??霅(#??敺翰??霅?
+7. [?迫 / ?? / 鞈?雿蔭](#?迫--??--鞈?雿蔭)
+8. [撣貉????](#撣貉????)
 
 ---
 
-## 基本啟動（前 8 個模式）
+## ?箸??嚗? 8 ?芋撘?
 
-如果只用主頁面的功能（單字 / 字帖 / 筆記 / 信紙 / 稿紙 / 塗鴉 / 文字雲 / 抄經 / 筆順練習）——
-**不需要任何環境變數**。
-
-### 第一次安裝
-
+憒??芰銝駁??Ｙ??嚗摮?/ 摮? / 蝑? / 靽∠? / 蝔輻? / 憛? / ????/ ?? / 蝑?蝺渡?嚗?**銝?閬遙雿憓???*??
+### 蝚砌?甈∪?鋆?
 ```bash
-cd <stroke-order 專案根目錄>
+cd <stroke-order 撠??寧??
 pip install -e ".[web]"
 ```
 
-附加可選依賴：
-
-| 套件群 | 用途 |
+???舫靘陷嚗?
+| 憟辣蝢?| ?券?|
 |---|---|
-| `[web]` | FastAPI + uvicorn + cairosvg + Pillow（必要）|
-| `[gif]` | GIF 輸出（cairosvg + Pillow，與 web 重疊）|
-| `[all]` | 上面全部 |
-| `[dev]` | 上面全部 + pytest |
+| `[web]` | FastAPI + uvicorn + cairosvg + Pillow嚗?閬?|
+| `[gif]` | GIF 頛詨嚗airosvg + Pillow嚗? web ??嚗
+| `[all]` | 銝?券 |
+| `[dev]` | 銝?券 + pytest |
 
-### 啟動
+### ??
 
 ```bash
 stroke-order serve
 ```
 
-預設 `http://127.0.0.1:8000/`。
-
-### 進階參數
+?身 `http://127.0.0.1:8000/`??
+### ?脤??
 
 ```bash
-stroke-order serve --host 0.0.0.0 --port 8080    # 指定 host / port
-stroke-order serve --reload                       # 開發模式（檔案改動自動重啟）
-stroke-order serve --help                         # 看完整參數
-```
+stroke-order serve --host 0.0.0.0 --port 8080    # ?? host / port
+stroke-order serve --reload                       # ?璅∪?嚗?獢?????
+stroke-order serve --help                         # ???游???```
 
-### 不裝 console script，直接 uvicorn 啟
-
+### 銝? console script嚗??uvicorn ??
 ```bash
 pip install fastapi 'uvicorn[standard]' cairosvg Pillow
 uvicorn stroke_order.web.server:app --reload
@@ -63,13 +60,11 @@ uvicorn stroke_order.web.server:app --reload
 
 ---
 
-## 包含公眾分享庫（5g）的啟動
+## ??祉?澈摨恬?5g嚗???
 
-`/gallery` 公眾分享庫需要 SMTP 寄 magic-link 登入信，必須設環境變數。
-
-### A. 最快速試用：dev mode（不寄信）
-
-**適用情境**：本機測試 / 你還沒申請 SMTP / sandbox / CI
+`/gallery` ?祉?澈摨恍?閬?SMTP 撖?magic-link ?餃靽∴?敹?閮剔憓??詻?
+### A. ?敹恍岫?剁?dev mode嚗?撖縑嚗?
+**?拍??**嚗璈葫閰?/ 雿?瘝隢?SMTP / sandbox / CI
 
 ```bash
 export STROKE_ORDER_AUTH_SECRET="$(openssl rand -hex 32)"
@@ -78,9 +73,7 @@ export STROKE_ORDER_AUTH_DEV_MODE=true
 stroke-order serve
 ```
 
-開 `/gallery` → 點「登入」→ 輸入 email →
-**看伺服器 console** 會印：
-
+??`/gallery` ??暺?乓? 頛詨 email ??**?撩? console** ?嚗?
 ```
 ============================================================
 [stroke-order DEV MODE] Magic-link login
@@ -89,22 +82,16 @@ stroke-order serve
 ============================================================
 ```
 
-複製那個 url 貼瀏覽器 → 自動登入。零 SMTP 設定。
+銴ˊ???url 鞎潛汗?????芸??餃? SMTP 閮剖???
+> ??**?銝??函??ａ? dev mode**???犖??magic link ?賣??啣
+> server log嚗狐??log 撠梯?餃隤啁?撣唾???
+### B. 甇???函蔡嚗mail App Password
 
-> ⚠ **千萬不要在生產開 dev mode**——所有人的 magic link 都會印到
-> server log，誰看 log 就能登入誰的帳號。
-
-### B. 正式部署：Gmail App Password
-
-**前置作業**（一次性）：
-
-1. 前往 <https://myaccount.google.com/security> → 啟用「兩步驟驗證」
-2. 前往 <https://myaccount.google.com/apppasswords>
-3. 「應用程式名稱」隨便填（例：`stroke-order`）→ 建立
-4. 複製 16 字元的 App Password（**不是**你的 Google 登入密碼）
-
-**啟動命令**：
-
+**?蔭雿平**嚗?甈⊥改?嚗?
+1. ?? <https://myaccount.google.com/security> ????甇仿?撽???2. ?? <https://myaccount.google.com/apppasswords>
+3. ???函?撘?蝔晞靘踹‵嚗?嚗stroke-order`嚗? 撱箇?
+4. 銴ˊ 16 摮???App Password嚗?*銝**雿? Google ?餃撖Ⅳ嚗?
+**???賭誘**嚗?
 ```bash
 export STROKE_ORDER_AUTH_SECRET="$(openssl rand -hex 32)"
 export STROKE_ORDER_BASE_URL="https://your-domain.example.com"
@@ -118,56 +105,52 @@ export STROKE_ORDER_SMTP_FROM="stroke-order <your-account@gmail.com>"
 stroke-order serve --host 0.0.0.0 --port 8000
 ```
 
-### C. 替代 SMTP：SendGrid free tier
+### C. ?蹂誨 SMTP嚗endGrid free tier
 
-每天 100 封免費，個人練字社群很夠用。
-
-1. <https://signup.sendgrid.com/> 註冊
-2. Settings → API Keys → Create API Key（Full Access）→ 複製
-3. Sender Authentication → Single Sender Verification → 驗證 from 地址
+瘥予 100 撠?鞎鳴??犖蝺游?蝷曄黎敺??具?
+1. <https://signup.sendgrid.com/> 閮餃?
+2. Settings ??API Keys ??Create API Key嚗ull Access嚗? 銴ˊ
+3. Sender Authentication ??Single Sender Verification ??撽? from ?啣?
 
 ```bash
 export STROKE_ORDER_SMTP_HOST="smtp.sendgrid.net"
 export STROKE_ORDER_SMTP_PORT=587
-export STROKE_ORDER_SMTP_USER="apikey"             # 字面上就是 'apikey'
-export STROKE_ORDER_SMTP_PASS="SG.xxxxxxxxxxxx"    # 你剛剛複製的 API key
+export STROKE_ORDER_SMTP_USER="apikey"             # 摮銝停??'apikey'
+export STROKE_ORDER_SMTP_PASS="SG.xxxxxxxxxxxx"    # 雿???鋆賜? API key
 export STROKE_ORDER_SMTP_FROM="stroke-order <noreply@your-domain.example.com>"
 ```
 
-詳細部署 / 安全建議見 `docs/GALLERY_DEPLOYMENT.md`。
-
+閰喟敦?函蔡 / 摰撱箄降閬?`docs/GALLERY_DEPLOYMENT.md`??
 ---
 
-## 環境變數一覽
-
-| 變數 | 必填 | 預設 | 用途 |
+## ?啣?霈銝閬?
+| 霈 | 敹‵ | ?身 | ?券?|
 |---|---|---|---|
-| `STROKE_ORDER_AUTH_SECRET` | 5g 必填 | 內建警告 fallback | HMAC 簽 token 金鑰，**生產**請設 ≥32 byte 隨機值 |
-| `STROKE_ORDER_GALLERY_DIR` | ❌ | `~/.stroke-order/gallery` | SQLite + 上傳檔根目錄 |
-| `STROKE_ORDER_BASE_URL` | 生產建議 | `http://127.0.0.1:8000` | magic-link 連結用 |
-| `STROKE_ORDER_AUTH_DEV_MODE` | ❌ | `false` | `true` = magic link 印 console 不寄信 |
-| `STROKE_ORDER_SMTP_HOST` | 5g 非 dev 必填 | — | SMTP 主機 |
-| `STROKE_ORDER_SMTP_PORT` | ❌ | `587` | 587=STARTTLS / 465=SSL |
-| `STROKE_ORDER_SMTP_USER` | 5g 非 dev 必填 | — | SMTP 帳號 |
-| `STROKE_ORDER_SMTP_PASS` | 5g 非 dev 必填 | — | SMTP 密碼 / App Password |
-| `STROKE_ORDER_SMTP_FROM` | ❌ | 預設值（建議覆寫）| email From 標頭 |
-| `STROKE_ORDER_SUTRA_DIR` | ❌ | `~/.stroke-order/sutras` | 抄經模式自訂經文目錄 |
+| `STROKE_ORDER_AUTH_SECRET` | 5g 敹‵ | ?批遣霅血? fallback | HMAC 蝪?token ?嚗?*?**隢身 ??2 byte ?冽???|
+| `STROKE_ORDER_GALLERY_DIR` | ??| `~/.stroke-order/gallery` | SQLite + 銝瑼?桅? |
+| `STROKE_ORDER_BASE_URL` | ?撱箄降 | `http://127.0.0.1:8000` | magic-link ?????|
+| `STROKE_ORDER_AUTH_DEV_MODE` | ??| `false` | `true` = magic link ??console 銝?靽?|
+| `STROKE_ORDER_SMTP_HOST` | 5g ??dev 敹‵ | ??| SMTP 銝餅? |
+| `STROKE_ORDER_SMTP_PORT` | ??| `587` | 587=STARTTLS / 465=SSL |
+| `STROKE_ORDER_SMTP_USER` | 5g ??dev 敹‵ | ??| SMTP 撣唾? |
+| `STROKE_ORDER_SMTP_PASS` | 5g ??dev 敹‵ | ??| SMTP 撖Ⅳ / App Password |
+| `STROKE_ORDER_SMTP_FROM` | ??| ?身?潘?撱箄降閬神嚗 email From 璅 |
+| `STROKE_ORDER_SUTRA_DIR` | ??| `~/.stroke-order/sutras` | ??璅∪??芾?蝬??桅? |
 
 ---
 
-## .env 檔做法
-
-避免每次 export 麻煩，把設定寫進 `.env`（**加進 `.gitignore`，絕不 commit**）：
+## .env 瑼?瘜?
+?踹?瘥活 export 暻餌嚗?閮剖?撖恍?`.env`嚗?*??`.gitignore`嚗?銝?commit**嚗?
 
 ```bash
-# 建立 .env
+# 撱箇? .env
 cat > .env <<'EOF'
 # === Auth ===
-STROKE_ORDER_AUTH_SECRET=__把這裡換成_64_hex_字元___
+STROKE_ORDER_AUTH_SECRET=__?ㄐ??_64_hex_摮?___
 STROKE_ORDER_AUTH_DEV_MODE=true
 STROKE_ORDER_BASE_URL=http://127.0.0.1:8000
 
-# === SMTP（dev mode 時可不填） ===
+# === SMTP嚗ev mode ?銝‵嚗?===
 # STROKE_ORDER_SMTP_HOST=smtp.gmail.com
 # STROKE_ORDER_SMTP_PORT=587
 # STROKE_ORDER_SMTP_USER=your-account@gmail.com
@@ -175,179 +158,143 @@ STROKE_ORDER_BASE_URL=http://127.0.0.1:8000
 # STROKE_ORDER_SMTP_FROM=stroke-order <your-account@gmail.com>
 EOF
 
-# 啟動前載入
-set -a
+# ??????set -a
 source .env
 set +a
 
 stroke-order serve
 ```
 
-## 瀏覽路徑
+## ?汗頝臬?
 
-| URL | 模式 | 加入版本 |
+| URL | 璅∪? | ?? |
 |---|---|---|
-| `http://127.0.0.1:8000/` | 主頁（單字 / 字帖 / 筆記 / 信紙 / 稿紙 / 塗鴉 / 文字雲 / 抄經）| 1.x |
-| `/sutra-editor` | 抄經模式編輯器子頁 | 5bd |
-| `/handwriting` | **筆順練習頁（PSD）** | **5d / v0.12.0** |
-| `/gallery` | **公眾分享庫** | **5g / v0.13.0** |
+| `http://127.0.0.1:8000/` | 銝駁?嚗摮?/ 摮? / 蝑? / 靽∠? / 蝔輻? / 憛? / ????/ ??嚗 1.x |
+| `/sutra-editor` | ??璅∪?蝺刻摩?典???| 5bd |
+| `/handwriting` | **蝑?蝺渡???PSD嚗?* | **5d / v0.12.0** |
+| `/gallery` | **?祉?澈摨?* | **5g / v0.13.0** |
 
 ---
 
-## 啟動後快速驗證
-
-開另一個終端：
+## ??敺翰??霅?
+?銝??蝡荔?
 
 ```bash
-# 健康檢查
+# ?亙熒瑼Ｘ
 curl http://127.0.0.1:8000/api/health
-# → {"ok":true,"version":"0.2.0"}
+# ??{"ok":true,"version":"0.2.0"}
 
-# 抓字符資料（hanzi-writer 格式）
-curl http://127.0.0.1:8000/api/character/永
-# → {"strokes":[...], "medians":[...]}
+# ??蝚西???hanzi-writer ?澆?嚗?curl http://127.0.0.1:8000/api/character/瘞?# ??{"strokes":[...], "medians":[...]}
 
-# 筆順練習頁的 reference outline（5d）
-curl 'http://127.0.0.1:8000/api/handwriting/reference/永?style=lishu'
-# → {"char":"永","style":"lishu","em_size":2048,"strokes":[...]}
+# 蝑?蝺渡??? reference outline嚗?d嚗?curl 'http://127.0.0.1:8000/api/handwriting/reference/瘞?style=lishu'
+# ??{"char":"瘞?,"style":"lishu","em_size":2048,"strokes":[...]}
 
-# 公眾分享庫列表（匿名可讀；5g）
-curl http://127.0.0.1:8000/api/gallery/uploads
-# → {"items":[],"total":0,"page":1,"size":20}
+# ?祉?澈摨怠?銵剁??踹??航?嚗?g嚗?curl http://127.0.0.1:8000/api/gallery/uploads
+# ??{"items":[],"total":0,"page":1,"size":20}
 ```
 
-也可以開瀏覽器直接走以下流程：
-
-1. `/handwriting` 寫一個字 → 點「✓ 完成本字」→ 「我的資料」 → 「↓ JSON（全部）」 下載
-2. `/gallery` → 「登入」→ email → console 取連結 → 點擊 → 自動登入
-3. 「↑ 上傳 PSD」→ 選剛剛下載的 JSON → 標題 + 評論 → 上傳
-4. 卡片出現在列表 → 「↓ 下載 JSON」 確認可下載
-
+銋隞仿??汗?函?亥粥隞乩?瘚?嚗?
+1. `/handwriting` 撖思??? ??暺? 摰??砍??? ?????????? JSON嚗?剁???銝?
+2. `/gallery` ????乓? email ??console ??? ??暺? ???芸??餃
+3. ?? 銝 PSD?? ?詨???頛? JSON ??璅? + 閰? ??銝
+4. ?∠??箇?典?銵????? 銝? JSON??蝣箄??臭?頛?
 ---
 
-## 停止 / 重啟 / 資料位置
+## ?迫 / ?? / 鞈?雿蔭
 
-### 停止
-按 `Ctrl+C` 即可。
-
-### 重啟後資料還在嗎？
-
-| 資料 | 位置 | 重啟後留存？ |
+### ?迫
+??`Ctrl+C` ?喳??
+### ??敺????典?嚗?
+| 鞈? | 雿蔭 | ??敺?摮? |
 |---|---|---|
-| 抄經自訂經文 | `~/.stroke-order/sutras/` | ✅ |
-| **5g 使用者帳號 + 上傳檔** | `~/.stroke-order/gallery/` | ✅ |
-| **5d 筆順練習軌跡** | 瀏覽器 IndexedDB | ✅（綁瀏覽器） |
-| 5g sessions（30 天）| `gallery.db` 內 | ✅ |
-| 5g magic-link tokens | `gallery.db` 內，15 分鐘到期 | ✅ |
+| ???芾?蝬? | `~/.stroke-order/sutras/` | ??|
+| **5g 雿輻?董??+ 銝瑼?* | `~/.stroke-order/gallery/` | ??|
+| **5d 蝑?蝺渡?頠楚** | ?汗??IndexedDB | ??蝬汗?剁? |
+| 5g sessions嚗?0 憭抬?| `gallery.db` ??| ??|
+| 5g magic-link tokens | `gallery.db` ?改?15 ???唳? | ??|
 
-### 5g 重要注意事項
+### 5g ??瘜冽?鈭?
 
-- **`STROKE_ORDER_AUTH_SECRET` 換了**：所有現有 sessions + 未消費的 magic links **立即失效**——使用者要重新登入。**這是 feature 不是 bug**。
-- **`gallery_dir()` 路徑變更**：等於開新資料庫，之前的帳號跟上傳全都看不到。請把整個 `gallery/` 子目錄一起搬。
-
+- **`STROKE_ORDER_AUTH_SECRET` ??**嚗????sessions + ?芣?鞎餌? magic links **蝡憭望?**?蝙?刻???餃??*? feature 銝 bug**??- **`gallery_dir()` 頝臬?霈**嚗??潮??啗??澈嚗???撣唾?頝??喳?賜?銝?????`gallery/` 摮??韏瑟??
 ---
 
-## 常見問題排除
+## 撣貉????
 
-### 「點登入後沒收到 email」
+### ???餃敺??嗅 email??
+1. 瑼Ｘ?靽∩辣憭?2. 瑼Ｘ隡箸???log ???隤方???3. ?急???`STROKE_ORDER_AUTH_DEV_MODE=true` 蝣箄?瘚?瘝?嚗?? SMTP
+4. Gmail ??嚗Ⅱ隤? App Password 銝?餃撖Ⅳ嚗??拚?畾菟?霅歇?
+5. SendGrid ??嚗Ⅱ隤?from ?啣??? sender 撽?
 
-1. 檢查垃圾信件夾
-2. 檢查伺服器 log 有沒有錯誤訊息
-3. 暫時開 `STROKE_ORDER_AUTH_DEV_MODE=true` 確認流程沒壞，再排查 SMTP
-4. Gmail 拒絕：確認用的是 App Password 不是登入密碼，且兩階段驗證已啟用
-5. SendGrid 拒絕：確認 from 地址做過 sender 驗證
-
-### 「點登入後 server 回 500」
-
-回應 detail 會明確說：
-```
+### ???餃敺?server ??500??
+?? detail ??蝣箄牧嚗?```
 SMTP is not configured. Set STROKE_ORDER_SMTP_HOST + STROKE_ORDER_SMTP_USER + STROKE_ORDER_SMTP_PASS,
 OR set STROKE_ORDER_AUTH_DEV_MODE=true ...
 ```
-依提示補環境變數即可。
+靘?蝷箄??啣?霈?喳??
+### ?? magic-link 憿舐內????⊥??歇????
+- ??? 15 ???扳???- 銝????芾?其?甈∴???email ???嚗?- ?? ????仿???唾?
 
-### 「點 magic-link 顯示『連結無效或已過期』」
+### ?/gallery` ? 404??
+- 蝣箄???鈭?v0.13.0 銋????穿?`pip show stroke-order` ????
+- 蝣箄? `static/gallery.html` 頝?`static/gallery/` 摮?摮
+- ? `pip install -e ".[web]"` 蝣箔? package_data ???
 
-- 連結 15 分鐘內有效
-- 一個連結只能用一次（防 email 前轉重放）
-- 過期 → 回登入頁重新申請
+### ??`/handwriting` ?賭?憿舐內??
+- 蝣箄???鈭?v0.12.0 銋?????- ??嚗Ⅱ隤?`static/handwriting.html` 頝?`static/handwriting/` ?賢???
+### ?anvas 銝??/ 閫豢憭梢???
+- iOS Safari嚗Ⅱ隤?`touch-action: none` 憟鈭???devtools ??`.hw-canvas` style嚗?- LINE / FB / IG ?批遣?汗?冽???嚗?閰脫???暺霅血? banner嚗?內?函頂蝯?Safari / Chrome ??- 撘瑕??渡??嚗trl+Shift+R / Cmd+Shift+R 蝣箔? .js 銝粥敹怠?
 
-### 「`/gallery` 看到 404」
-
-- 確認啟動了 v0.13.0 之後的版本（`pip show stroke-order` 看版號）
-- 確認 `static/gallery.html` 跟 `static/gallery/` 子目錄都存在
-- 重新 `pip install -e ".[web]"` 確保 package_data 重新打包
-
-### 「連 `/handwriting` 都不顯示」
-
-- 確認啟動了 v0.12.0 之後的版本
-- 同上，確認 `static/handwriting.html` 跟 `static/handwriting/` 都存在
-
-### 「Canvas 不能畫 / 觸控失靈」
-
-- iOS Safari：確認 `touch-action: none` 套用了（用 devtools 看 `.hw-canvas` style）
-- LINE / FB / IG 內建瀏覽器有問題：應該會看到頂部黃色警告 banner，照提示用系統 Safari / Chrome 開
-- 強制重新整理頁面：Ctrl+Shift+R / Cmd+Shift+R 確保 .js 不走快取
-
-### 「跑測試怎麼跑？」
-
+### ??皜祈岫?獐頝???
 ```bash
 pip install -e ".[dev]"
 pytest tests/
 ```
 
-預期看到 `1057 passed, 41 skipped`（v0.13.0）。
-
+??? `1057 passed, 41 skipped`嚗0.13.0嚗?
 ---
 
-## 推薦工作流
-
-### 本機開發
+## ?刻撌乩?瘚?
+### ?祆??
 
 ```bash
-# Terminal 1: 啟動伺服器（自動 reload）
-export STROKE_ORDER_AUTH_SECRET="$(openssl rand -hex 32)"
+# Terminal 1: ??隡箸??剁??芸? reload嚗?export STROKE_ORDER_AUTH_SECRET="$(openssl rand -hex 32)"
 export STROKE_ORDER_AUTH_DEV_MODE=true
 stroke-order serve --reload
 
-# Terminal 2: 跑測試
-pytest tests/ -v
+# Terminal 2: 頝葫閰?pytest tests/ -v
 ```
 
-### 部署到自己的 VPS
+### ?函蔡?啗撌梁? VPS
 
 ```bash
-# 一次性
-ssh user@your-server
+# 銝甈⊥?ssh user@your-server
 git clone <repo> stroke-order
 cd stroke-order
 pip install -e ".[web]"
 
-# 環境變數設好（.env 或 systemd EnvironmentFile）
-# 起 systemd service / supervisor / docker compose
+# ?啣?霈閮剖末嚗?env ??systemd EnvironmentFile嚗?# 韏?systemd service / supervisor / docker compose
 
-# 反向代理（Caddy 範例）
-# Caddyfile:
+# ??隞??嚗addy 蝭?嚗?# Caddyfile:
 # your-domain.example.com {
 #   reverse_proxy localhost:8000
 # }
 ```
 
-### 跨機備份 5g 資料
+### 頝冽??遢 5g 鞈?
 
 ```bash
-# 備份
+# ?遢
 rsync -avz ~/.stroke-order/gallery/ backup-host:/backups/stroke-order-gallery/
 
-# 還原（連 secret 一起搬，不然 sessions 都失效）
+# ??嚗?secret 銝韏瑟嚗???sessions ?賢仃??
 rsync -avz backup-host:/backups/stroke-order-gallery/ ~/.stroke-order/gallery/
-# .env 裡的 STROKE_ORDER_AUTH_SECRET 也要保持一致
-```
+# .env 鋆∠? STROKE_ORDER_AUTH_SECRET 銋?靽?銝??```
 
 ---
 
-## 相關文件
+## ?賊??辣
 
-- 工作紀錄：`docs/WORK_LOG_2026-04-26.md`
-- 完整部署指南（含安全建議）：`docs/GALLERY_DEPLOYMENT.md`
-- 主 README：`README.md`
+- 撌乩?蝝??`docs/WORK_LOG_2026-04-26.md`
+- 摰?函蔡??嚗摰撱箄降嚗?`docs/GALLERY_DEPLOYMENT.md`
+- 銝?README嚗README.md`
+

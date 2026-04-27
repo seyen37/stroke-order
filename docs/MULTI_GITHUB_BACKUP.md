@@ -1,121 +1,100 @@
-# 多 GitHub 帳號同步備份指南
+﻿---
+layout: default
+---
 
-最後更新：2026-04-26
+# 憭?GitHub 撣唾??郊?遢??
 
-把同一個專案同步推到兩個（或更多）GitHub 帳號的 repo，用途：
+?敺?堆?2026-04-26
 
-- **異地備份**：主帳號 repo 萬一被刪 / 帳號被 ban，備援 repo 還在
-- **版權證據加成**：兩個帳號的 push timestamp 都是不可偽造的第三方時戳
-- **公開 / 私密分流**：主帳公開、備份帳設 private
+??銝??獢?甇交?啣???憭?GitHub 撣唾???repo嚗??
+
+- **?啣?遢**嚗蜓撣唾? repo ?砌?鋡怠 / 撣唾?鋡?ban嚗???repo ?
+- **??霅???**嚗?董?? push timestamp ?賣銝?賡?蝚砌??寞???- **?祇? / 蝘???**嚗蜓撣喳??隞賢董閮?private
 
 ---
 
-## 你的兩個帳號
-
-| 角色 | 帳號 | repo URL |
+## 雿??拙董??
+| 閫 | 撣唾? | repo URL |
 |---|---|---|
-| 主帳號 | `seyen37` | `git@github.com:seyen37/stroke-order.git`（已 push 完成 ✅）|
-| 備份帳 | `seyenbot` | `git@github.com:seyenbot/stroke-order.git`（待設定）|
+| 銝餃董??| `seyen37` | `git@github.com:seyen37/stroke-order.git`嚗歇 push 摰? ??|
+| ?遢撣?| `seyenbot` | `git@github.com:seyenbot/stroke-order.git`嚗?閮剖?嚗
 
 ---
 
-## 整體流程概覽
+## ?湧?瘚?璁汗
 
 ```
-本機 stroke_order/
-   ├── .git/
-   └── 一條 main branch
-            │
-            ├── push → seyen37 帳號（用 ssh key #1）
-            └── push → seyenbot 帳號（用 ssh key #2）
-```
+?祆? stroke_order/
+   ??? .git/
+   ??? 銝璇?main branch
+            ??            ??? push ??seyen37 撣唾?嚗 ssh key #1嚗?            ??? push ??seyenbot 撣唾?嚗 ssh key #2嚗?```
 
-**關鍵概念**：
-- 一個本機 git repo 可以有多個 remote / 多個 push URL
-- SSH key 跟 GitHub 帳號是 1:1（一支 key 只能掛一個帳號）
-- 用 `~/.ssh/config` 為兩個 GitHub host 配不同 key
+**?璁艙**嚗?- 銝?璈?git repo ?臭誑????remote / 憭?push URL
+- SSH key 頝?GitHub 撣唾???1:1嚗???key ?芾???董??
+- ??`~/.ssh/config` ?箏??GitHub host ????key
 
 ---
 
-## Step 1：產第二支 SSH key 給 seyenbot 用
-
-**在 PowerShell**（一般權限）：
-
+## Step 1嚗蝚砌???SSH key 蝯?seyenbot ??
+**??PowerShell**嚗??祆???嚗?
 ```powershell
 ssh-keygen -t ed25519 -C "seyenbot@github" -f $HOME\.ssh\id_ed25519_seyenbot
 ```
 
-過程：
-- **「Enter passphrase」**：直接按 Enter（跟第一支 key 一致）
+??嚗?- **?nter passphrase??*嚗?交? Enter嚗?蝚砌???key 銝?湛?
 
-完成後 `~/.ssh/` 應有兩組 key：
-```
-id_ed25519              ← seyen37 用
-id_ed25519.pub
-id_ed25519_seyenbot     ← seyenbot 用（新的）
-id_ed25519_seyenbot.pub
+摰?敺?`~/.ssh/` ???拍? key嚗?```
+id_ed25519              ??seyen37 ??id_ed25519.pub
+id_ed25519_seyenbot     ??seyenbot ?剁??啁?嚗?id_ed25519_seyenbot.pub
 ```
 
-驗證：
-```powershell
+撽?嚗?```powershell
 ls $HOME\.ssh\
 ```
 
 ---
 
-## Step 2：把第二支公鑰貼到 seyenbot 帳號
+## Step 2嚗?蝚砌??臬?啗票??seyenbot 撣唾?
 
-複製公鑰到剪貼簿：
-
+銴ˊ?祇?啣鞎潛倏嚗?
 ```powershell
 Get-Content $HOME\.ssh\id_ed25519_seyenbot.pub | Set-Clipboard
 ```
 
-然後：
-
-1. **登出**目前的 GitHub 帳號（seyen37）
-2. **登入 seyenbot 帳號**
-3. 開 <https://github.com/settings/keys>
-4. 點「**New SSH key**」
-5. **Title**: `Windows PC (backup)` 或類似
-6. **Key**: 點輸入框 → **Ctrl+V** 貼上
-7. 點「**Add SSH key**」
-
-> 確認頁面右上角頭像/名字是 **seyenbot** 而不是 seyen37 — 加錯帳號後面會卡住！
+?嗅?嚗?
+1. **?餃**?桀???GitHub 撣唾?嚗eyen37嚗?2. **?餃 seyenbot 撣唾?**
+3. ??<https://github.com/settings/keys>
+4. 暺?*New SSH key**??5. **Title**: `Windows PC (backup)` ??隡?6. **Key**: 暺撓?交? ??**Ctrl+V** 鞎潔?
+7. 暺?*Add SSH key**??
+> 蝣箄???喃?閫??????**seyenbot** ????seyen37 ???撣唾?敺?雿?
 
 ---
 
-## Step 3：建立 seyenbot 帳號的 stroke-order repo（如果還沒）
+## Step 3嚗遣蝡?seyenbot 撣唾???stroke-order repo嚗???瘝?
 
-1. 仍在 seyenbot 帳號下
-2. <https://github.com/new>
-3. **Repository name**: `stroke-order`（跟 seyen37 那個名稱可以一樣）
-4. **Public** / **Private**: 看你決定（私人備份建議 Private）
-5. **不要**勾「Initialize with README」（要保持空的，等下我們 push 上去）
-6. 「Create repository」
-
+1. 隞 seyenbot 撣唾?銝?2. <https://github.com/new>
+3. **Repository name**: `stroke-order`嚗? seyen37 ???蝔勗隞乩?璅??
+4. **Public** / **Private**: ??瘙箏?嚗?鈭箏?隞賢遣霅?Private嚗?5. **銝?**?整nitialize with README??閬??征??蝑???push 銝嚗?6. ?reate repository??
 ---
 
-## Step 4：設定 `~/.ssh/config` 區分兩個 GitHub host
+## Step 4嚗身摰?`~/.ssh/config` ????GitHub host
 
-PowerShell 建檔：
-
+PowerShell 撱箸?嚗?
 ```powershell
-# 確保 ~/.ssh 目錄存在
+# 蝣箔? ~/.ssh ?桅?摮
 if (-not (Test-Path $HOME\.ssh)) { New-Item -ItemType Directory -Path $HOME\.ssh }
 
-# 寫 config 檔
-@"
-# 主帳號 — seyen37
+# 撖?config 瑼?@"
+# 銝餃董????seyen37
 Host github.com
   HostName github.com
   User git
   IdentityFile ~/.ssh/id_ed25519
   IdentitiesOnly yes
 
-# 備份帳號 — seyenbot
-# 用法：把 git URL 的 github.com 改成 github-backup
-# 例：git@github-backup:seyenbot/stroke-order.git
+# ?遢撣唾? ??seyenbot
+# ?冽?嚗? git URL ??github.com ?寞? github-backup
+# 靘?git@github-backup:seyenbot/stroke-order.git
 Host github-backup
   HostName github.com
   User git
@@ -124,222 +103,182 @@ Host github-backup
 "@ | Out-File -FilePath $HOME\.ssh\config -Encoding ascii
 ```
 
-驗證內容：
-```powershell
+撽??批捆嚗?```powershell
 Get-Content $HOME\.ssh\config
 ```
 
-> `IdentitiesOnly yes` 很重要——強制 SSH 只用指定的 key，不去試其他的（避免 GitHub 收到「錯帳號的 key」直接 reject）
-
+> `IdentitiesOnly yes` 敺?閬撥??SSH ?芰????key嚗??餉岫?嗡????踹? GitHub ?嗅?撣唾???key???reject嚗?
 ---
 
-## Step 5：驗證兩個 host 都能連
-
+## Step 5嚗?霅??host ?質??
 ```powershell
-# 主帳號（用 key #1）
-ssh -T git@github.com
-# 預期：Hi seyen37! You've successfully authenticated...
+# 銝餃董????key #1嚗?ssh -T git@github.com
+# ??嚗i seyen37! You've successfully authenticated...
 
-# 備份帳（用 key #2）
-ssh -T git@github-backup
-# 預期：Hi seyenbot! You've successfully authenticated...
+# ?遢撣喉???key #2嚗?ssh -T git@github-backup
+# ??嚗i seyenbot! You've successfully authenticated...
 ```
 
-兩個都打對名字才算成功。如果某個顯示錯帳號，回 Step 4 檢查 config 對不對。
-
+?拙?????????????＊蝷粹撣唾?嚗? Step 4 瑼Ｘ config 撠?撠?
 ---
 
-## Step 6：加 backup remote 並 push
+## Step 6嚗? backup remote 銝?push
 
-兩種模式選一個：
+?拍車璅∪??訾???
 
-### 模式 A：兩個獨立 remote（手動推兩次）
-
-優：清楚分開、可以選擇只推某一個
-缺：每次 push 要打兩個指令
-
+### 璅∪? A嚗?蝡?remote嚗???拇活嚗?
+?迎?皜????隞仿??冽?銝??蝻綽?瘥活 push 閬??拙?隞?
 ```powershell
 cd C:\Users\USER\Documents\Cowork\stroke_order
 
-# 加 backup remote
+# ??backup remote
 git remote add backup git@github-backup:seyenbot/stroke-order.git
 
-# 確認兩個 remote 都在
+# 蝣箄??拙?remote ?賢
 git remote -v
-# 應顯示：
+# ?＊蝷綽?
 #   backup  git@github-backup:seyenbot/stroke-order.git (fetch)
 #   backup  git@github-backup:seyenbot/stroke-order.git (push)
 #   origin  git@github.com:seyen37/stroke-order.git     (fetch)
 #   origin  git@github.com:seyen37/stroke-order.git     (push)
 
-# 推到 backup
+# ?典 backup
 git push -u backup main
-git push backup v0.13.0       # tag 也要推
-
-# 之後每次更新：
-git push origin main
+git push backup v0.13.0       # tag 銋???
+# 銋?瘥活?湔嚗?git push origin main
 git push backup main
 ```
 
-### 模式 B：一個 origin、兩個 push URL（一次同步推兩處）
-
-優：一行 `git push` 推兩處
-缺：fetch 還是只從第一個（origin）拉
+### 璅∪? B嚗???origin???push URL嚗?甈∪?甇交?抵?嚗?
+?迎?銝銵?`git push` ?典??蝻綽?fetch ??芸?蝚砌???origin嚗?
 
 ```powershell
 cd C:\Users\USER\Documents\Cowork\stroke_order
 
-# 把 backup URL 加進 origin 的 push targets
+# ??backup URL ??origin ??push targets
 git remote set-url --add --push origin git@github.com:seyen37/stroke-order.git
 git remote set-url --add --push origin git@github-backup:seyenbot/stroke-order.git
 
-# 確認 push 變兩個 URL
+# 蝣箄? push 霈??URL
 git remote -v
-# 應顯示：
+# ?＊蝷綽?
 #   origin  git@github.com:seyen37/stroke-order.git     (fetch)
 #   origin  git@github.com:seyen37/stroke-order.git     (push)
 #   origin  git@github-backup:seyenbot/stroke-order.git (push)
 
-# 一次推兩處
+# 銝甈⊥?抵?
 git push origin main
 git push origin v0.13.0       # tag
 ```
 
-> ⚠ 模式 B 的奇怪行為：第一次 `set-url --add --push` 其實是「替換」原本的單一 push URL；第二次才是真的「加」。這是 git 的設計怪癖。所以**第一行**雖然看起來是「重複加一樣的 URL」，其實是讓 git 進入「多 push URL」模式。**一定要兩行都跑才正確**。
+> ??璅∪? B ???芾??綽?蝚砌?甈?`set-url --add --push` ?嗅祕?胯???祉??桐? push URL嚗洵鈭活?????? git ?身閮芰???隞?*蝚砌?銵?*??絲靘??銴?銝璅?? URL???嗅祕?航? git ?脣?? push URL?芋撘?*銝摰??抵??質??迤蝣?*??
+### ??撱箄降
 
-### 我的建議
-
-**先用模式 A**（保險、清楚）。日後想簡化再切模式 B。
-
+**?璅∪? A**嚗??芥?璆??敺蝪∪???璅∪? B??
 ---
 
-## Step 7：驗證兩個 GitHub 帳號 repo 都收到
+## Step 7嚗?霅??GitHub 撣唾? repo ?賣??
+??汗?刻?蝒???銝?汗?典???嚗?
+1. <https://github.com/seyen37/stroke-order> ??4 ??commits
+2. <https://github.com/seyenbot/stroke-order> ????4 ??commits
 
-開兩個瀏覽器視窗（或同一個瀏覽器分頁）：
-
-1. <https://github.com/seyen37/stroke-order> — 4 個 commits
-2. <https://github.com/seyenbot/stroke-order> — 同 4 個 commits
-
-兩處 commit hash 應該完全一樣（因為是同一個本機 repo push 的）。
-
-GitHub Actions CI 會在**兩個 repo 都跑**（如果兩邊都啟用 Actions）——等於每次 push 多一倍 server-side timestamp。
-
+?抵? commit hash ?府摰銝璅????臬?銝?璈?repo push ????
+GitHub Actions CI ?**?拙?repo ?質?**嚗???? Actions嚗??潭?甈?push 憭???server-side timestamp??
 ---
 
-## 之後的維護循環
-
-### 模式 A 的日常工作流
+## 銋??雁霅瑕儐??
+### 璅∪? A ?撣詨極雿?
 
 ```powershell
-# 改完程式碼 commit
+# ?孵?蝔?蝣?commit
 git add ...
 git commit -m "..."
 
-# 同時推到兩個帳號
-git push origin main
+# ???典?拙董??git push origin main
 git push backup main
 ```
 
-或寫個 alias 簡化：
-
+?神??alias 蝪∪?嚗?
 ```powershell
 git config alias.pushall '!git push origin main && git push backup main'
 
-# 之後一行解決
-git pushall
+# 銋?銝銵圾瘙?git pushall
 ```
 
-### 模式 B 的日常工作流
+### 璅∪? B ?撣詨極雿?
 
 ```powershell
-git push origin main         # 自動同時推兩處
-```
+git push origin main         # ?芸????典??```
 
 ---
 
-## 安全提醒
+## 摰??
 
-### ⚠ seyenbot 帳號的權限管理
+### ??seyenbot 撣唾????恣??
+憒? seyenbot ??bot 撣唾?嚗???剁?嚗嚗?
+- **? SSH key scope**嚗?舐洵鈭?key ?芰策?璈?剁??亙憭???鋆?- **?? 2FA**嚗雿踵 bot 撣唾?銋敹?
+- **摰? audit**嚗 <https://github.com/settings/keys> ??key ?”嚗Ⅱ隤???憭??箇? key
 
-如果 seyenbot 是 bot 帳號（自動化用），考慮：
+### 銝?????commit ??git
 
-- **限制 SSH key scope**：那支第二 key 只給這台機器用，別在多處重複裝
-- **開啟 2FA**：即使是 bot 帳號也別忘了
-- **定期 audit**：到 <https://github.com/settings/keys> 看 key 列表，確認沒有意外多出的 key
+`.gitignore` 撌脩?? `*.pem` `*.key`嚗? SSH key ?身銝??pattern??*`~/.ssh/id_ed25519*` 瘞賊??其???home ?桅?嚗?銝撠??改??隞乩??炊 commit**??憒?雿?????宏??獢?閮?蝣箄???
+### ?拙董?? commit author 蝯曹?
 
-### 不要把私鑰 commit 進 git
+?拙?repo ????commits ?府?賣 `閮勗ㄚ敶?<seyen37@gmail.com>` ??**銝?閬?*?寞? `seyenbot`????
 
-`.gitignore` 已經排除 `*.pem` `*.key`，但 SSH key 預設不在這個 pattern。**`~/.ssh/id_ed25519*` 永遠在你的 home 目錄，絕不在專案內，所以不會誤 commit**。但如果你習慣手動移動檔案，記得確認。
-
-### 兩個帳號的 commit author 統一
-
-兩個 repo 的所有 commits 應該都是 `許士彥 <seyen37@gmail.com>` —— **不需要**改成 `seyenbot`。原因：
-
-- commit author = 「誰寫的」（你本人）
-- GitHub 帳號 = 「push 到哪個帳號」（路由）
-- 這兩件事是分開的，不要混淆
-- 統一 author 對版權保護**有利**——兩個 repo 都顯示同一個原作者
-
-驗證：
-```powershell
+- commit author = ?狐撖怎???雿鈭綽?
+- GitHub 撣唾? = ?ush ?啣?董??頝舐嚗?- ?隞嗡??臬???嚗?閬毽瘛?- 蝯曹? author 撠?甈?霅?*?**???repo ?賡＊蝷箏?銝??雿?
+撽?嚗?```powershell
 git log --pretty=format:'%h %an <%ae> %s'
-# 所有行都應該是 許士彥 <seyen37@gmail.com>
+# ????賣?閰脫 閮勗ㄚ敶?<seyen37@gmail.com>
 ```
 
 ---
 
-## 故障排除
+## ???
 
-### 「Permission denied (publickey)」push 到 backup 時
+### ?ermission denied (publickey)?ush ??backup ??
+瑼Ｘ??嚗?1. `ssh -T git@github-backup` ???臬??`Hi seyenbot!`嚗??停??SSH config 閮剝
+2. `git remote -v` ??backup URL ??`git@github-backup:seyenbot/...` ??*銝** `git@github.com:...`
+3. seyenbot 撣唾???Settings ??Keys ???洵鈭?祇??
+### ?emote: Repository not found??
+seyenbot 撣唾?銝?瘝遣 stroke-order repo?? Step 3??
+### push ??backup ??/ ?∩?
 
-檢查順序：
-1. `ssh -T git@github-backup` — 是否回 `Hi seyenbot!`？沒回就是 SSH config 設錯
-2. `git remote -v` — backup URL 是 `git@github-backup:seyenbot/...` 而**不是** `git@github.com:...`
-3. seyenbot 帳號的 Settings → Keys 真的有第二支公鑰嗎
+?拙?remote ?蝬脰楝隢?嚗?蝮質??拙??甇?虜?????remote ?ｇ??航蝬脰楝銝帘摰?
+### CI ?典?頝?敺
 
-### 「remote: Repository not found」
-
-seyenbot 帳號下還沒建 stroke-order repo。回 Step 3。
-
-### push 到 backup 慢 / 卡住
-
-兩個 remote 各自網路請求，加總要兩倍時間是正常的。如果單個 remote 慢，可能網路不穩定。
-
-### CI 在兩邊都跑變很吵
-
-有兩種策略：
-- **只在 seyen37 主帳號開 Actions**：seyenbot 是 cold backup，不跑 CI
-  - 到 seyenbot 的 repo Settings → Actions → General → Disable
-- **兩邊都跑**（預設）：每次 push 都有兩份 CI 紀錄，當作雙重時戳證據
+?蝔桃??伐?
+- **?芸 seyen37 銝餃董?? Actions**嚗eyenbot ??cold backup嚗?頝?CI
+  - ??seyenbot ??repo Settings ??Actions ??General ??Disable
+- **?拚??質?**嚗?閮哨?嚗?甈?push ?賣??拐遢 CI 蝝???嗡????霅?
 
 ---
 
-## 額外做法：多向 mirror
+## 憿???嚗???mirror
 
-如果你之後想加第三、第四個 backup（譬如 GitLab、Codeberg），同樣模式：
-
+憒?雿?敺?洵銝洵??backup嚗閂憒?GitLab?odeberg嚗??見璅∪?嚗?
 ```powershell
-# 加 GitLab
+# ??GitLab
 git remote add gitlab git@gitlab.com:seyen37/stroke-order.git
 
-# 一次推三處（模式 A 的 alias）
-git config alias.pushall '!git push origin main && git push backup main && git push gitlab main'
+# 銝甈⊥銝?嚗芋撘?A ??alias嚗?git config alias.pushall '!git push origin main && git push backup main && git push gitlab main'
 git pushall
 ```
 
-GitLab 跟 GitHub 一樣需要設 SSH key + 新增 repo。
-
+GitLab 頝?GitHub 銝璅??閬身 SSH key + ?啣? repo??
 ---
 
-## 總結
+## 蝮賜?
 
-| Step | 做什麼 |
+| Step | ??暻?|
 |---|---|
 | 1 | `ssh-keygen -f $HOME\.ssh\id_ed25519_seyenbot` |
-| 2 | 公鑰貼到 seyenbot 帳號 GitHub Settings → Keys |
-| 3 | seyenbot 帳號建 `stroke-order` 空 repo |
-| 4 | 寫 `~/.ssh/config` 區分 `github.com` 跟 `github-backup` |
-| 5 | `ssh -T git@github.com` + `ssh -T git@github-backup` 雙驗證 |
-| 6 | 模式 A：`git remote add backup git@github-backup:seyenbot/stroke-order.git` |
+| 2 | ?祇鞎澆 seyenbot 撣唾? GitHub Settings ??Keys |
+| 3 | seyenbot 撣唾?撱?`stroke-order` 蝛?repo |
+| 4 | 撖?`~/.ssh/config` ???`github.com` 頝?`github-backup` |
+| 5 | `ssh -T git@github.com` + `ssh -T git@github-backup` ??霅?|
+| 6 | 璅∪? A嚗git remote add backup git@github-backup:seyenbot/stroke-order.git` |
 | 7 | `git push backup main` + `git push backup v0.13.0` |
-| 之後 | 每次 push 都記得推兩個 remote（或設 alias）|
+| 銋? | 瘥活 push ?質?敺?拙?remote嚗?閮?alias嚗
+

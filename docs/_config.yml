@@ -1,0 +1,9 @@
+﻿title: stroke-order 文件中心
+description: 中文字元 → 向量筆跡轉換器（給寫字機器人用）
+theme: jekyll-theme-cayman
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
