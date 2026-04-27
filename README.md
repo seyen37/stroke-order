@@ -6,6 +6,10 @@
 ![license](https://img.shields.io/badge/license-MIT-yellow)
 ![version](https://img.shields.io/badge/version-0.13.0-orange)
 
+## 🌟 核心願景
+
+本專案不只是筆順工具——是世界上第一個整合「**真實手寫軌跡 × 組件化字型 × 個人風格生成**」的開源系統。**使用者寫 600 個精選字，能組合出 3500+ 字的個人字庫**。完整戰略定位、覆蓋率數學、四階段實作路線見 **[docs/VISION.md](docs/VISION.md)**。
+
 ## 🔗 線上資源
 
 - 🚀 **線上 demo**：<https://stroke-order.onrender.com/>（首次喚醒 ~30 秒，免費 tier 限制）
