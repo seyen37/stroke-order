@@ -6,6 +6,16 @@
 ![license](https://img.shields.io/badge/license-MIT-yellow)
 ![version](https://img.shields.io/badge/version-0.13.0-orange)
 
+## 🔗 線上資源
+
+- 🚀 **線上 demo**：<https://stroke-order.onrender.com/>（首次喚醒 ~30 秒，免費 tier 限制）
+- ✍️ **筆順練習頁**：<https://stroke-order.onrender.com/handwriting>
+- 🌐 **公眾分享庫**：<https://stroke-order.onrender.com/gallery>
+- 📖 **文件中心**：<https://seyen37.github.io/stroke-order/>
+- 📦 **GitHub repo**：<https://github.com/seyen37/stroke-order>
+
+---
+
 中文字元 → 向量筆跡轉換器，目標是餵給寫字機器人（AxiDraw 類繪圖機／自製筆型機械臂／任何吃 G-code 或 polyline 的裝置）。
 
 ## 為什麼
