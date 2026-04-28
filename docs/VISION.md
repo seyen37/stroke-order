@@ -285,6 +285,34 @@ def greedy_cover_set(target_chars, kanji_vg_data):
 
 ---
 
+## 十一、未來 Spinoff 衍生專案
+
+stroke-order 是「**設計工具 + 個人化資料蒐集器**」。它累積出來的組件級資料，自然會衍生出多個下游專案，各自有獨立目標、獨立 repo、獨立發布節奏。
+
+當前識別出的 spinoff 方向：
+
+1. **`tinyhanzi`** — 嵌入式中文字庫（朱邦復明珠遺願 50 年後的真正完成）
+   - **動機**：ESP32 / Arduino 等晶片資源限制下，中文字仍然是奢侈品。每個專案都得自己抽 subset，浪費。
+   - **作法**：把 stroke-order 的組件 + composition 表格壓縮成 binary blob，~40 KB 含 4808 字（vs 16×16 bitmap 的 192 KB）。
+   - **獨特賣點**：天然帶軌跡資料（不只 bitmap），對嵌入式寫字機器人 / pen plotter 直接可用——LVGL/u8g2 等現有方案做不到。
+   - **與朱邦復遺產的閉環**：1976 年朱邦復為 8 位元微電腦設計組件化字庫，未能完整實作 runtime；50 年後的 ESP32 與當年微電腦面對相同的記憶體比例困境，我們有機會幫朱邦復的願景完成最後一哩路。
+
+2. **Service Worker offline mode** — 短期負債清償
+   - HTTP cache headers + 離線資產 cache，1-2 週工作。
+   - 對低階手機 / 不穩網路場景立即有感。
+
+3. **組件 glyph cache 分發** — 中期網路分發優化
+   - Phase C「組合引擎」的 web 端對偶面：把組件 SVG 拆出來個別 cache，跨字 / 跨字體共用。
+
+4. **KAGE outline 整合** — 跟日本 GlyphWiki 生態接軌
+   - 將 stroke-order 的軌跡資料 + KAGE 的輪廓資料 cross-reference，互補生成完整字型。
+
+詳細描述、觸發條件、相依性見 [`docs/SPINOFFS.md`](SPINOFFS.md)。
+
+**這些都不是 stroke-order 主線 phases**，是建立在 stroke-order 基礎設施上的衍生產品。Phases A→D 跑完後依需求啟動。
+
+---
+
 ## 對任何想貢獻者 / 未來自己 / 潛在合作對象的訊息
 
 如果你正在讀這份文件，思考是否要參與這個專案：
@@ -301,3 +329,4 @@ def greedy_cover_set(target_chars, kanji_vg_data):
 - 2026-04-27：初版，對應 v0.13.0。基於與 Claude 的策略討論定稿。
 - 2026-04-27（同日修訂）：加入「中日韓共用 808 漢字」實證分析。實際跑 cjkvi-ids 分解後得到 808 字 → 194 獨特組件 → 96.1% 覆蓋率（3363/3500 常用字）→ 5.16x 槓桿率。Phase A 任務清單更新加「內建 808 表為預設覆蓋集」。
 - **2026-04-28（v0.14.0 — Phase A 完成）**：Phase A backend + API + UI 全部落地（12 sub-tasks 6b-1 ~ 6b-12）。新增 2 個 cover-sets（教育部 4808、朱邦復 5000），三家對比實證確認「200-250 組件覆蓋率上限」。修正 808 組件數 194 → 200（compound marker 處理）。新增 Taiwan-variant integrity 章節，記錄發現「民間整理的官方字表夾帶 GB 變體」的著作權保護議題。
+- **2026-04-28（同日修訂）**：新增 §十一「未來 Spinoff 衍生專案」+ 對應的 [`SPINOFFS.md`](SPINOFFS.md)，記錄 4 個衍生方向：tinyhanzi 嵌入式字庫（閉合朱邦復 50 年前願景）、Service Worker offline、組件 glyph cache 分發、KAGE outline 整合。這些不是主線 phases，是建立在組件基礎設施上的下游產品。
