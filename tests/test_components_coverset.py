@@ -302,3 +302,51 @@ def test_bentu_distinct_components_more_than_4808(cs_bentu, cs_edu):
     comps_edu = collect_components(cs_edu.chars, ids_map)
     comps_bentu = collect_components(cs_bentu.chars, ids_map)
     assert len(comps_bentu) >= len(comps_edu)
+
+
+# ---------------------------------------------------------------------------
+# moe_elementary_5021 cover-set (6b-14 — 國小學童字頻表 2002)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cs_moe_freq() -> CoverSet:
+    return load_coverset("moe_elementary_5021")
+
+
+def test_list_coversets_includes_moe_elementary():
+    metas = list_coversets()
+    names = [m["name"] for m in metas]
+    assert "moe_elementary_5021" in names
+
+
+def test_moe_elementary_size_after_dedupe(cs_moe_freq):
+    """Original publication says 5,021 chars; 3 editorial duplicates removed
+    → 5,018 unique chars."""
+    assert cs_moe_freq.size == 5018
+
+
+def test_moe_elementary_metadata_publication_count(cs_moe_freq):
+    """Metadata must record original publication count (5,021) and
+    explain the 3-char dedupe for traceability."""
+    md = cs_moe_freq.metadata
+    assert md.get("original_published_count") == 5021
+    dups = md.get("duplicates_in_source", [])
+    assert set(dups) == {"成", "躍", "咕"}
+
+
+def test_moe_elementary_first_char_is_de(cs_moe_freq):
+    """Rank 1 of elementary frequency must be '的' — most common Chinese
+    char, well-established result."""
+    assert cs_moe_freq.chars[0] == "的"
+    assert cs_moe_freq.entries[0]["frequency_rank"] == 1
+
+
+def test_moe_elementary_top_30_match_known_high_freq(cs_moe_freq):
+    """Top 30 chars should match known high-freq chars from elementary
+    writing — sanity check for rank order."""
+    top30 = "".join(cs_moe_freq.chars[:30])
+    # These chars are essentially fixed by 30+ years of Chinese frequency
+    # studies — order may vary slightly but presence is robust.
+    for c in "的一是不我有在人來大":
+        assert c in top30, f"{c} should be in top 30 elementary frequency"

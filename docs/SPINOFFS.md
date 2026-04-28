@@ -285,7 +285,92 @@ KAGE 引擎已經跑 20 年，累積了完整的漢字 outline + 組合系統，
 
 ---
 
+---
+
+## 6. 待整合資料源 Backlog
+
+當前 stroke-order 在 uploads/ 累積了豐富的 Taiwan-first / 漢字研究資料源，已 audit 但尚未整合進 codebase。下次工作日依優先序挑選實作。
+
+### Group A：字頻 / 字單（cover-set 候選）
+
+| 資料源 | 內容 | 規模 | 估時 | 優先 | 主要挑戰 |
+|---|---|---|---|---|---|
+| `shrest1.zip → SHREST1.DBF` | 國小學童 字頻總表（民國 91 年/2002）| 5,021 字 + 頻次百分比 + 辭典標記 | 2-3 hr | **高** | 48 個 Big5-ETEN PUA 異體字需 CNS 對照表回推 Unicode |
+| `shrest2.zip → shrest2.dbf` | 詞頻總表 | 46,666 詞 / 757,632 次 | 1-2 hr | 中 | 詞層 vs 字層的整合策略（不直接對應 cover-set，但對推薦排序有用）|
+| `result.zip` | 整套小學調查報告（shrest1-24 合輯） | 全 study | — | 低 | shrest1/2 是其精華，其餘是統計補表 |
+
+**整合方向**：字頻資料 → 推薦演算法的 secondary tiebreak（同樣 component gain 時優先推薦真實高頻字）+ 第 5 個 cover-set `moe_elementary_5021`。
+
+### Group B：教育部 / 全字庫 字型（reference glyph 來源）
+
+| 資料源 | 內容 | 用途 |
+|---|---|---|
+| `edukai-5.1_20251208.ttf` | 教育部楷書 5.1（2025 最新） | 5d UI 楷書 reference |
+| `edusong-big5.ttf` / `edusong_Unicode.ttf` | 教育部宋體 | 5d UI 宋體 reference |
+| `MoeLI(隸書3.0版1080724上網).ttf` | 教育部隸書 3.0 | 改善現有隸書 fallback（取代 chongxi_seal 的隸書借用）|
+| `Fonts_Kai.zip` | TW-Kai-98 + Ext-B + Plus（全字庫楷體完整版）| 罕字 reference 補強 |
+| `Fonts_Sung.zip` | TW-Sung 同上 | 罕字宋體 |
+| `chongxi_seal.otf` ✅ | 崇羲篆體（已用） | 篆書 reference |
+
+**整合方向**：取代 / 補強現有 g0v + MMH fallback chain，特別是 4808 之外的罕字。
+
+### Group C：CNS 全字庫屬性表（rich metadata）
+
+| 資料源 | 內容 | 用途 |
+|---|---|---|
+| `Properties.zip → CNS_cangjie.txt` | 倉頡碼對照 | 輸入法整合 / spinoff 候選 |
+| `Properties.zip → CNS_component.txt` | 字根分解 | 跟 cjkvi-ids 交叉驗證 Phase A 組件資料 |
+| `Properties.zip → CNS_phonetic.txt` | 聲符 | 形聲字推論基礎 |
+| `Properties.zip → CNS_radical.txt` | 部首 | 跟現有 radicals.py 交叉驗證 |
+| `Properties.zip → CNS_stroke.txt` | 筆畫數 | metadata 補強 |
+| `Properties.zip → CNS_strokes_sequence.txt` | 筆順 | g0v / 教育部筆順的官方對照 |
+| `MapingTables.zip` | Big5 ↔ CNS ↔ Unicode | **解決 Group A 的 48 異體字必備工具** |
+
+**整合方向**：Phase A 的 Layer 1 標註層升級——把 cjkvi-ids 跟 CNS 全字庫 cross-ref，Taiwan-variant integrity 升級到「雙源驗證」。
+
+### Group D：倉頡 / 異體字輸入法系統
+
+| 資料源 | 內容 | 用途 |
+|---|---|---|
+| `mdfont.zip → USRFONT.15M` | 16x16 bitmap 字檔（PUA 異體字） | tinyhanzi 嵌入式字庫的歷史參考實作 |
+| `mdfont.zip → USRFONT.24M` | 24x24 bitmap 字檔 | 同上 |
+| `mdfont.zip → XUSRCJ.TBL` | 異體字倉頡碼表 | 解碼 SHREST1 的 48 PUA 異體字身分 |
+| `mdfont.zip → diction.tte` | 字典 TTE 檔 | （格式不明，需研究）|
+
+**整合方向**：跟 `tinyhanzi` spinoff 緊密關聯——這 2 個 bitmap 檔正是「**朱邦復明珠字庫的當代實作參考**」。tinyhanzi 啟動時必看。
+
+### Group E：朱邦復遺產 / 漢字基因相關
+
+| 資料源 | 內容 | 歷史價值 |
+|---|---|---|
+| `hanzijiyin2018.zip` | 朱邦復《漢字基因講座》100+ 篇 .doc 講義 | 哲學文獻，VISION.md 引用基底 |
+| `5000.zip` | 5000 字 BMP 圖檔（每個字根 134 byte） | 朱邦復原版字根樣本 |
+| `6063png.zip` | 6063 個漢字 PNG 圖檔（含一些 CJK Ext A） | 字形視覺資料庫 |
+| `ebkman075.zip` | DOS-era 字典管理員 installer (2002) | 歷史封存（不執行）|
+| `fontdata2010-new.zip` | 朱邦復字型 ASM 原始碼（DOS 16x16）| **直接對應 tinyhanzi 設計**——50 年前他怎麼壓縮的範本 |
+| `scg.zip` / `scg_yang.zip` | SCG (Stroke Char Generator) ASM 原始碼 | 同上，組件化字型生成的原型 |
+| `testfont2010.zip` | DOS 字型測試 .EXE | 歷史測試工具，不執行 |
+
+**整合方向**：tinyhanzi spinoff 的**靈感原型**——朱邦復當年的 ASM 實作直接證明「組件壓縮可以做到 8 位元微電腦記憶體尺度」。研讀後再回頭設計現代版。
+
+---
+
+### 整合優先序建議
+
+依「ROI = 對主線價值 / 工作量」排序：
+
+1. **🔥 Group C MapingTables**（高 ROI）：解 Group A 的 48 異體字 + Phase A Taiwan-variant integrity 雙源驗證——~2-3 hr
+2. **Group A SHREST1**（高 ROI，有 Group C 加持後）：第 5 個 cover-set `moe_elementary_5021` ranked by 真實 frequency——~1-2 hr 補完
+3. **Group B 字型** （中 ROI）：教育部 ttf 直接整合進 g0v fallback chain——~30 min/font
+4. **Group C CNS_strokes_sequence**（中 ROI）：跟現有筆順資料 cross-ref，找出官方最新版本與 g0v 的差異——~2 hr
+5. **Group D mdfont**（待 tinyhanzi 啟動才有意義）：留給 tinyhanzi spinoff 參考
+6. **Group E 漢字基因** （低 ROI 但高史料價值）：tinyhanzi README 寫故事時引用 + VISION.md §三 補充
+
+---
+
 ## 修訂歷史
 
 - 2026-04-28：初版。記錄 4 個 spinoff（tinyhanzi、Service Worker offline、組件 glyph cache、KAGE 整合）。
+- 2026-04-28（同日修訂）：加 spinoff #4「罕字 OS 字型相容性警告」（基於 bentu_6792 的 OS support metadata）。
+- 2026-04-28（同日深夜修訂）：新增 §六「待整合資料源 Backlog」，catalog 今日累積的 Group A-E 五大類資料源（字頻 DBF、教育部 ttf 字型、CNS 全字庫屬性表、倉頡異體字 bitmap 字檔、朱邦復漢字基因系列）+ 整合優先序建議。
 - (未來新 spinoff / 狀態變更在此記錄)

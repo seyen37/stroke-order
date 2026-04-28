@@ -14,6 +14,10 @@ Built-in cover-sets:
 - ``educational_4808`` — 教育部常用國字標準字體表 (4,808 字). Taiwan's
   official 常用 character standard from 民國71年公告 (1982). Source:
   official MOE PDF.
+- ``moe_elementary_5021`` — 教育部國小常用字頻表 (民國91年/2002 published
+  count 5,021; deduped to 5,018 unique). Frequency-ranked from real
+  elementary school student writing samples. Complements 4808 (standards)
+  with empirical usage data — useful as recommendation tiebreak.
 - ``bentu_6792`` — 教育部本土語言成果參考字表 (6,792 字). Most comprehensive
   Taiwan-first cover-set, includes Hokkien/Hakka/Indigenous-language-specific
   characters. Each entry has CNS 11643 codepoint (Taiwan one-true-source);
@@ -82,6 +86,7 @@ class CoverSet:
 _BUILTIN_NAMES: tuple[str, ...] = (
     "cjk_common_808",
     "educational_4808",
+    "moe_elementary_5021",
     "bentu_6792",
     "wuqian_5000",
 )
