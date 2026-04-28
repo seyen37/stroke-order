@@ -11,10 +11,15 @@ Built-in cover-sets:
 - ``cjk_common_808`` — 中日韓共同常用 808 漢字 (TCS 2014). Empirically
   covers 96.1% of 3,500 most common chars. See
   ``docs/decisions/2026-04-27_808_analysis.md``.
+- ``educational_4808`` — 教育部常用國字標準字體表 (4,808 字). Taiwan's
+  official 常用 character standard. Most comprehensive practical target
+  for a personal Chinese-traditional font. Source: Gist by @p208p2002.
+- ``wuqian_5000`` — 朱邦復 漢字基因 5000 會意字 (~3,716 字 after CJK filter).
+  Deeper Chinese-only set with explicit 會意 decomposition baked in.
+  See ``data/5000_wuqian.txt`` and ``decomposition.py``.
 
-Future built-ins (placeholders for Phase A.10):
+Future built-ins:
 
-- ``educational_4808`` — 教育部國語標準字
 - ``minimum_cover`` — algorithm-generated greedy minimum cover
 
 Custom cover-sets can be loaded via :func:`load_coverset_from_path`.
@@ -64,7 +69,11 @@ class CoverSet:
 # Built-in registry
 # ---------------------------------------------------------------------------
 
-_BUILTIN_NAMES: tuple[str, ...] = ("cjk_common_808",)
+_BUILTIN_NAMES: tuple[str, ...] = (
+    "cjk_common_808",
+    "educational_4808",
+    "wuqian_5000",
+)
 
 
 def _builtin_path(name: str) -> Path:

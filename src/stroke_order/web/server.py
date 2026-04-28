@@ -515,7 +515,7 @@ def _build_sutra_outline_loader(
 def create_app() -> FastAPI:
     app = FastAPI(
         title="stroke-order",
-        version="0.2.0",
+        version="0.3.0",
         description="中文字 → 向量筆跡轉換器（寫字機器人專用）",
     )
 
@@ -3397,7 +3397,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     async def health():
-        return {"ok": True, "version": "0.2.0"}
+        return {"ok": True, "version": "0.3.0"}
 
     return app
 

@@ -122,3 +122,97 @@ def test_cs808_distinct_components_in_expected_range(cs808):
         "If far off, regenerate docs/analysis/808_coverage_report.md "
         "and update VISION.md."
     )
+
+
+# ---------------------------------------------------------------------------
+# wuqian_5000 cover-set (6b-11)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cs_wuqian() -> CoverSet:
+    return load_coverset("wuqian_5000")
+
+
+def test_list_coversets_includes_wuqian():
+    metas = list_coversets()
+    names = [m["name"] for m in metas]
+    assert "wuqian_5000" in names
+
+
+def test_wuqian_size_in_expected_range(cs_wuqian):
+    """Should be ~3,700-3,800 after CJK filter from raw ~3,719 entries."""
+    assert 3500 <= cs_wuqian.size <= 4000
+
+
+def test_wuqian_metadata(cs_wuqian):
+    assert "5000" in cs_wuqian.title or "漢字基因" in cs_wuqian.title
+    assert "朱邦復" in cs_wuqian.source or "字易" in cs_wuqian.source
+
+
+def test_wuqian_known_chars_present(cs_wuqian):
+    """Spot-check well-known chars that 朱邦復's 5000 set should include.
+
+    Note: 朱邦復's curation is selective — even seemingly-canonical 會意
+    chars like 林 (⿰木木) and 想 (心+相) are NOT in the set. Stick to
+    pure 象形 chars empirically verified to be in the source file.
+    """
+    chars_set = set(cs_wuqian.chars)
+    for c in "明日月人木火山水":
+        assert c in chars_set, f"{c} should be in 漢字基因 5000"
+
+
+def test_wuqian_distinct_components_larger_than_808(cs_wuqian, cs808):
+    """wuqian_5000 has more chars than 808 → should yield more components.
+
+    Sanity: the larger curated set should provide more decomposition
+    breadth than the 808 high-frequency set.
+    """
+    ids_map = default_ids_map()
+    comps_808 = collect_components(cs808.chars, ids_map)
+    comps_wuqian = collect_components(cs_wuqian.chars, ids_map)
+    assert len(comps_wuqian) > len(comps_808), (
+        f"wuqian ({len(comps_wuqian)}) should have more components "
+        f"than 808 ({len(comps_808)})"
+    )
+
+
+# ---------------------------------------------------------------------------
+# educational_4808 cover-set (6b-11 — 教育部常用國字標準字體表)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cs_edu() -> CoverSet:
+    return load_coverset("educational_4808")
+
+
+def test_list_coversets_includes_edu_4808():
+    metas = list_coversets()
+    names = [m["name"] for m in metas]
+    assert "educational_4808" in names
+
+
+def test_edu_4808_exact_size(cs_edu):
+    """MOE 標準表 is exactly 4,808 chars (this is in the title)."""
+    assert cs_edu.size == 4808
+
+
+def test_edu_4808_metadata(cs_edu):
+    assert "教育部" in cs_edu.title or "MOE" in cs_edu.title.upper()
+    assert "4808" in cs_edu.title or "4,808" in cs_edu.source
+
+
+def test_edu_4808_known_chars(cs_edu):
+    """High-frequency chars must be in the MOE standard set."""
+    chars_set = set(cs_edu.chars)
+    for c in "明林日月人木火想山水永":
+        assert c in chars_set, f"{c} should be in 教育部 4808"
+
+
+def test_edu_4808_distinct_components_more_than_808(cs_edu, cs808):
+    """4808 chars > 808 chars → more distinct components."""
+    ids_map = default_ids_map()
+    comps_808 = collect_components(cs808.chars, ids_map)
+    comps_edu = collect_components(cs_edu.chars, ids_map)
+    assert len(comps_edu) > len(comps_808)
