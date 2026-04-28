@@ -30,7 +30,7 @@
 
 ## 開發歷程
 
-本專案由 **許士彥（[seyen37@gmail.com](mailto:seyen37@gmail.com)）獨立設計與開發**，於本機環境累積了 67 個內部 phase（從 Phase 1 → Phase 5g）的功能演進，最終在 **v0.13.0** 達到「9 個 Web UI 模式 + 1057 個單元測試全綠 + 完整公眾分享庫」這個成熟度才首次公開推送到 GitHub。
+本專案由 **許士彥（Hsu Shih-Yen，<https://github.com/seyen37>）獨立設計與開發**，於本機環境累積了 67 個內部 phase（從 Phase 1 → Phase 5g）的功能演進，最終在 **v0.13.0** 達到「9 個 Web UI 模式 + 1057 個單元測試全綠 + 完整公眾分享庫」這個成熟度才首次公開推送到 GitHub。
 
 詳細的設計脈絡與決策考量見 [`docs/decisions/`](docs/decisions/) — 每個模式 / 基礎建設都有對應的決策日誌，記錄當時遇到的困難、選項評估、與最終解法。專案演進的時序則記錄在 [`docs/HISTORY.md`](docs/HISTORY.md)。
 
