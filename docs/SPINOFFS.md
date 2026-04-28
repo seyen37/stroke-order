@@ -298,6 +298,11 @@ KAGE 引擎已經跑 20 年，累積了完整的漢字 outline + 組合系統，
 | ✅ **`教育部字庫5021字.txt`** | 國小學童字頻 5,021 字（純 Unicode，已 PUA 解決）| 5,018 unique → `moe_elementary_5021` cover-set | 完成 (6b-14) | — | 3 個編輯重複，dedupe 處理 |
 | `shrest1.zip → SHREST1.DBF` | 同上的 DBF 原檔，含百分比 + 累積頻率 | 5,021 字 + 詳細數值 | 1-2 hr | 中 | 48 個 PUA 異體字（已透過 .txt 版本繞過）。要做就是補頻次數值給 moe_elementary_5021 |
 | **`附錄9 99-108年高頻字 xlsx` ⭐** | 民國 99-108（2010-2019）每字百萬字頻 vs 4808 對比 | **2,830 共現 + 1,978 棄用 + 37 新興 + 47 教育媒體獨有** | **3 hr** | **🔥 高** | 不新增 cover-set，是給 `educational_4808.json` 的 per-entry metadata 升級 + 衍生「modern-only 過濾」UI |
+| **`BIAU1.zip` 簡編本字頻 ⭐** | MOE 國語辭典簡編本編輯語料字頻 | 5,731 字（PDF + cp950 TXT 雙格式） | 2-3 hr | **🔥 高** | 跟 NAER 99-108 同戰略價值——第三份獨立字頻，可做三源交叉驗證 |
+| `BIAU2.zip` 簡編本詞頻 | 同上但詞層 | 64,326 詞 | 1-2 hr | 中 | 詞層整合策略待定 |
+| `BIAU17.zip` 簡編本 ∩ 4808 | pre-computed 共有字 | 4,634 | 30 min | 中 | 已是 BIAU1 的衍生表，可從 BIAU1 算出 |
+| `BIAU18.zip` 簡編本 - 4808 | 簡編本有但 4808 沒收 | 1,097 字 | 30 min | 中 | 同上，從 BIAU1 算出 |
+| `BIAU19` 4808 - 簡編本 | 4808 收但簡編本沒抓到 | **174 字** | — | 高史料價值 | 「連辭典編輯語料都不見的 4808 標準字」——最 archaic 的標準字 |
 | `shrest2.zip → shrest2.dbf` | 國小詞頻總表 | 46,666 詞 / 757,632 次 | 1-2 hr | 中 | 詞層 vs 字層整合策略不確定 |
 | `result.zip` | 整套 shrest1-24 合輯 | 全 study | — | 低 | shrest1/2 是精華 |
 
@@ -308,9 +313,16 @@ KAGE 引擎已經跑 20 年，累積了完整的漢字 outline + 組合系統，
 - 這個 finding 本身值得在 VISION.md / 決策日誌記錄——是「Taiwan-first」哲學的時序維度補強
 
 **整合方向**：
-1. 主線 — `educational_4808.json` per-entry 加 `frequency_99~108` 10 欄 + `modern_high_freq` flag
-2. 衍生 cover-set 候選 — `educational_4808_modern` (2,830 字 subset)
-3. 衍生 SPINOFFS — 5d UI 加「modern-only filter」開關
+1. 主線 — `educational_4808.json` per-entry 加多源字頻 metadata：
+   - `freq_elementary` (來自 moe_elementary_5021，已有 rank)
+   - `freq_dictionary` (來自 BIAU1，新整合)
+   - `freq_naer_99_108` (來自附錄9，新整合)
+2. **三源交叉 flag**：`modern_consensus` enum = `strict`(三源都高頻) / `majority`(≥2源) / `any`(≥1源) / `none`
+3. 衍生 cover-set 候選 — `educational_4808_modern_strict` (僅三源都高頻的子集)
+4. 衍生 SPINOFFS — 5d UI 加「modern filter」radio button (strict / majority / any / off)
+5. 衍生決策日誌議題 — 「為什麼 41% 的 1982 標準字在現代不再高頻？」是個有意義的策略討論
+
+**🌟 整合要點**：以後新進的字頻資料源（不止 NAER + 簡編本，未來會有更多）都套同樣 schema，每加一源就加一個 `freq_xxx` 欄位 + 重新計算 `modern_consensus`。
 
 ### Group B：教育部 / 全字庫 字型（reference glyph 來源）
 
