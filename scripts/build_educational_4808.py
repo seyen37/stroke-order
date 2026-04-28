@@ -5,6 +5,16 @@ CANONICAL SOURCE: official PDF published by 教育部國語推行委員會
 (民國71年9月1日, 1982-09-01).
 File metadata Author: moejsmpc (教育部 國語會).
 
+CROSS-VERIFICATION: 2026-04-29 confirmed identical content via official
+.xls download from 教育部語文成果網
+  https://language.moe.gov.tw/001/Upload/Files/site_content/download/
+    mandr/教育部4808個常用字.xls
+Two independent official sources (PDF + XLS) yielded identical 4,808
+entries with same chars / MOE-IDs / hex metadata — including the known
+single inconsistency at #2149 汨 (PDF + XLS both list U+6C69 but display
+char is U+6C68). This validates the "trust visible char as source of
+truth" decision (see field 'unicode' computed from ord(char)).
+
 Earlier prototypes used a third-party Gist; we found that the Gist
 contained 1 char with a PRC variant codepoint (U+5F5D 彝) instead of the
 Taiwan standard (U+5F5E 彞). This script parses the official PDF directly

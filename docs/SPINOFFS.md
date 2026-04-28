@@ -295,11 +295,22 @@ KAGE 引擎已經跑 20 年，累積了完整的漢字 outline + 組合系統，
 
 | 資料源 | 內容 | 規模 | 估時 | 優先 | 主要挑戰 |
 |---|---|---|---|---|---|
-| `shrest1.zip → SHREST1.DBF` | 國小學童 字頻總表（民國 91 年/2002）| 5,021 字 + 頻次百分比 + 辭典標記 | 2-3 hr | **高** | 48 個 Big5-ETEN PUA 異體字需 CNS 對照表回推 Unicode |
-| `shrest2.zip → shrest2.dbf` | 詞頻總表 | 46,666 詞 / 757,632 次 | 1-2 hr | 中 | 詞層 vs 字層的整合策略（不直接對應 cover-set，但對推薦排序有用）|
-| `result.zip` | 整套小學調查報告（shrest1-24 合輯） | 全 study | — | 低 | shrest1/2 是其精華，其餘是統計補表 |
+| ✅ **`教育部字庫5021字.txt`** | 國小學童字頻 5,021 字（純 Unicode，已 PUA 解決）| 5,018 unique → `moe_elementary_5021` cover-set | 完成 (6b-14) | — | 3 個編輯重複，dedupe 處理 |
+| `shrest1.zip → SHREST1.DBF` | 同上的 DBF 原檔，含百分比 + 累積頻率 | 5,021 字 + 詳細數值 | 1-2 hr | 中 | 48 個 PUA 異體字（已透過 .txt 版本繞過）。要做就是補頻次數值給 moe_elementary_5021 |
+| **`附錄9 99-108年高頻字 xlsx` ⭐** | 民國 99-108（2010-2019）每字百萬字頻 vs 4808 對比 | **2,830 共現 + 1,978 棄用 + 37 新興 + 47 教育媒體獨有** | **3 hr** | **🔥 高** | 不新增 cover-set，是給 `educational_4808.json` 的 per-entry metadata 升級 + 衍生「modern-only 過濾」UI |
+| `shrest2.zip → shrest2.dbf` | 國小詞頻總表 | 46,666 詞 / 757,632 次 | 1-2 hr | 中 | 詞層 vs 字層整合策略不確定 |
+| `result.zip` | 整套 shrest1-24 合輯 | 全 study | — | 低 | shrest1/2 是精華 |
 
-**整合方向**：字頻資料 → 推薦演算法的 secondary tiebreak（同樣 component gain 時優先推薦真實高頻字）+ 第 5 個 cover-set `moe_elementary_5021`。
+**最有價值的下一個動作**：⭐ 標記的「99-108 高頻字」資料整合到 educational_4808。揭露的關鍵實證：
+
+- **4808 中有 1,978 字（41.1%）在 2010-2019 已不再是高頻使用**——標準字表跟現代用字的 gap 巨大
+- 加上 metadata 後，使用者可選「modern-only 模式」把 4808 縮成 ~2,830 真正還在用的字
+- 這個 finding 本身值得在 VISION.md / 決策日誌記錄——是「Taiwan-first」哲學的時序維度補強
+
+**整合方向**：
+1. 主線 — `educational_4808.json` per-entry 加 `frequency_99~108` 10 欄 + `modern_high_freq` flag
+2. 衍生 cover-set 候選 — `educational_4808_modern` (2,830 字 subset)
+3. 衍生 SPINOFFS — 5d UI 加「modern-only filter」開關
 
 ### Group B：教育部 / 全字庫 字型（reference glyph 來源）
 
