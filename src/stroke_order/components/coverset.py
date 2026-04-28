@@ -12,8 +12,13 @@ Built-in cover-sets:
   covers 96.1% of 3,500 most common chars. See
   ``docs/decisions/2026-04-27_808_analysis.md``.
 - ``educational_4808`` — 教育部常用國字標準字體表 (4,808 字). Taiwan's
-  official 常用 character standard. Most comprehensive practical target
-  for a personal Chinese-traditional font. Source: Gist by @p208p2002.
+  official 常用 character standard from 民國71年公告 (1982). Source:
+  official MOE PDF.
+- ``bentu_6792`` — 教育部本土語言成果參考字表 (6,792 字). Most comprehensive
+  Taiwan-first cover-set, includes Hokkien/Hakka/Indigenous-language-specific
+  characters. Each entry has CNS 11643 codepoint (Taiwan one-true-source);
+  550 rare chars include OS font support flags. Source: official MOE xlsx
+  (113 年 1 月 2 日 臺教國署國字第 1120183030 號函).
 - ``wuqian_5000`` — 朱邦復 漢字基因 5000 會意字 (~3,716 字 after CJK filter).
   Deeper Chinese-only set with explicit 會意 decomposition baked in.
   See ``data/5000_wuqian.txt`` and ``decomposition.py``.
@@ -48,7 +53,11 @@ class CoverSet:
         chars_simp: Tuple of simp-form characters (parallel to ``chars``).
         source: Provenance (e.g. organization, publication).
         url: Optional reference URL.
-        metadata: Free-form additional fields.
+        entries: Tuple of full per-char metadata dicts (e.g. with cns11643,
+            os_support, moe_id). Parallel to ``chars`` and ``chars_simp``.
+            Preserved for cover-sets that carry rich per-entry metadata.
+        metadata: Free-form top-level fields (excluding ``entries`` which
+            is promoted to its own attribute).
     """
 
     name: str
@@ -58,6 +67,7 @@ class CoverSet:
     chars_simp: tuple[str, ...]
     source: str = ""
     url: str = ""
+    entries: tuple = ()
     metadata: dict = field(default_factory=dict)
 
     @property
@@ -72,6 +82,7 @@ class CoverSet:
 _BUILTIN_NAMES: tuple[str, ...] = (
     "cjk_common_808",
     "educational_4808",
+    "bentu_6792",
     "wuqian_5000",
 )
 
@@ -112,9 +123,11 @@ def load_coverset_from_path(path: Path) -> CoverSet:
     source = data.get("source", "")
     url = data.get("url", "")
 
-    entries = data.get("entries", [])
-    chars = tuple(e["trad"] for e in entries)
-    chars_simp = tuple(e["simp"] for e in entries)
+    raw_entries = data.get("entries", [])
+    chars = tuple(e["trad"] for e in raw_entries)
+    chars_simp = tuple(e["simp"] for e in raw_entries)
+    # Preserve full per-entry metadata (cns11643, moe_id, os_support, etc.)
+    entries = tuple(raw_entries)
 
     metadata = {
         k: v for k, v in data.items()
@@ -129,6 +142,7 @@ def load_coverset_from_path(path: Path) -> CoverSet:
         chars_simp=chars_simp,
         source=source,
         url=url,
+        entries=entries,
         metadata=metadata,
     )
 

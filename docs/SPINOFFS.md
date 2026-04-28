@@ -206,7 +206,40 @@ stroke-order (web service)              tinyhanzi (embedded)
 
 ---
 
-## 4. KAGE outline 整合
+## 4. 罕字 OS 字型相容性警告 UI
+
+**狀態**：💭 想法（2026-04-28）
+
+### 一句話定位
+
+當使用者在 5d 寫一個 bentu_6792 附表內的罕字時，依該字的 OS 字型支援資料，主動警告「你的瀏覽器字型可能渲染不出來」。
+
+### 為什麼存在
+
+bentu_6792 已經帶有 550 個冷僻字的 OS support flags（MS 新細明 / 微軟正黑、Google 思源、Apple 蘋方各自支不支援）。這份 metadata 不利用浪費。具體場景：
+
+- 使用者在 MacBook 寫客語字 𰣻（U+308FB），瀏覽器渲染不出 → 不知道是 bug 還是字型問題
+- 系統依使用者 user-agent 判斷 OS，查 metadata，主動顯示「⚠️ 此字 macOS 蘋方不支援，可能顯示為豆腐方塊」
+
+### 技術範圍（極小）
+
+- 用 `navigator.userAgent` 偵測 OS
+- 接 `/api/components/{char}` 時順帶查 cover-set 的 entries 是否含 os_support
+- UI 加一個 banner / tooltip
+
+### 觸發條件
+
+- 有使用者反映「寫 bentu cover-set 時某字看不到」
+- 或主動為 5d UI 加品質提示
+
+### 相依性
+
+- bentu_6792 cover-set ✅ 已完成
+- 1-2 天工作量
+
+---
+
+## 5. KAGE outline 整合
 
 **狀態**：💭 想法（2026-04-28，可能性最遠）
 

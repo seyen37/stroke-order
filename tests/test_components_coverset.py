@@ -216,3 +216,89 @@ def test_edu_4808_distinct_components_more_than_808(cs_edu, cs808):
     comps_808 = collect_components(cs808.chars, ids_map)
     comps_edu = collect_components(cs_edu.chars, ids_map)
     assert len(comps_edu) > len(comps_808)
+
+
+# ---------------------------------------------------------------------------
+# bentu_6792 cover-set (6b-13 — 教育部本土語言成果參考字表)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cs_bentu() -> CoverSet:
+    return load_coverset("bentu_6792")
+
+
+def test_list_coversets_includes_bentu():
+    metas = list_coversets()
+    names = [m["name"] for m in metas]
+    assert "bentu_6792" in names
+
+
+def test_bentu_exact_size(cs_bentu):
+    """本土語言字表 is exactly 6,792 chars per official 113 年公告."""
+    assert cs_bentu.size == 6792
+
+
+def test_bentu_metadata(cs_bentu):
+    """Source must cite 教育部國民及學前教育署 official 函."""
+    assert "本土語言" in cs_bentu.title
+    assert "教育部" in cs_bentu.source
+    assert "1120183030" in cs_bentu.source  # 文號 traceability
+
+
+def test_bentu_known_chars(cs_bentu):
+    """Standard Mandarin chars must be present (sanity)."""
+    chars_set = set(cs_bentu.chars)
+    for c in "明日月人木火山水永":
+        assert c in chars_set, f"{c} should be in 本土語言 6792"
+
+
+def test_bentu_cns11643_metadata(cs_bentu):
+    """Every entry must have CNS 11643 codepoint (Taiwan canonical encoding).
+
+    This is the cover-set's distinguishing metadata — it ensures
+    Taiwan-variant integrity at the encoding level, not just visual char.
+    """
+    assert len(cs_bentu.entries) == 6792
+    cns_count = sum(1 for e in cs_bentu.entries if e.get("cns11643"))
+    # Almost all should have CNS code; allow a few PUA exceptions
+    assert cns_count >= 6700, (
+        f"Expected ~6792 entries with cns11643, got {cns_count}"
+    )
+
+
+def test_bentu_includes_pua_chars_for_taiwan_languages(cs_bentu):
+    """Some chars are in PUA (U+E700+) for Hokkien/Hakka rare chars
+    that don't have standard Unicode codepoints yet — these are the
+    most Taiwan-niche characters in the set."""
+    pua_chars = [c for c in cs_bentu.chars
+                 if 0xE000 <= ord(c) <= 0xF8FF]
+    # Known: U+E702, U+E716, U+E73B at end of list
+    assert len(pua_chars) >= 3, (
+        f"Expected ≥3 PUA chars (本土語言特有字), got {len(pua_chars)}"
+    )
+
+
+def test_bentu_appendix_os_support_present(cs_bentu):
+    """About 550 rare chars should have os_support metadata."""
+    with_os = [e for e in cs_bentu.entries if "os_support" in e]
+    assert 500 <= len(with_os) <= 600, (
+        f"Expected ~550 entries with os_support, got {len(with_os)}"
+    )
+    # Sample one entry — should have 4 boolean flags
+    sample = with_os[0]
+    assert set(sample["os_support"].keys()) == {
+        "ms_mingti", "ms_zhenghei", "google_siyuan", "apple_pingfang",
+    }
+
+
+def test_bentu_distinct_components_more_than_4808(cs_bentu, cs_edu):
+    """6792 chars > 4808 → at least as many distinct components.
+
+    Sanity: 4 cover-sets in increasing breadth of Taiwan coverage:
+    808 < 4808 < 6792 components count.
+    """
+    ids_map = default_ids_map()
+    comps_edu = collect_components(cs_edu.chars, ids_map)
+    comps_bentu = collect_components(cs_bentu.chars, ids_map)
+    assert len(comps_bentu) >= len(comps_edu)
