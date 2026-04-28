@@ -17,10 +17,11 @@
 3. [多帳號 GitHub 備份](#三多帳號-github-備份)
 4. [工作紀錄自動化規則](#四工作紀錄自動化規則)
 5. [決策日誌自動化規則](#五決策日誌自動化規則)
-6. [公開前審查清單](#六公開前審查清單)
-7. [長期維護習慣](#七長期維護習慣)
-8. [附錄：可複製模板](#八附錄可複製模板)
-9. [與 AI 協作時的 prompt 片段](#九與-ai-協作時的-prompt-片段)
+6. [**資料源稽核（Source-of-Truth Audit）**](#六資料源稽核source-of-truth-audit)
+7. [公開前審查清單](#七公開前審查清單)
+8. [長期維護習慣](#八長期維護習慣)
+9. [附錄：可複製模板](#九附錄可複製模板)
+10. [與 AI 協作時的 prompt 片段](#十與-ai-協作時的-prompt-片段)
 
 ---
 
@@ -300,11 +301,99 @@ docs/decisions/
 
 ---
 
-## 六、公開前審查清單
+## 六、資料源稽核（Source-of-Truth Audit）
+
+> 凡標榜「官方」「政府」「標準」「規範」的資料源，**必須回追到一手公文**。否則內容可能被中介者意外或刻意污染。
+
+這個習慣源於 stroke-order 專案 2026-04-28 的真實案例：第三方 GitHub Gist 整理的「教育部 4808 常用字」與官方 PDF 比對，發現 1 字不同——Gist 夾帶了一個中華人民共和國 GB18030 變體字。
+
+### 6.1 何時必跑
+
+任何時候加入新資料源——**不只是 public release 之前**。
+
+觸發場合：
+- 引用「教育部」「國家標準」「國際協議」「ISO」的字單 / 規範 / 詞典
+- 從第三方整理的 GitHub repo / Gist / 學術網站 / 部落格抓資料
+- 接 API 取得「政府開放資料」「百科平台資料」
+- 抓 Wikipedia / Wikidata 整理表格
+
+### 6.2 三段檢查
+
+**A. 一手公文確認**
+
+- [ ] 找到原始公文 / 公報 / 標準文件（PDF / 紙本掃描 / 政府網站直連）
+- [ ] 第三方整理品（Gist、GitHub repo、Wikipedia 表格）只能當「線索」，不能當「資料源」
+- [ ] 出版年月、版次、發布單位都明確記錄到 metadata
+- [ ] 一手 URL 寫進 `source` / `url` 欄位
+
+**B. 內容比對**
+
+- [ ] 一手 vs 第三方逐字比對（字數、Unicode codepoint 都要對）
+- [ ] 任何差異都要追蹤原因（是第三方 OCR 錯？變體污染？版本差？人為刪改？）
+- [ ] 差異 ≥ 0 時，**永遠採用一手**，並把差異記錄進決策日誌
+- [ ] 一手本身有 metadata bug 時（如 PDF hex/char 不一致），明示「以實際 char 為準」
+
+**C. 區域變體完整性（Taiwan-variant integrity）**
+
+- [ ] 確認所有字元的 Unicode codepoint 屬於目標區域標準
+  - **T (Taiwan)**：依 CNS 11643 標準
+  - G (PRC)：GB18030 變體（Taiwan-first 專案要避開）
+  - J (Japan)：JIS 變體
+  - K (Korea)：KSC 變體
+  - V (Vietnam)：喃字變體
+- [ ] 對近似字（外觀像但 codepoint 不同）特別留意。已知陷阱：
+  - **彞 (U+5F5E, T)** vs 彝 (U+5F5D, G)
+  - **汨 (U+6C68)** vs 汩 (U+6C69)
+  - **過** 在 G/H/T/J/K/V 各有不同變體
+- [ ] 工具：Unicode 17.0 CJK chart `https://www.unicode.org/charts/PDF/U4E00.pdf`
+      字元下方 G/H/T/J/K/V 標註對應區域變體
+
+### 6.3 範例：教育部 4808 案例（2026-04-28）
+
+**情境**：第三方 Gist「教育部 4808 常用字」與官方 PDF 比對。
+
+**發現**：1 字差異
+- Gist：彝 (U+5F5D, GB18030 變體)
+- 官方 PDF：彞 (U+5F5E, T 標準)
+
+**結論**：改用官方 PDF（含教育部字號 A00001-A04808）作為唯一資料源。每字保留 `moe_id` 追溯到原始 1982 公告。
+
+**啟示**：本來預期「字數一樣 = 內容一樣」，實際 99.98% 相同也夠污染——4808 字裡 1 字差異 = 0.02%——這是「供應鏈污染」的警示燈。
+
+### 6.4 自動化建議
+
+如果資料源是會反覆更新的（例如教育部每幾年公告新版字表）：
+
+- 寫 `scripts/build_<source>.py`：從一手公文自動萃取 → 標準 JSON
+- script 本身要：
+  - 文件開頭 docstring 明確記錄資料源 URL + 出版日 + 版本
+  - 預期 char count 在 sanity check 範圍內（避免 PDF parsing 失敗 silent fallback）
+  - **Cross-check Unicode codepoint vs 實際字元**（catch PDF metadata bugs）
+  - 輸出含 traceability 欄位（如官方字號、流水序號）
+
+範例（stroke-order 專案的 `build_educational_4808.py`）：
+```python
+# 從教育部官方 PDF 萃取，每字附 moe_id (A00001-A04808)
+# 一字一比對 hex metadata vs 實際 char codepoint
+# 字單 + simp/trad mapping + traceability 三合一
+```
+
+### 6.5 給 Future Self 的話
+
+「為什麼花這個力氣？只是 1 個字的差異而已。」
+
+因為個人字型 / 寫字機器人 / 教育素材都對「**這字是台灣標準嗎？**」這個問題有要求。如果你的 codebase 從一開始就有 Taiwan-first 的 audit 習慣，這個 claim 站得住腳；如果省略了，10 年後想補 audit 會發現要回頭比對幾十個資料源——那個 cost 比現在多 100 倍。
+
+> 「資料源頭管理是著作權保護的第一道關卡。」
+> — `stroke-order/docs/decisions/2026-04-28_phase_a_complete.md` §決策 7
+
+---
+
+## 七、公開前審查清單
 
 repo 從 Private 改 Public 之前，**必跑**：
 
-### 6.1 Secret 稽核
+### 7.1 Secret 稽核
 
 ```bash
 # 搜尋常見 secret 關鍵字
@@ -314,19 +403,19 @@ git grep -i "password\|secret\|api_key\|token\|credentials" -- ":!docs/" ":!*.md
 grep "^\.env" .gitignore
 ```
 
-### 6.2 個資稽核
+### 7.2 個資稽核
 
 - [ ] commit message 沒有寫到家裡地址 / 私人電話 / 銀行帳號
 - [ ] 程式碼註解沒有客戶 / 朋友本名
 - [ ] 截圖 / 測試資料沒有真實個人資訊
 
-### 6.3 授權稽核
+### 7.3 授權稽核
 
 - [ ] LICENSE 存在且資訊正確
 - [ ] 第三方資料 / 字型 / 圖片授權都有 attribution
 - [ ] 拷貝來的程式碼有註明來源 + 原 license
 
-### 6.4 文件稽核
+### 7.4 文件稽核
 
 - [ ] README 第一段能讓陌生人 30 秒理解專案
 - [ ] 安裝 / 啟動指令確認可重現
@@ -334,27 +423,27 @@ grep "^\.env" .gitignore
 
 ---
 
-## 七、長期維護習慣
+## 八、長期維護習慣
 
-### 7.1 每次 push 前
+### 8.1 每次 push 前
 
 - [ ] 跑 `pytest`（或同等 test runner）確認綠燈
 - [ ] `git status` 確認沒夾帶意外檔案
 - [ ] commit message 描述「為什麼」而非「做了什麼」
 
-### 7.2 每週一次
+### 8.2 每週一次
 
 - [ ] 看一下 GitHub Actions 是否仍綠
 - [ ] 看一下 Render / 部署平台 cold start 健康度
 - [ ] 整理當週 `docs/decisions/` 是否有遺漏
 
-### 7.3 每月一次
+### 8.3 每月一次
 
 - [ ] 升級依賴（`pip list --outdated`）
 - [ ] Review `docs/HISTORY.md` 是否反映目前狀態
 - [ ] 清理 stale branches
 
-### 7.4 每個 release
+### 8.4 每個 release
 
 - [ ] bump version
 - [ ] 寫 release notes
@@ -363,7 +452,7 @@ grep "^\.env" .gitignore
 
 ---
 
-## 八、附錄：可複製模板
+## 九、附錄：可複製模板
 
 ### 附錄 A：README.md 骨架
 
@@ -546,7 +635,7 @@ jobs:
 
 ---
 
-## 九、與 AI 協作時的 prompt 片段
+## 十、與 AI 協作時的 prompt 片段
 
 如果你用 Claude Code / 其他 AI 助手協作，把下面這段加進使用者偏好或專案 CLAUDE.md，AI 會自動套用本文件的習慣：
 
@@ -575,19 +664,30 @@ jobs:
 
 7. **回應使用者** 用繁體中文台灣詞彙，避免大陸用語。
 
+8. **資料源 audit**：使用者要求加入「官方」「政府」「標準」「規範」相關
+   的 dataset 時，先問是否有一手公文 PDF / 公報可用。如果只有第三方
+   整理品（Gist、GitHub、Wikipedia、學術網站）作為來源，主動 flag 風險：
+   提示「第三方整理品可能夾帶他國變體」，建議補一手資料再動工。
+   詳見 §六「資料源稽核」。
+
 詳見 docs/PROJECT_PLAYBOOK.md。
 ```
 
 ---
 
-## 十、修訂歷史
+## 十一、修訂歷史
 
 - 2026-04-28：初版。基於 stroke-order 專案累積的實踐凝結。
-- (未來修訂在此記錄)
+- **2026-04-28（同日修訂）**：新增 §六「資料源稽核 Source-of-Truth Audit」。
+  起源：stroke-order Phase A 完成時發現第三方 Gist「教育部 4808 常用字」
+  夾帶 1 個 GB18030 變體字（彝 vs 彞）——揭露「民間整理的官方資料常被
+  他國規範變體污染」這個普遍議題。新章節含：何時必跑、A/B/C 三段檢查
+  （一手公文 / 內容比對 / 區域變體完整性）、4808 案例摘要、自動化建議。
+  其他章節 §六~§十一 統一往後挪一號。§十 AI prompt 補第 8 條 audit 規則。
 
 ---
 
-## 十一、給未來自己的話
+## 十二、給未來自己的話
 
 這份文件不是「規定」，是「我已經試過、確認對自己有用的習慣」。
 
