@@ -253,6 +253,25 @@ class GalleryProfilePatch(BaseModel):
     bio: Optional[str] = None
 
 
+# ---------------------------------------------------------------------------
+# Phase A (6b) — component coverage analyzer request bodies
+# ---------------------------------------------------------------------------
+
+
+class CoverageRecommendRequest(BaseModel):
+    """POST body for /api/coverage/recommend.
+
+    Attributes:
+        written_chars: Concatenated string of characters the user has
+            already written (e.g. ``"明林永"``). Order doesn't matter.
+        coverset: Built-in cover-set name (default ``"cjk_common_808"``).
+        top_k: How many recommendations to return (default 5).
+    """
+    written_chars: str = ""
+    coverset: str = "cjk_common_808"
+    top_k: int = 5
+
+
 def _content_disposition(basename: str, ext: str) -> str:
     """RFC 5987-compliant attachment header supporting Unicode filenames."""
     ascii_fallback = f"char.{ext}"  # plain ASCII for old clients
@@ -605,6 +624,119 @@ def create_app() -> FastAPI:
             "fix_was_applied": applied_fix,
         }
         return d
+
+    # ------ 組件分析 (Phase A, 6b) ---------------------------------------
+    # See docs/VISION.md and docs/decisions/2026-04-28_phase_a_backend.md.
+    # Backend logic lives in stroke_order.components.
+
+    @app.get("/api/components/{char}")
+    async def components_data(char: str):
+        """Component decomposition for a single character.
+
+        Returns:
+            char: input character
+            ids: IDS structure string (e.g. ``⿰木目`` for 相);
+                 equals char itself for atomic chars
+            leaves: ordered list of leaf components (atomic-level)
+            leaves_distinct: deduplicated leaves (set as list)
+            is_atomic: True if char has no IDS structure
+        """
+        from ..components import decompose, default_ids_map, is_atomic
+        if len(char) != 1:
+            raise HTTPException(400, detail="Single character required")
+        ids_map = default_ids_map()
+        leaves = decompose(char, ids_map)
+        return {
+            "char": char,
+            "ids": ids_map.get(char, char),
+            "leaves": leaves,
+            "leaves_distinct": list(dict.fromkeys(leaves)),
+            "is_atomic": is_atomic(char, ids_map),
+        }
+
+    @app.get("/api/coverset/list")
+    async def coverset_list():
+        """List built-in cover-sets (metadata only — no char lists)."""
+        from ..components import list_coversets
+        return {"coversets": list_coversets()}
+
+    @app.get("/api/coverset/{name}")
+    async def coverset_data(name: str):
+        """Detailed cover-set: chars + decomposition stats.
+
+        Returns name, title, source, url, size, chars (trad), chars_simp,
+        and ``distinct_components`` (computed from current IDS data).
+        """
+        from ..components import (
+            collect_components,
+            default_ids_map,
+            load_coverset,
+        )
+        try:
+            cs = load_coverset(name)
+        except KeyError:
+            raise HTTPException(404, detail=f"Unknown cover-set {name!r}")
+
+        ids_map = default_ids_map()
+        components = collect_components(cs.chars, ids_map)
+        return {
+            "name": cs.name,
+            "title": cs.title,
+            "description": cs.description,
+            "size": cs.size,
+            "source": cs.source,
+            "url": cs.url,
+            "chars": list(cs.chars),
+            "chars_simp": list(cs.chars_simp),
+            "distinct_components": len(components),
+        }
+
+    @app.post("/api/coverage/recommend")
+    async def coverage_recommend(req: CoverageRecommendRequest):
+        """Greedy set-cover: recommend next char(s) to write.
+
+        Returns top-k recommendations + overall coverage status (covered
+        component count, target component count, composable char count).
+        Zero-gain candidates are excluded.
+        """
+        from ..components import (
+            coverage_status,
+            default_ids_map,
+            load_coverset,
+            recommend_next,
+        )
+        try:
+            cs = load_coverset(req.coverset)
+        except KeyError:
+            raise HTTPException(
+                404, detail=f"Unknown cover-set {req.coverset!r}"
+            )
+
+        ids_map = default_ids_map()
+        written = list(req.written_chars)
+        recs = recommend_next(written, cs.chars, ids_map, top_k=req.top_k)
+        status = coverage_status(written, cs.chars, ids_map)
+
+        return {
+            "coverset": cs.name,
+            "written_count": len(written),
+            "recommendations": [
+                {
+                    "char": r.char,
+                    "new_components": list(r.new_components),
+                    "existing_components": list(r.existing_components),
+                    "gain": r.gain,
+                }
+                for r in recs
+            ],
+            "coverage": {
+                "covered_count": status["covered_count"],
+                "target_count": status["target_count"],
+                "coverage_ratio": status["coverage_ratio"],
+                "composable_count": status["composable_count"],
+                "composable_ratio": status["composable_ratio"],
+            },
+        }
 
     # ------ 筆記模式 (notebook) -----------------------------------------
 

@@ -97,9 +97,13 @@ def decompose(char: str, ids_map: dict, max_depth: int = 10,
 
 
 def load_808() -> list:
-    """Load 808 character dataset (built by build_808_dataset.py)."""
-    data = json.loads(Path("data/cjk_common_808.json").read_text(encoding="utf-8"))
-    return data["entries"]
+    """Load 808 character dataset via the components package loader."""
+    from stroke_order.components import load_coverset
+    cs = load_coverset("cjk_common_808")
+    return [
+        {"index": i + 1, "simp": s, "trad": t, "same": s == t}
+        for i, (s, t) in enumerate(zip(cs.chars_simp, cs.chars))
+    ]
 
 
 def load_common_3500() -> list:

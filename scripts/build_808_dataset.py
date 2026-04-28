@@ -2,7 +2,8 @@
 Build 中日韓共用常用 808 漢字 dataset.
 
 Input: 808 simplified characters (from TCS official 2014 publication, list provided manually)
-Output: data/cjk_common_808.json with simp + trad + metadata
+Output: src/stroke_order/components/coversets/cjk_common_808.json
+        (loaded by stroke_order.components.load_coverset("cjk_common_808"))
 
 Source: Trilateral Cooperation Secretariat (TCS), proposed at NATF 2013 (Hokkaido),
         finalized at NATF 2014 (Yangzhou). Booklet published 2016.
@@ -77,7 +78,7 @@ def main():
         "entries": entries,
     }
 
-    out_path = Path("data/cjk_common_808.json")
+    out_path = Path("src/stroke_order/components/coversets/cjk_common_808.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Wrote {out_path}: {len(entries)} chars, {len(mismatches)} simp/trad mismatches")

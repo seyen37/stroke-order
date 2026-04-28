@@ -60,6 +60,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "stroke_order.web" = ["static/*", "static/handwriting/*", "static/handwriting/vendor/*", "static/gallery/*"]
 "stroke_order.data" = ["*.txt"]
+"stroke_order.components" = ["data/*.txt", "coversets/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
