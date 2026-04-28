@@ -141,6 +141,32 @@
       </select>
     </section>
 
+    <!-- ─── 5. 組件覆蓋（Phase A 6b — VISION.md Layer 1）─── -->
+    <section class="hw-section">
+      <h2 class="hw-section-title">組件覆蓋</h2>
+      <select id="hw-coverset" aria-label="目標字集">
+        <option value="" selected>不啟用</option>
+      </select>
+      <small class="hw-hint" id="hw-coverset-meta" hidden></small>
+
+      <!-- 6b-9 進度儀表板 -->
+      <div class="hw-coverage" id="hw-coverage" hidden>
+        <div class="hw-progress">
+          <span id="hw-coverage-label">0 / 0 組件</span>
+          <div class="hw-progress-bar">
+            <div class="hw-progress-fill" id="hw-coverage-fill"></div>
+          </div>
+        </div>
+        <small class="hw-hint" id="hw-coverage-stats"></small>
+
+        <!-- 6b-10 推薦字塊 -->
+        <div class="hw-recommendations" id="hw-recommendations" hidden>
+          <small class="hw-hint">建議下個字（依組件增益排序）：</small>
+          <div class="hw-rec-chips" id="hw-rec-chips"></div>
+        </div>
+      </div>
+    </section>
+
   </aside>
 
   <!-- ============= RIGHT: canvas + controls ============= -->
@@ -242,6 +268,7 @@
   import { WritingCanvas } from '/static/handwriting/canvas.js';
   import {
     saveTrace, getDbStats, uuid, listAllTraces, clearAllTraces,
+    listUniqueChars,
   } from '/static/handwriting/storage.js';
   import {
     loadSutraMaterial, loadInputMaterial,
@@ -266,6 +293,9 @@
     grid:          'mizi',
     material:      null,                 // MaterialIterator
     sessionCount:  0,
+    // Phase A 6b — component coverage
+    coversetName:  '',                   // '' = disabled, else cover-set id
+    coverset:      null,                 // detail payload from /api/coverset/{name}
   };
 
   // ========================================================= UI utilities
@@ -522,6 +552,10 @@
         state.sessionCount++;
         $('hw-session-count').textContent = state.sessionCount;
         canvas.clear();
+        // 6b-9: refresh coverage dashboard if a cover-set is active
+        // (no-op when state.coversetName === '')
+        refreshCoverageStatus().catch(err =>
+          console.warn('coverage refresh after commit failed', err));
         // Auto-advance to next char if material has one
         if (state.material && state.material.total > 0
             && state.material.index < state.material.total - 1) {
@@ -700,6 +734,8 @@
         state.sessionCount = 0;
         $('hw-session-count').textContent = '0';
         await refreshDbStats();
+        // 6b-9: reset coverage dashboard
+        await refreshCoverageStatus().catch(() => {});
         alert('已清空');
       } catch (e) {
         console.error(e);
@@ -707,10 +743,148 @@
       }
     });
 
+  // ============================================================ coverset (Phase A 6b)
+
+  // Populate the cover-set dropdown from /api/coverset/list.
+  // Default option "不啟用" stays first; we append discovered cover-sets after.
+  async function populateCoversetDropdown() {
+    const sel = $('hw-coverset');
+    try {
+      const r = await fetch('/api/coverset/list');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const { coversets } = await r.json();
+      for (const cs of coversets) {
+        const opt = document.createElement('option');
+        opt.value = cs.name;
+        opt.textContent = `${cs.title} (${cs.size})`;
+        sel.appendChild(opt);
+      }
+    } catch (e) {
+      console.warn('coverset list failed', e);
+      // Silent failure — the dropdown still has the "不啟用" default,
+      // user can keep using the page without coverset feature.
+    }
+  }
+
+  // Load detail for selected cover-set; stash to state.
+  // Empty name → coverset feature disabled, clear hint + dashboard.
+  async function loadCoversetDetail(name) {
+    const meta = $('hw-coverset-meta');
+    const dash = $('hw-coverage');
+    state.coversetName = name;
+    state.coverset = null;
+    if (!name) {
+      meta.hidden = true;
+      meta.textContent = '';
+      dash.hidden = true;          // 6b-9: hide dashboard when disabled
+      return;
+    }
+    try {
+      const r = await fetch(`/api/coverset/${encodeURIComponent(name)}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      state.coverset = data;
+      meta.hidden = false;
+      meta.textContent =
+        `${data.title} · ${data.size} 字 · ${data.distinct_components} 獨特組件`;
+      // 6b-9: kick off coverage dashboard refresh now that we know the target
+      await refreshCoverageStatus();
+    } catch (e) {
+      console.warn('coverset detail failed', e);
+      meta.hidden = false;
+      meta.textContent = `（載入失敗：${e.message}）`;
+      dash.hidden = true;
+    }
+  }
+
+  // 6b-9: Compute & display coverage progress for the active cover-set.
+  // 6b-10: also populate the next-char recommendation chips.
+  // Pulls written-chars from IndexedDB, asks /api/coverage/recommend.
+  async function refreshCoverageStatus() {
+    if (!state.coversetName) return;
+    const dash = $('hw-coverage');
+    try {
+      const writtenChars = await listUniqueChars();
+      const r = await fetch('/api/coverage/recommend', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          written_chars: writtenChars.join(''),
+          coverset: state.coversetName,
+          top_k: 5,                  // top-5 recommendations for 6b-10
+        }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      const cov = data.coverage;
+
+      const pct = cov.target_count > 0
+        ? (cov.covered_count / cov.target_count * 100)
+        : 0;
+      $('hw-coverage-label').textContent =
+        `${cov.covered_count} / ${cov.target_count} 組件 (${pct.toFixed(1)}%)`;
+      $('hw-coverage-fill').style.width = pct + '%';
+
+      const composablePct = (cov.composable_ratio * 100).toFixed(1);
+      $('hw-coverage-stats').textContent =
+        `已寫 ${data.written_count} 字 · 可組合 ${cov.composable_count} 字（${composablePct}%）`;
+      dash.hidden = false;
+
+      // 6b-10: render recommendation chips
+      renderRecommendationChips(data.recommendations || []);
+    } catch (e) {
+      console.warn('coverage refresh failed', e);
+      dash.hidden = true;
+    }
+  }
+
+  // 6b-10: render top-k recommendation chips. Each chip is a button:
+  //   text content = char + small superscript "+gain"
+  //   on click → switch to "input" source, set the char, trigger loadMaterial
+  function renderRecommendationChips(recs) {
+    const wrap = $('hw-recommendations');
+    const chips = $('hw-rec-chips');
+    chips.innerHTML = '';
+    if (!recs || recs.length === 0) {
+      // Either: cover-set complete (no zero-gain chars left), or empty
+      wrap.hidden = true;
+      return;
+    }
+    for (const rec of recs) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'hw-rec-chip';
+      btn.title = `寫「${rec.char}」可新增 ${rec.gain} 個組件`;
+      btn.innerHTML =
+        `<span class="hw-rec-char">${rec.char}</span>` +
+        `<sup class="hw-rec-gain">+${rec.gain}</sup>`;
+      btn.addEventListener('click', () => loadRecommendedChar(rec.char));
+      chips.appendChild(btn);
+    }
+    wrap.hidden = false;
+  }
+
+  // 6b-10: load a recommended char into the practice canvas by switching
+  // to the "input" source. Mirrors what happens when user manually types
+  // a char in the 字串 panel.
+  async function loadRecommendedChar(char) {
+    const radio = document.querySelector('input[name="source-type"][value="input"]');
+    if (radio) radio.checked = true;
+    state.sourceType = 'input';
+    showSourcePanel('input');
+    $('hw-input-string').value = char;
+    await loadMaterial();
+  }
+
+  $('hw-coverset').addEventListener('change', (e) => {
+    loadCoversetDetail(e.target.value);
+  });
+
   // ============================================================ boot
 
   showSourcePanel(state.sourceType);
   await populateSutraDropdown();
+  await populateCoversetDropdown();
   await loadMaterial();      // sutra preset auto-loaded into material
   await refreshDbStats();
 </script>

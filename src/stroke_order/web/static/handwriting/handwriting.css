@@ -233,6 +233,42 @@ input:focus, select:focus, button:focus-visible {
   transition: width .25s ease;
 }
 
+/* 6b-9 coverage dashboard — sits inside the 組件覆蓋 section,
+   below the cover-set selector + meta hint */
+.hw-coverage {
+  margin-top: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+
+/* 6b-10 next-char recommendation chips */
+.hw-recommendations {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 4px;
+}
+.hw-rec-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.hw-rec-chip {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  padding: 4px 10px;
+  border: 1px solid var(--hw-line);
+  border-radius: 14px;
+  background: var(--hw-card, #fff);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s, border-color .15s;
+}
+.hw-rec-chip:hover {
+  background: var(--hw-accent-soft, #e9f0ff);
+  border-color: var(--hw-accent);
+}
+.hw-rec-char {
+  font-size: 16px; font-weight: 500;
+}
+.hw-rec-gain {
+  font-size: 10px; color: var(--hw-accent); font-weight: 600;
+}
+
 /* ----- right stage (canvas + controls) ----------------------------- */
 
 .hw-stage {
