@@ -19,7 +19,13 @@ services:
     runtime: python
     plan: free                       # cold start，但個人專案 demo 夠用
     region: singapore                # 距台灣最近的免費區域
-    buildCommand: pip install -e ".[web]"
+    # buildCommand fetches the 10 third-party font files (5 sources,
+    # ~300 MB total) from GitHub Release fonts-v1 into ~/.stroke-order/.
+    # The script uses graceful per-font failure: any single download
+    # failure logs a warning but does NOT abort the build — the app's
+    # existing fallback paths keep the site functional.
+    # See scripts/render_fetch_fonts.sh for implementation details.
+    buildCommand: pip install -e ".[web]" && bash scripts/render_fetch_fonts.sh
     startCommand: uvicorn stroke_order.web.server:app --host 0.0.0.0 --port $PORT
 
     healthCheckPath: /api/health     # /api/health 回 {"ok": true}

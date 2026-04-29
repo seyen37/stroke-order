@@ -24,20 +24,98 @@ THE SOFTWARE.
 
 ## Third-party data sources
 
-This project consumes character stroke data from several upstream sources,
-each with its own license. The MIT license above applies only to the
+This project consumes character data from several upstream sources, each
+with its own license. The MIT license above applies only to the
 stroke-order Python code; data fetched / bundled at runtime retains its
-original license:
+original license. **When redistributing or deploying this project,
+ensure compliance with the license of each data source you choose to
+bundle.**
 
-- g0v/zh-stroke-data — see https://github.com/g0v/zh-stroke-data for
-  licensing terms (derived from MOE 教育部 standard kaishu data).
-- Make Me a Hanzi — LGPL 3.0 (https://github.com/skishore/makemeahanzi).
-- KanjiVG — CC BY-SA 3.0 (https://github.com/KanjiVG/kanjivg).
-- 教育部標準楷書 / 隸書 / 宋體 — Republic of China Ministry of Education;
-  consult the MOE font terms before redistributing the TTF files.
-- 全字庫 (CNS 11643) — Taiwan Government Open Data (政府資料開放授權條款 1.0).
-- 崇羲篆體 — CC BY-ND, by 季旭昇 + Institute of Information Science,
-  Academia Sinica.
+### A. Stroke / decomposition data
 
-When redistributing or deploying this project, ensure compliance with the
-license of each data source you choose to bundle.
+- **g0v/zh-stroke-data** — derived from MOE 教育部 standard kaishu data;
+  see https://github.com/g0v/zh-stroke-data for licensing terms.
+- **Make Me a Hanzi** — LGPL 3.0
+  (https://github.com/skishore/makemeahanzi).
+- **KanjiVG** — CC BY-SA 3.0 (https://github.com/KanjiVG/kanjivg).
+- **CHISE / cjkvi-ids** — GPL-compatible IDS dataset
+  (https://github.com/cjkvi/cjkvi-ids); consumed for component
+  decomposition.
+
+### B. Font assets (fetched at deploy time, not bundled in repo)
+
+The Render.com deployment fetches these via
+`scripts/render_fetch_fonts.sh` from GitHub Release `fonts-v1`. All
+five sources permit redistribution under the terms below.
+
+- **CNS 11643 全字庫 (TW-Kai-* / TW-Sung-* TTFs)** — Republic of China
+  Ministry of Digital Affairs (數位發展部).
+  License: 政府資料開放授權條款 1.0
+  (Taiwan Open Government Data License 1.0).
+  Source: https://www.cns11643.gov.tw/
+  Permits free use, redistribution, and modification with attribution.
+
+- **崇羲篆體 (chongxi_seal.otf)** — by 季旭昇 + Institute of Information
+  Science, Academia Sinica.
+  License: CC BY-ND 4.0 (Attribution-NoDerivatives).
+  Source: https://github.com/ButTaiwan/chongxi
+  Permits redistribution unmodified with attribution; **no derivative
+  works**.
+
+- **教育部標準楷書 (edukai.ttf)** — Republic of China Ministry of
+  Education.
+  License: 政府著作權聲明 / 政府資料開放授權 1.0.
+  Source: https://language.moe.gov.tw/result.aspx?classify_sn=23
+  Permits free use and redistribution with attribution.
+
+- **教育部標準隸書 (MoeLI.ttf)** — Republic of China Ministry of
+  Education.
+  License: 政府著作權聲明 / 政府資料開放授權 1.0.
+  Source: https://language.moe.gov.tw/result.aspx?classify_sn=23
+  Permits free use and redistribution with attribution.
+
+- **教育部標準宋體 (edusong_Unicode.ttf)** — Republic of China Ministry
+  of Education.
+  License: 政府著作權聲明 / 政府資料開放授權 1.0.
+  Source: https://language.moe.gov.tw/result.aspx?classify_sn=23
+  Permits free use and redistribution with attribution.
+
+### C. Character cover-set datasets (built-in)
+
+The five built-in cover-sets in `src/stroke_order/components/` are
+derived from public-domain or government-published character lists:
+
+- **cjk_common_808** — derived from the *中日韓共用漢字 808 字* booklet
+  (TCS, 2014/2016) published by the Trilateral Cooperation Secretariat;
+  https://www.tcs-asia.org/en/data/publications.php
+  The character list itself is free-use as government-released data.
+
+- **educational_4808** — derived from MOE 教育部 *常用國字標準字體表*
+  (1982, 71 年公告). Public-domain government publication.
+  Source: MOE official PDF + companion XLS.
+
+- **moe_elementary_5021** — derived from MOE 教育部 *國民小學常用字彙*
+  (2002, 91 年公告). Public-domain government publication.
+
+- **bentu_6792** — derived from MOE 教育部 *本土語言成果參考字表*
+  (2024, 113 年公告). Public-domain government publication.
+  Includes Taiwan PUA / Ext G CNS-numbered characters.
+
+- **wuqian_5000** — derived from 朱邦復 *漢字基因 5000 字單* (2012),
+  publicly released character archive by Chu Bang-Fu.
+
+### D. Attribution requirements when redistributing
+
+If you build derivative works using stroke-order, in addition to
+preserving the MIT notice above:
+
+1. Preserve this entire `## Third-party data sources` section verbatim,
+   or substitute equivalent attribution that names every source you
+   actually bundle.
+2. For **CC BY-ND** assets (崇羲篆體): redistribute only the unmodified
+   font file; do not ship modified versions.
+3. For **LGPL 3.0** code (Make Me a Hanzi consumers): comply with LGPL
+   linkage requirements if you import their code directly.
+4. For **CC BY-SA 3.0** assets (KanjiVG-derived data): downstream
+   distribution of derivative datasets must use a CC BY-SA-compatible
+   license.
