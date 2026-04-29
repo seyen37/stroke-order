@@ -137,7 +137,7 @@ stroke-order 本場加的這些子章節，**確認 remote 是否已涵蓋**：
 
 ---
 
-## 七、結論
+## 七、結論（2026-04-29 23:30 — pending follow-up 寫入時點）
 
 stroke-order 端的工作（06ae882 + 三個 rewrite commit）**已成功 push 到 origin/backup**——這部分完整、可信。
 
@@ -147,3 +147,60 @@ personal-playbook 端的同步工作（90d7875）**今天不推**，等明天清
 - 或兩者各自並存（兩個 SoT）
 
 **stroke-order 的工作沒被影響**——HEAD 還是 06ae882，雙 remote 一致，working tree clean。
+
+---
+
+## 八、RESOLVED — 2026-04-29 深夜整合 ✅
+
+> 上方第七節原本預期「明天清醒做」——但用戶選 C「硬要現在做比對」。30 分鐘後完成全部整合工作，本節記錄 resolution。
+
+### 8.1 整合方案執行結果
+
+**對照 remote `274d685` 後的 5 個原則 cherry-pick + 2 個編號衝突解**：
+
+| stroke-order 端原始 | Remote 是否涵蓋 | Resolution | 落地位置 |
+|---|---|---|---|
+| §六 重寫成 abstract pattern | ✅ Remote **更徹底**（拆檔到 HISTORY §B.2）| 採 remote 版本 | personal-playbook 既有 |
+| §4.5 Backfill 規則 | ❌ 沒有 | **補進 remote** | personal-playbook §4.5 ✅ |
+| §5.7 何時不該立即實作 | ❌ 沒有 | **補進 remote** | personal-playbook §5.7 ✅ |
+| §6.5 多源 triangulation | ⚠️ 編號衝突（remote §6.5 = 給 Future Self） | **新編 §6.5、原 renumber §6.6** | personal-playbook §6.5 / §6.6 ✅ |
+| §7.5 attribution 完整性 | ⚠️ 部分（§7.3 略提）| **新增完整 SOP 為 §7.5** | personal-playbook §7.5 ✅ |
+| §8.5 Morning audit ritual | ⚠️ 編號衝突（remote §8.5 = 前瞻設計）| **避開衝突、新編為 §8.7** | personal-playbook §8.7 ✅ |
+
+順帶：§5.6 補第 6 點「Backfill source of truth」交叉引用 §4.5；HISTORY.md §B 加 B.7 stroke-order morning audit case 索引；§A 加第七次同日修訂 entry；§C 加「跨 Claude session 並行衝突預防 SOP」為新已知 gap。
+
+### 8.2 Single Source of Truth 走向
+
+從本次起 **personal-playbook = SoT**：
+- personal-playbook/PROJECT_PLAYBOOK.md = 主文件（root 層 + 拆檔 + 附錄 F-J 完整）
+- stroke-order/docs/PROJECT_PLAYBOOK.md = personal-playbook 的副本（同步而非獨立演進）
+
+未來在任一處發現需要修訂 playbook 內容時，**先改 personal-playbook → 再 sync 到 stroke-order**，不再反向。
+
+### 8.3 跨 Claude session 並行的教訓 + 已寫入 HISTORY §C
+
+本次衝突的根因：兩台電腦的 Claude session 並行更新同一邏輯文件、編號各自加章節。已寫入 personal-playbook 的 `HISTORY.md` §C「已知 gap」第 4 條：
+
+> 跨 Claude session / 跨電腦並行工作的衝突預防 SOP（高優先）：每場 session 開始前必跑 `git fetch && git status`、動筆加新章節編號前先讀完最新 PROJECT_PLAYBOOK 避免編號碰撞、`git format-patch` 是 rebase / reset 前的安全網。
+
+下次修訂 personal-playbook 時建議補進 §3.7 step 7 或新建 §3.8。
+
+### 8.4 已 commit 的雙 repo 狀態
+
+| Repo | HEAD | 變動 |
+|---|---|---|
+| personal-playbook | `1da94c4` (origin = backup) | +138 行 / -1 行（PROJECT_PLAYBOOK + HISTORY）|
+| stroke-order | 待 sync（本 commit 之後）| PROJECT_PLAYBOOK 反向同步 + 本決策日誌加 §八 |
+
+### 8.5 備份 patch 處置
+
+`C:\Users\USER\Documents\Cowork\backup-90d7875.patch`（39 KB）= stroke-order 端原本要推到 personal-playbook 但被擋下的 commit 內容。**已不再需要**——所有獨特原則都已 cherry-pick 到 remote。可保留作為這次 race condition 的紀念，或刪除。
+
+---
+
+## 九、最終結論
+
+> 此 divergence 在發現後的 ~3 小時內（21:35 GH007 → 00:30 整合完成）完整收斂。  
+> 雙 repo 雙 remote 全綠，5 個原則零遺失。
+>
+> **跨 Claude session 並行工作從「踩雷」變成「設計 pattern」**——HISTORY §C 已記下下次的 SOP 候選。
