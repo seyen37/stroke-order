@@ -53,6 +53,7 @@ coverage.xml
 data/g0v_cache/*.json
 !data/g0v_cache/.gitkeep
 .stroke-order/
+.fonts/                 # render_fetch_fonts.sh dest path (Render build artifact, never committed — ~280 MB of TTFs)
 gallery.db
 gallery.db-journal
 *.db

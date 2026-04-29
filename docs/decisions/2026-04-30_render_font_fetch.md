@@ -157,3 +157,47 @@
 - 線上 demo 完整度從 ~50%（楷書 only）→ 100%（5 種風格全可用）
 - LICENSE attribution 完整化讓 stroke-order 真正達到「**§七 公開前審查全綠**」
 - 為未來新字型加入定下流程：源碼路徑 → license check → upload to release → script 加一行 → done
+
+---
+
+## 八、修訂 — 2026-04-30 凌晨踩雷：build vs runtime fs 分離
+
+> 第一輪實作後 deploy `46e8363` 跑成功 (`Summary: 10 ok / 0 fail / 10 total`)，但 runtime `/api/cns-status` 仍回 `fonts_ready: false`。揭露 Render free tier 的關鍵設計細節：**build 階段寫入 `$HOME/` 的檔案不會傳到 runtime container**。
+
+### 8.1 根因分析
+
+Render 的部署模型：
+- **Build phase**：在 build container 內 git checkout + 跑 buildCommand。home dir = `/opt/render`，整個 `$HOME` 是 build user 的 ephemeral workspace。
+- **Runtime phase**：起新 container，**只**承襲 git checkout 路徑（`/opt/render/project/src/`）內的檔案。`$HOME/` 在 runtime 是 fresh 空的。
+
+我們的 fetch_fonts.sh 寫到 `$HOME/.stroke-order/`（沿用本地慣例 `~/.stroke-order/`）—— build 階段成功，但 runtime 拿不到。
+
+`/api/cns-status` 顯示 `kai_planes: []` 不是因為 fetch 失敗，是因為 runtime 看的目錄根本沒檔案。
+
+### 8.2 修法
+
+| 檔案 | 改動 |
+|---|---|
+| `scripts/render_fetch_fonts.sh` | `FONT_BASE` 加環境變數覆寫：`${STROKE_ORDER_FONTS_DEST:-$HOME/.stroke-order}`。本地 dev 不設 env 維持向後相容。 |
+| `render.yaml` buildCommand | 加 `STROKE_ORDER_FONTS_DEST=/opt/render/project/src/.fonts` 給 fetch 使用 |
+| `render.yaml` envVars | 新增 5 條：`STROKE_ORDER_CNS_FONT_DIR` / `_SEAL_FONT_FILE` / `_LISHU_FONT_FILE` / `_SONG_FONT_FILE` / `_KAISHU_FONT_FILE`，全指向 `/opt/render/project/src/.fonts/` 子目錄 |
+| `.gitignore` | 加 `.fonts/` — 本地跑 buildCommand 時不誤 commit ~280 MB TTFs |
+
+### 8.3 教訓
+
+**新規則**：「Render free tier deploy 不能信任 `$HOME/`」——任何 build phase 想 persist 到 runtime 的東西，**必須**寫到 git-checkout 路徑（`/opt/render/project/src/`）。`$HOME/` 只能用作 build 過程中的 scratch space。
+
+**這是一個容易犯的錯**，因為：
+1. 本地 dev `$HOME/.stroke-order/` 是 stroke-order 慣例
+2. 直觀以為 build 寫入後就會 deploy 整個 fs
+3. Render docs 對 ephemeral fs 的描述偏向 runtime 寫入 vs 重啟，沒明寫 build → runtime 的 fs handoff 邊界
+
+**也應寫進 PROJECT_PLAYBOOK §三**（部署相關）作為 cross-project lesson——不論 stroke-order / quadruped-koding / 未來任何專案部署到 Render 都會踩。
+
+### 8.4 落地確認
+
+第二輪 deploy（commit `<待 commit>`）後：
+- [ ] Render logs 顯示 `[fetch_fonts]` 寫到 `/opt/render/project/src/.fonts/`
+- [ ] `/api/cns-status` 回 `kai_planes: [0, 2, 15]` + `fonts_ready: true`
+- [ ] `/api/seal-status` 回 `ready: true` + 非零 `glyph_count`
+- [ ] onrender.com 「字型載入狀態」彈窗 5 套全綠

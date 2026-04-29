@@ -30,7 +30,20 @@ set -u   # Treat unset vars as errors. Do NOT set -e — we want graceful
          # per-font failure, not whole-build abort.
 
 REL_BASE="${STROKE_ORDER_FONTS_REL_BASE:-https://github.com/seyen37/stroke-order/releases/download/fonts-v1}"
-FONT_BASE="$HOME/.stroke-order"
+
+# Destination directory — defaults to ./.fonts/ (relative to git checkout
+# root, which is Render's build artifact path /opt/render/project/src/).
+# Build phase writes here, runtime reads from here via the
+# STROKE_ORDER_*_FONT_DIR / _FILE env vars set in render.yaml.
+#
+# Why not $HOME/.stroke-order? Because Render's build user home is
+# ephemeral — files written there during build do NOT survive into the
+# runtime container. /opt/render/project/src/ is the git checkout path
+# and IS preserved across the build → runtime handoff.
+#
+# Local dev (where $HOME/.stroke-order is the long-standing convention)
+# keeps working: STROKE_ORDER_FONTS_DEST is just unset and we fall back.
+FONT_BASE="${STROKE_ORDER_FONTS_DEST:-$HOME/.stroke-order}"
 
 mkdir -p \
   "$FONT_BASE/cns-fonts"    \

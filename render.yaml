@@ -20,12 +20,18 @@ services:
     plan: free                       # cold start，但個人專案 demo 夠用
     region: singapore                # 距台灣最近的免費區域
     # buildCommand fetches the 10 third-party font files (5 sources,
-    # ~300 MB total) from GitHub Release fonts-v1 into ~/.stroke-order/.
+    # ~280 MB total) from GitHub Release fonts-v1 into the git-checkout
+    # path /opt/render/project/src/.fonts/. Crucially NOT $HOME/.stroke-order/
+    # because Render's build-user home is ephemeral and does not survive
+    # into the runtime container — only files under the git checkout path
+    # are preserved. The STROKE_ORDER_*_FONT_DIR / _FILE env vars below
+    # point the runtime to the same path so the fonts are actually loaded.
+    #
     # The script uses graceful per-font failure: any single download
     # failure logs a warning but does NOT abort the build — the app's
     # existing fallback paths keep the site functional.
     # See scripts/render_fetch_fonts.sh for implementation details.
-    buildCommand: pip install -e ".[web]" && bash scripts/render_fetch_fonts.sh
+    buildCommand: pip install -e ".[web]" && STROKE_ORDER_FONTS_DEST=/opt/render/project/src/.fonts bash scripts/render_fetch_fonts.sh
     startCommand: uvicorn stroke_order.web.server:app --host 0.0.0.0 --port $PORT
 
     healthCheckPath: /api/health     # /api/health 回 {"ok": true}
@@ -34,6 +40,22 @@ services:
       # Python 版本（pin 到 3.11）
       - key: PYTHON_VERSION
         value: 3.11.7
+
+      # ---- Font paths (must match scripts/render_fetch_fonts.sh dest) ----
+      # Runtime reads fonts from /opt/render/project/src/.fonts/ which is
+      # where buildCommand wrote them via STROKE_ORDER_FONTS_DEST. Without
+      # these env vars the source modules fall back to ~/.stroke-order/
+      # which is empty at runtime (build-user home is ephemeral on Render).
+      - key: STROKE_ORDER_CNS_FONT_DIR
+        value: /opt/render/project/src/.fonts/cns-fonts
+      - key: STROKE_ORDER_SEAL_FONT_FILE
+        value: /opt/render/project/src/.fonts/seal-fonts/chongxi_seal.otf
+      - key: STROKE_ORDER_LISHU_FONT_FILE
+        value: /opt/render/project/src/.fonts/lishu-fonts/MoeLI.ttf
+      - key: STROKE_ORDER_SONG_FONT_FILE
+        value: /opt/render/project/src/.fonts/song-fonts/edusong_Unicode.ttf
+      - key: STROKE_ORDER_KAISHU_FONT_FILE
+        value: /opt/render/project/src/.fonts/kaishu-fonts/edukai.ttf
 
       # ---- Gallery (5g) auth ----
       # AUTH_SECRET 用 Render 自動產生 32-byte 隨機值，永不外洩
