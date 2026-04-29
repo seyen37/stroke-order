@@ -6,7 +6,7 @@
 >
 > 任何新建 GitHub 專案的第一天，把這份文件 copy 進新 repo 的 `docs/PROJECT_PLAYBOOK.md`，再依新專案實際內容調整即可。
 >
-> 最後更新：2026-04-28
+> 最後更新：2026-04-29
 
 ---
 
@@ -15,13 +15,15 @@
 1. [新專案第一天清單](#一新專案第一天清單)
 2. [智慧財產權三件套](#二智慧財產權三件套)
 3. [多帳號 GitHub 備份](#三多帳號-github-備份)
-4. [工作紀錄自動化規則](#四工作紀錄自動化規則)
-5. [決策日誌自動化規則](#五決策日誌自動化規則)
-6. [**資料源稽核（Source-of-Truth Audit）**](#六資料源稽核source-of-truth-audit)
-7. [公開前審查清單](#七公開前審查清單)
-8. [長期維護習慣](#八長期維護習慣)
+4. [工作紀錄自動化規則](#四工作紀錄自動化規則)（含 §4.5 Backfill 規則）
+5. [決策日誌自動化規則](#五決策日誌自動化規則)（含 §5.7 何時不該立即實作）
+6. [**資料源稽核（Source-of-Truth Audit）**](#六資料源稽核source-of-truth-audit)（含 §6.5 多源 triangulation）
+7. [公開前審查清單](#七公開前審查清單)（含 §7.5 第三方資料源 attribution 完整性）
+8. [長期維護習慣](#八長期維護習慣)（含 §8.5 Morning audit ritual）
 9. [附錄：可複製模板](#九附錄可複製模板)
 10. [與 AI 協作時的 prompt 片段](#十與-ai-協作時的-prompt-片段)
+11. [修訂歷史](#十一修訂歷史)
+12. [給未來自己的話](#十二給未來自己的話)
 
 ---
 
@@ -209,6 +211,23 @@ git config --global alias.pa '!git push origin main && git push backup main'
 - 微小 typo 修正（單字換掉）
 - 純配置調整（環境變數改動）
 
+### 4.5 Backfill 規則
+
+**未寫的 work log 不是 lost forever**。事後 retrospective 仍可重建——這個彈性消除「沒當天寫就放棄」的拖延陷阱。
+
+backfill 的 source materials（可從中還原時序）：
+- 該日相關的 decision logs
+- `git log --since=<date> --until=<date>` 的 commit 列表
+- commit messages（特別是含 phase/task ID 的）
+- chat / email / slack 該日的對話紀錄（若可取得）
+
+backfill 的格式約束：
+- 標明 **「補寫日期 + 從何處重建」**（避免日後誤認為當天寫的）
+- 內容寬度依然走標準 work log 結構（時段 / 數字 / 影響 / 反思）
+- 若某些細節真的消失了（如「當天卡了多久」），誠實寫「無紀錄」優於猜測
+
+> 「Decision log 是 backfill 的 source of truth」這個事實，反過來強化「**decision log 值得即時寫**」的論點——它不只給未來找答案用。
+
 ---
 
 ## 五、決策日誌自動化規則
@@ -298,6 +317,25 @@ docs/decisions/
 3. **AI 協作 context**：下次與 AI 協作時，AI 讀決策日誌可以更快理解現有 trade-offs
 4. **著作權證據**：「這個設計是我獨立思考的結果」——決策日誌是時序證據鏈
 5. **避免重複犯錯**：「教訓」段落會在你下次想做同樣事情時警告自己
+6. **Backfill source of truth**：當 work log 來不及當天寫時，事後 retrospective 重建只能靠 decision log + git log（見 §四.5）。決策日誌寫得詳實 = 未來重建 timeline 的可能性
+
+### 5.7 「何時不該立即實作」決策框架
+
+決策不只是「動了什麼」，**「沒動什麼 / 為什麼不動」**同樣值得記錄，是 anti-scope-creep 的關鍵工具。
+
+當你考慮要不要立即實作某個閃過腦海的想法時，跑這 4 題：
+
+1. **主線該做的事都做完了嗎？** 沒做完 → 別分心
+2. **有實際使用者拉力嗎？** 沒人問 → 自己用得到嗎？dogfooding 也算
+3. **依賴 / 基礎建設都成熟了嗎？** 缺什麼 → 先把那邊補完
+4. **新增的維護成本承擔得起嗎？** 已超 N 個 active 工作項時，再加是否合理？
+
+四題全 yes 才動工。否則：
+- 寫進 backlog（如 `SPINOFFS.md` 或 `BACKLOG.md`）
+- 寫一份精簡決策日誌：**「為何此刻不做」**
+- 等下次 review 時重新評估
+
+> **「停下動作收進 backlog」本身是一個有意識的決策**，不是輸給時間。在工程上 knowing when to stop 跟 knowing when to push 同樣重要。
 
 ---
 
@@ -305,14 +343,14 @@ docs/decisions/
 
 > 凡標榜「官方」「政府」「標準」「規範」的資料源，**必須回追到一手公文**。否則內容可能被中介者意外或刻意污染。
 
-這個習慣源於 stroke-order 專案 2026-04-28 的真實案例：第三方 GitHub Gist 整理的「教育部 4808 常用字」與官方 PDF 比對，發現 1 字不同——Gist 夾帶了一個中華人民共和國 GB18030 變體字。
+這個習慣源於一個典型 pattern：第三方整理品 vs 一手官方源比對，發現「字數一樣 / 但內容有 0.02% 變體字污染」。**真實案例請見各專案的 `docs/decisions/` 紀錄**。
 
 ### 6.1 何時必跑
 
 任何時候加入新資料源——**不只是 public release 之前**。
 
 觸發場合：
-- 引用「教育部」「國家標準」「國際協議」「ISO」的字單 / 規範 / 詞典
+- 引用「政府」「國家標準」「國際協議」「ISO」的清單 / 規範 / 詞典
 - 從第三方整理的 GitHub repo / Gist / 學術網站 / 部落格抓資料
 - 接 API 取得「政府開放資料」「百科平台資料」
 - 抓 Wikipedia / Wikidata 整理表格
@@ -328,64 +366,78 @@ docs/decisions/
 
 **B. 內容比對**
 
-- [ ] 一手 vs 第三方逐字比對（字數、Unicode codepoint 都要對）
+- [ ] 一手 vs 第三方逐字比對（數量、項目 ID、codepoint 都要對）
 - [ ] 任何差異都要追蹤原因（是第三方 OCR 錯？變體污染？版本差？人為刪改？）
 - [ ] 差異 ≥ 0 時，**永遠採用一手**，並把差異記錄進決策日誌
-- [ ] 一手本身有 metadata bug 時（如 PDF hex/char 不一致），明示「以實際 char 為準」
+- [ ] 一手本身有 metadata bug 時（如 PDF metadata 與實際內容不一致），明示「以實際內容為準」
+- [ ] **多個一手官方源同時可得時，做 cross-verification**——兩個獨立官方源逐項比對，比單源高一級品質。共有的 metadata bug 反而是「兩個源都來自同一原始檔」的證據
 
-**C. 區域變體完整性（Taiwan-variant integrity）**
+**C. 區域變體完整性（Locale-variant integrity）**
 
-- [ ] 確認所有字元的 Unicode codepoint 屬於目標區域標準
-  - **T (Taiwan)**：依 CNS 11643 標準
-  - G (PRC)：GB18030 變體（Taiwan-first 專案要避開）
-  - J (Japan)：JIS 變體
-  - K (Korea)：KSC 變體
-  - V (Vietnam)：喃字變體
-- [ ] 對近似字（外觀像但 codepoint 不同）特別留意。已知陷阱：
-  - **彞 (U+5F5E, T)** vs 彝 (U+5F5D, G)
-  - **汨 (U+6C68)** vs 汩 (U+6C69)
-  - **過** 在 G/H/T/J/K/V 各有不同變體
-- [ ] 工具：Unicode 17.0 CJK chart `https://www.unicode.org/charts/PDF/U4E00.pdf`
-      字元下方 G/H/T/J/K/V 標註對應區域變體
+> 概念框架以 CJK 漢字為例，但原則適用任何有區域變體的資料（拼音 vs Pinyin / Wade-Giles、地名拼寫、計量單位...）。
 
-### 6.3 範例：教育部 4808 案例（2026-04-28）
+- [ ] 確認所有資料項屬於目標區域標準
+  - 對 CJK 漢字：T (Taiwan/CNS 11643) / G (PRC/GB18030) / H (HK) / J (Japan/JIS) / K (Korea/KSC) / V (Vietnam) 各有不同 codepoint
+  - 對其他資料：依該領域的區域標準對齊
+- [ ] 對近似項（外觀像但底層編碼不同）特別留意。CJK 已知陷阱：
+  - 彞 (U+5F5E, T) vs 彝 (U+5F5D, G)
+  - 汨 (U+6C68) vs 汩 (U+6C69)
+  - 「過」在 G/H/T/J/K/V 各有不同變體
+- [ ] 工具：Unicode 17.0 CJK chart `https://www.unicode.org/charts/PDF/U4E00.pdf` 字元下方 G/H/T/J/K/V 標註對應區域變體
+- [ ] **Locale-specific 罕字（PUA、Ext G+ 等本地語言特有字）要保持寬容**——這正是 locale-first 哲學的 niche value，不能盲目過濾。Locale 內的「冷僻字」往往是該 locale 文化獨有資產
 
-**情境**：第三方 Gist「教育部 4808 常用字」與官方 PDF 比對。
+### 6.3 範例 pattern：第三方變體字污染
 
-**發現**：1 字差異
-- Gist：彝 (U+5F5D, GB18030 變體)
-- 官方 PDF：彞 (U+5F5E, T 標準)
+**情境（通用化）**：第三方整理者把標榜為某地區官方標準的清單放上 GitHub 或網站。內容 99%+ 與官方一致，但其中 1-2 項夾帶了「外觀近似但 codepoint 屬於他國規範」的變體。
 
-**結論**：改用官方 PDF（含教育部字號 A00001-A04808）作為唯一資料源。每字保留 `moe_id` 追溯到原始 1982 公告。
+**發現方式**：取得一手官方源後逐項對比。
 
-**啟示**：本來預期「字數一樣 = 內容一樣」，實際 99.98% 相同也夠污染——4808 字裡 1 字差異 = 0.02%——這是「供應鏈污染」的警示燈。
+**結論**：改用一手源作為唯一資料源；保留 traceability 欄位（官方編號 / 公告日 / 發布單位）。
+
+**啟示**：「數量一樣 = 內容一樣」是錯誤直覺。**99.98% 相同也夠污染**——這是「供應鏈污染」的警示燈。
+
+> 真實案例見各專案的 `docs/decisions/`，含 codepoint 細節、修法、追溯文號。
 
 ### 6.4 自動化建議
 
-如果資料源是會反覆更新的（例如教育部每幾年公告新版字表）：
+如果資料源是會反覆更新的（例如某類官方標準每幾年發布新版）：
 
-- 寫 `scripts/build_<source>.py`：從一手公文自動萃取 → 標準 JSON
+- 寫 `scripts/build_<source>.py`：從一手公文自動萃取 → 標準 JSON / DB
 - script 本身要：
   - 文件開頭 docstring 明確記錄資料源 URL + 出版日 + 版本
-  - 預期 char count 在 sanity check 範圍內（避免 PDF parsing 失敗 silent fallback）
-  - **Cross-check Unicode codepoint vs 實際字元**（catch PDF metadata bugs）
-  - 輸出含 traceability 欄位（如官方字號、流水序號）
+  - 預期項目 count 在 sanity check 範圍內（避免 PDF parsing 失敗 silent fallback）
+  - **Cross-check 內容 vs metadata**（catch source-side bugs）
+  - 輸出含 traceability 欄位（官方編號、流水序號、發布日期）
 
-範例（stroke-order 專案的 `build_educational_4808.py`）：
+通用 pseudocode：
+
 ```python
-# 從教育部官方 PDF 萃取，每字附 moe_id (A00001-A04808)
-# 一字一比對 hex metadata vs 實際 char codepoint
-# 字單 + simp/trad mapping + traceability 三合一
+# 從官方 PDF / XLSX / API 萃取
+# 一項一比對 metadata vs 實際內容
+# 主資料 + variant mapping + traceability 三合一輸出
 ```
 
-### 6.5 給 Future Self 的話
+### 6.5 多源 triangulation
 
-「為什麼花這個力氣？只是 1 個字的差異而已。」
+當有 ≥ 3 份獨立一手源同時對同物件分類時（如：3 份不同的字頻語料 / 3 份不同地名拼寫指南 / 3 份不同的標準分類表），套 **consensus schema**：
 
-因為個人字型 / 寫字機器人 / 教育素材都對「**這字是台灣標準嗎？**」這個問題有要求。如果你的 codebase 從一開始就有 Taiwan-first 的 audit 習慣，這個 claim 站得住腳；如果省略了，10 年後想補 audit 會發現要回頭比對幾十個資料源——那個 cost 比現在多 100 倍。
+```
+strict   ← 三源都標 (最 conservative)
+majority ← ≥ 2 源標 (平衡)
+any      ← ≥ 1 源標 (最 inclusive)
+none     ← 無源標 (排除)
+```
+
+**為什麼**：每個官方源各自 sampling 偏誤；三源差異本身是資訊不是雜訊。整合 schema 比「挑一個 winner」更有研究價值。
+
+### 6.6 給 Future Self 的話
+
+「為什麼花這個力氣？只是 1 個變體的差異而已。」
+
+因為「locale-first」是個 claim，不是 default——如果你的 codebase 從一開始就有 audit 習慣，這個 claim 站得住腳；如果省略了，10 年後想補 audit 會發現要回頭比對幾十個資料源——那個 cost 比現在多 100 倍。
 
 > 「資料源頭管理是著作權保護的第一道關卡。」
-> — `stroke-order/docs/decisions/2026-04-28_phase_a_complete.md` §決策 7
+> — 摘自某專案決策日誌
 
 ---
 
@@ -421,6 +473,26 @@ grep "^\.env" .gitignore
 - [ ] 安裝 / 啟動指令確認可重現
 - [ ] 至少一份 `docs/decisions/` 已寫好
 
+### 7.5 第三方資料源 attribution 完整性
+
+7.3 授權稽核的細項——**逐一比對：codebase 引用的所有資料源，是否在 LICENSE 末段都有 attribution**。
+
+具體做法：
+
+1. 列出 codebase 內所有「外部資料」的 inventory：
+   - 字典 / 字單 / 詞庫 / 字頻表
+   - 字型檔（ttf / otf / woff）
+   - 圖庫（pixel art / icon set）
+   - 翻譯檔 / 對照表
+   - 預訓練模型權重
+2. 對每筆來源確認：
+   - LICENSE 末段是否有 attribution block？
+   - 該資料的原始授權條款是否相容於主授權？
+   - 衍生使用是否符合條款（特別是 CC BY-SA / GPL 類有「相同方式分享」要求的）？
+3. **只要有「使用了但沒 attribution」的，視為 violation**——即使是公共領域資料，attribution 也表達基本尊重
+
+> 檢查觸發點：每次 release 前 + repo 從 Private 改 Public 前 + 新增 cover-set / dataset / 字型 / 圖庫的 commit。
+
 ---
 
 ## 八、長期維護習慣
@@ -449,6 +521,24 @@ grep "^\.env" .gitignore
 - [ ] 寫 release notes
 - [ ] 更新 README badges 數字（測試數、版本）
 - [ ] tag the commit (`git tag v0.x.x`)
+
+### 8.5 Morning audit ritual
+
+每個工作日新 session 開始前，跑 SOP 一致性掃描——**通常 30 分鐘內可完成，效益是後續 4-8 小時的工作不在歪掉的基礎上累積**。
+
+掃描清單：
+
+- [ ] **§二 IP 三件套**：LICENSE / README / footer 三處身份鏈是否一致？
+- [ ] **§三 雙 remote**：origin + backup 都活著？最新 commit 兩邊都到了？
+- [ ] **§四 work logs**：上一個工作日的 work log 有沒有寫？沒寫立刻補（§四.5 backfill）
+- [ ] **§五 decision logs**：上一個工作日的關鍵決策有沒有 log？
+- [ ] **§六 audit checklist**：新引入的資料源有跑過三段檢查嗎？
+- [ ] **§七 attribution 完整性**：新增資料源有寫進 LICENSE 末段？
+- [ ] **§八.4 release tag**：上一個 version bump 有對應 git tag？
+
+發現 gap：寫進今天的工作項目（前 30-60 分鐘清掉），再進主工作。
+
+> **為什麼這個習慣值錢**：SOP 寫進 playbook 是一回事，**確實執行是另一回事**。Morning audit 是「對自己的 SOP 服從度的誠實度測試」——即使每次都全綠，這個 ritual 本身就是對 SOP 的尊重。
 
 ---
 
@@ -677,13 +767,25 @@ jobs:
 
 ## 十一、修訂歷史
 
-- 2026-04-28：初版。基於 stroke-order 專案累積的實踐凝結。
+> 原則：本表只記錄「**跨專案抽象原則**」的演進。觸發某條原則的真實案例（誰、何時、哪份檔案、什麼 bug）一律寫在**各專案的決策日誌**，不重複出現在 playbook。
+
+- **2026-04-28**：初版。凝結個人新建 GitHub 專案的標準化實踐——IP 三件套、雙帳號備份、決策日誌自動化、AI 協作工作紀錄習慣。
 - **2026-04-28（同日修訂）**：新增 §六「資料源稽核 Source-of-Truth Audit」。
-  起源：stroke-order Phase A 完成時發現第三方 Gist「教育部 4808 常用字」
-  夾帶 1 個 GB18030 變體字（彝 vs 彞）——揭露「民間整理的官方資料常被
-  他國規範變體污染」這個普遍議題。新章節含：何時必跑、A/B/C 三段檢查
-  （一手公文 / 內容比對 / 區域變體完整性）、4808 案例摘要、自動化建議。
+  抽象原則：當「官方 / 政府 / 標準 / 規範」名義的 dataset 進專案時，必跑 A/B/C 三段檢查（一手公文 → 內容比對 → 區域變體完整性）。背景動機是「民間整理的官方資料常被他國規範變體污染」這個跨領域普遍議題。
   其他章節 §六~§十一 統一往後挪一號。§十 AI prompt 補第 8 條 audit 規則。
+- **2026-04-29（morning audit 後修訂）**：將 playbook 從「敘事＋特定專案案例」抽象化為「純跨專案原則」。
+  - 起因：morning audit 時發現 §六、§七 等章節夾帶過多單一專案的具體案例（檔名、codepoint、特定 bug）。違反 playbook「**跨專案共通性原則**」的定位——專案實況屬於專案的 work log / decision log，playbook 只放可被多個專案重用的抽象。
+  - **新增章節 / 子章節**：
+    - **§四.5 Backfill 規則**：work log / decision log 漏寫時的補寫流程（git log + 決策日誌 反向重建，標註「Backfill 補寫」誠實標籤）。
+    - **§五.6 補一條 backfill source-of-truth**：work log 缺漏時用決策日誌 + git log 重建。
+    - **§五.7 何時不該立即實作 決策框架**：4 問 gate（必要性 / 替代品 / 機會成本 / 可逆性），預防 scope creep。
+    - **§六.5 多源 triangulation**：當同一資料有多個一手官方來源時，用 strict / majority / any 三層 consensus schema 區分。
+    - **§七.5 第三方資料源 attribution 完整性**：LICENSE 末段 attribution block 必須涵蓋所有 ingest 的第三方資料，作為 §七 的第 5 個必跑項。
+    - **§八.5 Morning audit ritual**：每日開工前花 5–15 分鐘對照 playbook 自我檢查 SOP 服從度，補上昨天漏掉的 work log / 漏跑的 §六 audit 等。
+  - **§六 重寫**：移除單一專案 case study（教育部 4808、彝 / 彞 codepoint、build_*.py 檔名），改為「典型 pattern」描述 + 指向「真實案例見各專案決策日誌」。
+  - **§六.2.C 命名修正**：「Taiwan-variant integrity」→ 「Locale-variant integrity」，並補 PUA / Ext G+ 罕字容忍度說明（罕字保留為 locale-first niche 價值，不能因 G/H/J/K 缺對應就刪）。
+  - **§六.2.B 補一條 cross-verification**：多個一手源同時可得時做交叉驗證，差異追因。
+  - 抽象化後 playbook 仍保留「為什麼這條原則存在」的動機描述，但不再 hardcode 哪個專案、哪份檔案觸發這個原則——保證 playbook 可被任何新專案 copy + 立即適用。
 
 ---
 
