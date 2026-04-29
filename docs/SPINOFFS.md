@@ -303,6 +303,7 @@ KAGE 引擎已經跑 20 年，累積了完整的漢字 outline + 組合系統，
 | `BIAU17.zip` 簡編本 ∩ 4808 | pre-computed 共有字 | 4,634 | 30 min | 中 | 已是 BIAU1 的衍生表，可從 BIAU1 算出 |
 | `BIAU18.zip` 簡編本 - 4808 | 簡編本有但 4808 沒收 | 1,097 字 | 30 min | 中 | 同上，從 BIAU1 算出 |
 | `BIAU19` 4808 - 簡編本 | 4808 收但簡編本沒抓到 | **174 字** | — | 高史料價值 | 「連辭典編輯語料都不見的 4808 標準字」——最 archaic 的標準字 |
+| **`國教院 華語文分級 PDF` 🎓** | TOCFL/CEFR 風格 7 級漢字分級表（國教院徵求意見稿）| **3,100 字** 跨 7 級（246+258+297+499+600+600+600）| 2-3 hr | **🔥 高（不同維度）** | 不是字頻，是 proficiency tier。為 5d UI 開「依程度選字 / graded learning mode」全新應用 |
 | `shrest2.zip → shrest2.dbf` | 國小詞頻總表 | 46,666 詞 / 757,632 次 | 1-2 hr | 中 | 詞層 vs 字層整合策略不確定 |
 | `result.zip` | 整套 shrest1-24 合輯 | 全 study | — | 低 | shrest1/2 是精華 |
 
@@ -323,6 +324,19 @@ KAGE 引擎已經跑 20 年，累積了完整的漢字 outline + 組合系統，
 5. 衍生決策日誌議題 — 「為什麼 41% 的 1982 標準字在現代不再高頻？」是個有意義的策略討論
 
 **🌟 整合要點**：以後新進的字頻資料源（不止 NAER + 簡編本，未來會有更多）都套同樣 schema，每加一源就加一個 `freq_xxx` 欄位 + 重新計算 `modern_consensus`。
+
+**雙軸資料 schema**（字頻 + 分級獨立並存）：
+
+```
+educational_4808.entries[i]:
+  trad / simp / moe_id / unicode      (既有)
+  freq_elementary, freq_dictionary,
+  freq_naer_99_108                    (字頻軸，待整合)
+  modern_consensus                    (字頻派生)
+  proficiency_tier                    (分級軸，國教院 7 級)
+```
+
+兩軸獨立：使用者可選「過濾掉 modern 不高頻的字」OR「只練 1-3 級基礎字」OR 兩者交集。**1 個 cover-set 多軸過濾**，比 N 個獨立 cover-sets 強。
 
 ### Group B：教育部 / 全字庫 字型（reference glyph 來源）
 
