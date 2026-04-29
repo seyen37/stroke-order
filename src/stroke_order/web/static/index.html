@@ -147,8 +147,8 @@
               font-size:22px;cursor:pointer;color:var(--muted);">✕</button>
     </div>
     <p style="color:var(--muted);font-size:12px;margin:4px 0 14px;">
-      5 套外掛字型，未載入時對應風格會 fallback 到濾鏡或無法使用。
-      載入後此區會顯示授權標示（CC BY-ND 要求）。
+      5 套外掛字型預設為<b>未授權</b>狀態（紅燈）。請逐一閱讀授權條款後點「授權」按鈕主動同意，才會啟用該字型（綠燈）。
+      未授權時對應風格 fallback 到濾鏡或楷書。授權狀態存於本機瀏覽器，重整頁面後保留；可隨時點「取消授權」回復。
     </p>
     <div style="display:flex;flex-direction:column;gap:8px;">
       <div id="cns-status-row"   class="font-status-row">CNS 全字庫：載入中…</div>
@@ -5455,21 +5455,41 @@ async function cnsInit() {
     if (d.fonts_ready) {
       const kaiPlanes  = (d.kai_planes  || []).map(p => `Plane ${p}`).join("、");
       const sungPlanes = (d.sung_planes || []).map(p => `Plane ${p}`).join("、");
-      banner.style.background = "#e0f5e0";
-      banner.style.color = "#260";
       const parts = [];
       if (kaiPlanes)  parts.push(`楷體：${kaiPlanes}`);
       if (sungPlanes) parts.push(`宋體：${sungPlanes}（風格切換已啟用）`);
-      banner.innerHTML =
-        `✓ <b>CNS 全字庫</b> 已載入（${parts.join(" / ")}）` +
-        (d.properties_ready ? "・部件 metadata 可查" : "");
-      fontStatusMark("cns", true);
+      const planeInfo = parts.join(" / ");
+      const info = FONT_AUTH_INFO.cns;
+      const authed = fontAuthGet("cns");
+      if (authed) {
+        // 綠燈 + attribution + 取消授權
+        banner.style.background = "#e0f5e0";
+        banner.style.color = "#260";
+        banner.innerHTML =
+          `✓ <b>CNS 全字庫</b> 已載入（${planeInfo}）`
+          + (d.properties_ready ? "・部件 metadata 可查" : "")
+          + ` — <a href="${info.licenseUrl}" target="_blank"`
+          + `   style="color:#260;text-decoration:underline;">${escapeHtml(info.attribution)}</a>`
+          + fontAuthButtonHtml("cns");
+        banner.title = `授權：${info.license}`;
+      } else {
+        // 紅燈 + 「未授權」+ 授權按鈕
+        banner.style.background = "#fde0e0";
+        banner.style.color = "#700";
+        banner.innerHTML =
+          `✕ <b>CNS 全字庫</b> 未授權 — 後端字型已載入（${planeInfo}），但需您主動同意 ${info.license} 後才會啟用。`
+          + ` <a href="${info.licenseUrl}" target="_blank"`
+          + `   style="color:#700;text-decoration:underline;">${escapeHtml(info.attribution)}</a>`
+          + fontAuthButtonHtml("cns");
+      }
+      bindFontAuthButton(banner, "cns", cnsInit);
+      fontStatusMark("cns", authed);
     } else {
       banner.style.background = "#fff8e0";
       banner.style.color = "#704000";
       banner.innerHTML =
         `ⓘ <b>CNS 全字庫</b> 未載入 — 罕用字 fallback 不可用。`
-        + ` <a href="https://data.gov.tw/dataset/5961" target="_blank"`
+        + ` <a href="https://www.cns11643.gov.tw/downloadList.jsp?ID=2" target="_blank"`
         + `   style="color:#704000;">下載全字庫</a>`
         + ` 解壓至 <code>${escapeHtml(d.font_dir)}</code> 即啟用。`;
       fontStatusMark("cns", false);
@@ -5492,15 +5512,31 @@ async function sealInit() {
     if (!r.ok) throw new Error(r.statusText);
     const d = await r.json();
     if (d.ready) {
-      banner.style.background = "#e0e8f5";
-      banner.style.color = "#234";
-      banner.innerHTML =
-        `✓ <b>篆書字型</b> (${d.glyph_count} 字) — `
-        + `<a href="${d.license_url}" target="_blank" `
-        + `style="color:#234;text-decoration:underline;">`
-        + `${escapeHtml(d.attribution)}</a>`;
-      banner.title = `授權：${d.license}（必須標示原作者）`;
-      fontStatusMark("seal", true);
+      const authed = fontAuthGet("seal");
+      if (authed) {
+        // 綠燈 + attribution + 取消授權
+        banner.style.background = "#e0e8f5";
+        banner.style.color = "#234";
+        banner.innerHTML =
+          `✓ <b>篆書字型</b> (${d.glyph_count} 字) — `
+          + `<a href="${d.license_url}" target="_blank" `
+          + `style="color:#234;text-decoration:underline;">`
+          + `${escapeHtml(d.attribution)}</a>`
+          + fontAuthButtonHtml("seal");
+        banner.title = `授權：${d.license}（必須標示原作者）`;
+      } else {
+        // 紅燈 + 授權按鈕
+        banner.style.background = "#fde0e0";
+        banner.style.color = "#700";
+        banner.innerHTML =
+          `✕ <b>篆書字型</b> 未授權 (${d.glyph_count} 字) — 後端已載入但需您主動同意 ${d.license} 後才會啟用。`
+          + ` <a href="${d.license_url}" target="_blank" `
+          + `style="color:#700;text-decoration:underline;">`
+          + `${escapeHtml(d.attribution)}</a>`
+          + fontAuthButtonHtml("seal");
+      }
+      bindFontAuthButton(banner, "seal", sealInit);
+      fontStatusMark("seal", authed);
     } else {
       banner.style.background = "#fff8e0";
       banner.style.color = "#704000";
@@ -5529,15 +5565,29 @@ async function lishuInit() {
     if (!r.ok) throw new Error(r.statusText);
     const d = await r.json();
     if (d.ready) {
-      banner.style.background = "#f0e8d8";
-      banner.style.color = "#532";
-      banner.innerHTML =
-        `✓ <b>隸書字型</b> (${d.glyph_count} 字) — `
-        + `<a href="${d.license_url}" target="_blank" `
-        + `style="color:#532;text-decoration:underline;">`
-        + `${escapeHtml(d.attribution)}</a>`;
-      banner.title = `授權：${d.license}（必須標示「中華民國教育部」）`;
-      fontStatusMark("lishu", true);
+      const authed = fontAuthGet("lishu");
+      if (authed) {
+        banner.style.background = "#f0e8d8";
+        banner.style.color = "#532";
+        banner.innerHTML =
+          `✓ <b>隸書字型</b> (${d.glyph_count} 字) — `
+          + `<a href="${d.license_url}" target="_blank" `
+          + `style="color:#532;text-decoration:underline;">`
+          + `${escapeHtml(d.attribution)}</a>`
+          + fontAuthButtonHtml("lishu");
+        banner.title = `授權：${d.license}（必須標示「中華民國教育部」）`;
+      } else {
+        banner.style.background = "#fde0e0";
+        banner.style.color = "#700";
+        banner.innerHTML =
+          `✕ <b>隸書字型</b> 未授權 (${d.glyph_count} 字) — 後端已載入但需您主動同意 ${d.license} 後才會啟用。`
+          + ` <a href="${d.license_url}" target="_blank" `
+          + `style="color:#700;text-decoration:underline;">`
+          + `${escapeHtml(d.attribution)}</a>`
+          + fontAuthButtonHtml("lishu");
+      }
+      bindFontAuthButton(banner, "lishu", lishuInit);
+      fontStatusMark("lishu", authed);
     } else {
       banner.style.background = "#fff8e0";
       banner.style.color = "#704000";
@@ -5567,15 +5617,29 @@ async function songInit() {
     if (!r.ok) throw new Error(r.statusText);
     const d = await r.json();
     if (d.ready) {
-      banner.style.background = "#e8e0f0";
-      banner.style.color = "#332";
-      banner.innerHTML =
-        `✓ <b>宋體字型</b> (${d.glyph_count} 字) — `
-        + `<a href="${d.license_url}" target="_blank" `
-        + `style="color:#332;text-decoration:underline;">`
-        + `${escapeHtml(d.attribution)}</a>`;
-      banner.title = `授權：${d.license}（必須標示「中華民國教育部」）`;
-      fontStatusMark("song", true);
+      const authed = fontAuthGet("song");
+      if (authed) {
+        banner.style.background = "#e8e0f0";
+        banner.style.color = "#332";
+        banner.innerHTML =
+          `✓ <b>宋體字型</b> (${d.glyph_count} 字) — `
+          + `<a href="${d.license_url}" target="_blank" `
+          + `style="color:#332;text-decoration:underline;">`
+          + `${escapeHtml(d.attribution)}</a>`
+          + fontAuthButtonHtml("song");
+        banner.title = `授權：${d.license}（必須標示「中華民國教育部」）`;
+      } else {
+        banner.style.background = "#fde0e0";
+        banner.style.color = "#700";
+        banner.innerHTML =
+          `✕ <b>宋體字型</b> 未授權 (${d.glyph_count} 字) — 後端已載入但需您主動同意 ${d.license} 後才會啟用。`
+          + ` <a href="${d.license_url}" target="_blank" `
+          + `style="color:#700;text-decoration:underline;">`
+          + `${escapeHtml(d.attribution)}</a>`
+          + fontAuthButtonHtml("song");
+      }
+      bindFontAuthButton(banner, "song", songInit);
+      fontStatusMark("song", authed);
     } else {
       banner.style.background = "#fff8e0";
       banner.style.color = "#704000";
@@ -5605,16 +5669,30 @@ async function kaishuInit() {
     if (!r.ok) throw new Error(r.statusText);
     const d = await r.json();
     if (d.ready) {
-      banner.style.background = "#e0f0e8";
-      banner.style.color = "#143";
-      banner.innerHTML =
-        `✓ <b>楷書字型</b> (${d.glyph_count} 字 fallback) — `
-        + `<a href="${d.license_url}" target="_blank" `
-        + `style="color:#143;text-decoration:underline;">`
-        + `${escapeHtml(d.attribution)}</a>`;
-      banner.title = `授權：${d.license}（必須標示「中華民國教育部」）。`
-        + `預設用 g0v/MMH 筆順資料；MoE Kaishu 在它們缺字時補上 outline。`;
-      fontStatusMark("kaishu", true);
+      const authed = fontAuthGet("kaishu");
+      if (authed) {
+        banner.style.background = "#e0f0e8";
+        banner.style.color = "#143";
+        banner.innerHTML =
+          `✓ <b>楷書字型</b> (${d.glyph_count} 字 fallback) — `
+          + `<a href="${d.license_url}" target="_blank" `
+          + `style="color:#143;text-decoration:underline;">`
+          + `${escapeHtml(d.attribution)}</a>`
+          + fontAuthButtonHtml("kaishu");
+        banner.title = `授權：${d.license}（必須標示「中華民國教育部」）。`
+          + `預設用 g0v/MMH 筆順資料；MoE Kaishu 在它們缺字時補上 outline。`;
+      } else {
+        banner.style.background = "#fde0e0";
+        banner.style.color = "#700";
+        banner.innerHTML =
+          `✕ <b>楷書字型</b> 未授權 (${d.glyph_count} 字 fallback) — 後端已載入但需您主動同意 ${d.license} 後才會啟用。`
+          + ` <a href="${d.license_url}" target="_blank" `
+          + `style="color:#700;text-decoration:underline;">`
+          + `${escapeHtml(d.attribution)}</a>`
+          + fontAuthButtonHtml("kaishu");
+      }
+      bindFontAuthButton(banner, "kaishu", kaishuInit);
+      fontStatusMark("kaishu", authed);
     } else {
       banner.style.background = "#fff8e0";
       banner.style.color = "#704000";
@@ -5632,12 +5710,115 @@ async function kaishuInit() {
 }
 
 // ============================================================
+// 字型授權（主動同意 gate）— Phase 5ba+
+//
+// 預設**未授權**：即使後端字型已載入，前端 UI 顯示紅燈 + 「授權」按鈕。
+// 使用者讀過 license 說明、點「授權」確認同意後，才切到綠燈可用狀態。
+// 授權狀態存 localStorage（per-browser），重整網頁後保留。
+// 點「取消授權」直接生效（無二次確認）。
+//
+// 設計動機：CC BY-ND 3.0 TW 等授權要求 attribution 顯示 + 使用者明確同意。
+// 自動載入綠燈無法達成「明確同意」這層；要求主動點按更貼合授權精神。
+// ============================================================
+
+const FONT_AUTH_KEY_PREFIX = "stroke-order:font-authorized:";
+
+const FONT_AUTH_INFO = {
+  cns: {
+    label: "CNS 全字庫",
+    license: "政府資料開放授權條款 1.0",
+    licenseUrl: "https://www.cns11643.gov.tw/",
+    attribution: "中華民國數位發展部 · CNS 11643 全字庫",
+  },
+  seal: {
+    label: "崇羲篆體",
+    license: "CC BY-ND 3.0 TW",
+    licenseUrl: "https://xiaoxue.iis.sinica.edu.tw/chongxi/copyright.htm",
+    attribution: "崇羲篆體 by 季旭昇 / 中央研究院資訊科學研究所",
+  },
+  lishu: {
+    label: "教育部標準隸書",
+    license: "CC BY-ND 3.0 TW",
+    licenseUrl: "https://language.moe.gov.tw/result.aspx?classify_sn=23",
+    attribution: "教育部標準隸書 by 中華民國教育部",
+  },
+  song: {
+    label: "教育部標準宋體",
+    license: "CC BY-ND 3.0 TW",
+    licenseUrl: "https://language.moe.gov.tw/result.aspx?classify_sn=23",
+    attribution: "教育部標準宋體 by 中華民國教育部",
+  },
+  kaishu: {
+    label: "教育部標準楷書",
+    license: "CC BY-ND 3.0 TW",
+    licenseUrl: "https://language.moe.gov.tw/result.aspx?classify_sn=23",
+    attribution: "教育部標準楷書 by 中華民國教育部",
+  },
+};
+
+function fontAuthGet(key) {
+  return localStorage.getItem(FONT_AUTH_KEY_PREFIX + key) === "1";
+}
+function fontAuthSet(key, val) {
+  if (val) localStorage.setItem(FONT_AUTH_KEY_PREFIX + key, "1");
+  else localStorage.removeItem(FONT_AUTH_KEY_PREFIX + key);
+}
+
+// 簡潔模式 confirm dialog — 顯示 license 摘要 + attribution + license URL
+function fontAuthPromptAndSet(key) {
+  const info = FONT_AUTH_INFO[key];
+  if (!info) return false;
+  const msg =
+    `您即將授權使用 ${info.label}。\n\n` +
+    `授權條款：${info.license}\n` +
+    `Attribution：${info.attribution}\n\n` +
+    `按下「確定」即表示您已知悉並同意此授權條款。\n` +
+    `授權說明 / 下載原始 license 詳見：\n${info.licenseUrl}`;
+  return confirm(msg);
+}
+
+// 產生授權／取消授權按鈕 HTML
+function fontAuthButtonHtml(key) {
+  const authed = fontAuthGet(key);
+  const label = authed ? "取消授權" : "授權";
+  const bg = authed ? "#888" : "#3a8";
+  return (
+    `<button data-fontkey="${key}" class="font-auth-btn"` +
+    ` style="margin-left:10px;padding:3px 12px;font-size:13px;` +
+    `background:${bg};color:#fff;border:none;border-radius:3px;cursor:pointer;` +
+    `vertical-align:middle;">` +
+    label +
+    `</button>`
+  );
+}
+
+// 在 banner 內找到 .font-auth-btn 並綁 click — 點下後寫 localStorage 並重 init UI
+function bindFontAuthButton(banner, key, reinitFn) {
+  const btn = banner.querySelector(".font-auth-btn");
+  if (!btn) return;
+  btn.onclick = () => {
+    const wasAuthed = fontAuthGet(key);
+    if (wasAuthed) {
+      // 取消授權直接生效（無二次確認）
+      fontAuthSet(key, false);
+    } else {
+      // 授權前 confirm dialog（簡潔模式）
+      if (!fontAuthPromptAndSet(key)) return;
+      fontAuthSet(key, true);
+    }
+    reinitFn();
+  };
+}
+
+// ============================================================
 // 字型狀態 badge + modal (Phase 5ba) — 5 套字型整合按鈕
 // ============================================================
 const FONT_STATUS = {cns: null, seal: null, lishu: null, song: null, kaishu: null};
 
-function fontStatusMark(key, ready) {
-  FONT_STATUS[key] = ready;
+// authed = 該字型是否「已授權使用」（後端 ready + 使用者主動同意）。
+// badge 統計顯示「已授權」字型數 / 總數，反映授權 gate 整體狀態。
+function fontStatusMark(key, authed) {
+  FONT_STATUS[key] = authed;
   const total = Object.keys(FONT_STATUS).length;
   const loaded = Object.values(FONT_STATUS).filter(v => v === true).length;
   const known  = Object.values(FONT_STATUS).filter(v => v !== null).length;
@@ -5648,15 +5829,15 @@ function fontStatusMark(key, ready) {
     badge.style.background = "#bbb";
     count.textContent = "(載入中…)";
   } else if (loaded === total) {
-    badge.style.background = "#3a3";   // green: all 5 ready
+    badge.style.background = "#3a3";   // green: all 5 authorized
     count.textContent = `(${loaded}/${total})`;
     count.style.color = "#3a3";
   } else if (loaded === 0) {
-    badge.style.background = "#c33";   // red: nothing loaded
+    badge.style.background = "#c33";   // red: nothing authorized
     count.textContent = `(${loaded}/${total})`;
     count.style.color = "#c33";
   } else {
-    badge.style.background = "#e80";   // orange: partial
+    badge.style.background = "#e80";   // orange: partial authorization
     count.textContent = `(${loaded}/${total})`;
     count.style.color = "#e80";
   }
