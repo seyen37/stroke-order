@@ -343,13 +343,13 @@
         <option value="ghost">ghost (淡底臨摹)</option>
         <option value="blank">blank (空格)</option>
       </select>
-      <label style="margin-left:16px;" title="預設楷書＝標準臨摹；其他為筆畫濾鏡（字型設計練習用）">字型風格</label>
+      <label style="margin-left:16px;" title="楷書=預設原版（標準臨摹）；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡；粗楷為純濾鏡（字型設計練習用）">字型風格</label>
       <select id="grid-font-style">
         <option value="kaishu" selected>楷書（原版，預設）</option>
-        <option value="mingti">假宋體</option>
-        <option value="lishu">假隸書</option>
-        <option value="bold">粗楷</option>
-        <option value="seal_script">篆書（崇羲；需另裝字型）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
       </select>
       <label style="margin-left:16px;"
              title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
@@ -499,13 +499,13 @@
         <option value="trace">trace (紅軌跡)</option>
         <option value="blank">blank (空格)</option>
       </select>
-      <label style="margin-left:12px;" title="楷書=原始資料；其他為筆畫濾鏡，以 trace/filled 模式最能看出差異">字型風格</label>
+      <label style="margin-left:12px;" title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書（trace/filled 模式最能看出差異）；粗楷為純濾鏡">字型風格</label>
       <select id="nb-style">
-        <option value="kaishu" selected>楷書（原版）</option>
-        <option value="mingti">假宋體</option>
-        <option value="lishu">假隸書</option>
-        <option value="bold">粗楷</option>
-        <option value="seal_script">篆書（崇羲；需另裝字型）</option>
+        <option value="kaishu" selected>楷書（原版，預設）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
       </select>
       <label style="margin-left:12px;"
              title="罕用字（無筆跡資料、g0v/MMH 找不到只能用 CNS 全字庫 outline）的渲染方式">罕用字</label>
@@ -682,13 +682,13 @@
         <option value="trace">trace</option>
         <option value="ghost">ghost</option>
       </select>
-      <label style="margin-left:12px;" title="楷書=原版，其他為筆畫濾鏡">字型風格</label>
+      <label style="margin-left:12px;" title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書；粗楷為純濾鏡（不需授權）">字型風格</label>
       <select id="lt-style">
-        <option value="kaishu" selected>楷書（原版）</option>
-        <option value="mingti">假宋體</option>
-        <option value="lishu">假隸書</option>
-        <option value="bold">粗楷</option>
-        <option value="seal_script">篆書（崇羲；需另裝字型）</option>
+        <option value="kaishu" selected>楷書（原版，預設）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
       </select>
       <label style="margin-left:12px;"
              title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
@@ -789,13 +789,13 @@
         <option value="ghost">ghost (淡底臨摹)</option>
         <option value="blank">blank (空格)</option>
       </select>
-      <label style="margin-left:12px;" title="楷書=原版，其他為筆畫濾鏡">字型風格</label>
+      <label style="margin-left:12px;" title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書；粗楷為純濾鏡（不需授權）">字型風格</label>
       <select id="ms-style">
-        <option value="kaishu" selected>楷書（原版）</option>
-        <option value="mingti">假宋體</option>
-        <option value="lishu">假隸書</option>
-        <option value="bold">粗楷</option>
-        <option value="seal_script">篆書（崇羲；需另裝字型）</option>
+        <option value="kaishu" selected>楷書（原版，預設）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
       </select>
       <label style="margin-left:12px;"
              title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
@@ -938,13 +938,13 @@
     </div>
 
     <div class="row">
-      <label>字型風格</label>
+      <label title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書；粗楷為純濾鏡（不需授權）">字型風格</label>
       <select id="pt-style">
-        <option value="kaishu" selected>楷書（原版）</option>
-        <option value="mingti">假宋體</option>
-        <option value="lishu">假隸書</option>
-        <option value="bold">粗楷</option>
-        <option value="seal_script">篆書（崇羲；需另裝字型）</option>
+        <option value="kaishu" selected>楷書（原版，預設）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
       </select>
       <label style="margin-left:12px;">資料來源</label>
       <select id="pt-source">
@@ -1022,7 +1022,7 @@
     <div class="row">
       <label>印章類型</label>
       <select id="st-preset">
-        <option value="square_name" selected>正方形姓名章 (1-4 字)</option>
+        <option value="square_name" selected>正方形姓名章 (2-5 字)</option>
         <option value="square_official">正方形官章/公司章 (多字 auto grid)</option>
         <option value="round">圓形業務單位戳章 (上弧字 + 中央 1 字)</option>
         <option value="oval">橢圓驗收章 (上下兩排)</option>
@@ -1044,13 +1044,13 @@
     </div>
 
     <div class="row">
-      <label>字型風格</label>
+      <label title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書；粗楷為純濾鏡（不需授權）">字型風格</label>
       <select id="st-style">
-        <option value="kaishu" selected>楷書（原版）</option>
-        <option value="mingti">假宋體</option>
-        <option value="lishu">假隸書</option>
-        <option value="bold">粗楷</option>
-        <option value="seal_script">篆書（崇羲；需另裝字型）</option>
+        <option value="kaishu" selected>楷書（原版，預設）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
       </select>
       <label style="margin-left:12px;">資料來源</label>
       <select id="st-source">
@@ -1464,13 +1464,13 @@
       </select>
       <label style="margin-left:12px;">字大小 (mm)</label>
       <input id="wa-charsize" type="number" value="10" min="2" max="60" step="0.5" style="width:70px;">
-      <label style="margin-left:12px;" title="楷書=原版，其他為筆畫濾鏡">字型風格</label>
+      <label style="margin-left:12px;" title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書；粗楷為純濾鏡（不需授權）">字型風格</label>
       <select id="wa-style">
-        <option value="kaishu" selected>楷書（原版）</option>
-        <option value="mingti">假宋體</option>
-        <option value="lishu">假隸書</option>
-        <option value="bold">粗楷</option>
-        <option value="seal_script">篆書（崇羲；需另裝字型）</option>
+        <option value="kaishu" selected>楷書（原版，預設）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
       </select>
       <label style="margin-left:12px;"
              title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
@@ -3934,6 +3934,7 @@ document.addEventListener("DOMContentLoaded", () => {
   lishuInit();
   songInit();
   kaishuInit();
+  bindAllFontStyleGates();   // Phase 11a: font-style select 授權 gate
   patchInit();   // Phase 5ax
   stampInit();   // Phase 5ay
   sutraInit();   // Phase 5az
@@ -3961,9 +3962,12 @@ function tintPreviewFill(svg) {
     g.setAttribute("stroke", "none");
   });
   // 2. border 顯式 fill=none — 否則整個邊框會被父 group 的灰色塗滿。
-  //    stroke 顏色與寬度保留 SVG 原設定（黑色、0.3mm）。
+  //    **同時顯式 stroke=black** 以 override 父 group 上的 stroke="none"
+  //    （SVG 繼承規則：父 group attribute 會被子元素繼承，除非子元素自己 override）。
+  //    沒這條時「顯示外框」勾選後 border path 仍隱形——用戶會誤以為 toggle 失效。
   svg.querySelectorAll(".patch-outline, .stamp-border").forEach(p => {
     p.setAttribute("fill", "none");
+    p.setAttribute("stroke", "black");
   });
   // 3. patch-write 紅色骨架線：不動，保留 SVG 原 stroke=#c33 / 0.3mm。
 }
@@ -5813,6 +5817,56 @@ function bindFontAuthButton(banner, key, reinitFn) {
     }
     reinitFn();
   };
+}
+
+// ============================================================
+// 字型風格 select 的授權 gate — Phase 5ba+
+// 切到未授權的 style → 自動跳授權 dialog；確認 → 啟用；取消 → rollback
+// ============================================================
+
+// style → 對應的字型授權 key（用 license 對應）
+const STYLE_TO_AUTH_KEY = {
+  mingti: "song",          // 宋體 → 教育部宋體
+  lishu: "lishu",          // 隸書 → 教育部隸書
+  seal_script: "seal",     // 篆書 → 崇羲篆體
+  // kaishu / bold 不需授權（kaishu = 預設 g0v；bold = 純濾鏡）
+};
+
+const STYLE_REINIT_MAP = {
+  song: () => songInit(),
+  lishu: () => lishuInit(),
+  seal: () => sealInit(),
+  cns: () => cnsInit(),
+  kaishu: () => kaishuInit(),
+};
+
+// 當 select 切到需授權的 style 但尚未授權，跳 dialog；取消則 rollback 到 kaishu。
+// 已授權的 style 透明通過。
+function fontStyleAuthGate(selectEl) {
+  const newVal = selectEl.value;
+  const authKey = STYLE_TO_AUTH_KEY[newVal];
+  if (!authKey) return;                  // kaishu / bold — 不需授權
+  if (fontAuthGet(authKey)) return;      // 已授權 — 透明通過
+  // 未授權 → prompt
+  if (fontAuthPromptAndSet(authKey)) {
+    fontAuthSet(authKey, true);
+    // 重 init 對應 banner 讓字型狀態彈窗的綠燈狀態同步
+    const reinit = STYLE_REINIT_MAP[authKey];
+    if (reinit) reinit();
+  } else {
+    // 使用者取消 → rollback 到楷書
+    selectEl.value = "kaishu";
+  }
+}
+
+// 對所有字型風格 select 綁 onchange — 在 DOMContentLoaded 後 call 一次
+function bindAllFontStyleGates() {
+  ["grid-font-style", "nb-style", "lt-style", "ms-style",
+   "pt-style", "st-style", "wa-style"].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.addEventListener("change", () => fontStyleAuthGate(sel));
+  });
 }
 
 // ============================================================
