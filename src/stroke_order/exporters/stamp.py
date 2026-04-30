@@ -479,46 +479,50 @@ def render_stamp_gcode(
                 poly, feed, laser_on, laser_off,
             ))
 
-    scale = char_size_mm / EM_SIZE
-    half = char_size_mm / 2.0
-    # ``size`` is now per-placement (5th tuple element) — most presets use
-    # ``char_size_mm`` uniformly, but ``square_name`` 3-字 1+2 layout and
-    # ``round`` centre char carry per-char overrides.
+    # G-code 採 **bbox-based** non-uniform scale（與 SVG render 對齊）：
+    # 字 outline bbox 撐滿 (w_mm, h_mm) cell，bbox 中心對到 (cx_mm, cy_mm)。
+    # Phase 11g：跟 _char_cut_paths_stretched 一致使用 bbox-fill 而非
+    # EM-fill，避免雷射雕刻的字也比 SVG 預覽小一圈（兩邊現在會視覺一致）。
+    from .patch import _char_outline_bbox_full_em
     for c, cx_mm, cy_mm, rot, w_mm, h_mm in placements:
-        # G-code 採非均勻 scale（square_name 3 字傳統姓氏拉長）：
-        # x 方向 scale = w/EM, y 方向 scale = h/EM。多數 preset w == h
-        # 等價於原本的 uniform scale。
-        glyph_scale_x = w_mm / EM_SIZE
-        glyph_scale_y = h_mm / EM_SIZE
-        glyph_half_w = w_mm / 2.0
-        glyph_half_h = h_mm / 2.0
+        bbox = _char_outline_bbox_full_em(c)
+        if bbox is None:
+            continue
+        min_x, min_y, max_x, max_y = bbox
+        bbox_w_em = max_x - min_x
+        bbox_h_em = max_y - min_y
+        if bbox_w_em <= 0 or bbox_h_em <= 0:
+            continue
+        glyph_scale_x = w_mm / bbox_w_em
+        glyph_scale_y = h_mm / bbox_h_em
+        bcx_em = (min_x + max_x) / 2.0
+        bcy_em = (min_y + max_y) / 2.0
+        # Translate so bbox-centre at (bcx*scale, bcy*scale) lands at (cx_mm, cy_mm)
+        dx = cx_mm - bcx_em * glyph_scale_x
+        dy = cy_mm - bcy_em * glyph_scale_y
         for stroke in c.strokes:
             if not stroke.outline:
                 continue
             pts_em = _outline_to_polyline(stroke)
             if not pts_em:
                 continue
-            local_origin_x = cx_mm - glyph_half_w
-            local_origin_y = cy_mm - glyph_half_h
             pts_mm: list[tuple[float, float]] = []
             for px, py in pts_em:
-                # Non-uniform scale: replace single ``glyph_scale`` with
-                # axis-specific. _transform_pt only takes one scale arg, so
-                # we inline the same logic here.
-                # px, py are in EM frame (Y-up).
-                # Apply scale, then rotate around (half_w, half_h), then
-                # translate to local_origin.
+                # Apply scale, then rotate around (cx_mm, cy_mm) post-scale,
+                # then translate.
                 sx = px * glyph_scale_x
                 sy = py * glyph_scale_y
                 if abs(rot) > 1e-6:
                     import math
                     rad = math.radians(rot)
                     cosr, sinr = math.cos(rad), math.sin(rad)
-                    rx = (sx - glyph_half_w) * cosr - (sy - glyph_half_h) * sinr + glyph_half_w
-                    ry = (sx - glyph_half_w) * sinr + (sy - glyph_half_h) * cosr + glyph_half_h
+                    # Rotation centre in scaled-EM coords:
+                    rcx, rcy = bcx_em * glyph_scale_x, bcy_em * glyph_scale_y
+                    rx = (sx - rcx) * cosr - (sy - rcy) * sinr + rcx
+                    ry = (sx - rcx) * sinr + (sy - rcy) * cosr + rcy
                     sx, sy = rx, ry
-                mx = local_origin_x + sx
-                my = local_origin_y + sy
+                mx = dx + sx
+                my = dy + sy
                 pts_mm.append((mx, my))
             if len(pts_mm) < 2:
                 continue

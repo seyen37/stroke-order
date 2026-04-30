@@ -271,12 +271,26 @@ def _char_cut_paths(c: Character, x_mm: float, y_mm: float,
 def _char_outline_bbox_em(c: Character) -> Optional[tuple]:
     """Return (cx, cy) of the character's outline bbox in EM coordinates.
 
-    Used by stamp render to align glyph **bbox-centre** to the placement
-    point (rather than EM-frame centre at 1024,1024). Critical for outline
-    fonts (教育部隸書 / CNS Sung / 崇羲篆體) whose typographic baseline
-    sits at ascender ≈ 1554 — the EM-centre alignment makes such glyphs
-    visually sink down. This bbox-centre approach mirrors sutra.py's
-    _render_mark_glyph fix from Phase 5br.
+    Convenience wrapper around :func:`_char_outline_bbox_full_em`.
+    """
+    bb = _char_outline_bbox_full_em(c)
+    if bb is None:
+        return None
+    min_x, min_y, max_x, max_y = bb
+    return ((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
+
+
+def _char_outline_bbox_full_em(
+    c: Character,
+) -> Optional[tuple]:
+    """Return (min_x, min_y, max_x, max_y) of the character's outline
+    in EM coordinates, or None if the glyph has no outline data.
+
+    Used by stamp render for **bbox-based scaling** (Phase 11g): instead
+    of scaling the EM frame to fit the cell (which leaves padding because
+    glyphs typically don't fill EM 0..2048), scale the actual bbox to
+    fit. Result: glyphs render visually filling the cell — matching the
+    visual density of physical 印章 designs (好福印 / 大小章 reference).
     """
     all_x: list[float] = []
     all_y: list[float] = []
@@ -292,41 +306,48 @@ def _char_outline_bbox_em(c: Character) -> Optional[tuple]:
                         all_y.append(cmd[k]["y"])
     if not all_x or not all_y:
         return None
-    return ((min(all_x) + max(all_x)) / 2.0,
-            (min(all_y) + max(all_y)) / 2.0)
+    return (min(all_x), min(all_y), max(all_x), max(all_y))
 
 
 def _char_cut_paths_stretched(c: Character, cx_mm: float, cy_mm: float,
                               w_mm: float, h_mm: float,
                               rotation_deg: float = 0.0) -> str:
-    """Like :func:`_char_cut_paths` but with non-uniform scale and
-    **bbox-centre alignment** (instead of EM-centre).
+    """Like :func:`_char_cut_paths` but with **bbox-based** non-uniform
+    scale: the outline's actual bbox is scaled to fill (w_mm, h_mm) and
+    centred on (cx_mm, cy_mm).
 
-    Used by stamp 3-字 traditional layout where the surname is stretched
-    vertically. Bbox-centre alignment is critical: outline-font glyphs
-    (隸書 / 宋體 / 篆書) have baselines at typographic ascender, not EM
-    centre — ignoring this offset makes them sink visually. Width and
-    height are independently specified — pass equal values to get
-    uniform-scale behaviour with bbox-centre (matches stamp render
-    requirements; differs from :func:`_char_cut_paths` only in the
-    centring strategy).
+    Phase 11g change: previously used EM-based scale (w_mm / EM_SIZE),
+    which left typically 10-20% padding around the glyph because outline
+    fonts don't fill EM 0..2048. Now scales the actual bbox so the glyph
+    visually fills the cell — matching physical 印章 reference
+    (好福印 / 大小章, where each char fills its grid cell tightly).
+
+    Used by stamp render for all chars (uniform OR stretched) — the
+    "stretched" name is historical; the function handles both via
+    independent w_mm / h_mm. Pass w == h to get uniform-aspect scale
+    while still benefiting from bbox-based fill.
     """
-    scale_x = w_mm / EM_SIZE
-    scale_y = h_mm / EM_SIZE
-    bbox = _char_outline_bbox_em(c)
+    bbox = _char_outline_bbox_full_em(c)
     if bbox is None:
         return ""
-    bcx, bcy = bbox
-    # Bbox-centre alignment: translate so that (bcx, bcy) in EM lands at
-    # (cx_mm, cy_mm). Replaces the prior half-EM offset which assumed
-    # glyph centre sits at (1024, 1024).
+    min_x, min_y, max_x, max_y = bbox
+    bbox_w = max_x - min_x
+    bbox_h = max_y - min_y
+    if bbox_w <= 0 or bbox_h <= 0:
+        return ""
+    # Bbox-based scale: bbox_w * scale_x = w_mm, bbox_h * scale_y = h_mm.
+    scale_x = w_mm / bbox_w
+    scale_y = h_mm / bbox_h
+    bcx = (min_x + max_x) / 2.0
+    bcy = (min_y + max_y) / 2.0
+    # Translate so bbox-centre at (bcx, bcy) in EM lands at (cx_mm, cy_mm).
     dx = cx_mm - bcx * scale_x
     dy = cy_mm - bcy * scale_y
     tform_parts = [f"translate({dx:.3f},{dy:.3f})"]
     if abs(rotation_deg) > 1e-6:
-        # Rotate around (bcx*scale_x, bcy*scale_y) — the post-scale
-        # bbox centre, which now coincides with (cx_mm, cy_mm) after
-        # the translate above.
+        # SVG transform 從右到左套用到 point — rotate 在 scale 後、
+        # translate 前的座標系統運作，所以 rotation centre 必須是
+        # post-scale 的 bbox-centre，亦即 (bcx*scale_x, bcy*scale_y)。
         tform_parts.append(
             f"rotate({rotation_deg:.2f},"
             f"{bcx * scale_x:.3f},{bcy * scale_y:.3f})"
