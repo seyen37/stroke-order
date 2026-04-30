@@ -247,21 +247,21 @@ def _placements_for_preset(
 
     if preset == "square_name":
         if n == 3:
-            # Taiwan traditional 1+2 layout:
+            # Taiwan traditional 1+2 layout (Phase 11f tuned for fuller fill):
             # Right column: surname (chars[0]) NON-UNIFORMLY stretched —
-            #   width = half inner width (~48%), height = ~85% inner.
-            #   This is the visual hallmark of 私章: surname elongated.
-            #   Renders via _char_cut_paths_stretched (separate scale_x/y).
+            #   width = ~50% inner_w, height = ~92% inner_h (filling almost
+            #   to the border for visual weight). Surname is the focal
+            #   point of 私章.
             # Left column: given names (chars[1], chars[2]), uniform scale,
-            #   stacked top/bottom each ~42% of inner height.
+            #   stacked top/bottom each ~46% of inner height.
             right_x = cx + inner_w * 0.25
-            right_w = inner_w * 0.48
-            right_h = inner_h * 0.85
+            right_w = inner_w * 0.50
+            right_h = inner_h * 0.92
             placements.append((chars[0], right_x, cy, 0.0, right_w, right_h))
             left_x = cx - inner_w * 0.25
-            left_size = min(inner_h * 0.42, inner_w * 0.48)
-            top_y = cy - inner_h * 0.22
-            bot_y = cy + inner_h * 0.22
+            left_size = min(inner_h * 0.46, inner_w * 0.50)
+            top_y = cy - inner_h * 0.23
+            bot_y = cy + inner_h * 0.23
             _add(chars[1], left_x, top_y, 0.0, left_size)
             _add(chars[2], left_x, bot_y, 0.0, left_size)
         else:
@@ -359,9 +359,16 @@ def render_stamp_svg(
     border_padding_mm: float = 2.0,
     decorations: list[SvgDecoration] = None,
     color: str = "#000",
-    stroke_width: float = 0.3,
+    stroke_width: float = 0.6,
 ) -> str:
-    """Render a single stamp as one-layer SVG (laser-engrave-friendly)."""
+    """Render a single stamp as one-layer SVG (laser-engrave-friendly).
+
+    ``stroke_width`` (default 0.6mm, was 0.3mm in earlier phases) controls
+    both the border line and the character-outline stroke. Bumped to 0.6mm
+    for visual presence — 0.3mm rendered too thin on the screen preview
+    given typical 25mm stamp sizes (ratio 1.2%). Laser engravers can still
+    handle 0.6mm cleanly; further customisation via the parameter.
+    """
     decorations = decorations or []
     chars: list[Character] = []
     for ch in text:
@@ -390,15 +397,15 @@ def render_stamp_svg(
             if d:
                 pieces.append(f'<path class="stamp-border" d="{d}"/>')
 
-    # Char outlines. ``(w, h)`` are per-placement — most presets pass
-    # w == h (uniform scale, _char_cut_paths). ``square_name`` 3-字 1+2
-    # layout produces non-uniform stretch (w != h) for the surname,
-    # rendered via _char_cut_paths_stretched.
+    # Char outlines. Stamp uses _char_cut_paths_stretched **uniformly**
+    # for all chars (including w == h ones) — this version aligns to
+    # glyph BBOX centre (not EM-frame centre), critical for outline-only
+    # fonts (隸書/宋體/篆書) whose baselines sit at ascender. Without
+    # bbox-centre alignment, those glyphs visually sink to the bottom of
+    # their cell. The function gracefully handles w == h as ordinary
+    # uniform scale (same scale_x / scale_y).
     for c, x, y, rot, w, h in placements:
-        if abs(w - h) < 1e-6:
-            pieces.append(_char_cut_paths(c, x, y, w, rot))
-        else:
-            pieces.append(_char_cut_paths_stretched(c, x, y, w, h, rot))
+        pieces.append(_char_cut_paths_stretched(c, x, y, w, h, rot))
 
     # Decorations.
     for d in decorations:

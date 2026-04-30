@@ -268,24 +268,68 @@ def _char_cut_paths(c: Character, x_mm: float, y_mm: float,
     return f'<g transform="{" ".join(tform_parts)}">{"".join(parts)}</g>'
 
 
+def _char_outline_bbox_em(c: Character) -> Optional[tuple]:
+    """Return (cx, cy) of the character's outline bbox in EM coordinates.
+
+    Used by stamp render to align glyph **bbox-centre** to the placement
+    point (rather than EM-frame centre at 1024,1024). Critical for outline
+    fonts (教育部隸書 / CNS Sung / 崇羲篆體) whose typographic baseline
+    sits at ascender ≈ 1554 — the EM-centre alignment makes such glyphs
+    visually sink down. This bbox-centre approach mirrors sutra.py's
+    _render_mark_glyph fix from Phase 5br.
+    """
+    all_x: list[float] = []
+    all_y: list[float] = []
+    for s in c.strokes:
+        if s.outline:
+            for cmd in s.outline:
+                if "x" in cmd and "y" in cmd:
+                    all_x.append(cmd["x"])
+                    all_y.append(cmd["y"])
+                for k in ("begin", "mid", "end"):
+                    if k in cmd:
+                        all_x.append(cmd[k]["x"])
+                        all_y.append(cmd[k]["y"])
+    if not all_x or not all_y:
+        return None
+    return ((min(all_x) + max(all_x)) / 2.0,
+            (min(all_y) + max(all_y)) / 2.0)
+
+
 def _char_cut_paths_stretched(c: Character, cx_mm: float, cy_mm: float,
                               w_mm: float, h_mm: float,
                               rotation_deg: float = 0.0) -> str:
-    """Like :func:`_char_cut_paths` but with non-uniform scale.
+    """Like :func:`_char_cut_paths` but with non-uniform scale and
+    **bbox-centre alignment** (instead of EM-centre).
 
     Used by stamp 3-字 traditional layout where the surname is stretched
-    vertically to fill its half-column (typical Taiwan name-seal style).
-    Width and height are independently specified — pass equal values to
-    get uniform behaviour identical to :func:`_char_cut_paths`.
+    vertically. Bbox-centre alignment is critical: outline-font glyphs
+    (隸書 / 宋體 / 篆書) have baselines at typographic ascender, not EM
+    centre — ignoring this offset makes them sink visually. Width and
+    height are independently specified — pass equal values to get
+    uniform-scale behaviour with bbox-centre (matches stamp render
+    requirements; differs from :func:`_char_cut_paths` only in the
+    centring strategy).
     """
     scale_x = w_mm / EM_SIZE
     scale_y = h_mm / EM_SIZE
-    half_w = w_mm / 2.0
-    half_h = h_mm / 2.0
-    tform_parts = [f"translate({cx_mm - half_w:.3f},{cy_mm - half_h:.3f})"]
+    bbox = _char_outline_bbox_em(c)
+    if bbox is None:
+        return ""
+    bcx, bcy = bbox
+    # Bbox-centre alignment: translate so that (bcx, bcy) in EM lands at
+    # (cx_mm, cy_mm). Replaces the prior half-EM offset which assumed
+    # glyph centre sits at (1024, 1024).
+    dx = cx_mm - bcx * scale_x
+    dy = cy_mm - bcy * scale_y
+    tform_parts = [f"translate({dx:.3f},{dy:.3f})"]
     if abs(rotation_deg) > 1e-6:
+        # Rotate around (bcx*scale_x, bcy*scale_y) — the post-scale
+        # bbox centre, which now coincides with (cx_mm, cy_mm) after
+        # the translate above.
         tform_parts.append(
-            f"rotate({rotation_deg:.2f},{half_w:.3f},{half_h:.3f})"
+            f"rotate({rotation_deg:.2f},"
+            f"{bcx * scale_x:.3f},{bcy * scale_y:.3f})"
         )
     tform_parts.append(f"scale({scale_x:.6f},{scale_y:.6f})")
     parts = []
