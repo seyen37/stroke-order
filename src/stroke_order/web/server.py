@@ -2550,8 +2550,13 @@ def create_app() -> FastAPI:
             try:
                 c, _r, _ = _load(ch, req.source, req.hook_policy)
                 c = _upgrade_to_sung(c, req.style)
-                c = _upgrade_to_seal(c, req.style)
-                c = _upgrade_to_lishu(c, req.style)
+                # stamp 是 outline-only 渲染（_char_cut_paths 只看 stroke.outline，
+                # 跳過 stroke.raw_track）。預設 *_outline_mode="skeleton" 會把 outline
+                # 轉成 centerline polylines → stamp 渲染時跳過 → 預覽空白。
+                # 用 "skip" 保留原 outline 才能被 stamp 雕刻 path 渲染。
+                # 對應 patch endpoint 的設計（line 594-595）。
+                c = _upgrade_to_seal(c, req.style, seal_outline_mode="skip")
+                c = _upgrade_to_lishu(c, req.style, lishu_outline_mode="skip")
                 if req.style != "kaishu":
                     c = _apply_style(c, req.style)
                 return c
