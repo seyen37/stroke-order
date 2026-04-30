@@ -1043,6 +1043,20 @@
       <span id="st-capacity" style="margin-left:10px;color:var(--muted);font-size:11px;"></span>
     </div>
 
+    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+         padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
+      <label title="3 字姓名章慣例會在第 4 格補一個字（預設「印」）湊成 2×2 對稱佈局，視覺更傳統。其他字數時不補。">
+        <input id="st-auto-fill" type="checkbox" checked> 3 字自動補字
+      </label>
+      <label style="margin-left:8px;">補字</label>
+      <input id="st-auto-fill-char" type="text" value="印" maxlength="1"
+             style="width:32px;text-align:center;font-size:14px;"
+             title="3 字輸入時自動 append 此字。台灣慣例為「印」，也可改「之印」「氏印」「印章」等其他字。">
+      <span style="margin-left:10px;color:var(--muted);font-size:11px;">
+        例：王小明 → 王小明印（2×2）
+      </span>
+    </div>
+
     <div class="row">
       <label title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書；粗楷為純濾鏡（不需授權）">字型風格</label>
       <select id="st-style">
@@ -4265,8 +4279,15 @@ function stampRefreshDecoList() {
 function stampBuildBody(format) {
   const $ = id => document.getElementById(id).value;
   const $$ = id => document.getElementById(id);
+  // 3 字姓名章 auto-fill：3 字輸入 + checkbox 勾選 → 補一個字湊成 4 字
+  // 用既有 square_name preset 的 2×2 layout（台灣個人章傳統樣式）
+  let text = $("st-text");
+  if (text.length === 3 && $$("st-auto-fill")?.checked) {
+    const fillChar = ($("st-auto-fill-char") || "印").trim().slice(0, 1) || "印";
+    text = text + fillChar;
+  }
   return {
-    text: $("st-text"),
+    text: text,
     preset: $("st-preset"),
     stamp_width_mm: parseFloat($("st-w")),
     stamp_height_mm: parseFloat($("st-h")),
