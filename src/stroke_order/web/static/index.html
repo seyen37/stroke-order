@@ -3954,17 +3954,28 @@ document.addEventListener("DOMContentLoaded", () => {
 // ============================================================
 function tintPreviewFill(svg) {
   if (!svg) return;
-  // 1. 字 outline → 淡灰 fill, 移除 stroke 避免線框感
+  // 1. 字 outline → 淡灰 fill。
+  //    **不對父 group 設 stroke** — 這會被子元素繼承，抹掉：
+  //    (a) .stamp-border / .patch-outline 邊框
+  //    (b) 隸書 / 篆書筆畫骨架線（5aj 濾鏡產生的 stroke-based polyline）
+  //        ←  這個若被抹掉，預覽就會空白！
+  //    改用「個別 path 是否有 stroke 屬性」判斷：
+  //    - outline path（無 stroke 屬性）→ 顯式 stroke="none"（避免線框感）
+  //    - 骨架線 polyline / polygon（有 stroke 屬性）→ 不動，保留自己的 stroke
   ["patch-cut", "stamp-engrave"].forEach(id => {
     const g = svg.querySelector("#" + id);
     if (!g) return;
     g.setAttribute("fill", "#888");
-    g.setAttribute("stroke", "none");
+    // 對「沒設 stroke 屬性的」子 path/polyline/polygon 顯式 stroke="none"。
+    // 這樣 outline 字無線框感，但骨架線保留原 stroke。
+    g.querySelectorAll("path, polyline, polygon").forEach(elem => {
+      if (!elem.hasAttribute("stroke")) {
+        elem.setAttribute("stroke", "none");
+      }
+    });
   });
   // 2. border 顯式 fill=none — 否則整個邊框會被父 group 的灰色塗滿。
-  //    **同時顯式 stroke=black** 以 override 父 group 上的 stroke="none"
-  //    （SVG 繼承規則：父 group attribute 會被子元素繼承，除非子元素自己 override）。
-  //    沒這條時「顯示外框」勾選後 border path 仍隱形——用戶會誤以為 toggle 失效。
+  //    顯式 stroke=black 保證可見（無條件 override）。
   svg.querySelectorAll(".patch-outline, .stamp-border").forEach(p => {
     p.setAttribute("fill", "none");
     p.setAttribute("stroke", "black");
