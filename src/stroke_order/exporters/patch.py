@@ -242,7 +242,12 @@ def _layout_text_positions(
 
 def _char_cut_paths(c: Character, x_mm: float, y_mm: float,
                     size_mm: float, rotation_deg: float = 0.0) -> str:
-    """Embed a Character's outlines as <path> elements at (x, y)."""
+    """Embed a Character's outlines as <path> elements at (x, y).
+
+    Uniform scale (width = height = size_mm). For non-uniform stretch
+    (e.g. stamp 3-字 traditional layout where surname is elongated),
+    use :func:`_char_cut_paths_stretched`.
+    """
     scale = size_mm / EM_SIZE
     # SVG transform: translate to centre, then rotate, then scale,
     # then offset by half-em so the glyph sits centred.
@@ -253,6 +258,36 @@ def _char_cut_paths(c: Character, x_mm: float, y_mm: float,
             f"rotate({rotation_deg:.2f},{half:.3f},{half:.3f})"
         )
     tform_parts.append(f"scale({scale:.6f})")
+    parts = []
+    for stroke in c.strokes:
+        if stroke.outline:
+            d = _outline_path_d(stroke)
+            parts.append(f'<path d="{d}"/>')
+    if not parts:
+        return ""
+    return f'<g transform="{" ".join(tform_parts)}">{"".join(parts)}</g>'
+
+
+def _char_cut_paths_stretched(c: Character, cx_mm: float, cy_mm: float,
+                              w_mm: float, h_mm: float,
+                              rotation_deg: float = 0.0) -> str:
+    """Like :func:`_char_cut_paths` but with non-uniform scale.
+
+    Used by stamp 3-字 traditional layout where the surname is stretched
+    vertically to fill its half-column (typical Taiwan name-seal style).
+    Width and height are independently specified — pass equal values to
+    get uniform behaviour identical to :func:`_char_cut_paths`.
+    """
+    scale_x = w_mm / EM_SIZE
+    scale_y = h_mm / EM_SIZE
+    half_w = w_mm / 2.0
+    half_h = h_mm / 2.0
+    tform_parts = [f"translate({cx_mm - half_w:.3f},{cy_mm - half_h:.3f})"]
+    if abs(rotation_deg) > 1e-6:
+        tform_parts.append(
+            f"rotate({rotation_deg:.2f},{half_w:.3f},{half_h:.3f})"
+        )
+    tform_parts.append(f"scale({scale_x:.6f},{scale_y:.6f})")
     parts = []
     for stroke in c.strokes:
         if stroke.outline:

@@ -31,6 +31,7 @@ from ..ir import Character, EM_SIZE
 from .patch import (
     SvgDecoration,
     _char_cut_paths,
+    _char_cut_paths_stretched,
     _ensure_polygon,
     _polygon_to_svg_path,
     _decoration_svg,
@@ -215,8 +216,20 @@ def _placements_for_preset(
     border_padding_mm: float = 2.0,
     double_border: bool,
     double_gap_mm: float,
-) -> list[tuple[Character, float, float, float]]:
-    """Return ``[(char, cx_mm, cy_mm, rotation_deg), ...]``."""
+) -> list[tuple[Character, float, float, float, float, float]]:
+    """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
+
+    ``(w_mm, h_mm)`` are independent per-character width / height. Most
+    presets pass ``w == h == char_size_mm`` (uniform scale, identical to
+    pre-refactor behaviour). Specific layouts override:
+    - ``square_name`` 3-字 1+2 traditional: surname stretched (w small,
+      h large) — see line ~233.
+    - ``round`` centre char: 1.4× uniform scale.
+
+    Non-uniform stretch (w != h) renders via
+    :func:`_char_cut_paths_stretched` instead of the uniform-scale
+    :func:`_char_cut_paths`.
+    """
     cx, cy = width_mm / 2.0, height_mm / 2.0
     inset = border_padding_mm + (double_gap_mm if double_border else 0)
     inner_w = max(width_mm - 2 * inset, char_size_mm)
@@ -225,26 +238,49 @@ def _placements_for_preset(
     if n == 0:
         return []
 
-    placements: list[tuple[Character, float, float, float]] = []
+    placements: list[
+        tuple[Character, float, float, float, float, float]] = []
+
+    def _add(c, x, y, rot, sz):
+        """Uniform-scale placement helper: width = height = sz."""
+        placements.append((c, x, y, rot, sz, sz))
 
     if preset == "square_name":
-        # 1-4 chars: vertical strip if N≤3, 2×2 if N=4. Right column
-        # first (single-column case is unaffected).
-        if n <= 3:
-            rows, cols = n, 1
+        if n == 3:
+            # Taiwan traditional 1+2 layout:
+            # Right column: surname (chars[0]) NON-UNIFORMLY stretched —
+            #   width = half inner width (~48%), height = ~85% inner.
+            #   This is the visual hallmark of 私章: surname elongated.
+            #   Renders via _char_cut_paths_stretched (separate scale_x/y).
+            # Left column: given names (chars[1], chars[2]), uniform scale,
+            #   stacked top/bottom each ~42% of inner height.
+            right_x = cx + inner_w * 0.25
+            right_w = inner_w * 0.48
+            right_h = inner_h * 0.85
+            placements.append((chars[0], right_x, cy, 0.0, right_w, right_h))
+            left_x = cx - inner_w * 0.25
+            left_size = min(inner_h * 0.42, inner_w * 0.48)
+            top_y = cy - inner_h * 0.22
+            bot_y = cy + inner_h * 0.22
+            _add(chars[1], left_x, top_y, 0.0, left_size)
+            _add(chars[2], left_x, bot_y, 0.0, left_size)
         else:
-            rows, cols = 2, 2
-        coords = _grid_positions_right_to_left(
-            n, rows, cols, inner_w, inner_h, cx, cy)
-        for c, (x, y) in zip(chars, coords):
-            placements.append((c, x, y, 0.0))
+            # 1-2 chars: vertical strip; 4 chars: 2×2. Right column first.
+            if n <= 2:
+                rows, cols = n, 1
+            else:  # n == 4
+                rows, cols = 2, 2
+            coords = _grid_positions_right_to_left(
+                n, rows, cols, inner_w, inner_h, cx, cy)
+            for c, (x, y) in zip(chars, coords):
+                _add(c, x, y, 0.0, char_size_mm)
 
     elif preset == "square_official":
         rows, cols = _auto_grid_dims(n)
         coords = _grid_positions_right_to_left(
             n, rows, cols, inner_w, inner_h, cx, cy)
         for c, (x, y) in zip(chars, coords):
-            placements.append((c, x, y, 0.0))
+            _add(c, x, y, 0.0, char_size_mm)
 
     elif preset == "round":
         # First (n-1) chars on outer arc, last char in centre.
@@ -256,24 +292,20 @@ def _placements_for_preset(
                 span_deg=240.0, start_deg=-120.0,
             )
             for c, (x, y, rot) in zip(arc_chars, ring):
-                placements.append((c, x, y, rot))
-            # Centre char larger to stand out.
-            placements.append((chars[-1], cx, cy, 0.0))
+                _add(c, x, y, rot, char_size_mm)
+            # Centre char 1.4× larger for visual weight.
+            _add(chars[-1], cx, cy, 0.0, char_size_mm * 1.4)
         else:
-            # Single char goes in the centre with no ring.
-            placements.append((chars[0], cx, cy, 0.0))
+            _add(chars[0], cx, cy, 0.0, char_size_mm)
 
     elif preset == "oval":
         # 1-2 horizontal lines, top-to-bottom reading.
-        # Splits chars roughly in half if > 4 chars.
         if n <= 4:
-            # Single horizontal row.
             spacing = inner_w / max(n, 1)
             x0 = cx - inner_w / 2 + spacing / 2
             for i, c in enumerate(chars):
-                placements.append((c, x0 + i * spacing, cy, 0.0))
+                _add(c, x0 + i * spacing, cy, 0.0, char_size_mm)
         else:
-            # Two rows (top, bottom).
             half = (n + 1) // 2
             top_row = chars[:half]
             bot_row = chars[half:]
@@ -287,10 +319,9 @@ def _placements_for_preset(
                 spacing = inner_w / m
                 x0 = cx - inner_w / 2 + spacing / 2
                 for i, c in enumerate(row_chars):
-                    placements.append((c, x0 + i * spacing, y_off, 0.0))
+                    _add(c, x0 + i * spacing, y_off, 0.0, char_size_mm)
 
     elif preset == "rectangle_title":
-        # Two horizontal rows: top = first half, bottom = second half.
         half = (n + 1) // 2
         top_row = chars[:half]
         bot_row = chars[half:]
@@ -304,7 +335,7 @@ def _placements_for_preset(
             spacing = inner_w / m
             x0 = cx - inner_w / 2 + spacing / 2
             for i, c in enumerate(row_chars):
-                placements.append((c, x0 + i * spacing, y_off, 0.0))
+                _add(c, x0 + i * spacing, y_off, 0.0, char_size_mm)
 
     return placements
 
@@ -359,14 +390,15 @@ def render_stamp_svg(
             if d:
                 pieces.append(f'<path class="stamp-border" d="{d}"/>')
 
-    # Char outlines.
-    for c, x, y, rot in placements:
-        # Round preset: centre char gets bigger size for visual weight.
-        size = char_size_mm
-        if preset == "round" and len(chars) >= 2:
-            if (c, x, y, rot) == placements[-1]:
-                size = char_size_mm * 1.4
-        pieces.append(_char_cut_paths(c, x, y, size, rot))
+    # Char outlines. ``(w, h)`` are per-placement — most presets pass
+    # w == h (uniform scale, _char_cut_paths). ``square_name`` 3-字 1+2
+    # layout produces non-uniform stretch (w != h) for the surname,
+    # rendered via _char_cut_paths_stretched.
+    for c, x, y, rot, w, h in placements:
+        if abs(w - h) < 1e-6:
+            pieces.append(_char_cut_paths(c, x, y, w, rot))
+        else:
+            pieces.append(_char_cut_paths_stretched(c, x, y, w, h, rot))
 
     # Decorations.
     for d in decorations:
@@ -442,28 +474,44 @@ def render_stamp_gcode(
 
     scale = char_size_mm / EM_SIZE
     half = char_size_mm / 2.0
-    for c, cx_mm, cy_mm, rot in placements:
-        size = char_size_mm
-        if preset == "round" and len(chars) >= 2:
-            if (c, cx_mm, cy_mm, rot) == placements[-1]:
-                size = char_size_mm * 1.4
-        glyph_scale = size / EM_SIZE
-        glyph_half = size / 2.0
+    # ``size`` is now per-placement (5th tuple element) — most presets use
+    # ``char_size_mm`` uniformly, but ``square_name`` 3-字 1+2 layout and
+    # ``round`` centre char carry per-char overrides.
+    for c, cx_mm, cy_mm, rot, w_mm, h_mm in placements:
+        # G-code 採非均勻 scale（square_name 3 字傳統姓氏拉長）：
+        # x 方向 scale = w/EM, y 方向 scale = h/EM。多數 preset w == h
+        # 等價於原本的 uniform scale。
+        glyph_scale_x = w_mm / EM_SIZE
+        glyph_scale_y = h_mm / EM_SIZE
+        glyph_half_w = w_mm / 2.0
+        glyph_half_h = h_mm / 2.0
         for stroke in c.strokes:
             if not stroke.outline:
                 continue
             pts_em = _outline_to_polyline(stroke)
             if not pts_em:
                 continue
-            local_origin_x = cx_mm - glyph_half
-            local_origin_y = cy_mm - glyph_half
+            local_origin_x = cx_mm - glyph_half_w
+            local_origin_y = cy_mm - glyph_half_h
             pts_mm: list[tuple[float, float]] = []
             for px, py in pts_em:
-                mx, my = _transform_pt(
-                    px, py,
-                    local_origin_x, local_origin_y,
-                    glyph_scale, glyph_half, glyph_half, rot,
-                )
+                # Non-uniform scale: replace single ``glyph_scale`` with
+                # axis-specific. _transform_pt only takes one scale arg, so
+                # we inline the same logic here.
+                # px, py are in EM frame (Y-up).
+                # Apply scale, then rotate around (half_w, half_h), then
+                # translate to local_origin.
+                sx = px * glyph_scale_x
+                sy = py * glyph_scale_y
+                if abs(rot) > 1e-6:
+                    import math
+                    rad = math.radians(rot)
+                    cosr, sinr = math.cos(rad), math.sin(rad)
+                    rx = (sx - glyph_half_w) * cosr - (sy - glyph_half_h) * sinr + glyph_half_w
+                    ry = (sx - glyph_half_w) * sinr + (sy - glyph_half_h) * cosr + glyph_half_h
+                    sx, sy = rx, ry
+                mx = local_origin_x + sx
+                my = local_origin_y + sy
                 pts_mm.append((mx, my))
             if len(pts_mm) < 2:
                 continue
