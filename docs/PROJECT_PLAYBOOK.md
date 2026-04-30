@@ -306,6 +306,93 @@ git fetch backup
 git pa  # 驗證雙推可用
 ```
 
+### 3.8 PaaS 部署的 build vs runtime fs 模型
+
+> 部署到免費 / 廉價 PaaS（Render free tier、Railway、Fly.io 等）時，**build phase 寫到 `$HOME/` 的檔案不會傳到 runtime container**——只有 git-checkout 路徑（如 Render 的 `/opt/render/project/src/`）才會。
+
+#### 3.8.1 為什麼會踩雷
+
+直觀以為「build 完成後整個 container fs 都變成 runtime fs」——錯。多數 PaaS 設計：
+- **Build container**：跑 `buildCommand`，`$HOME/` 是 build user 的 ephemeral workspace，build 結束就丟
+- **Runtime container**：fresh 起，**只**承襲 git checkout 路徑內的檔案
+
+任何 build 階段下載 / 生成想 persist 到 runtime 的檔案（字型、預訓練模型、編譯快取等），**必須**寫到 git-checkout 路徑下，不要寫到 `$HOME/` 或其他「臨時」目錄。
+
+#### 3.8.2 正確 pattern
+
+**反例（會踩雷）**：
+```yaml
+buildCommand: |
+  pip install -e ".[web]"
+  bash scripts/fetch_assets.sh    # script 內部寫到 $HOME/.myapp/
+```
+
+**正確做法**：
+```yaml
+buildCommand: |
+  pip install -e ".[web]"
+  MYAPP_DEST=/opt/render/project/src/.assets bash scripts/fetch_assets.sh
+
+envVars:
+  - key: MYAPP_ASSETS_DIR
+    value: /opt/render/project/src/.assets   # runtime 從這裡讀
+```
+
+並在 `.gitignore` 加 `.assets/`，避免本地跑 build 誤 commit 大檔。
+
+#### 3.8.3 fetch script 的 graceful 設計
+
+下載第三方資源時，**單一資源失敗不該 abort 整個 build**：
+- 用 try-per-resource，記 `ok/fail/total` 計數
+- `exit 0` 即使部分失敗——讓 app 帶著「部分功能 degraded」上線比 build 完全不過好
+- 若服務有 fallback path（前端 fallback 到濾鏡 / 伺服器側 fallback 到 default），這個設計尤其有效
+
+> 📜 **真實案例**：見各專案決策日誌（搜尋 `render_fetch` 或 `build runtime fs`）。
+
+### 3.9 跨 AI session / 跨電腦並行工作 SOP
+
+> 同一個 repo 被多台電腦或多場 AI session 並行更新時，會發生 push 拒絕 / 章節編號碰撞 / 工作覆寫等衝突。下面 4 條 SOP 預防。
+
+#### 3.9.1 每場 session 開工前必跑
+
+```powershell
+git fetch                # 拉 remote 變動
+git status               # 確認本地 vs remote 差距
+git log --oneline --decorate -5    # 看 remote 是否多出未知 commit
+```
+
+❌ 不要假設 local 是最新——另一台電腦或另一場 AI session 可能在你不知道的時候 push 過 commit。
+
+#### 3.9.2 動筆加新章節編號前先 grep
+
+```powershell
+# 之前在編 §8.5，加新章節前確認 §8.x 哪個是空編號
+grep "^### 8\." PROJECT_PLAYBOOK.md
+```
+
+❌ 不要看到「§8.4 是最後一條」就直接加 §8.5——另一場 session 可能也加了 §8.5（不同內容）。
+
+#### 3.9.3 破壞性 git 操作前用 `format-patch` 備份
+
+`rebase`、`reset --hard`、`force push` 之前：
+
+```powershell
+# 把本地 unpushed commits 存成 patch（永不丟失）
+git format-patch <base>..HEAD --stdout > C:\path\to\backup.patch
+```
+
+萬一操作失敗或發現遠端版本更好，可用 `git apply backup.patch` 還原本地工作。**5 秒備份 = 永不後悔**。
+
+#### 3.9.4 發現 diverge 時的處理順序
+
+1. **先理解** remote 多了什麼：`git log --oneline --graph --all -10` 看 commit 主題
+2. **判斷是否重疊**：commit message 提到的章節 / 主題是否與本場工作重疊？
+3. **重疊高** → reset to remote + cherry-pick 本場獨特部分（昨夜 stroke-order × personal-playbook 並行整合即此模式）
+4. **重疊低** → 標準 `pull --rebase` 即可
+5. **完全衝突** → 暫停、做差異分析、寫整合 plan、再動手
+
+> 📜 **真實案例**：見各專案決策日誌（搜尋 `divergence` 或 `cross-session race`）。
+
 ---
 
 ## 四、工作紀錄自動化規則
@@ -679,6 +766,82 @@ grep "^\.env" .gitignore
 3. **只要有「使用了但沒 attribution」的，視為 violation**——即使是公共領域資料，attribution 也表達基本尊重
 
 > 檢查觸發點：每次 release 前 + repo 從 Private 改 Public 前 + 新增 dataset / 字型 / 圖庫的 commit。
+
+### 7.6 強制 attribution 資源的主動同意 gate UX 模式
+
+> 公開部署的網站使用 **CC BY-ND**、**CC BY-SA**、嚴格 attribution 要求的字型 / 圖庫 / 資料時，光在 LICENSE 末段標 attribution 不夠——使用者**沒看見** = 沒達成「visible attribution」的精神。本節給設計模式：UI 上紅綠燈 + 主動同意 gate。
+
+#### 7.6.1 何時必用
+
+凡屬下列任一情境：
+- 部署的線上 demo / 工具用到 **CC BY-ND**（必須顯示原作者）資源
+- 用到 **CC BY-SA**（衍生作品也要 BY-SA、attribution 強制）
+- 政府開放資料的「強制標示出處」條款（例如 Taiwan 政府資料開放授權 1.0）
+- 任何 license 寫「**must visibly attribute**」的資源
+
+純把 attribution 寫在 LICENSE 末段、頁尾小字，**法律上爭議大**——普通使用者不會看到。
+
+#### 7.6.2 設計模式：紅燈預設 + 主動同意 toggle
+
+```
+進入頁面 → 字型/資源預設 紅燈（未授權）
+   ↓ 使用者點 [授權] 按鈕
+彈出 confirm dialog 顯示：
+   - 資源名稱 + 字數 / 規格
+   - License 條款摘要
+   - Attribution（原作者 + URL）
+   - 法律精確說明：「授權 = 同意網站代為下載/使用，著作權仍歸原作者」
+   ↓ 使用者按 [確定]
+紅燈 → 綠燈，按鈕變 [取消授權]，資源啟用
+   ↓ 使用者隨時可點 [取消授權]
+直接生效（無二次確認），綠 → 紅
+```
+
+#### 7.6.3 三個關鍵法律精確點
+
+**(a) 區分「下載/使用代理」 vs 「授權轉讓」**
+
+最容易誤解的點。「授權」一詞模糊——使用者可能誤以為 = 「字型給我用 forever」。實際是「**我授權網站從來源下載並代為使用，著作權仍歸原作者**」。
+
+UI 必須**顯著標示**這個區別。建議在 modal 頂端放橘色警示框：
+
+```html
+⚠️「授權」一詞的精確意義：此處的「授權」指您授權本網站從字型來源網站
+下載與使用該字型，並非字型授權的轉讓。字型本身的著作權仍歸原作者所有。
+```
+
+**(b) Confirm dialog 包含 license URL**
+
+使用者要有「能跳到 license 全文」的能力。dialog 內必含 `licenseUrl`，不是只有 license 名稱。
+
+**(c) 取消授權直接生效**
+
+CC BY-ND 等 license 內含「使用者可隨時撤回」精神。「取消授權」不該需二次確認——直接清 localStorage、紅燈、disable 該資源。
+
+#### 7.6.4 技術實作架構（純前端 gate）
+
+最簡單實作：
+- 後端字型 / 資源**永遠載入**（runtime 不依授權狀態）
+- 前端用 `localStorage["app:resource-authorized:" + key] === "1"` 控制 UI 紅綠燈
+- 5 個 init function 各自 check `localStorage` → 渲染對應 banner（紅燈 + 授權按鈕 / 綠燈 + 取消授權 + attribution）
+- render 時前端可選擇 reject 未授權 style（額外 gate；非必要）
+
+**為什麼純前端足夠**：CC BY-ND 主要要求「**visible attribution + 使用者明確同意**」，不是嚴格 access control。純前端 UI 顯示 + 點按同意已達成這目標。
+
+**何時需要後端 gate**：商業專案、強監管產業（醫療 / 金融）、license 明確要求 server-side enforcement。一般教育 / 工具網站純前端足夠。
+
+#### 7.6.5 跨字型 / 多資源時的粒度
+
+5 套字型 / 多份資料時，**每個獨立 toggle**——粒度精確匹配 license 顆粒度。一次性「授權所有」按鈕雖簡潔，但混淆不同 license 條款。
+
+#### 7.6.6 按鈕視覺位置
+
+按鈕放在 banner **最前面**（左側），不是末尾。原因：
+- 中文 UI 慣例「動作詞」在左
+- 末尾的按鈕容易被長 attribution 文字擠到視窗外
+- 點擊區域明顯、降低使用者尋找成本
+
+> 📜 **真實案例**：見各專案決策日誌（搜尋 `font_authorization_gate` 或 `cc-by-nd consent ui`）。
 
 ---
 
