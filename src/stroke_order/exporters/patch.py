@@ -492,12 +492,15 @@ def render_patch_svg(
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {total_w:.3f} {total_h:.3f}" '
-        f'width="{total_w:.3f}mm" height="{total_h:.3f}mm">'
+        f'width="{total_w:.3f}mm" height="{total_h:.3f}mm" '
+        f'shape-rendering="geometricPrecision">'
         f'<g id="patch-cut" stroke="{cut_color}" stroke-width="{cut_width}" '
-        f'fill="none" stroke-linecap="round" stroke-linejoin="round">'
+        f'fill="none" stroke-linecap="round" stroke-linejoin="round" '
+        f'shape-rendering="geometricPrecision">'
         f'{"".join(cut_tiles)}</g>'
         f'<g id="patch-write" stroke="{write_color}" stroke-width="{write_width}" '
-        f'fill="none" stroke-linecap="round" stroke-linejoin="round">'
+        f'fill="none" stroke-linecap="round" stroke-linejoin="round" '
+        f'shape-rendering="geometricPrecision">'
         f'{"".join(write_tiles)}</g>'
         f'</svg>'
     )

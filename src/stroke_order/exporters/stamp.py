@@ -414,9 +414,11 @@ def render_stamp_svg(
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {stamp_width_mm:.3f} {stamp_height_mm:.3f}" '
-        f'width="{stamp_width_mm:.3f}mm" height="{stamp_height_mm:.3f}mm">'
+        f'width="{stamp_width_mm:.3f}mm" height="{stamp_height_mm:.3f}mm" '
+        f'shape-rendering="geometricPrecision">'
         f'<g id="stamp-engrave" stroke="{color}" stroke-width="{stroke_width}" '
-        f'fill="none" stroke-linecap="round" stroke-linejoin="round">'
+        f'fill="none" stroke-linecap="round" stroke-linejoin="round" '
+        f'shape-rendering="geometricPrecision">'
         f'{"".join(pieces)}</g></svg>'
     )
 
