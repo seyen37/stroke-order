@@ -263,22 +263,26 @@ def _arc_text_positions(
 
 def _oval_arc_positions(
     n: int, *, inner_w: float, inner_h: float, cx: float, cy: float,
-    top: bool, span_deg: float = 160.0, padding_ratio: float = 0.10,
+    top: bool, span_deg: float = 160.0, padding_ratio: float = 0.13,
 ) -> list[tuple[float, float, float]]:
     """Place ``n`` chars along the upper or lower half of an inner ellipse.
 
     Returns ``[(cx_mm, cy_mm, rotation_deg), ...]`` — caller pairs with
     ``Character`` objects + size.
 
-    Convention (per Phase 12m-1 spec, "頂部朝外"):
-    - ``rotation = theta + 90°`` so each char's "up" points OUTWARD from
-      the ellipse centre.
-    - Top arc reads left→right at the top (typical 公司名).
-    - Bottom arc reads left→right in the *viewer's* frame (chars appear
-      individually upside-down because of the outward-facing rotation).
+    Rotation conventions (Phase 12m-1 patch — per-arc 朝外 direction):
+    - **Top arc 頂部朝外**: ``rotation = theta + 90°`` — char's HEAD points
+      OUTWARD (upward at top). Reads left→right at top.
+    - **Bottom arc 底部朝外**: ``rotation = theta - 90°`` — char's FEET
+      point OUTWARD (downward at bottom). Char remains UPRIGHT in viewer's
+      frame (head up, feet down). Reads left→right.
+
+    The two arcs together produce the classic 業界橢圓章 visual where
+    BOTH top and bottom text reads naturally upright when viewing the
+    stamp face — matching T-02 and similar industry references.
 
     ``padding_ratio`` shrinks the ellipse so chars don't touch the
-    border (default 10% — leaves visible margin).
+    border (default 13% — patched up from 10% per visual feedback).
     """
     if n <= 0:
         return []
@@ -288,10 +292,12 @@ def _oval_arc_positions(
         # Top half: left to right == theta increases from -90-span/2 → -90+span/2
         start_deg = -90.0 - span_deg / 2.0
         sweep_deg = span_deg
+        rot_offset = 90.0       # 頂部朝外 — head outward at top
     else:
         # Bottom half: left to right == theta DECREASES from 90+span/2 → 90-span/2
         start_deg = 90.0 + span_deg / 2.0
         sweep_deg = -span_deg
+        rot_offset = -90.0      # 底部朝外 — feet outward at bottom (12m-1 patch)
     out: list[tuple[float, float, float]] = []
     if n == 1:
         # Single char at apex (top or bottom centre)
@@ -300,7 +306,7 @@ def _oval_arc_positions(
         out.append((
             cx + a * math.cos(rad),
             cy + b * math.sin(rad),
-            theta_deg + 90.0,
+            theta_deg + rot_offset,
         ))
         return out
     for i in range(n):
@@ -310,14 +316,14 @@ def _oval_arc_positions(
         out.append((
             cx + a * math.cos(rad),
             cy + b * math.sin(rad),
-            theta_deg + 90.0,
+            theta_deg + rot_offset,
         ))
     return out
 
 
 def _oval_arc_char_size(
     n: int, *, inner_w: float, inner_h: float, span_deg: float = 160.0,
-    padding_ratio: float = 0.10, char_size_cap: float,
+    padding_ratio: float = 0.13, char_size_cap: float,
     fill_ratio: float = 0.92,
 ) -> float:
     """Auto-fit char size for arc text — limited by per-char arc chord.
@@ -363,12 +369,14 @@ def _oval_body_layout(
         return []
     # Per-line y offset (ratio of inner_h half) and max char height (ratio
     # of inner_h). Tuned to match T-01/T-02/T-04 reference visual.
+    # 12m-1 patch: 拉近 2/3 行 spacing 給上下 arc 留更多空間（user 反映兩
+    # body line 之間距太大，title 跟 contact 互相隔開過遠）。
     Y_OFFSETS = {
         1: [0.0],
-        2: [-0.18, 0.18],
-        3: [-0.25, 0.0, 0.25],
+        2: [-0.10, 0.10],     # was ±0.18 → 更緊湊置中
+        3: [-0.20, 0.0, 0.20],  # was ±0.25 → 同上邏輯
     }
-    MAX_H_PER_LINE = {1: 0.40, 2: 0.25, 3: 0.18}
+    MAX_H_PER_LINE = {1: 0.40, 2: 0.20, 3: 0.15}  # 2/3 行字身略縮
     offs = Y_OFFSETS[n_lines]
     max_h = MAX_H_PER_LINE[n_lines] * inner_h
     a = inner_w / 2.0

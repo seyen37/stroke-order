@@ -1189,13 +1189,24 @@ def test_oval_arc_bottom_first_char_on_left_too():
     assert pos[-1][1] > 15
 
 
-def test_oval_arc_bottom_chars_upside_down():
-    """Bottom apex char rotation ≈ 180° (head pointing DOWN, outward)."""
+def test_oval_arc_bottom_chars_upright():
+    """12m-1 patch — 底部朝外: bottom apex char rotation ≈ 0° (upright,
+    feet pointing DOWN = outward)."""
     pos = _oval_arc_positions(14, inner_w=48, inner_h=28, cx=25, cy=15,
                               top=False)
-    # Find the char at bottom apex (smallest |x - cx|)
+    # Find the char closest to bottom apex (smallest |x - cx|)
     bottom = min(pos, key=lambda p: abs(p[0] - 25))
-    assert bottom[2] == pytest.approx(180.0, abs=10.0)
+    # Bottom apex theta=90, rotation = theta - 90 = 0 (upright)
+    assert bottom[2] == pytest.approx(0.0, abs=15.0)
+
+
+def test_oval_arc_bottom_leftmost_rotation_inward():
+    """12m-1 patch — leftmost-bottom char head tilts toward CENTER
+    (rotation = 80°), not outward."""
+    pos = _oval_arc_positions(14, inner_w=48, inner_h=28, cx=25, cy=15,
+                              top=False)
+    # i=0 is leftmost-bottom (theta=170°), rotation = 170 - 90 = 80°
+    assert pos[0][2] == pytest.approx(80.0, abs=2.0)
 
 
 def test_oval_arc_single_char_at_apex():
@@ -1350,11 +1361,11 @@ def test_render_oval_gcode_t02_replica(stub_loader):
 
 
 def test_oval_arc_top_chars_inside_inner_ellipse():
-    """所有上弧 char 中心都在 inner ellipse 內（10% padding）."""
+    """所有上弧 char 中心都在 inner ellipse 內（13% padding，12m-1 patch）."""
     pos = _oval_arc_positions(11, inner_w=48, inner_h=28, cx=25, cy=15,
                               top=True)
-    a_padded = (48 / 2) * 0.90
-    b_padded = (28 / 2) * 0.90
+    a_padded = (48 / 2) * 0.87
+    b_padded = (28 / 2) * 0.87
     for x, y, _ in pos:
         # ellipse equation x²/a² + y²/b² = 1 (centered at cx, cy)
         norm = ((x - 25) / a_padded) ** 2 + ((y - 15) / b_padded) ** 2

@@ -1085,7 +1085,7 @@
         <option value="round_name">圓形姓名章 (1-5 字)</option>
         <option value="square_official">正方形官章/公司章 (多字 auto grid)</option>
         <option value="round">圓形業務單位戳章 (上弧字 + 中央 1 字)</option>
-        <option value="oval">橢圓驗收章 (上下兩排)</option>
+        <option value="oval">橢圓章</option>
         <option value="rectangle_title">長方形職務姓名章 (左右兩欄)</option>
       </select>
       <label style="margin-left:12px;">尺寸</label>
@@ -4513,19 +4513,24 @@ function stampApplyPresetDefaults() {
   const $ = id => document.getElementById(id);
   // Layout preset 切換時的預設尺寸：對齊業界 8 級制（個人章 4 分、
   // 公司章 8 分；圓 / 橢圓 / 長方非 8 級制業界少見，保持原邏輯）。
+  // 第 4 個值（可選）= double_border 預設（12m-1 patch：橢圓章預設雙框，
+  // 業界橢圓章絕大多數含 inner ellipse；其他 preset 維持單框）。
   const defaults = {
-    square_name:      [12, 12, 5],   // 4 分 1.2cm — 個人章最常見
-    round_name:       [12, 12, 5],   // 4 分 1.2cm — 個人圓章 12i
-    square_official:  [24, 24, 8],   // 8 分 2.4cm — 公司章標準
-    round:            [24, 24, 8],   // diameter 8 分
-    oval:             [50, 30, 9],   // 業界少見，保留
-    rectangle_title:  [50, 18, 12],  // 業界少見，保留
+    square_name:      [12, 12, 5,  false],
+    round_name:       [12, 12, 5,  false],
+    square_official:  [24, 24, 8,  false],
+    round:            [24, 24, 8,  false],
+    oval:             [50, 30, 9,  true],   // 12m-1 patch: 預設雙框
+    rectangle_title:  [50, 18, 12, false],
   };
   const d = defaults[$("st-preset").value];
   if (!d) return;
   $("st-w").value = d[0];
   $("st-h").value = d[1];
   $("st-charsize").value = d[2];
+  if (d.length >= 4 && $("st-double-border")) {
+    $("st-double-border").checked = !!d[3];
+  }
   // 同步 size quick-pick 顯示
   stampSyncSizePreset();
   stampUpdateCapacity();
