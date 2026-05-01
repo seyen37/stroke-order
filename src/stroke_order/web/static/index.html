@@ -1163,6 +1163,24 @@
       </span>
     </div>
 
+    <!-- 12k: 公司章 7/8 字短列位置（只在 square_official + 7-8 字時相關） -->
+    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+         padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
+      <label style="font-weight:600;">7/8 字公司章短列</label>
+      <label title="第 1 行（最右行）字數較少">
+        <input type="radio" name="st-off-shortcol" value="right"> 右行短
+      </label>
+      <label style="margin-left:10px;" title="第 2 行（中行）字數較少（預設 — 業界視覺平衡常見）">
+        <input type="radio" name="st-off-shortcol" value="middle" checked> 中行短（預設）
+      </label>
+      <label style="margin-left:10px;" title="第 3 行（最左行）字數較少">
+        <input type="radio" name="st-off-shortcol" value="left"> 左行短
+      </label>
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        僅 7/8 字公司章生效（7 字 = 2/2/3、8 字 = 3/3/2 變體）
+      </span>
+    </div>
+
     <!-- 12h: 2 字 layout toggle（只在 square_name + 2 字時相關） -->
     <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
          padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
@@ -4645,6 +4663,9 @@ function stampBuildBody(format) {
   // 12h: 2 字 layout（預設左右排列右起讀；vertical 上下排列）
   const layout2Radio = document.querySelector('input[name="st-2char-layout"]:checked');
   const layout2Char = layout2Radio ? layout2Radio.value : "horizontal";
+  // 12k: 7/8 字公司章短列位置
+  const offShortColRadio = document.querySelector('input[name="st-off-shortcol"]:checked');
+  const offShortCol = offShortColRadio ? offShortColRadio.value : "middle";
   // 12e/12f: 5 字 layout（預設 2+3 姓名章；3+2 是職名章變體）
   const layout5Radio = document.querySelector('input[name="st-5char-layout"]:checked');
   const layout5Char = layout5Radio ? layout5Radio.value : "2plus3";
@@ -4674,6 +4695,7 @@ function stampBuildBody(format) {
     line_pitch_mm: linePitch,
     layout_5char: layout5Char,
     layout_2char: layout2Char,
+    layout_official_short_col: offShortCol,
     char_offsets: charOffsets,
   };
 }

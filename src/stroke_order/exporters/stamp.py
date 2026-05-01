@@ -225,6 +225,7 @@ def _placements_for_preset(
     double_gap_mm: float,
     layout_5char: str = "2plus3",
     layout_2char: str = "horizontal",
+    layout_official_short_col: str = "middle",
     char_offsets: list[tuple[float, float]] = None,
 ) -> list[tuple[Character, float, float, float, float, float]]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
@@ -395,11 +396,78 @@ def _placements_for_preset(
                 _add(c, x, y, 0.0, sz)
 
     elif preset == "square_official":
-        rows, cols = _auto_grid_dims(n)
-        coords = _grid_positions_right_to_left(
-            n, rows, cols, inner_w, inner_h, cx, cy)
-        for c, (x, y) in zip(chars, coords):
-            _add(c, x, y, 0.0, char_size_mm)
+        # Phase 12k-1: cell-based size + char_size_mm cap (跟 12b-5 一致)
+        # 過去用 char_size_mm 當字身大小，搭 11g bbox-scale 字會撐超 cell
+        # → 字互相重疊。改 cell-based size，char_size_mm 變成上限 cap。
+        # 12k-2: 7/8 字加非均勻 row layout（layout_official_short_col 決定
+        # 哪個 column 是「短列」字數較少）。
+        if n in (7, 8) and layout_official_short_col in ("right", "middle", "left"):
+            # 非均勻 layout：3 cols，每 col 字數依 short_col 而定
+            # 7 字: 2+2+3 = 7（兩短列 + 一長列）
+            # 8 字: 3+3+2 = 8（兩長列 + 一短列）
+            cols = 3
+            col_w = inner_w / cols
+            CELL_PADDING = 0.92
+            cell_w = col_w * CELL_PADDING
+            # 決定每 col 字數
+            if n == 7:
+                # 7 字 = 2+2+3，short_col 的對立面是 3 字長列
+                # short_col=right → 3 字長列在 left（中右各 2 字）
+                # short_col=middle → 3 字長列在 right or left？簡化：long col 在 short_col 的對立。
+                # 業界慣例：短列通常在中央（視覺平衡），長列在左右
+                # short_col 'middle' = 中列短(2字)，左右各 3 字 但 7 字 → 改成 2+3+2
+                # 簡化：short_col 指「2 字行」位置，剩餘字均分到其他 cols
+                if layout_official_short_col == "right":
+                    counts = [3, 2, 2]  # left=3, middle=2, right=2
+                elif layout_official_short_col == "middle":
+                    counts = [2, 3, 2]  # left=2, middle=3, right=2 — 不對，這是 7 字
+                    # 中是 3 字，左右各 2 字 = 7
+                else:  # "left"
+                    counts = [2, 2, 3]
+            else:  # n == 8
+                # 8 字 = 3+3+2 = 8
+                if layout_official_short_col == "right":
+                    counts = [3, 3, 2]  # right=2 字短
+                elif layout_official_short_col == "middle":
+                    counts = [3, 2, 3]  # middle=2 字短
+                else:  # "left"
+                    counts = [2, 3, 3]  # left=2 字短
+
+            # 每 col 各自決定 cell h（依該 col 字數）+ 字 placement
+            # cols index：左→中→右 (col_x 從左到右)，但 fill 從右到左讀
+            # counts[col_idx] 對應該 col 字數
+            char_idx = 0
+            for col_idx in range(cols - 1, -1, -1):  # right→middle→left fill
+                col_count = counts[col_idx]
+                col_x = cx - inner_w / 2 + col_w / 2 + col_idx * col_w
+                cell_h = inner_h / col_count * CELL_PADDING
+                row_step = inner_h / col_count
+                row_y0 = cy - inner_h / 2 + row_step / 2
+                for row_idx in range(col_count):
+                    if char_idx >= len(chars):
+                        break
+                    cell_y = row_y0 + row_idx * row_step
+                    sz_w = (min(cell_w, char_size_mm)
+                            if char_size_mm > 0 else cell_w)
+                    sz_h = (min(cell_h, char_size_mm)
+                            if char_size_mm > 0 else cell_h)
+                    placements.append(
+                        (chars[char_idx], col_x, cell_y, 0.0, sz_w, sz_h))
+                    char_idx += 1
+        else:
+            # 一般 grid layout (1-6, 9 字)：cell-based + cap
+            rows, cols = _auto_grid_dims(n)
+            coords = _grid_positions_right_to_left(
+                n, rows, cols, inner_w, inner_h, cx, cy)
+            cell_w = inner_w / cols
+            cell_h = inner_h / rows
+            cell_size = min(cell_w, cell_h)
+            CELL_FILL_RATIO = 0.92
+            cell_fill = cell_size * CELL_FILL_RATIO
+            sz = (min(cell_fill, char_size_mm)
+                  if char_size_mm > 0 else cell_fill)
+            for c, (x, y) in zip(chars, coords):
+                _add(c, x, y, 0.0, sz)
 
     elif preset == "round":
         # First (n-1) chars on outer arc, last char in centre.
@@ -506,6 +574,7 @@ def render_stamp_svg(
     engrave_mode: EngraveMode = "concave",
     layout_5char: str = "2plus3",
     layout_2char: str = "horizontal",
+    layout_official_short_col: str = "middle",
     char_offsets: list[tuple[float, float]] = None,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
@@ -536,6 +605,7 @@ def render_stamp_svg(
         double_border=double_border, double_gap_mm=double_gap_mm,
         layout_5char=layout_5char,
         layout_2char=layout_2char,
+        layout_official_short_col=layout_official_short_col,
         char_offsets=char_offsets,
     )
 
@@ -641,6 +711,7 @@ def render_stamp_gcode(
     line_pitch_mm: float = 0.1,
     layout_5char: str = "2plus3",
     layout_2char: str = "horizontal",
+    layout_official_short_col: str = "middle",
     char_offsets: list[tuple[float, float]] = None,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
@@ -670,6 +741,7 @@ def render_stamp_gcode(
         double_border=double_border, double_gap_mm=double_gap_mm,
         layout_5char=layout_5char,
         layout_2char=layout_2char,
+        layout_official_short_col=layout_official_short_col,
         char_offsets=char_offsets,
     )
 

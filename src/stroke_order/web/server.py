@@ -138,6 +138,7 @@ class StampPostRequest(BaseModel):
     line_pitch_mm: float = 0.1     # 12c: convex 光柵掃描密度
     layout_5char: str = "2plus3"   # 12f: 5 字 layout 2plus3 (姓名章預設) | 3plus2 (職名章變體)
     layout_2char: str = "horizontal"  # 12h: 2 字 layout horizontal (預設右起讀) | vertical (上下)
+    layout_official_short_col: str = "middle"  # 12k: 7/8 字公司章短列位置 right|middle|left
     char_offsets: list[list[float]] = []  # 12g: 每字 [dx, dy] mm 微調（list of [dx, dy]）
 
 
@@ -2525,6 +2526,7 @@ def create_app() -> FastAPI:
     _STAMP_ENGRAVE_PATTERN = "^(concave|convex)$"
     _STAMP_LAYOUT5_PATTERN = "^(3plus2|2plus3)$"
     _STAMP_LAYOUT2_PATTERN = "^(horizontal|vertical)$"
+    _STAMP_OFF_SHORTCOL_PATTERN = "^(right|middle|left)$"
 
     @app.get("/api/stamp/capacity")
     async def stamp_capacity_endpoint(
@@ -2589,6 +2591,11 @@ def create_app() -> FastAPI:
         if req.layout_2char not in ("horizontal", "vertical"):
             raise HTTPException(
                 422, detail=f"unknown layout_2char {req.layout_2char!r}")
+        # 12k: validate layout_official_short_col
+        if req.layout_official_short_col not in ("right", "middle", "left"):
+            raise HTTPException(
+                422, detail=f"unknown layout_official_short_col "
+                            f"{req.layout_official_short_col!r}")
 
         common = dict(
             text=req.text, char_loader=loader,
@@ -2603,6 +2610,7 @@ def create_app() -> FastAPI:
             engrave_mode=req.engrave_mode,              # type: ignore[arg-type]
             layout_5char=req.layout_5char,
             layout_2char=req.layout_2char,
+            layout_official_short_col=req.layout_official_short_col,
             char_offsets=[tuple(o[:2]) for o in req.char_offsets if len(o) >= 2],
         )
 
@@ -2654,6 +2662,7 @@ def create_app() -> FastAPI:
         line_pitch_mm: float = Query(0.1, gt=0, le=2.0),
         layout_5char: str = Query("2plus3", pattern=_STAMP_LAYOUT5_PATTERN),
         layout_2char: str = Query("horizontal", pattern=_STAMP_LAYOUT2_PATTERN),
+        layout_official_short_col: str = Query("middle", pattern=_STAMP_OFF_SHORTCOL_PATTERN),
     ):
         req = StampPostRequest(
             text=text, preset=preset,
@@ -2666,6 +2675,7 @@ def create_app() -> FastAPI:
             engrave_mode=engrave_mode, line_pitch_mm=line_pitch_mm,
             layout_5char=layout_5char,
             layout_2char=layout_2char,
+            layout_official_short_col=layout_official_short_col,
         )
         return await stamp_post(req)
 
