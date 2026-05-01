@@ -74,6 +74,8 @@ def _auto_grid_dims(n: int) -> tuple[int, int]:
     - 4 chars   → 2×2
     - 5-6 chars → 2×3 (2 cols × 3 rows, right-to-left columns)
     - 7-9 chars → 3×3
+    - 10-12 chars → 3 cols × 4 rows (perfect for 12)  -- Phase 12l
+    - 13-16 chars → 4×4 (perfect for 16)              -- Phase 12l
     """
     if n <= 0:
         return (1, 1)
@@ -83,7 +85,109 @@ def _auto_grid_dims(n: int) -> tuple[int, int]:
         return (2, 2)
     if n <= 6:
         return (3, 2)
-    return (3, 3)
+    if n <= 9:
+        return (3, 3)
+    if n <= 12:
+        return (4, 3)
+    return (4, 4)
+
+
+# Phase 12l: square_official multi-short-col helpers ------------------------
+
+
+def _square_official_grid_for(n: int) -> tuple[int, int] | None:
+    """Return (cols, max_rows) for square_official non-uniform layouts.
+
+    Only returns dims for "needs-short-col" char counts (deficit > 0
+    within the canonical grid). Perfect counts (9/12/16) and 1-6 char
+    layouts use the regular ``_auto_grid_dims`` path.
+    """
+    if n in (7, 8):
+        return (3, 3)
+    if n in (10, 11):
+        return (3, 4)
+    if n in (13, 14, 15):
+        return (4, 4)
+    return None
+
+
+def _short_col_name_to_idx(name: str, cols: int) -> int | None:
+    """Map a short-col position name to a column index (0=left).
+
+    3-col stamps: ``right`` / ``middle`` / ``left``
+    4-col stamps: ``right`` / ``mid-right`` / ``mid-left`` / ``left``
+
+    Returns None for invalid name/cols combos so callers can skip.
+    """
+    if cols == 3:
+        return {"right": 2, "middle": 1, "left": 0}.get(name)
+    if cols == 4:
+        return {
+            "right": 3, "mid-right": 2, "mid-left": 1, "left": 0,
+        }.get(name)
+    return None
+
+
+def _normalize_short_cols(value) -> list[str]:
+    """Normalize layout_official_short_col into a clean string list.
+
+    Accepts: None / "" / str / list[str]. Empty result falls back to
+    the global default ``["right"]`` (Phase 12l 預設右行短).
+    """
+    if value is None:
+        return ["right"]
+    if isinstance(value, str):
+        return [value] if value else ["right"]
+    if isinstance(value, (list, tuple)):
+        cleaned = [str(v) for v in value if v]
+        return cleaned if cleaned else ["right"]
+    return ["right"]
+
+
+def _distribute_official_short(
+    n: int, cols: int, max_rows: int, short_indices: list[int],
+) -> list[int] | None:
+    """Compute per-column char counts for a non-uniform square_official.
+
+    Args:
+        n: total char count.
+        cols: column count.
+        max_rows: max chars per col when col is "full".
+        short_indices: col indices to be "short" (each shorted by ≥1).
+
+    Returns a list of ``cols`` ints (chars per col), or ``None`` if
+    the request is structurally impossible (e.g. more short cols than
+    deficit, or a short col would end up with ≤0 chars).
+
+    Distribution rule (Phase 12l 解讀 Y, "集中短"):
+        deficit = cols * max_rows - n
+        Each selected short col loses ``deficit // k`` chars; the
+        first ``deficit % k`` short cols (rightmost first) lose one
+        extra. So k=1 lumps the entire deficit on a single col.
+    """
+    deficit = cols * max_rows - n
+    counts = [max_rows] * cols
+    if deficit == 0:
+        return counts
+    if not short_indices:
+        # No selection ⇒ default to rightmost col (matches UI default).
+        short_indices = [cols - 1]
+    short_indices = sorted(set(short_indices))
+    if any(i < 0 or i >= cols for i in short_indices):
+        return None
+    k = len(short_indices)
+    if k > deficit:
+        return None  # can't shorten more cols than deficit allows
+    base = deficit // k
+    extra = deficit % k
+    # Rightmost selected col gets the leftover-extra first (傳統右先收縮).
+    sorted_desc = sorted(short_indices, reverse=True)
+    for i, ci in enumerate(sorted_desc):
+        amt = base + (1 if i < extra else 0)
+        counts[ci] = max_rows - amt
+        if counts[ci] <= 0:
+            return None
+    return counts
 
 
 def _grid_positions_right_to_left(
@@ -225,7 +329,7 @@ def _placements_for_preset(
     double_gap_mm: float,
     layout_5char: str = "2plus3",
     layout_2char: str = "horizontal",
-    layout_official_short_col: str = "middle",
+    layout_official_short_col=("right",),
     char_offsets: list[tuple[float, float]] = None,
 ) -> list[tuple[Character, float, float, float, float, float]]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
@@ -396,49 +500,40 @@ def _placements_for_preset(
                 _add(c, x, y, 0.0, sz)
 
     elif preset == "square_official":
-        # Phase 12k-1: cell-based size + char_size_mm cap (跟 12b-5 一致)
-        # 過去用 char_size_mm 當字身大小，搭 11g bbox-scale 字會撐超 cell
-        # → 字互相重疊。改 cell-based size，char_size_mm 變成上限 cap。
-        # 12k-2: 7/8 字加非均勻 row layout（layout_official_short_col 決定
-        # 哪個 column 是「短列」字數較少）。
-        if n in (7, 8) and layout_official_short_col in ("right", "middle", "left"):
-            # 非均勻 layout：3 cols，每 col 字數依 short_col 而定
-            # 7 字: 2+2+3 = 7（兩短列 + 一長列）
-            # 8 字: 3+3+2 = 8（兩長列 + 一短列）
-            cols = 3
+        # Phase 12k-1: cell-based size + char_size_mm cap (跟 12b-5 一致)。
+        # Phase 12l: 7-16 字統一 multi-short-col layout（最多 16 字，4×4 grid）。
+        #   - 7-8 字 → 3 cols × 3 rows（deficit 2 / 1）
+        #   - 10-11 字 → 3 cols × 4 rows（deficit 2 / 1）
+        #   - 13-15 字 → 4 cols × 4 rows（deficit 3 / 2 / 1）
+        #   - 9 / 12 / 16 字 perfect grid 走 _auto_grid_dims fallback
+        #   layout_official_short_col 接受 list[str] 或 str，預設 ["right"]。
+        official_dims = _square_official_grid_for(n)
+        if official_dims is not None:
+            cols, max_rows = official_dims
+            short_names = _normalize_short_cols(layout_official_short_col)
+            # Map name → idx (skip names invalid for this cols size)
+            short_indices: list[int] = []
+            for nm in short_names:
+                idx = _short_col_name_to_idx(nm, cols)
+                if idx is not None:
+                    short_indices.append(idx)
+            counts = _distribute_official_short(
+                n, cols, max_rows, short_indices)
+            if counts is None:
+                # User-supplied combo invalid → safe fallback to default
+                # (rightmost col absorbs entire deficit, 集中短).
+                counts = _distribute_official_short(
+                    n, cols, max_rows, [cols - 1])
+            assert counts is not None  # default is always valid
             col_w = inner_w / cols
             CELL_PADDING = 0.92
             cell_w = col_w * CELL_PADDING
-            # 決定每 col 字數
-            if n == 7:
-                # 7 字 = 2+2+3，short_col 的對立面是 3 字長列
-                # short_col=right → 3 字長列在 left（中右各 2 字）
-                # short_col=middle → 3 字長列在 right or left？簡化：long col 在 short_col 的對立。
-                # 業界慣例：短列通常在中央（視覺平衡），長列在左右
-                # short_col 'middle' = 中列短(2字)，左右各 3 字 但 7 字 → 改成 2+3+2
-                # 簡化：short_col 指「2 字行」位置，剩餘字均分到其他 cols
-                if layout_official_short_col == "right":
-                    counts = [3, 2, 2]  # left=3, middle=2, right=2
-                elif layout_official_short_col == "middle":
-                    counts = [2, 3, 2]  # left=2, middle=3, right=2 — 不對，這是 7 字
-                    # 中是 3 字，左右各 2 字 = 7
-                else:  # "left"
-                    counts = [2, 2, 3]
-            else:  # n == 8
-                # 8 字 = 3+3+2 = 8
-                if layout_official_short_col == "right":
-                    counts = [3, 3, 2]  # right=2 字短
-                elif layout_official_short_col == "middle":
-                    counts = [3, 2, 3]  # middle=2 字短
-                else:  # "left"
-                    counts = [2, 3, 3]  # left=2 字短
-
-            # 每 col 各自決定 cell h（依該 col 字數）+ 字 placement
-            # cols index：左→中→右 (col_x 從左到右)，但 fill 從右到左讀
-            # counts[col_idx] 對應該 col 字數
             char_idx = 0
-            for col_idx in range(cols - 1, -1, -1):  # right→middle→left fill
+            # right → left fill order (傳統右起讀)
+            for col_idx in range(cols - 1, -1, -1):
                 col_count = counts[col_idx]
+                if col_count <= 0:
+                    continue
                 col_x = cx - inner_w / 2 + col_w / 2 + col_idx * col_w
                 cell_h = inner_h / col_count * CELL_PADDING
                 row_step = inner_h / col_count
@@ -455,7 +550,7 @@ def _placements_for_preset(
                         (chars[char_idx], col_x, cell_y, 0.0, sz_w, sz_h))
                     char_idx += 1
         else:
-            # 一般 grid layout (1-6, 9 字)：cell-based + cap
+            # 一般 grid layout (1-6, 9, 12, 16 字)：cell-based + cap
             rows, cols = _auto_grid_dims(n)
             coords = _grid_positions_right_to_left(
                 n, rows, cols, inner_w, inner_h, cx, cy)
@@ -574,7 +669,7 @@ def render_stamp_svg(
     engrave_mode: EngraveMode = "concave",
     layout_5char: str = "2plus3",
     layout_2char: str = "horizontal",
-    layout_official_short_col: str = "middle",
+    layout_official_short_col=("right",),
     char_offsets: list[tuple[float, float]] = None,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
@@ -711,7 +806,7 @@ def render_stamp_gcode(
     line_pitch_mm: float = 0.1,
     layout_5char: str = "2plus3",
     layout_2char: str = "horizontal",
-    layout_official_short_col: str = "middle",
+    layout_official_short_col=("right",),
     char_offsets: list[tuple[float, float]] = None,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power

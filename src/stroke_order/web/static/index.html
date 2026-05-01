@@ -1163,21 +1163,38 @@
       </span>
     </div>
 
-    <!-- 12k: 公司章 7/8 字短列位置（只在 square_official + 7-8 字時相關） -->
-    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
-         padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
-      <label style="font-weight:600;">7/8 字公司章短列</label>
-      <label title="第 1 行（最右行）字數較少">
-        <input type="radio" name="st-off-shortcol" value="right"> 右行短
+    <!-- 12l: 公司章短列位置（square_official + 7-8 / 10-11 / 13-15 字相關，
+         3-col 顯示右/中/左、4-col 顯示右/中右/中左/左；多選＝平均短，單選＝集中短） -->
+    <div id="st-off-shortcol-row" class="row"
+         style="background:#fafaf5;border-left:3px solid #cc8;
+                padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;
+                flex-wrap:wrap;">
+      <label style="font-weight:600;">公司章短列</label>
+      <!-- 3-col options (7/8/10/11 字) -->
+      <label class="st-off-3col" title="最右行字數較少">
+        <input type="checkbox" name="st-off-shortcol" value="right" checked> 右行短
       </label>
-      <label style="margin-left:10px;" title="第 2 行（中行）字數較少（預設 — 業界視覺平衡常見）">
-        <input type="radio" name="st-off-shortcol" value="middle" checked> 中行短（預設）
+      <label class="st-off-3col" style="margin-left:10px;" title="中行字數較少">
+        <input type="checkbox" name="st-off-shortcol" value="middle"> 中行短
       </label>
-      <label style="margin-left:10px;" title="第 3 行（最左行）字數較少">
-        <input type="radio" name="st-off-shortcol" value="left"> 左行短
+      <label class="st-off-3col" style="margin-left:10px;" title="最左行字數較少">
+        <input type="checkbox" name="st-off-shortcol" value="left"> 左行短
+      </label>
+      <!-- 4-col options (13/14/15 字) -->
+      <label class="st-off-4col" style="display:none;" title="最右行字數較少">
+        <input type="checkbox" name="st-off-shortcol-4" value="right" checked> 右行短
+      </label>
+      <label class="st-off-4col" style="margin-left:10px;display:none;" title="中右行字數較少">
+        <input type="checkbox" name="st-off-shortcol-4" value="mid-right"> 中右短
+      </label>
+      <label class="st-off-4col" style="margin-left:10px;display:none;" title="中左行字數較少">
+        <input type="checkbox" name="st-off-shortcol-4" value="mid-left"> 中左短
+      </label>
+      <label class="st-off-4col" style="margin-left:10px;display:none;" title="最左行字數較少">
+        <input type="checkbox" name="st-off-shortcol-4" value="left"> 左行短
       </label>
       <span style="margin-left:8px;color:var(--muted);font-size:11px;">
-        僅 7/8 字公司章生效（7 字 = 2/2/3、8 字 = 3/3/2 變體）
+        7-15 字公司章生效（單選＝集中短，複選＝平均短，預設右行）
       </span>
     </div>
 
@@ -4415,6 +4432,12 @@ function stampInit() {
   $("st-preset").addEventListener("change", stampApplyPresetDefaults);
   // 12g: 每字位移微調 — text 變動時更新 row 數
   $("st-text").addEventListener("input", stampUpdateCharOffsetsUI);
+  // 12l: 公司章短列 checkbox group — 隨字數切換 3-col / 4-col / 隱藏
+  ["st-text", "st-preset"].forEach(id => {
+    $(id).addEventListener("input", stampUpdateOfficialShortColUI);
+    $(id).addEventListener("change", stampUpdateOfficialShortColUI);
+  });
+  stampUpdateOfficialShortColUI();
   const offsetsReset = $("st-char-offsets-reset");
   if (offsetsReset) {
     offsetsReset.addEventListener("click", () => {
@@ -4478,6 +4501,33 @@ function stampSyncSizePreset() {
   } else {
     sel.value = "";
   }
+}
+
+// 12l: 公司章短列 UI 切換 — 依字數顯示 3-col / 4-col checkbox 或隱藏整列
+function stampUpdateOfficialShortColUI() {
+  const presetEl = document.getElementById("st-preset");
+  const textEl = document.getElementById("st-text");
+  const row = document.getElementById("st-off-shortcol-row");
+  if (!row || !presetEl || !textEl) return;
+  const preset = presetEl.value;
+  const cleanText = (textEl.value || "").replace(/\s+/g, "");
+  const charCount = Array.from(cleanText).length;
+  const isOfficial = preset === "square_official";
+  const needsShort = isOfficial && (
+    (charCount >= 7 && charCount <= 8) ||
+    (charCount >= 10 && charCount <= 11) ||
+    (charCount >= 13 && charCount <= 15)
+  );
+  // 字數 9 / 12 / 16 是 perfect grid，沒短列；1-6 不適用 multi-col layout
+  row.style.display = needsShort ? "" : "none";
+  if (!needsShort) return;
+  const use4Col = charCount >= 13 && charCount <= 15;
+  document.querySelectorAll(".st-off-3col").forEach(el => {
+    el.style.display = use4Col ? "none" : "";
+  });
+  document.querySelectorAll(".st-off-4col").forEach(el => {
+    el.style.display = use4Col ? "" : "none";
+  });
 }
 
 async function stampUpdateCapacity() {
@@ -4663,9 +4713,17 @@ function stampBuildBody(format) {
   // 12h: 2 字 layout（預設左右排列右起讀；vertical 上下排列）
   const layout2Radio = document.querySelector('input[name="st-2char-layout"]:checked');
   const layout2Char = layout2Radio ? layout2Radio.value : "horizontal";
-  // 12k: 7/8 字公司章短列位置
-  const offShortColRadio = document.querySelector('input[name="st-off-shortcol"]:checked');
-  const offShortCol = offShortColRadio ? offShortColRadio.value : "middle";
+  // 12l: 公司章短列位置（multi-select checkbox）
+  // 字數決定使用 3-col(7/8/10/11) or 4-col(13/14/15) checkbox group。
+  // 兩組 checkbox 都讀，後端會過濾掉跟 cols 不符的 name。
+  const cleanText = (text || "").replace(/\s+/g, "");
+  const charCount = Array.from(cleanText).length;
+  const use4Col = charCount >= 13 && charCount <= 15;
+  const shortColInputName = use4Col ? "st-off-shortcol-4" : "st-off-shortcol";
+  const offShortCol = Array.from(
+    document.querySelectorAll(`input[name="${shortColInputName}"]:checked`)
+  ).map(el => el.value);
+  // 空陣列 → 後端 fallback ["right"]
   // 12e/12f: 5 字 layout（預設 2+3 姓名章；3+2 是職名章變體）
   const layout5Radio = document.querySelector('input[name="st-5char-layout"]:checked');
   const layout5Char = layout5Radio ? layout5Radio.value : "2plus3";

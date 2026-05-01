@@ -9,7 +9,12 @@ from stroke_order.exporters.stamp import (
     SvgDecoration,
     _arc_text_positions,
     _auto_grid_dims,
+    _distribute_official_short,
     _grid_positions_right_to_left,
+    _normalize_short_cols,
+    _placements_for_preset,
+    _short_col_name_to_idx,
+    _square_official_grid_for,
     _stamp_border_polys,
     render_stamp_gcode,
     render_stamp_svg,
@@ -55,6 +60,9 @@ def stub_loader():
     (4, (2, 2)),
     (5, (3, 2)), (6, (3, 2)),
     (7, (3, 3)), (8, (3, 3)), (9, (3, 3)),
+    # Phase 12l: 10-12 字 (4 rows × 3 cols), 13-16 字 (4×4)
+    (10, (4, 3)), (11, (4, 3)), (12, (4, 3)),
+    (13, (4, 4)), (14, (4, 4)), (15, (4, 4)), (16, (4, 4)),
 ])
 def test_auto_grid_dims_table(n, expected):
     assert _auto_grid_dims(n) == expected
@@ -818,3 +826,315 @@ def test_api_patch_show_border_false_in_gcode_omits_outline(client):
     # The per-tile outline marker only appears with the border on.
     assert "tile (0,0) patch outline" in r_on.text
     assert "tile (0,0) patch outline" not in r_off.text
+
+
+# ---------------------------------------------------------------------------
+# Phase 12l — square_official 7-16 字 multi-short-col layout
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("n,expected", [
+    # perfect grids (no short cols) → None (handled by _auto_grid_dims)
+    (1, None), (2, None), (3, None), (4, None), (5, None), (6, None),
+    (9, None), (12, None), (16, None),
+    # needs short col
+    (7, (3, 3)), (8, (3, 3)),
+    (10, (3, 4)), (11, (3, 4)),
+    (13, (4, 4)), (14, (4, 4)), (15, (4, 4)),
+    # out of range
+    (17, None), (0, None),
+])
+def test_square_official_grid_for(n, expected):
+    assert _square_official_grid_for(n) == expected
+
+
+def test_short_col_name_to_idx_3col():
+    assert _short_col_name_to_idx("right", 3) == 2
+    assert _short_col_name_to_idx("middle", 3) == 1
+    assert _short_col_name_to_idx("left", 3) == 0
+    # 4-col names invalid for 3-col
+    assert _short_col_name_to_idx("mid-right", 3) is None
+    assert _short_col_name_to_idx("mid-left", 3) is None
+
+
+def test_short_col_name_to_idx_4col():
+    assert _short_col_name_to_idx("right", 4) == 3
+    assert _short_col_name_to_idx("mid-right", 4) == 2
+    assert _short_col_name_to_idx("mid-left", 4) == 1
+    assert _short_col_name_to_idx("left", 4) == 0
+    # "middle" is ambiguous in 4-col → invalid
+    assert _short_col_name_to_idx("middle", 4) is None
+
+
+def test_short_col_name_to_idx_unknown():
+    assert _short_col_name_to_idx("garbage", 3) is None
+    assert _short_col_name_to_idx("right", 5) is None  # cols out of supported
+
+
+def test_normalize_short_cols_defaults_to_right():
+    assert _normalize_short_cols(None) == ["right"]
+    assert _normalize_short_cols("") == ["right"]
+    assert _normalize_short_cols([]) == ["right"]
+
+
+def test_normalize_short_cols_str_wraps_to_list():
+    assert _normalize_short_cols("right") == ["right"]
+    assert _normalize_short_cols("mid-right") == ["mid-right"]
+
+
+def test_normalize_short_cols_passes_list_through():
+    assert _normalize_short_cols(["right", "middle"]) == ["right", "middle"]
+    # tuple accepted
+    assert _normalize_short_cols(("left",)) == ["left"]
+
+
+# Distribution table — solid coverage of the deficit allocation rule
+@pytest.mark.parametrize("n,cols,max_rows,short_idx,expected", [
+    # perfect grids → no-op even if short_idx given
+    (16, 4, 4, [], [4, 4, 4, 4]),
+    (12, 3, 4, [], [4, 4, 4]),
+    (9,  3, 3, [], [3, 3, 3]),
+    # k=1 集中短 (解讀 Y)：deficit lump on the single selected col
+    (15, 4, 4, [3], [4, 4, 4, 3]),         # right short by 1
+    (14, 4, 4, [3], [4, 4, 4, 2]),         # right short by 2 (集中)
+    (13, 4, 4, [3], [4, 4, 4, 1]),         # right short by 3 (極端集中)
+    (11, 3, 4, [2], [4, 4, 3]),
+    (10, 3, 4, [2], [4, 4, 2]),
+    (8,  3, 3, [2], [3, 3, 2]),
+    (7,  3, 3, [2], [3, 3, 1]),            # 12l 解讀 Y (與 12k [3,2,2] 不同)
+    # k=2 平均短：每短列各少 1
+    (14, 4, 4, [3, 2], [4, 4, 3, 3]),
+    (10, 3, 4, [2, 1], [4, 3, 3]),
+    (7,  3, 3, [2, 1], [3, 2, 2]),         # 12k 7-char 經典 layout (multi-select 即可)
+    # k=3 (deficit 3) 完美平均
+    (13, 4, 4, [3, 2, 1], [4, 3, 3, 3]),
+    # k=2 deficit=3：右側優先承擔 1 額外
+    (13, 4, 4, [3, 2], [4, 4, 3, 2]),  # right short by 2, mid-right by 1
+])
+def test_distribute_official_short_cases(n, cols, max_rows, short_idx, expected):
+    assert _distribute_official_short(n, cols, max_rows, short_idx) == expected
+
+
+def test_distribute_official_short_default_falls_back_to_right():
+    # No short_indices → defaults to rightmost col
+    res = _distribute_official_short(15, 4, 4, [])
+    assert res == [4, 4, 4, 3]
+    res = _distribute_official_short(14, 4, 4, [])
+    assert res == [4, 4, 4, 2]
+
+
+def test_distribute_official_short_invalid_returns_none():
+    # k > deficit (asking for more short cols than the deficit allows)
+    assert _distribute_official_short(15, 4, 4, [3, 2]) is None
+    # bad index out of range
+    assert _distribute_official_short(13, 4, 4, [4]) is None
+    assert _distribute_official_short(13, 4, 4, [-1]) is None
+
+
+# ---------------------------------------------------------------------------
+# Integration tests via _placements_for_preset (square_official + multi-short)
+# ---------------------------------------------------------------------------
+
+
+def _stub_chars(n):
+    """Build n stub Character objects for layout-only assertions."""
+    from stroke_order.ir import Stroke, Point
+    chars = []
+    for i in range(n):
+        ch = chr(0x4E00 + i)  # 一二三四…
+        chars.append(Character(
+            char=ch, unicode_hex=f"{ord(ch):04x}", data_source="stub",
+            strokes=[Stroke(
+                index=0,
+                raw_track=[Point(100, 100), Point(1948, 1948)],
+                outline=[
+                    {"type": "M", "x": 100,  "y": 100},
+                    {"type": "L", "x": 1948, "y": 1948},
+                ],
+                kind_code=9, kind_name="其他", has_hook=False,
+            )],
+        ))
+    return chars
+
+
+def test_official_16char_perfect_grid():
+    """16 字 = 4×4 perfect, all chars same uniform size, right-to-left fill."""
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(16), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right"],
+    )
+    assert len(pl) == 16
+    # All cells uniform (capped at char_size_mm=5)
+    sizes = [(w, h) for _, _, _, _, w, h in pl]
+    assert len(set(sizes)) == 1
+    # First placed char in rightmost col (max x)
+    xs = [x for _, x, _, _, _, _ in pl]
+    assert pl[0][1] == max(xs)
+
+
+def test_official_15char_default_right_short_by_one():
+    """15 字 預設 right → counts [4,4,4,3]: right col has 3 chars."""
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(15), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right"],
+    )
+    assert len(pl) == 15
+    # Right col x is the highest; count chars in right col
+    xs = [round(x, 1) for _, x, _, _, _, _ in pl]
+    max_x = max(xs)
+    right_col_count = sum(1 for x in xs if x == max_x)
+    assert right_col_count == 3  # short col
+
+
+def test_official_14char_集中短_lumps_two():
+    """14 字 [right] (k=1) → counts [4,4,4,2]: right col has only 2 chars (集中短)."""
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(14), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right"],
+    )
+    assert len(pl) == 14
+    xs = [round(x, 1) for _, x, _, _, _, _ in pl]
+    right_col_count = sum(1 for x in xs if x == max(xs))
+    assert right_col_count == 2  # lump
+
+
+def test_official_14char_平均短_two_short_cols():
+    """14 字 [right, mid-right] (k=2) → counts [4,4,3,3]: 兩短列各 3 字."""
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(14), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right", "mid-right"],
+    )
+    assert len(pl) == 14
+    xs = [round(x, 1) for _, x, _, _, _, _ in pl]
+    sorted_cols = sorted(set(xs), reverse=True)
+    # 4 cols, sorted right→left
+    assert len(sorted_cols) == 4
+    # Right col (sorted_cols[0]) 3 chars, mid-right (sorted_cols[1]) 3 chars
+    assert sum(1 for x in xs if x == sorted_cols[0]) == 3
+    assert sum(1 for x in xs if x == sorted_cols[1]) == 3
+    # Other 2 cols 4 chars each
+    assert sum(1 for x in xs if x == sorted_cols[2]) == 4
+    assert sum(1 for x in xs if x == sorted_cols[3]) == 4
+
+
+def test_official_13char_three_short_平均():
+    """13 字 [right,mid-right,mid-left] (k=3) → [4,3,3,3]."""
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(13), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right", "mid-right", "mid-left"],
+    )
+    assert len(pl) == 13
+    xs = [round(x, 1) for _, x, _, _, _, _ in pl]
+    sorted_cols = sorted(set(xs), reverse=True)
+    # 3 short cols (right/mid-right/mid-left) each 3 chars, left has 4
+    assert sum(1 for x in xs if x == sorted_cols[0]) == 3
+    assert sum(1 for x in xs if x == sorted_cols[1]) == 3
+    assert sum(1 for x in xs if x == sorted_cols[2]) == 3
+    assert sum(1 for x in xs if x == sorted_cols[3]) == 4
+
+
+def test_official_11char_default_right_short():
+    """11 字 [right] → [4,4,3]: 3-col layout, right col 3 chars."""
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(11), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right"],
+    )
+    assert len(pl) == 11
+    xs = [round(x, 1) for _, x, _, _, _, _ in pl]
+    cols_sorted = sorted(set(xs), reverse=True)
+    assert len(cols_sorted) == 3
+    assert sum(1 for x in xs if x == cols_sorted[0]) == 3  # right
+    assert sum(1 for x in xs if x == cols_sorted[1]) == 4  # mid
+    assert sum(1 for x in xs if x == cols_sorted[2]) == 4  # left
+
+
+def test_official_10char_two_short_平均():
+    """10 字 [right, middle] (k=2) → [4,3,3]: 兩短列各 3 字."""
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(10), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right", "middle"],
+    )
+    assert len(pl) == 10
+    xs = [round(x, 1) for _, x, _, _, _, _ in pl]
+    cols_sorted = sorted(set(xs), reverse=True)
+    assert sum(1 for x in xs if x == cols_sorted[0]) == 3  # right
+    assert sum(1 for x in xs if x == cols_sorted[1]) == 3  # middle
+    assert sum(1 for x in xs if x == cols_sorted[2]) == 4  # left full
+
+
+def test_official_string_input_backward_compat():
+    """12k API 用單一字串應該仍然 work（ABS:'right' → ['right']）."""
+    pl_str = _placements_for_preset(
+        "square_official", _stub_chars(15), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col="right",  # str, not list
+    )
+    pl_list = _placements_for_preset(
+        "square_official", _stub_chars(15), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right"],
+    )
+    # Same number of placements + same per-char positions
+    assert len(pl_str) == len(pl_list) == 15
+    for a, b in zip(pl_str, pl_list):
+        assert a[1] == pytest.approx(b[1])
+        assert a[2] == pytest.approx(b[2])
+
+
+def test_official_invalid_combo_falls_back_to_default():
+    """k > deficit 時應該 fallback 到 [right]，不 crash."""
+    # 15 字 deficit=1，但選 2 短列 → invalid → fallback to ["right"]
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(15), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["right", "mid-right"],
+    )
+    assert len(pl) == 15
+    xs = [round(x, 1) for _, x, _, _, _, _ in pl]
+    cols_sorted = sorted(set(xs), reverse=True)
+    # Fallback = [right] → counts [4,4,4,3]
+    assert sum(1 for x in xs if x == cols_sorted[0]) == 3
+
+
+def test_official_unknown_col_name_filtered_out():
+    """未知 col name 應該被過濾，不報 422 only fallback."""
+    # "garbage" 跟 "middle" (4-col 不適用) 都會被 _short_col_name_to_idx 過濾
+    pl = _placements_for_preset(
+        "square_official", _stub_chars(15), 30.0, 30.0, 5.0,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        layout_official_short_col=["garbage", "middle"],  # both invalid for 4-col
+    )
+    assert len(pl) == 15
+    # 過濾後變空 list → fallback default ["right"] → counts [4,4,4,3]
+    xs = [round(x, 1) for _, x, _, _, _, _ in pl]
+    cols_sorted = sorted(set(xs), reverse=True)
+    assert sum(1 for x in xs if x == cols_sorted[0]) == 3
+
+
+def test_official_svg_renders_15char(stub_loader):
+    """End-to-end SVG render 15 字 不 crash + char outline 出現 15 次."""
+    svg = render_stamp_svg(
+        "一二三四五六七八九十百千萬億兆", stub_loader,
+        preset="square_official",
+        stamp_width_mm=30, stamp_height_mm=30, char_size_mm=5,
+        layout_official_short_col=["right"],
+    )
+    # 15 chars + 1 border path (concave default) = 16 paths min
+    assert svg.count("<path") >= 15
+
+
+def test_official_svg_renders_16char(stub_loader):
+    """16 字 perfect grid SVG 渲染 OK."""
+    svg = render_stamp_svg(
+        "一二三四五六七八九十百千萬億兆京", stub_loader,
+        preset="square_official",
+        stamp_width_mm=30, stamp_height_mm=30, char_size_mm=5,
+    )
+    assert svg.count("<path") >= 16
