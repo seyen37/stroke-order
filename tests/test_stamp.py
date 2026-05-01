@@ -467,6 +467,55 @@ def test_api_stamp_invalid_engrave_mode_rejected(client):
     assert r.status_code == 422
 
 
+def test_api_stamp_2char_default_horizontal_layout():
+    """12h: 2 字章預設左右排列（右字 chars[0] + 左字 chars[1]）。
+
+    字身 non-uniform stretch：寬 46% inner_w（兩字共 92% + 中央 gap 4%）、
+    高 92% inner_h（拉長到接近邊框）。
+    """
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C(), C()]
+    p = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+    )
+    assert len(p) == 2
+    cx_center = 6.0
+    # 第 1 字（chars[0]）在右、第 2 字在左
+    assert p[0][1] > cx_center, f"第1字 cx={p[0][1]} 應在右"
+    assert p[1][1] < cx_center, f"第2字 cx={p[1][1]} 應在左"
+    # 字身高 > 寬（縱向拉長）
+    assert p[0][5] > p[0][4], f"水平排列字身 h ({p[0][5]}) 應 > w ({p[0][4]})"
+
+
+def test_api_stamp_2char_vertical_layout():
+    """12h: 2 字章 vertical 切換 — 上下排列（上字 + 下字）。
+
+    字身：寬 92% inner_w、高 46% inner_h（橫向拉寬）。
+    """
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C(), C()]
+    p = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+        layout_2char="vertical",
+    )
+    cy_center = 6.0
+    # 第 1 字在上、第 2 字在下
+    assert p[0][2] < cy_center
+    assert p[1][2] > cy_center
+    # 字身寬 > 高（橫向拉寬）
+    assert p[0][4] > p[0][5]
+
+
 def test_api_stamp_char_offsets_apply():
     """12g: char_offsets 套用到 placement (cx, cy)。
 

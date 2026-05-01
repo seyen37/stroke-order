@@ -223,6 +223,7 @@ def _placements_for_preset(
     double_border: bool,
     double_gap_mm: float,
     layout_5char: str = "2plus3",
+    layout_2char: str = "horizontal",
     char_offsets: list[tuple[float, float]] = None,
 ) -> list[tuple[Character, float, float, float, float, float]]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
@@ -319,10 +320,37 @@ def _placements_for_preset(
             bot_y = cy + inner_h * 0.23
             _add(chars[1], left_x, top_y, 0.0, left_size)
             _add(chars[2], left_x, bot_y, 0.0, left_size)
+        elif n == 2:
+            # Phase 12h: 2 字 layout — 字身 non-uniform stretch（跟 3 字 1+2
+            # 左欄堆疊 0.46 ratio + 0.92 拉長比例一致）：
+            #   "horizontal"（預設，右起讀）：左右排列，右字 chars[0] + 左字 chars[1]
+            #   "vertical"：上下排列，上字 chars[0] + 下字 chars[1]
+            # 字身 cell：在排列方向 ~46% inner（兩字共 92%，留 4% 中央 gap），
+            # 垂直方向 ~92% inner（拉長到接近上下邊框）。
+            STRETCH_LONG = 0.92   # 拉長方向比例（接近邊框）
+            STRETCH_PAIR = 0.46   # 對偶字方向比例（兩字共 92%）
+            CENTER_OFFSET = 0.23  # 兩字偏移（cell 中心離章面中心 = inner * 0.23）
+            if layout_2char == "vertical":
+                # 上下排列：寬拉長、高 46%
+                cell_w = inner_w * STRETCH_LONG
+                cell_h = inner_h * STRETCH_PAIR
+                top_y = cy - inner_h * CENTER_OFFSET
+                bot_y = cy + inner_h * CENTER_OFFSET
+                placements.append((chars[0], cx, top_y, 0.0, cell_w, cell_h))
+                placements.append((chars[1], cx, bot_y, 0.0, cell_w, cell_h))
+            else:  # "horizontal"（預設）
+                # 左右排列右起讀：右字 chars[0]、左字 chars[1]
+                cell_w = inner_w * STRETCH_PAIR
+                cell_h = inner_h * STRETCH_LONG
+                right_x = cx + inner_w * CENTER_OFFSET
+                left_x = cx - inner_w * CENTER_OFFSET
+                placements.append((chars[0], right_x, cy, 0.0, cell_w, cell_h))
+                placements.append((chars[1], left_x, cy, 0.0, cell_w, cell_h))
         else:
-            # 1-2 chars: vertical strip; 4+ chars: 2×2 grid (5+ overflow).
-            if n <= 2:
-                rows, cols = n, 1
+            # 1 char vertical strip (n=1 不會跑到這邊因為前面 n==1 分支)
+            # 4+ chars: 2×2 grid (5+ overflow).
+            if n == 1:
+                rows, cols = 1, 1
             else:  # n >= 4
                 rows, cols = 2, 2
             coords = _grid_positions_right_to_left(
@@ -455,6 +483,7 @@ def render_stamp_svg(
     stroke_width: float = 0.6,
     engrave_mode: EngraveMode = "concave",
     layout_5char: str = "2plus3",
+    layout_2char: str = "horizontal",
     char_offsets: list[tuple[float, float]] = None,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
@@ -484,6 +513,7 @@ def render_stamp_svg(
         border_padding_mm=border_padding_mm,
         double_border=double_border, double_gap_mm=double_gap_mm,
         layout_5char=layout_5char,
+        layout_2char=layout_2char,
         char_offsets=char_offsets,
     )
 
@@ -583,6 +613,7 @@ def render_stamp_gcode(
     engrave_mode: EngraveMode = "concave",
     line_pitch_mm: float = 0.1,
     layout_5char: str = "2plus3",
+    layout_2char: str = "horizontal",
     char_offsets: list[tuple[float, float]] = None,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
@@ -611,6 +642,7 @@ def render_stamp_gcode(
         border_padding_mm=border_padding_mm,
         double_border=double_border, double_gap_mm=double_gap_mm,
         layout_5char=layout_5char,
+        layout_2char=layout_2char,
         char_offsets=char_offsets,
     )
 

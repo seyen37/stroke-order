@@ -1162,6 +1162,21 @@
       </span>
     </div>
 
+    <!-- 12h: 2 字 layout toggle（只在 square_name + 2 字時相關） -->
+    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+         padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
+      <label style="font-weight:600;">2 字排列</label>
+      <label title="左右排列右起讀（傳統慣例：右字 + 左字），字身上下拉長到接近邊框">
+        <input type="radio" name="st-2char-layout" value="horizontal" checked> 左右排列（預設，右起讀）
+      </label>
+      <label style="margin-left:12px;" title="上下排列：上字 + 下字，字身左右拉寬到接近邊框">
+        <input type="radio" name="st-2char-layout" value="vertical"> 上下排列
+      </label>
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        僅 2 字情境生效
+      </span>
+    </div>
+
     <!-- 12e: 5 字 layout toggle（只在 square_name + 5 字時相關） -->
     <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
          padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
@@ -4621,6 +4636,9 @@ function stampBuildBody(format) {
   const engraveRadio = document.querySelector('input[name="st-engrave"]:checked');
   const engraveMode = engraveRadio ? engraveRadio.value : "concave";
   const linePitch = parseFloat($("st-line-pitch")) || 0.1;
+  // 12h: 2 字 layout（預設左右排列右起讀；vertical 上下排列）
+  const layout2Radio = document.querySelector('input[name="st-2char-layout"]:checked');
+  const layout2Char = layout2Radio ? layout2Radio.value : "horizontal";
   // 12e/12f: 5 字 layout（預設 2+3 姓名章；3+2 是職名章變體）
   const layout5Radio = document.querySelector('input[name="st-5char-layout"]:checked');
   const layout5Char = layout5Radio ? layout5Radio.value : "2plus3";
@@ -4649,6 +4667,7 @@ function stampBuildBody(format) {
     engrave_mode: engraveMode,
     line_pitch_mm: linePitch,
     layout_5char: layout5Char,
+    layout_2char: layout2Char,
     char_offsets: charOffsets,
   };
 }
