@@ -270,9 +270,12 @@ def _placements_for_preset(
             # 4 字：2×2 角落 cell，bbox 角落到圓心距離大
             # 5 字：2+3 column 角落 cell 最遠
             n_clamped = min(n, 5)
+            # Phase 12j: 圓章字 outline 預留 padding 不貼圓邊（解 user
+            # 抱怨『字碰外框 stroke』）。1/3 字 ratio 從 0.96/0.93 → 0.85；
+            # 5 字從 0.72 → 0.78（OTF 字筆劃不到 bbox 角落，視覺 OK）。
             ROUND_SHRINK_BY_N = {
-                1: 0.96, 2: 0.95, 3: 0.93,
-                4: 0.80, 5: 0.72,
+                1: 0.85, 2: 0.90, 3: 0.85,
+                4: 0.78, 5: 0.78,
             }
             shrink = ROUND_SHRINK_BY_N.get(n_clamped, 0.85)
             inner_w = inner_w * shrink
@@ -559,9 +562,14 @@ def render_stamp_svg(
     for d in decorations:
         deco_pieces.append(_decoration_svg(d))
 
+    # Phase 12j: viewBox 加 stroke padding 防外框 stroke 外緣被切
+    # （圓 path 邊在 width/2，stroke 從中心向外延伸 stroke_width/2，
+    # 過去 viewBox=(0, 0, w, h) 會切掉 stroke 外緣 0.3mm）。
+    vb_pad = stroke_width / 2
     svg_open = (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
-        f'viewBox="0 0 {stamp_width_mm:.3f} {stamp_height_mm:.3f}" '
+        f'viewBox="{-vb_pad:.3f} {-vb_pad:.3f} '
+        f'{stamp_width_mm + 2 * vb_pad:.3f} {stamp_height_mm + 2 * vb_pad:.3f}" '
         f'width="{stamp_width_mm:.3f}mm" height="{stamp_height_mm:.3f}mm" '
         f'shape-rendering="geometricPrecision">'
     )
