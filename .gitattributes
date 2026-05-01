@@ -1,0 +1,54 @@
+# 強制所有文字檔在 git 內部統一用 LF。
+#
+# 原因：Windows + WSL/fuse 跨檔案系統存取時，git 看到 LF（內部）vs CRLF（工作樹）
+# 會把整個檔案標成 modified（即使內容沒變），造成 git status 雜訊。
+# 設定 `text=auto eol=lf` 讓 git 在 commit 時 normalize 成 LF，
+# checkout 時也維持 LF（不依賴 platform default）。
+#
+# 起源：2026-05-01 morning audit 發現 git diff 顯示 14164 insertions = 14164 deletions，
+# 經 `git ls-files --eol` 確認是 i/lf w/crlf 行尾差異。
+
+# 預設：所有偵測為 text 的檔案 commit 時 normalize 成 LF
+* text=auto eol=lf
+
+# 明確指定文字檔（避免 detection 失誤）
+*.md text eol=lf
+*.py text eol=lf
+*.txt text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+*.sh text eol=lf
+*.svg text eol=lf
+*.csv text eol=lf
+*.tsv text eol=lf
+
+# Windows 專用 — 維持 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二進位檔（不要碰）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.ipynb binary
