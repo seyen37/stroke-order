@@ -144,6 +144,12 @@ class StampPostRequest(BaseModel):
     #   4-col (13-16 字): right|mid-right|mid-left|left
     layout_official_short_col: list[str] | str = ["right"]
     char_offsets: list[list[float]] = []  # 12g: 每字 [dx, dy] mm 微調（list of [dx, dy]）
+    # 12m-1: 橢圓章結構化欄位（preset=oval 時使用，否則忽略）。
+    # 任一非空 → 走業界標準 layout（上弧 + 中央 1-3 行 + 下弧）；
+    # 全空 → fallback 既有 1-2 行 horizontal layout（向後兼容）。
+    oval_arc_top: str = ""           # 上弧文（典型：公司名稱）
+    oval_arc_bottom: str = ""        # 下弧文（典型：地址 / 統一編號）
+    oval_body_lines: list[str] = []  # 中央 1-3 行水平文字（順序 = 上→下）
 
 
 class SutraPostRequest(BaseModel):
@@ -2630,6 +2636,10 @@ def create_app() -> FastAPI:
             layout_2char=req.layout_2char,
             layout_official_short_col=short_cols_list,
             char_offsets=[tuple(o[:2]) for o in req.char_offsets if len(o) >= 2],
+            # 12m-1: oval structured fields (其他 preset 一律忽略，無 side effect)
+            oval_arc_top=req.oval_arc_top,
+            oval_arc_bottom=req.oval_arc_bottom,
+            oval_body_lines=list(req.oval_body_lines or []),
         )
 
         if req.format == "svg":
@@ -2683,6 +2693,12 @@ def create_app() -> FastAPI:
         # 12l: GET 用逗號分隔字串（query string 沒原生 list），預設 "right"
         # 例：?layout_official_short_col=right,mid-right
         layout_official_short_col: str = Query("right"),
+        # 12m-1: oval structured fields. body_lines 用 `||` 分隔（單 `|` 對
+        # URL 是合法字元，但 `||` 在自然文本極罕見、區隔效果好）。例：
+        # ?oval_body_lines=收發章||電話:02-2234567
+        oval_arc_top: str = Query("", max_length=80),
+        oval_arc_bottom: str = Query("", max_length=80),
+        oval_body_lines: str = Query("", max_length=240),
     ):
         # 12l: parse + validate comma-separated short col names
         short_raw = [s.strip() for s in layout_official_short_col.split(",")
@@ -2705,6 +2721,11 @@ def create_app() -> FastAPI:
             layout_5char=layout_5char,
             layout_2char=layout_2char,
             layout_official_short_col=short_raw,
+            oval_arc_top=oval_arc_top,
+            oval_arc_bottom=oval_arc_bottom,
+            oval_body_lines=[
+                ln for ln in oval_body_lines.split("||") if ln
+            ] if oval_body_lines else [],
         )
         return await stamp_post(req)
 

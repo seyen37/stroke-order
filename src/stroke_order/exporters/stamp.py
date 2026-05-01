@@ -258,6 +258,146 @@ def _arc_text_positions(
     return out
 
 
+# Phase 12m-1: oval stamp structured layout helpers ------------------------
+
+
+def _oval_arc_positions(
+    n: int, *, inner_w: float, inner_h: float, cx: float, cy: float,
+    top: bool, span_deg: float = 160.0, padding_ratio: float = 0.10,
+) -> list[tuple[float, float, float]]:
+    """Place ``n`` chars along the upper or lower half of an inner ellipse.
+
+    Returns ``[(cx_mm, cy_mm, rotation_deg), ...]`` — caller pairs with
+    ``Character`` objects + size.
+
+    Convention (per Phase 12m-1 spec, "頂部朝外"):
+    - ``rotation = theta + 90°`` so each char's "up" points OUTWARD from
+      the ellipse centre.
+    - Top arc reads left→right at the top (typical 公司名).
+    - Bottom arc reads left→right in the *viewer's* frame (chars appear
+      individually upside-down because of the outward-facing rotation).
+
+    ``padding_ratio`` shrinks the ellipse so chars don't touch the
+    border (default 10% — leaves visible margin).
+    """
+    if n <= 0:
+        return []
+    a = (inner_w / 2.0) * (1.0 - padding_ratio)
+    b = (inner_h / 2.0) * (1.0 - padding_ratio)
+    if top:
+        # Top half: left to right == theta increases from -90-span/2 → -90+span/2
+        start_deg = -90.0 - span_deg / 2.0
+        sweep_deg = span_deg
+    else:
+        # Bottom half: left to right == theta DECREASES from 90+span/2 → 90-span/2
+        start_deg = 90.0 + span_deg / 2.0
+        sweep_deg = -span_deg
+    out: list[tuple[float, float, float]] = []
+    if n == 1:
+        # Single char at apex (top or bottom centre)
+        theta_deg = -90.0 if top else 90.0
+        rad = math.radians(theta_deg)
+        out.append((
+            cx + a * math.cos(rad),
+            cy + b * math.sin(rad),
+            theta_deg + 90.0,
+        ))
+        return out
+    for i in range(n):
+        t = i / (n - 1)
+        theta_deg = start_deg + sweep_deg * t
+        rad = math.radians(theta_deg)
+        out.append((
+            cx + a * math.cos(rad),
+            cy + b * math.sin(rad),
+            theta_deg + 90.0,
+        ))
+    return out
+
+
+def _oval_arc_char_size(
+    n: int, *, inner_w: float, inner_h: float, span_deg: float = 160.0,
+    padding_ratio: float = 0.10, char_size_cap: float,
+    fill_ratio: float = 0.92,
+) -> float:
+    """Auto-fit char size for arc text — limited by per-char arc chord.
+
+    Approximates ellipse arc length via average-radius × span_rad, then
+    divides by N for per-char chord. Capped by ``char_size_cap`` (the
+    user-supplied ``char_size_mm`` upper bound).
+    """
+    if n <= 0:
+        return char_size_cap
+    a = (inner_w / 2.0) * (1.0 - padding_ratio)
+    b = (inner_h / 2.0) * (1.0 - padding_ratio)
+    avg_r = (a + b) / 2.0
+    arc_len_approx = avg_r * math.radians(span_deg)
+    per_char = arc_len_approx / max(n, 1)
+    return min(char_size_cap, per_char * fill_ratio)
+
+
+def _oval_body_layout(
+    lines_chars: list[list[Character]], *,
+    inner_w: float, inner_h: float, cx: float, cy: float,
+    char_size_cap: float,
+) -> list[tuple[Character, float, float, float, float, float]]:
+    """Lay out 1-3 horizontal body lines centred inside an oval.
+
+    Args:
+        lines_chars: list of (already-loaded) Character lists, one per line.
+            Empty inner lists are skipped. Outer list capped at 3.
+        char_size_cap: upper bound on char width/height (matches the
+            user's ``char_size_mm`` setting).
+
+    Each line auto-fits its width based on the ellipse's available
+    horizontal span at the line's y, so a 3-char title line gets large
+    chars while a 15-char contact line gets compact chars — matching
+    real-world 橢圓章 visual hierarchy (cf. T-02 reference).
+
+    Returns ``[(char, cx, cy, rot, w, h), ...]``.
+    """
+    # Drop empty lines, cap to 3
+    lines_chars = [ln for ln in lines_chars if ln][:3]
+    n_lines = len(lines_chars)
+    if n_lines == 0:
+        return []
+    # Per-line y offset (ratio of inner_h half) and max char height (ratio
+    # of inner_h). Tuned to match T-01/T-02/T-04 reference visual.
+    Y_OFFSETS = {
+        1: [0.0],
+        2: [-0.18, 0.18],
+        3: [-0.25, 0.0, 0.25],
+    }
+    MAX_H_PER_LINE = {1: 0.40, 2: 0.25, 3: 0.18}
+    offs = Y_OFFSETS[n_lines]
+    max_h = MAX_H_PER_LINE[n_lines] * inner_h
+    a = inner_w / 2.0
+    b = inner_h / 2.0
+    USABLE_WIDTH_RATIO = 0.80   # leave 10% margin each side at full width
+    out: list[tuple[Character, float, float, float, float, float]] = []
+    for line_chars, y_off_ratio in zip(lines_chars, offs):
+        n = len(line_chars)
+        if n == 0:
+            continue
+        y = cy + y_off_ratio * inner_h
+        # Available x-half-width at this y from ellipse equation
+        y_norm = (y - cy) / b
+        if abs(y_norm) >= 0.999:
+            continue  # line off the ellipse — skip silently
+        x_half = a * math.sqrt(1.0 - y_norm * y_norm)
+        usable_w = USABLE_WIDTH_RATIO * 2.0 * x_half
+        cell_w = usable_w / n
+        # Char size: limited by cell width AND vertical band height AND cap
+        sz = min(char_size_cap, cell_w * 0.92, max_h)
+        # Centre line horizontally
+        total_w = cell_w * n
+        x_start = cx - total_w / 2.0 + cell_w / 2.0
+        for i, c in enumerate(line_chars):
+            x = x_start + i * cell_w
+            out.append((c, x, y, 0.0, sz, sz))
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Border builders
 # ---------------------------------------------------------------------------
@@ -331,6 +471,10 @@ def _placements_for_preset(
     layout_2char: str = "horizontal",
     layout_official_short_col=("right",),
     char_offsets: list[tuple[float, float]] = None,
+    # Phase 12m-1: oval structured fields (only consumed when preset="oval")
+    oval_arc_top_chars: list[Character] = None,
+    oval_arc_bottom_chars: list[Character] = None,
+    oval_body_lines_chars: list[list[Character]] = None,
 ) -> list[tuple[Character, float, float, float, float, float]]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
@@ -353,7 +497,15 @@ def _placements_for_preset(
     inner_w = max(width_mm - 2 * inset, 1.0)
     inner_h = max(height_mm - 2 * inset, 1.0)
     n = len(chars)
-    if n == 0:
+    # Phase 12m-1: oval preset 結構化 fields 可能讓 `chars` 是空的（user 只填
+    # oval_arc_top / oval_arc_bottom / oval_body_lines），此時不能 early-return。
+    _has_oval_structured = preset == "oval" and (
+        (oval_arc_top_chars and len(oval_arc_top_chars) > 0)
+        or (oval_arc_bottom_chars and len(oval_arc_bottom_chars) > 0)
+        or (oval_body_lines_chars and any(
+            ln for ln in oval_body_lines_chars if ln))
+    )
+    if n == 0 and not _has_oval_structured:
         return []
 
     placements: list[
@@ -581,27 +733,71 @@ def _placements_for_preset(
             _add(chars[0], cx, cy, 0.0, char_size_mm)
 
     elif preset == "oval":
-        # 1-2 horizontal lines, top-to-bottom reading.
-        if n <= 4:
-            spacing = inner_w / max(n, 1)
-            x0 = cx - inner_w / 2 + spacing / 2
-            for i, c in enumerate(chars):
-                _add(c, x0 + i * spacing, cy, 0.0, char_size_mm)
+        # Phase 12m-1: 結構化 oval layout — 上弧文 + 中央 1-3 行 + 下弧文。
+        # 偵測任一 oval_* 欄位非空 → 走新 layout，否則 fallback 1-2 行 horizontal
+        # （向後兼容：既有 oval test / 簡單橢圓章 用 text 一字串依然 work）。
+        has_arc_top = oval_arc_top_chars and len(oval_arc_top_chars) > 0
+        has_arc_bot = oval_arc_bottom_chars and len(oval_arc_bottom_chars) > 0
+        has_body = oval_body_lines_chars and any(
+            ln for ln in oval_body_lines_chars if ln)
+        if has_arc_top or has_arc_bot or has_body:
+            # --- 新 structured layout ---
+            # Arc top (公司名沿上弧)
+            if has_arc_top:
+                arc_n = len(oval_arc_top_chars)
+                arc_sz = _oval_arc_char_size(
+                    arc_n, inner_w=inner_w, inner_h=inner_h,
+                    char_size_cap=char_size_mm,
+                )
+                positions = _oval_arc_positions(
+                    arc_n, inner_w=inner_w, inner_h=inner_h,
+                    cx=cx, cy=cy, top=True,
+                )
+                for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
+                    placements.append((ch, x, y, rot, arc_sz, arc_sz))
+            # Arc bottom (地址 / 統編沿下弧)
+            if has_arc_bot:
+                arc_n = len(oval_arc_bottom_chars)
+                arc_sz = _oval_arc_char_size(
+                    arc_n, inner_w=inner_w, inner_h=inner_h,
+                    char_size_cap=char_size_mm,
+                )
+                positions = _oval_arc_positions(
+                    arc_n, inner_w=inner_w, inner_h=inner_h,
+                    cx=cx, cy=cy, top=False,
+                )
+                for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
+                    placements.append((ch, x, y, rot, arc_sz, arc_sz))
+            # Body 1-3 行水平文字
+            if has_body:
+                body_placements = _oval_body_layout(
+                    oval_body_lines_chars,
+                    inner_w=inner_w, inner_h=inner_h,
+                    cx=cx, cy=cy, char_size_cap=char_size_mm,
+                )
+                placements.extend(body_placements)
         else:
-            half = (n + 1) // 2
-            top_row = chars[:half]
-            bot_row = chars[half:]
-            for row_chars, y_off in [
-                (top_row, cy - inner_h * 0.22),
-                (bot_row, cy + inner_h * 0.22),
-            ]:
-                m = len(row_chars)
-                if m == 0:
-                    continue
-                spacing = inner_w / m
+            # --- 向後兼容 fallback：既有 1-2 行 horizontal layout ---
+            if n <= 4:
+                spacing = inner_w / max(n, 1)
                 x0 = cx - inner_w / 2 + spacing / 2
-                for i, c in enumerate(row_chars):
-                    _add(c, x0 + i * spacing, y_off, 0.0, char_size_mm)
+                for i, c in enumerate(chars):
+                    _add(c, x0 + i * spacing, cy, 0.0, char_size_mm)
+            else:
+                half = (n + 1) // 2
+                top_row = chars[:half]
+                bot_row = chars[half:]
+                for row_chars, y_off in [
+                    (top_row, cy - inner_h * 0.22),
+                    (bot_row, cy + inner_h * 0.22),
+                ]:
+                    m = len(row_chars)
+                    if m == 0:
+                        continue
+                    spacing = inner_w / m
+                    x0 = cx - inner_w / 2 + spacing / 2
+                    for i, c in enumerate(row_chars):
+                        _add(c, x0 + i * spacing, y_off, 0.0, char_size_mm)
 
     elif preset == "rectangle_title":
         half = (n + 1) // 2
@@ -671,6 +867,10 @@ def render_stamp_svg(
     layout_2char: str = "horizontal",
     layout_official_short_col=("right",),
     char_offsets: list[tuple[float, float]] = None,
+    # Phase 12m-1: oval structured fields
+    oval_arc_top: str = "",
+    oval_arc_bottom: str = "",
+    oval_body_lines: list[str] = None,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -683,16 +883,33 @@ def render_stamp_svg(
     ``engrave_mode`` (Phase 12c)：
     - ``"concave"``（陰刻、白文，預設、向後相容）：字凹下、白底紅字描邊
     - ``"convex"``（陽刻、朱文）：字凸出、紅底白字（fill 模式）
+
+    Phase 12m-1: ``oval_arc_top`` / ``oval_arc_bottom`` / ``oval_body_lines``
+    are oval-only structured fields. When any is non-empty AND preset=oval,
+    they replace the simple ``text`` 1-2 row horizontal fallback with a real
+    business-style oval layout (上弧文 + 中央 1-3 行 + 下弧文).
     """
     decorations = decorations or []
-    chars: list[Character] = []
-    for ch in text:
-        if ch.isspace():
-            continue
-        c = char_loader(ch)
-        if c is None:
-            continue
-        chars.append(c)
+    oval_body_lines = oval_body_lines or []
+
+    def _load_chars(s: str) -> list[Character]:
+        out: list[Character] = []
+        for ch in s:
+            if ch.isspace():
+                continue
+            c = char_loader(ch)
+            if c is None:
+                continue
+            out.append(c)
+        return out
+
+    chars: list[Character] = _load_chars(text)
+    # Phase 12m-1: oval structured field char loading
+    oval_arc_top_chars = _load_chars(oval_arc_top) if oval_arc_top else []
+    oval_arc_bottom_chars = (
+        _load_chars(oval_arc_bottom) if oval_arc_bottom else []
+    )
+    oval_body_lines_chars = [_load_chars(line) for line in oval_body_lines]
 
     placements = _placements_for_preset(
         preset, chars, stamp_width_mm, stamp_height_mm, char_size_mm,
@@ -702,6 +919,9 @@ def render_stamp_svg(
         layout_2char=layout_2char,
         layout_official_short_col=layout_official_short_col,
         char_offsets=char_offsets,
+        oval_arc_top_chars=oval_arc_top_chars,
+        oval_arc_bottom_chars=oval_arc_bottom_chars,
+        oval_body_lines_chars=oval_body_lines_chars,
     )
 
     # Build border path d-strings (used by both modes).
@@ -808,6 +1028,10 @@ def render_stamp_gcode(
     layout_2char: str = "horizontal",
     layout_official_short_col=("right",),
     char_offsets: list[tuple[float, float]] = None,
+    # Phase 12m-1: oval structured fields (mirror of render_stamp_svg)
+    oval_arc_top: str = "",
+    oval_arc_bottom: str = "",
+    oval_body_lines: list[str] = None,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -821,14 +1045,25 @@ def render_stamp_gcode(
     if laser_on is None:
         laser_on = f"M3 S{laser_power}"
     decorations = decorations or []
-    chars: list[Character] = []
-    for ch in text:
-        if ch.isspace():
-            continue
-        c = char_loader(ch)
-        if c is None:
-            continue
-        chars.append(c)
+    oval_body_lines = oval_body_lines or []
+
+    def _load_chars(s: str) -> list[Character]:
+        out: list[Character] = []
+        for ch in s:
+            if ch.isspace():
+                continue
+            c = char_loader(ch)
+            if c is None:
+                continue
+            out.append(c)
+        return out
+
+    chars: list[Character] = _load_chars(text)
+    oval_arc_top_chars = _load_chars(oval_arc_top) if oval_arc_top else []
+    oval_arc_bottom_chars = (
+        _load_chars(oval_arc_bottom) if oval_arc_bottom else []
+    )
+    oval_body_lines_chars = [_load_chars(line) for line in oval_body_lines]
 
     placements = _placements_for_preset(
         preset, chars, stamp_width_mm, stamp_height_mm, char_size_mm,
@@ -838,6 +1073,9 @@ def render_stamp_gcode(
         layout_2char=layout_2char,
         layout_official_short_col=layout_official_short_col,
         char_offsets=char_offsets,
+        oval_arc_top_chars=oval_arc_top_chars,
+        oval_arc_bottom_chars=oval_arc_bottom_chars,
+        oval_body_lines_chars=oval_body_lines_chars,
     )
 
     out: list[str] = [

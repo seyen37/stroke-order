@@ -1138,3 +1138,225 @@ def test_official_svg_renders_16char(stub_loader):
         stamp_width_mm=30, stamp_height_mm=30, char_size_mm=5,
     )
     assert svg.count("<path") >= 16
+
+
+# ---------------------------------------------------------------------------
+# Phase 12m-1 — oval structured layout (上弧 + 中央 1-3 行 + 下弧)
+# ---------------------------------------------------------------------------
+
+
+from stroke_order.exporters.stamp import (  # noqa: E402
+    _oval_arc_positions, _oval_arc_char_size, _oval_body_layout,
+)
+
+
+def test_oval_arc_top_first_char_on_left():
+    """Top arc reads left→right: char 0 sits at upper-left of ellipse."""
+    pos = _oval_arc_positions(11, inner_w=48, inner_h=28, cx=25, cy=15,
+                              top=True)
+    assert len(pos) == 11
+    # i=0 leftmost-top → x < cx, y < cy (upper-left quadrant of inner ellipse)
+    assert pos[0][0] < 25
+    assert pos[0][1] < 15
+    # i=last rightmost-top → x > cx, y < cy
+    assert pos[-1][0] > 25
+    assert pos[-1][1] < 15
+    # Middle char (i=5) at top apex → x ≈ cx
+    assert pos[5][0] == pytest.approx(25, abs=0.5)
+
+
+def test_oval_arc_top_rotation_outward():
+    """頂部朝外: char rotation = theta + 90°. Top apex → 0° (upright)."""
+    pos = _oval_arc_positions(11, inner_w=48, inner_h=28, cx=25, cy=15,
+                              top=True)
+    # i=5 is top center: theta=-90, rotation = 0° (upright)
+    assert pos[5][2] == pytest.approx(0.0, abs=0.5)
+    # i=0 leftmost-top: theta=-170°, rotation = -80° (head tilts left)
+    assert pos[0][2] == pytest.approx(-80.0, abs=0.5)
+
+
+def test_oval_arc_bottom_first_char_on_left_too():
+    """Bottom arc reads left→right (in viewer's frame), even though chars
+    individually appear upside-down. char 0 sits at lower-left."""
+    pos = _oval_arc_positions(14, inner_w=48, inner_h=28, cx=25, cy=15,
+                              top=False)
+    assert len(pos) == 14
+    # i=0 leftmost-bottom → x < cx, y > cy
+    assert pos[0][0] < 25
+    assert pos[0][1] > 15
+    # i=last rightmost-bottom → x > cx, y > cy
+    assert pos[-1][0] > 25
+    assert pos[-1][1] > 15
+
+
+def test_oval_arc_bottom_chars_upside_down():
+    """Bottom apex char rotation ≈ 180° (head pointing DOWN, outward)."""
+    pos = _oval_arc_positions(14, inner_w=48, inner_h=28, cx=25, cy=15,
+                              top=False)
+    # Find the char at bottom apex (smallest |x - cx|)
+    bottom = min(pos, key=lambda p: abs(p[0] - 25))
+    assert bottom[2] == pytest.approx(180.0, abs=10.0)
+
+
+def test_oval_arc_single_char_at_apex():
+    """1 char on top arc → at top apex (cx, cy - b'), rotation 0."""
+    pos = _oval_arc_positions(1, inner_w=48, inner_h=28, cx=25, cy=15,
+                              top=True)
+    assert len(pos) == 1
+    assert pos[0][0] == pytest.approx(25)
+    assert pos[0][1] < 15  # above center
+    assert pos[0][2] == pytest.approx(0.0)
+
+
+def test_oval_arc_char_size_scales_inversely_with_count():
+    """More chars on the same arc → each smaller."""
+    sz_5 = _oval_arc_char_size(5, inner_w=48, inner_h=28, char_size_cap=99)
+    sz_15 = _oval_arc_char_size(15, inner_w=48, inner_h=28, char_size_cap=99)
+    assert sz_15 < sz_5
+
+
+def test_oval_arc_char_size_capped_by_user():
+    """char_size_cap is upper bound — even tiny char count won't exceed it."""
+    sz = _oval_arc_char_size(3, inner_w=48, inner_h=28, char_size_cap=4)
+    assert sz <= 4
+
+
+def test_oval_body_1_line_centered_at_y0():
+    """1 body line: y_offset = 0 (centered)."""
+    chars = _stub_chars(3)
+    out = _oval_body_layout([chars], inner_w=48, inner_h=28,
+                            cx=25, cy=15, char_size_cap=9)
+    assert len(out) == 3
+    # All 3 chars at same y = cy
+    ys = [y for _, _, y, _, _, _ in out]
+    assert all(y == pytest.approx(15) for y in ys)
+
+
+def test_oval_body_2_lines_split_top_bottom():
+    """2 body lines: y_offsets = ±0.18 inner_h."""
+    title = _stub_chars(3)
+    contact = _stub_chars(13)
+    out = _oval_body_layout([title, contact], inner_w=48, inner_h=28,
+                            cx=25, cy=15, char_size_cap=9)
+    # 16 placements (3 + 13)
+    assert len(out) == 16
+    # Title line y < cy (top), contact y > cy (bottom)
+    title_ys = [y for _, _, y, _, _, _ in out[:3]]
+    contact_ys = [y for _, _, y, _, _, _ in out[3:]]
+    assert all(y < 15 for y in title_ys)
+    assert all(y > 15 for y in contact_ys)
+    # Each line internally same y
+    assert len(set(round(y, 1) for y in title_ys)) == 1
+    assert len(set(round(y, 1) for y in contact_ys)) == 1
+
+
+def test_oval_body_visual_hierarchy_title_bigger_than_contact():
+    """T-02 復刻關鍵：3-char title 比 13-char 聯絡行字大很多。"""
+    title = _stub_chars(3)        # "收發章"
+    contact = _stub_chars(13)     # "電話:02-2234567"
+    out = _oval_body_layout([title, contact], inner_w=48, inner_h=28,
+                            cx=25, cy=15, char_size_cap=9)
+    title_size = out[0][4]    # w of first title char
+    contact_size = out[3][4]  # w of first contact char
+    assert title_size > contact_size * 2  # 至少 2× 大
+
+
+def test_oval_body_3_lines_top_middle_bottom():
+    """3 body lines: y_offsets = -0.25, 0, +0.25 inner_h."""
+    out = _oval_body_layout(
+        [_stub_chars(3), _stub_chars(5), _stub_chars(7)],
+        inner_w=48, inner_h=28, cx=25, cy=15, char_size_cap=9,
+    )
+    assert len(out) == 15
+    # Three distinct y values
+    ys = sorted({round(y, 1) for _, _, y, _, _, _ in out})
+    assert len(ys) == 3
+    assert ys[0] < 15 < ys[2]   # top < middle < bottom
+    assert ys[1] == pytest.approx(15, abs=0.5)
+
+
+def test_oval_body_skips_empty_lines():
+    """Empty inner lists are dropped, treated as fewer lines."""
+    out = _oval_body_layout(
+        [_stub_chars(3), [], _stub_chars(5)],
+        inner_w=48, inner_h=28, cx=25, cy=15, char_size_cap=9,
+    )
+    # Treated as 2 lines (3 + 5 = 8 chars)
+    assert len(out) == 8
+
+
+def test_placements_oval_structured_yields_arc_plus_body():
+    """End-to-end: arc top + body + arc bottom together."""
+    pl = _placements_for_preset(
+        "oval", chars=[],  # empty fallback
+        width_mm=50, height_mm=30, char_size_mm=9,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        oval_arc_top_chars=_stub_chars(11),
+        oval_body_lines_chars=[_stub_chars(3), _stub_chars(13)],
+        oval_arc_bottom_chars=_stub_chars(14),
+    )
+    # 11 (arc top) + 3 (body 1) + 13 (body 2) + 14 (arc bottom) = 41
+    assert len(pl) == 41
+
+
+def test_placements_oval_backward_compat_with_text_only():
+    """oval_* fields all empty → fallback to old 1-2 row horizontal layout."""
+    pl = _placements_for_preset(
+        "oval", chars=_stub_chars(3),
+        width_mm=50, height_mm=30, char_size_mm=9,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+    )
+    # 3 chars, all on a single row at y=cy=15
+    assert len(pl) == 3
+    ys = [y for _, _, y, _, _, _ in pl]
+    assert all(y == pytest.approx(15, abs=0.1) for y in ys)
+
+
+def test_placements_oval_empty_chars_with_only_arc_top():
+    """text 為空但 oval_arc_top 有字 → 不 early-return（12m-1 修正點）."""
+    pl = _placements_for_preset(
+        "oval", chars=[],
+        width_mm=50, height_mm=30, char_size_mm=9,
+        border_padding_mm=0.8, double_border=False, double_gap_mm=0.8,
+        oval_arc_top_chars=_stub_chars(5),
+    )
+    assert len(pl) == 5
+
+
+def test_render_oval_svg_t02_replica(stub_loader):
+    """T-02 復刻 end-to-end SVG render — 上弧 11 + body 16 + 下弧 14 = 41 chars."""
+    svg = render_stamp_svg(
+        "", stub_loader, preset="oval",
+        stamp_width_mm=50, stamp_height_mm=30, char_size_mm=9,
+        oval_arc_top="紅棠文化股份有限公司",      # 10 chars
+        oval_body_lines=["收發章", "電話:02-2234567"],  # 3 + 13 = 16
+        oval_arc_bottom="206號新北市新莊區五權西路3鄰3號",  # 16 chars
+    )
+    # 10 + 16 + 16 = 42 path elements + 1 border
+    assert svg.count("<path") >= 42
+
+
+def test_render_oval_gcode_t02_replica(stub_loader):
+    """T-02 復刻 G-code 生成不 crash + 帶 oval 標記."""
+    gc = render_stamp_gcode(
+        "", stub_loader, preset="oval",
+        stamp_width_mm=50, stamp_height_mm=30, char_size_mm=9,
+        oval_arc_top="紅棠文化",
+        oval_body_lines=["收發章"],
+        oval_arc_bottom="新北市新莊區",
+    )
+    assert "preset=oval" in gc
+    assert "G21" in gc and "G90" in gc
+
+
+def test_oval_arc_top_chars_inside_inner_ellipse():
+    """所有上弧 char 中心都在 inner ellipse 內（10% padding）."""
+    pos = _oval_arc_positions(11, inner_w=48, inner_h=28, cx=25, cy=15,
+                              top=True)
+    a_padded = (48 / 2) * 0.90
+    b_padded = (28 / 2) * 0.90
+    for x, y, _ in pos:
+        # ellipse equation x²/a² + y²/b² = 1 (centered at cx, cy)
+        norm = ((x - 25) / a_padded) ** 2 + ((y - 15) / b_padded) ** 2
+        # Char center sits exactly on the (padded) ellipse → norm ≈ 1
+        assert norm == pytest.approx(1.0, abs=0.01)

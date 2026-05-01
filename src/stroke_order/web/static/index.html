@@ -1108,11 +1108,60 @@
       mm
     </div>
 
-    <div class="row">
+    <div class="row" id="st-text-row">
       <label>文字</label>
       <input id="st-text" type="text" value="王小明"
              style="flex:1;min-width:200px;font-size:14px;">
       <span id="st-capacity" style="margin-left:10px;color:var(--muted);font-size:11px;"></span>
+    </div>
+
+    <!-- 12m-1: 橢圓章專用欄位（preset=oval 時顯示，取代單一 text 欄）。
+         5 個欄位對齊業界 T-01 / T-02 / T-04 layout：上弧 + 中央 1-3 行 + 下弧 -->
+    <div id="st-oval-fields" class="row" style="display:none;flex-direction:column;
+         background:#f5f8fa;border-left:3px solid #4a8fb8;padding:8px 12px;
+         border-radius:3px;margin:6px 0;font-size:13px;gap:6px;">
+      <div style="font-weight:600;color:#3a6f8a;margin-bottom:2px;">
+        橢圓章欄位（業界格式）
+        <span style="color:var(--muted);font-weight:normal;font-size:11px;
+                     margin-left:6px;">
+          上弧文 + 中央 1-3 行 + 下弧文（任一空白即略過）
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:64px;">上弧文</label>
+        <input id="st-oval-arc-top" type="text"
+               placeholder="公司名稱（沿上半弧）" maxlength="60"
+               value="紅棠文化股份有限公司"
+               style="flex:1;font-size:14px;">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:64px;">中央 1</label>
+        <input id="st-oval-body-1" type="text"
+               placeholder="第 1 行（標題如 收發章）" maxlength="40"
+               value="收發章"
+               style="flex:1;font-size:14px;">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:64px;">中央 2</label>
+        <input id="st-oval-body-2" type="text"
+               placeholder="第 2 行（聯絡如 TEL:02-2234567，可空）" maxlength="40"
+               value="電話:02-2234567"
+               style="flex:1;font-size:14px;">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:64px;">中央 3</label>
+        <input id="st-oval-body-3" type="text"
+               placeholder="第 3 行（可空）" maxlength="40"
+               value=""
+               style="flex:1;font-size:14px;">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:64px;">下弧文</label>
+        <input id="st-oval-arc-bottom" type="text"
+               placeholder="地址 / 統一編號（沿下半弧）" maxlength="60"
+               value="206號新北市新莊區五權西路3鄰3號"
+               style="flex:1;font-size:14px;">
+      </div>
     </div>
 
     <!-- 12b-2 小尺寸警示 / 12b-3 字數推薦尺寸（兩者整合在一個 hint 區塊） -->
@@ -4438,6 +4487,9 @@ function stampInit() {
     $(id).addEventListener("change", stampUpdateOfficialShortColUI);
   });
   stampUpdateOfficialShortColUI();
+  // 12m-1: oval 結構化欄位 — preset=oval 時顯示 5 欄 + 隱藏單一 text
+  $("st-preset").addEventListener("change", stampUpdateOvalFieldsUI);
+  stampUpdateOvalFieldsUI();
   const offsetsReset = $("st-char-offsets-reset");
   if (offsetsReset) {
     offsetsReset.addEventListener("click", () => {
@@ -4504,6 +4556,17 @@ function stampSyncSizePreset() {
 }
 
 // 12l: 公司章短列 UI 切換 — 依字數顯示 3-col / 4-col checkbox 或隱藏整列
+// 12m-1: oval preset 切換時顯示橢圓章 5 欄位 + 隱藏單一 text 欄
+function stampUpdateOvalFieldsUI() {
+  const presetEl = document.getElementById("st-preset");
+  const textRow = document.getElementById("st-text-row");
+  const ovalFields = document.getElementById("st-oval-fields");
+  if (!presetEl || !textRow || !ovalFields) return;
+  const isOval = presetEl.value === "oval";
+  textRow.style.display = isOval ? "none" : "";
+  ovalFields.style.display = isOval ? "flex" : "none";
+}
+
 function stampUpdateOfficialShortColUI() {
   const presetEl = document.getElementById("st-preset");
   const textEl = document.getElementById("st-text");
@@ -4755,6 +4818,14 @@ function stampBuildBody(format) {
     layout_2char: layout2Char,
     layout_official_short_col: offShortCol,
     char_offsets: charOffsets,
+    // 12m-1: 橢圓章結構化欄位 — 後端只在 preset=oval 時用，其他 preset 忽略
+    oval_arc_top: ($("st-oval-arc-top") || "").trim(),
+    oval_arc_bottom: ($("st-oval-arc-bottom") || "").trim(),
+    oval_body_lines: [
+      ($("st-oval-body-1") || "").trim(),
+      ($("st-oval-body-2") || "").trim(),
+      ($("st-oval-body-3") || "").trim(),
+    ].filter(line => line.length > 0),
   };
 }
 
