@@ -1177,6 +1177,23 @@
       </span>
     </div>
 
+    <!-- 12g: 每字位移微調（折疊 advanced） -->
+    <details id="st-char-offsets" style="margin:4px 0;font-size:13px;">
+      <summary style="cursor:pointer;padding:6px 10px;background:#f5f0fa;
+              border-left:3px solid #88c;border-radius:3px;">
+        每字位移微調 <span style="color:var(--muted);font-size:11px;">
+        （advanced — 每字獨立 X/Y 偏移 mm；超出邊框會自動 clamp）</span>
+      </summary>
+      <div id="st-char-offsets-body" style="padding:8px 10px;background:#fafaff;
+           border-left:3px solid #88c;font-size:12px;">
+        <!-- 動態生成：每字一 row（依文字長度，最多 5 字） -->
+      </div>
+      <div style="padding:4px 10px;background:#fafaff;border-left:3px solid #88c;">
+        <button type="button" id="st-char-offsets-reset"
+                style="font-size:11px;">↻ 全部歸零</button>
+      </div>
+    </details>
+
     <!-- 12c: 陰刻 / 陽刻 toggle -->
     <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
          padding:6px 10px;border-radius:3px;margin:4px 0;">
@@ -4362,6 +4379,17 @@ function stampInit() {
   });
   // Layout preset switch suggests sensible default dimensions
   $("st-preset").addEventListener("change", stampApplyPresetDefaults);
+  // 12g: 每字位移微調 — text 變動時更新 row 數
+  $("st-text").addEventListener("input", stampUpdateCharOffsetsUI);
+  const offsetsReset = $("st-char-offsets-reset");
+  if (offsetsReset) {
+    offsetsReset.addEventListener("click", () => {
+      document.querySelectorAll("#st-char-offsets-body input").forEach(
+        el => { el.value = "0"; }
+      );
+    });
+  }
+  stampUpdateCharOffsetsUI();
   // 12b-1: 業界 8 級尺寸 quick-pick — 套用後同步 w/h
   $("st-size-preset").addEventListener("change", stampApplySizePreset);
   // 12b-1: 手動改 w/h → quick-pick 切到「自訂尺寸」
@@ -4433,6 +4461,43 @@ async function stampUpdateCapacity() {
       `章面內框 <b>${d.inner_size_mm[0]}×${d.inner_size_mm[1]}</b> mm ｜ 建議文字 ≤ <b>${d.max_chars}</b> 字`;
   } catch (_) {}
   stampUpdateSizeHint();
+}
+
+// 12g: 每字位移微調 UI — 字數變動時動態生成 row（保留既有值）
+function stampUpdateCharOffsetsUI() {
+  const text = document.getElementById("st-text").value || "";
+  // square_name max 5（後端 hard-cap），其他 preset 也限 5 簡化 UX
+  const n = Math.min([...text].length, 5);
+  const body = document.getElementById("st-char-offsets-body");
+  if (!body) return;
+  // 保留既有值（避免 user 改字時打掉微調）
+  const oldRows = body.querySelectorAll(".char-offset-row");
+  const oldValues = Array.from(oldRows).map(row => ({
+    dx: parseFloat(row.querySelector(".char-dx").value) || 0,
+    dy: parseFloat(row.querySelector(".char-dy").value) || 0,
+  }));
+  body.innerHTML = "";
+  if (n === 0) {
+    body.innerHTML = '<span style="color:var(--muted);">輸入文字後顯示</span>';
+    return;
+  }
+  for (let i = 0; i < n; i++) {
+    const old = oldValues[i] || { dx: 0, dy: 0 };
+    const charPreview = [...text][i] || "?";
+    const row = document.createElement("div");
+    row.className = "char-offset-row";
+    row.dataset.i = String(i);
+    row.style.cssText = "display:flex;align-items:center;gap:6px;margin:2px 0;";
+    row.innerHTML = `
+      <span style="min-width:50px;">第 ${i + 1} 字（${charPreview}）</span>
+      X <input type="number" class="char-dx" value="${old.dx}"
+               step="0.1" min="-5" max="5" style="width:55px;">
+      Y <input type="number" class="char-dy" value="${old.dy}"
+               step="0.1" min="-5" max="5" style="width:55px;">
+      mm
+    `;
+    body.appendChild(row);
+  }
 }
 
 // 12b-2 + 12b-3: 小尺寸警示 + 字數推薦尺寸
@@ -4559,6 +4624,13 @@ function stampBuildBody(format) {
   // 12e/12f: 5 字 layout（預設 2+3 姓名章；3+2 是職名章變體）
   const layout5Radio = document.querySelector('input[name="st-5char-layout"]:checked');
   const layout5Char = layout5Radio ? layout5Radio.value : "2plus3";
+  // 12g: 每字位移微調（list of [dx, dy]，依目前字數 row 數）
+  const charOffsets = Array.from(
+    document.querySelectorAll("#st-char-offsets-body .char-offset-row")
+  ).map(row => [
+    parseFloat(row.querySelector(".char-dx").value) || 0,
+    parseFloat(row.querySelector(".char-dy").value) || 0,
+  ]);
   return {
     text: text,
     preset: $("st-preset"),
@@ -4577,6 +4649,7 @@ function stampBuildBody(format) {
     engrave_mode: engraveMode,
     line_pitch_mm: linePitch,
     layout_5char: layout5Char,
+    char_offsets: charOffsets,
   };
 }
 

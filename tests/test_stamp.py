@@ -467,6 +467,88 @@ def test_api_stamp_invalid_engrave_mode_rejected(client):
     assert r.status_code == 422
 
 
+def test_api_stamp_char_offsets_apply():
+    """12g: char_offsets 套用到 placement (cx, cy)。
+
+    用 24mm 大章 + char_size=5（cell 比字身大很多）確保 offset 不被 clamp。
+    """
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C(), C()]
+    base = _placements_for_preset(
+        "square_name", chars, 24, 24, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+    )
+    moved = _placements_for_preset(
+        "square_name", chars, 24, 24, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+        char_offsets=[(0.5, -0.3), (0.0, 0.0)],
+    )
+    # 第 1 字應該位移
+    assert abs(moved[0][1] - (base[0][1] + 0.5)) < 1e-6
+    assert abs(moved[0][2] - (base[0][2] - 0.3)) < 1e-6
+    # 第 2 字 (0, 0) 應該不變
+    assert abs(moved[1][1] - base[1][1]) < 1e-6
+    assert abs(moved[1][2] - base[1][2]) < 1e-6
+
+
+def test_api_stamp_char_offsets_bounds_clamp():
+    """12g: char_offsets 超過邊界要 clamp（字 outline bbox 不超 inner box）。"""
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C()]
+    # 超大 dx — 應 clamp 到右邊界
+    p = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+        char_offsets=[(100.0, 100.0)],  # 100mm 超大
+    )
+    cx, cy, _, w, h = p[0][1:]
+    inner_left = 0.8
+    inner_right = 12 - 0.8
+    inner_top = 0.8
+    inner_bot = 12 - 0.8
+    # 字 bbox 不能超出 inner box
+    assert cx + w / 2 <= inner_right + 1e-6
+    assert cx - w / 2 >= inner_left - 1e-6
+    assert cy + h / 2 <= inner_bot + 1e-6
+    assert cy - h / 2 >= inner_top - 1e-6
+
+
+def test_api_stamp_char_offsets_empty_backward_compat():
+    """12g: char_offsets=None 等同於不傳，行為不變（向後相容）。"""
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C()] * 3
+    base = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+    )
+    none_case = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+        char_offsets=None,
+    )
+    empty_case = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+        char_offsets=[],
+    )
+    assert base == none_case == empty_case
+
+
 def test_api_stamp_5char_default_2plus3_layout():
     """12f: 5 字章預設 2+3 layout（姓名章：右 2 字姓 + 左 3 字名）。
 

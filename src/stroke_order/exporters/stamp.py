@@ -223,6 +223,7 @@ def _placements_for_preset(
     double_border: bool,
     double_gap_mm: float,
     layout_5char: str = "2plus3",
+    char_offsets: list[tuple[float, float]] = None,
 ) -> list[tuple[Character, float, float, float, float, float]]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
@@ -405,6 +406,30 @@ def _placements_for_preset(
             for i, c in enumerate(row_chars):
                 _add(c, x0 + i * spacing, y_off, 0.0, char_size_mm)
 
+    # Phase 12g: 每字位移微調（char_offsets）+ bounds clamp。
+    # char_offsets[i] = (dx, dy) mm，套用後字 outline bbox 不能超出 inner box
+    # （邊框內側留 inset 邊距）。超過則 clamp 到合法範圍。
+    if char_offsets:
+        clamped: list[tuple[Character, float, float, float, float, float]] = []
+        inner_left = inset
+        inner_right = width_mm - inset
+        inner_top = inset
+        inner_bot = height_mm - inset
+        for i, (c, pcx, pcy, prot, pw, ph) in enumerate(placements):
+            dx, dy = (0.0, 0.0)
+            if i < len(char_offsets):
+                ofs = char_offsets[i]
+                if ofs is not None and len(ofs) >= 2:
+                    dx, dy = float(ofs[0]), float(ofs[1])
+            new_cx = pcx + dx
+            new_cy = pcy + dy
+            # bounds clamp（字 outline bbox = (cx ± w/2, cy ± h/2)）
+            half_w, half_h = pw / 2.0, ph / 2.0
+            new_cx = max(inner_left + half_w, min(inner_right - half_w, new_cx))
+            new_cy = max(inner_top + half_h, min(inner_bot - half_h, new_cy))
+            clamped.append((c, new_cx, new_cy, prot, pw, ph))
+        return clamped
+
     return placements
 
 
@@ -430,6 +455,7 @@ def render_stamp_svg(
     stroke_width: float = 0.6,
     engrave_mode: EngraveMode = "concave",
     layout_5char: str = "2plus3",
+    char_offsets: list[tuple[float, float]] = None,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -458,6 +484,7 @@ def render_stamp_svg(
         border_padding_mm=border_padding_mm,
         double_border=double_border, double_gap_mm=double_gap_mm,
         layout_5char=layout_5char,
+        char_offsets=char_offsets,
     )
 
     # Build border path d-strings (used by both modes).
@@ -556,6 +583,7 @@ def render_stamp_gcode(
     engrave_mode: EngraveMode = "concave",
     line_pitch_mm: float = 0.1,
     layout_5char: str = "2plus3",
+    char_offsets: list[tuple[float, float]] = None,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -583,6 +611,7 @@ def render_stamp_gcode(
         border_padding_mm=border_padding_mm,
         double_border=double_border, double_gap_mm=double_gap_mm,
         layout_5char=layout_5char,
+        char_offsets=char_offsets,
     )
 
     out: list[str] = [

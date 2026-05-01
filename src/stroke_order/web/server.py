@@ -137,6 +137,7 @@ class StampPostRequest(BaseModel):
     engrave_mode: str = "concave"  # 12c: concave (陰刻) | convex (陽刻)
     line_pitch_mm: float = 0.1     # 12c: convex 光柵掃描密度
     layout_5char: str = "2plus3"   # 12f: 5 字 layout 2plus3 (姓名章預設) | 3plus2 (職名章變體)
+    char_offsets: list[list[float]] = []  # 12g: 每字 [dx, dy] mm 微調（list of [dx, dy]）
 
 
 class SutraPostRequest(BaseModel):
@@ -2595,6 +2596,7 @@ def create_app() -> FastAPI:
             decorations=decorations,
             engrave_mode=req.engrave_mode,              # type: ignore[arg-type]
             layout_5char=req.layout_5char,
+            char_offsets=[tuple(o[:2]) for o in req.char_offsets if len(o) >= 2],
         )
 
         if req.format == "svg":
