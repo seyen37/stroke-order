@@ -1166,11 +1166,11 @@
     <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
          padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
       <label style="font-weight:600;">5 字排列</label>
-      <label title="傳統台灣印章右起讀：右 3 字（姓名）+ 左 2 字（職稱 / 修飾）">
-        <input type="radio" name="st-5char-layout" value="3plus2" checked> 右 3 字 + 左 2 字（預設）
+      <label title="姓名章：右 2 字（姓）+ 左 3 字（名），姓名分欄不拆破">
+        <input type="radio" name="st-5char-layout" value="2plus3" checked> 右 2 字 + 左 3 字（預設，姓名章）
       </label>
-      <label style="margin-left:12px;" title="日本姓名章 / 特殊變體：右 2 字 + 左 3 字">
-        <input type="radio" name="st-5char-layout" value="2plus3"> 右 2 字 + 左 3 字
+      <label style="margin-left:12px;" title="職名章變體：右 3 字（主名）+ 左 2 字（職稱 / 修飾）">
+        <input type="radio" name="st-5char-layout" value="3plus2"> 右 3 字 + 左 2 字（職名章）
       </label>
       <span style="margin-left:8px;color:var(--muted);font-size:11px;">
         僅 5 字情境生效
@@ -4556,9 +4556,9 @@ function stampBuildBody(format) {
   const engraveRadio = document.querySelector('input[name="st-engrave"]:checked');
   const engraveMode = engraveRadio ? engraveRadio.value : "concave";
   const linePitch = parseFloat($("st-line-pitch")) || 0.1;
-  // 12e: 5 字 layout
+  // 12e/12f: 5 字 layout（預設 2+3 姓名章；3+2 是職名章變體）
   const layout5Radio = document.querySelector('input[name="st-5char-layout"]:checked');
-  const layout5Char = layout5Radio ? layout5Radio.value : "3plus2";
+  const layout5Char = layout5Radio ? layout5Radio.value : "2plus3";
   return {
     text: text,
     preset: $("st-preset"),

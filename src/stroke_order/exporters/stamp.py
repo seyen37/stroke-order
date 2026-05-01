@@ -222,7 +222,7 @@ def _placements_for_preset(
     border_padding_mm: float = 0.8,
     double_border: bool,
     double_gap_mm: float,
-    layout_5char: str = "3plus2",
+    layout_5char: str = "2plus3",
 ) -> list[tuple[Character, float, float, float, float, float]]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
@@ -429,7 +429,7 @@ def render_stamp_svg(
     color: str = "#000",
     stroke_width: float = 0.6,
     engrave_mode: EngraveMode = "concave",
-    layout_5char: str = "3plus2",
+    layout_5char: str = "2plus3",
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -555,7 +555,7 @@ def render_stamp_gcode(
     laser_off: str = "M5",
     engrave_mode: EngraveMode = "concave",
     line_pitch_mm: float = 0.1,
-    layout_5char: str = "3plus2",
+    layout_5char: str = "2plus3",
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser

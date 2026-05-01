@@ -136,7 +136,7 @@ class StampPostRequest(BaseModel):
     format: str = "svg"   # svg | gcode | pdf
     engrave_mode: str = "concave"  # 12c: concave (陰刻) | convex (陽刻)
     line_pitch_mm: float = 0.1     # 12c: convex 光柵掃描密度
-    layout_5char: str = "3plus2"   # 12e: 5 字 layout 3plus2 (預設) | 2plus3
+    layout_5char: str = "2plus3"   # 12f: 5 字 layout 2plus3 (姓名章預設) | 3plus2 (職名章變體)
 
 
 class SutraPostRequest(BaseModel):
@@ -2643,7 +2643,7 @@ def create_app() -> FastAPI:
         format: str = Query("svg", pattern=_STAMP_FORMAT_PATTERN),
         engrave_mode: str = Query("concave", pattern=_STAMP_ENGRAVE_PATTERN),
         line_pitch_mm: float = Query(0.1, gt=0, le=2.0),
-        layout_5char: str = Query("3plus2", pattern=_STAMP_LAYOUT5_PATTERN),
+        layout_5char: str = Query("2plus3", pattern=_STAMP_LAYOUT5_PATTERN),
     ):
         req = StampPostRequest(
             text=text, preset=preset,

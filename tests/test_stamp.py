@@ -467,13 +467,13 @@ def test_api_stamp_invalid_engrave_mode_rejected(client):
     assert r.status_code == 422
 
 
-def test_api_stamp_5char_default_3plus2_layout():
-    """12e: 5 字章預設 3+2 layout（傳統台灣印章右起讀：右 3 字 + 左 2 字）。
+def test_api_stamp_5char_default_2plus3_layout():
+    """12f: 5 字章預設 2+3 layout（姓名章：右 2 字姓 + 左 3 字名）。
 
     預期：
-    - 右欄字 (chars[0], chars[1], chars[2]) 上中下排列
-    - 左欄字 (chars[3], chars[4]) 上下排列
-    - 右欄 cell h 較小（30%），左欄 cell h 較大（46%）
+    - 右欄字 (chars[0], chars[1]) 上下排列（姓）
+    - 左欄字 (chars[2], chars[3], chars[4]) 上中下排列（名）
+    - 右欄 cell h 較大（46% — 2 字欄），左欄 cell h 較小（30% — 3 字欄）
     """
     from stroke_order.exporters.stamp import _placements_for_preset
 
@@ -487,20 +487,19 @@ def test_api_stamp_5char_default_3plus2_layout():
     )
     assert len(p) == 5
     cx_center = 6.0
-    # 右欄 3 字（上中下）— x 大於章面中心
-    for i in (0, 1, 2):
-        assert p[i][1] > cx_center, f"第{i+1}字 cx={p[i][1]} 應在右欄"
-    assert p[0][2] < p[1][2] < p[2][2], "右欄字應由上到下排列"
-    # 左欄 2 字（上下）— x 小於章面中心
-    assert p[3][1] < cx_center, f"第4字 cx={p[3][1]} 應在左欄"
-    assert p[4][1] < cx_center, f"第5字 cx={p[4][1]} 應在左欄"
-    assert p[3][2] < p[4][2], "第4字應在第5字上方"
-    # 右欄 cell h 較小（30%），左欄 cell h 較大（46%）
-    assert p[0][5] < p[3][5], "右欄字 h 應小於左欄字 h（3 字欄 vs 2 字欄）"
+    # 右欄 2 字（上下）— x 大於章面中心
+    assert p[0][1] > cx_center and p[1][1] > cx_center
+    assert p[0][2] < p[1][2], "第1字應在第2字上方"
+    # 左欄 3 字（上中下）— x 小於章面中心
+    for i in (2, 3, 4):
+        assert p[i][1] < cx_center, f"第{i+1}字 cx={p[i][1]} 應在左欄"
+    assert p[2][2] < p[3][2] < p[4][2], "左欄字應由上到下排列"
+    # 右欄 cell h 較大（46%），左欄 cell h 較小（30%）
+    assert p[0][5] > p[2][5], "右欄字 h 應大於左欄字 h（2 字欄 vs 3 字欄）"
 
 
-def test_api_stamp_5char_2plus3_layout():
-    """12e: 5 字章可切 2+3 layout（日本姓名章 / 特殊變體：右 2 字 + 左 3 字）。"""
+def test_api_stamp_5char_3plus2_layout():
+    """12f: 5 字章可切 3+2 layout（職名章變體：右 3 字主名 + 左 2 字職稱）。"""
     from stroke_order.exporters.stamp import _placements_for_preset
 
     class C:
@@ -510,16 +509,16 @@ def test_api_stamp_5char_2plus3_layout():
         "square_name", chars, 12, 12, 5,
         border_padding_mm=0.8,
         double_border=False, double_gap_mm=0.8,
-        layout_5char="2plus3",
+        layout_5char="3plus2",
     )
     assert len(p) == 5
     cx_center = 6.0
-    # 右欄 2 字 + 左欄 3 字
-    assert p[0][1] > cx_center and p[1][1] > cx_center
-    for i in (2, 3, 4):
-        assert p[i][1] < cx_center
-    # 此 layout 右欄 cell h 較大（46%）
-    assert p[0][5] > p[2][5]
+    # 右欄 3 字 + 左欄 2 字
+    for i in (0, 1, 2):
+        assert p[i][1] > cx_center
+    assert p[3][1] < cx_center and p[4][1] < cx_center
+    # 此 layout 右欄 cell h 較小（30%）
+    assert p[0][5] < p[3][5]
 
 
 def test_api_stamp_6plus_chars_truncated_to_5():
