@@ -2519,7 +2519,7 @@ def create_app() -> FastAPI:
     # ------ 印章 (stamp) — Phase 5ay --------------------------------------
 
     _STAMP_PRESET_PATTERN = (
-        "^(square_name|square_official|round|oval|rectangle_title)$"
+        "^(square_name|round_name|square_official|round|oval|rectangle_title)$"
     )
     _STAMP_FORMAT_PATTERN = "^(svg|gcode|pdf)$"
     _STAMP_ENGRAVE_PATTERN = "^(concave|convex)$"

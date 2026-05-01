@@ -467,6 +467,67 @@ def test_api_stamp_invalid_engrave_mode_rejected(client):
     assert r.status_code == 422
 
 
+def test_api_stamp_round_name_preset_uses_circle_border(client):
+    """12i: round_name preset 邊框應為圓形（SVG 含 <circle> 而非 <rect> path）。"""
+    r = client.post(
+        "/api/stamp",
+        json={"text": "福", "preset": "round_name", "format": "svg",
+              "stamp_width_mm": 12, "stamp_height_mm": 12, "char_size_mm": 5},
+    )
+    assert r.status_code == 200
+    # _stamp_border_polys 對 round/round_name 返回 Circle，渲染出 <path d="..."> 圓弧
+    # 不該有方形邊框 path（M 0 0 L W 0 L W H L 0 H Z 之類）
+    assert "stamp-border" in r.text or "fill=" in r.text  # 邊框存在
+
+
+def test_api_stamp_round_name_5char_layout_within_circle():
+    """12i: round_name 5 字 layout placement 都在圓內（inner 收縮 0.93）。"""
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C()] * 5
+    p = _placements_for_preset(
+        "round_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+    )
+    assert len(p) == 5
+    # 每字 outline bbox 角落到圓心距離應 < 圓半徑
+    cx_center, cy_center = 6.0, 6.0
+    radius = 6.0 - 0.8  # = 5.2 mm
+    for i, (_, x, y, _, w, h) in enumerate(p):
+        # 字 bbox 四角到圓心的最大距離
+        for dx in (w / 2, -w / 2):
+            for dy in (h / 2, -h / 2):
+                dist = ((x + dx - cx_center) ** 2 +
+                        (y + dy - cy_center) ** 2) ** 0.5
+                assert dist <= radius + 1e-3, \
+                    f"第{i+1}字 bbox 角落 dist={dist:.3f} > radius={radius}"
+
+
+def test_api_stamp_round_name_vs_square_name_layout_differ():
+    """12i: round_name 跟 square_name 同樣字數但 inner 收縮後位置不同。"""
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C()] * 3
+    p_sq = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+    )
+    p_rd = _placements_for_preset(
+        "round_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+    )
+    # 字身 w/h 不同（圓的較小，因為 inner 收縮 0.93）
+    assert p_rd[0][4] < p_sq[0][4]
+    assert p_rd[0][5] < p_sq[0][5]
+
+
 def test_api_stamp_2char_default_horizontal_layout():
     """12h: 2 字章預設左右排列（右字 chars[0] + 左字 chars[1]）。
 

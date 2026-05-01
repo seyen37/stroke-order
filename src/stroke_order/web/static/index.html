@@ -1082,6 +1082,7 @@
       <label>印章類型</label>
       <select id="st-preset">
         <option value="square_name" selected>正方形姓名章 (1-5 字)</option>
+        <option value="round_name">圓形姓名章 (1-5 字)</option>
         <option value="square_official">正方形官章/公司章 (多字 auto grid)</option>
         <option value="round">圓形業務單位戳章 (上弧字 + 中央 1 字)</option>
         <option value="oval">橢圓驗收章 (上下兩排)</option>
@@ -4421,6 +4422,7 @@ function stampApplyPresetDefaults() {
   // 公司章 8 分；圓 / 橢圓 / 長方非 8 級制業界少見，保持原邏輯）。
   const defaults = {
     square_name:      [12, 12, 5],   // 4 分 1.2cm — 個人章最常見
+    round_name:       [12, 12, 5],   // 4 分 1.2cm — 個人圓章 12i
     square_official:  [24, 24, 8],   // 8 分 2.4cm — 公司章標準
     round:            [24, 24, 8],   // diameter 8 分
     oval:             [50, 30, 9],   // 業界少見，保留

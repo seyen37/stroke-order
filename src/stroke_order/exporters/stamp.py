@@ -43,7 +43,8 @@ from ..shapes import Circle, Ellipse, Polygon, make_shape
 
 
 StampPreset = Literal[
-    "square_name",      # 1-4 chars, individual signature seal
+    "square_name",      # 1-5 chars, individual signature seal (rectangular)
+    "round_name",       # 1-5 chars, individual signature seal (circular) — Phase 12i
     "square_official",  # 2-9 chars, company / official seal
     "round",            # ring text + centre char
     "oval",             # 1-2 horizontal lines, acceptance seal
@@ -176,7 +177,7 @@ def _stamp_border_polys(
     cx, cy = width_mm / 2, height_mm / 2
 
     def _outer():
-        if preset == "round":
+        if preset in ("round", "round_name"):
             return Circle(cx, cy, min(width_mm, height_mm) / 2)
         if preset == "oval":
             return Ellipse(cx, cy, width_mm / 2, height_mm / 2)
@@ -188,7 +189,7 @@ def _stamp_border_polys(
     polys = [_outer()]
     if double_border:
         gap = double_gap_mm
-        if preset == "round":
+        if preset in ("round", "round_name"):
             r = min(width_mm, height_mm) / 2 - gap
             if r > 0:
                 polys.append(Circle(cx, cy, r))
@@ -257,7 +258,25 @@ def _placements_for_preset(
         """Uniform-scale placement helper: width = height = sz."""
         placements.append((c, x, y, rot, sz, sz))
 
-    if preset == "square_name":
+    # Phase 12i: square_name 跟 round_name 共用 1-5 字 layout 邏輯。
+    # 差別在 effective inner area：方章 = 整 inner，圓章 = inner * shrink
+    # （shrink 因字數而異，因為角落 cell 距圓心遠，越多字越要收縮）。
+    if preset in ("square_name", "round_name"):
+        if preset == "round_name":
+            # 圓章字身收縮 ratio 依字數而定（角落 cell 在 4-5 字最嚴格）：
+            # 1 字：置中，bbox 角落到圓心距離 = bbox 半邊長
+            # 2 字：左右排列 cell 中心離圓心 0.23×inner，角落還在圓內
+            # 3 字：1+2 layout 中央 cell 在圓心附近
+            # 4 字：2×2 角落 cell，bbox 角落到圓心距離大
+            # 5 字：2+3 column 角落 cell 最遠
+            n_clamped = min(n, 5)
+            ROUND_SHRINK_BY_N = {
+                1: 0.96, 2: 0.95, 3: 0.93,
+                4: 0.80, 5: 0.72,
+            }
+            shrink = ROUND_SHRINK_BY_N.get(n_clamped, 0.85)
+            inner_w = inner_w * shrink
+            inner_h = inner_h * shrink
         # Phase 12e: square_name 上限 5 字（業界 1.2cm 章 1-5 字常見），
         # 6+ 字截斷只取前 5（呼叫端應在前端警示，後端做 safety net）。
         if n > 5:
