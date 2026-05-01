@@ -213,7 +213,7 @@ def _placements_for_preset(
     width_mm: float, height_mm: float,
     char_size_mm: float,
     *,
-    border_padding_mm: float = 2.0,
+    border_padding_mm: float = 0.8,
     double_border: bool,
     double_gap_mm: float,
 ) -> list[tuple[Character, float, float, float, float, float]]:
@@ -282,8 +282,13 @@ def _placements_for_preset(
             cell_w = inner_w / cols
             cell_h = inner_h / rows
             cell_size = min(cell_w, cell_h)
-            sz = (min(cell_size, char_size_mm)
-                  if char_size_mm > 0 else cell_size)
+            # 12b-7: cell 內留 8% padding，字 outline bbox 撐到 cell 92%。
+            # 防 4 字 2×2 layout 字邊互碰、提升視覺呼吸感。3 字 1+2 layout
+            # 因為已有 inner_h*0.92 比例不需此處再縮。
+            CELL_FILL_RATIO = 0.92
+            cell_fill = cell_size * CELL_FILL_RATIO
+            sz = (min(cell_fill, char_size_mm)
+                  if char_size_mm > 0 else cell_fill)
             for c, (x, y) in zip(chars, coords):
                 _add(c, x, y, 0.0, sz)
 
@@ -368,7 +373,7 @@ def render_stamp_svg(
     show_border: bool = True,
     double_border: bool = False,
     double_gap_mm: float = 0.8,
-    border_padding_mm: float = 2.0,
+    border_padding_mm: float = 0.8,
     decorations: list[SvgDecoration] = None,
     color: str = "#000",
     stroke_width: float = 0.6,
@@ -446,7 +451,7 @@ def render_stamp_gcode(
     show_border: bool = True,
     double_border: bool = False,
     double_gap_mm: float = 0.8,
-    border_padding_mm: float = 2.0,
+    border_padding_mm: float = 0.8,
     decorations: list[SvgDecoration] = None,
     feed: float = 1500.0,
     laser_power: int = 255,
@@ -565,7 +570,7 @@ def stamp_capacity(
     stamp_width_mm: float,
     stamp_height_mm: float,
     char_size_mm: float,
-    border_padding_mm: float = 2.0,
+    border_padding_mm: float = 0.8,
     double_border: bool = False,
     double_gap_mm: float = 0.8,
 ) -> dict:

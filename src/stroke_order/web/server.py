@@ -126,7 +126,7 @@ class StampPostRequest(BaseModel):
     char_size_mm: float = 10.0
     show_border: bool = True
     double_border: bool = False
-    border_padding_mm: float = 2.0
+    border_padding_mm: float = 0.8  # 12b-6: 對齊業界小章 inset
     style: str = "kaishu"
     source: str = "auto"
     hook_policy: str = "animation"
@@ -2524,7 +2524,7 @@ def create_app() -> FastAPI:
         stamp_width_mm: float = Query(25.0, ge=5, le=200),
         stamp_height_mm: float = Query(25.0, ge=5, le=200),
         char_size_mm: float = Query(10.0, gt=1, le=100),
-        border_padding_mm: float = Query(2.0, ge=0, le=20),
+        border_padding_mm: float = Query(0.8, ge=0, le=20),
         double_border: bool = Query(False),
     ):
         from ..exporters.stamp import stamp_capacity
@@ -2617,7 +2617,7 @@ def create_app() -> FastAPI:
         char_size_mm: float = Query(10.0, gt=1, le=100),
         show_border: bool = Query(True),
         double_border: bool = Query(False),
-        border_padding_mm: float = Query(2.0, ge=0, le=20),
+        border_padding_mm: float = Query(0.8, ge=0, le=20),
         style: str = Query("kaishu", pattern=_STYLE_PATTERN),
         source: str = Query("auto"),
         hook_policy: str = Query("animation"),
