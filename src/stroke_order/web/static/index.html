@@ -1159,7 +1159,7 @@
         <label style="min-width:64px;">下弧文</label>
         <input id="st-oval-arc-bottom" type="text"
                placeholder="地址 / 統一編號（沿下半弧）" maxlength="60"
-               value="試題市試題區測試西路1鄰3號579號"
+               value="試題市試題區測試路1段2巷3弄4號之ㄧ56號7樓"
                style="flex:1;font-size:14px;">
       </div>
     </div>
@@ -4490,6 +4490,11 @@ function stampInit() {
   // 12m-1: oval 結構化欄位 — preset=oval 時顯示 5 欄 + 隱藏單一 text
   $("st-preset").addEventListener("change", stampUpdateOvalFieldsUI);
   stampUpdateOvalFieldsUI();
+  // 12m-1 patch r3: 初次載入也套用 preset defaults（含雙線外框 ON for oval）。
+  // 過去 stampApplyPresetDefaults 只 hook 在 change，初始狀態靠 HTML 寫死，
+  // 結果使用者第一次選 oval 時若 cached JS 沒 4-element default，雙框沒生效。
+  // 改成 init 時就跑一次 → 任何 preset 進站都同步到正確 default 狀態。
+  stampApplyPresetDefaults();
   const offsetsReset = $("st-char-offsets-reset");
   if (offsetsReset) {
     offsetsReset.addEventListener("click", () => {
