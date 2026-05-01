@@ -1102,8 +1102,8 @@
       <input id="st-w" type="number" value="12" min="8" max="200" step="1" style="width:55px;margin-left:6px;" title="寬 (mm)">
       ×
       <input id="st-h" type="number" value="12" min="8" max="200" step="1" style="width:55px;" title="高 (mm)">
-      <label style="margin-left:12px;">字大小</label>
-      <input id="st-charsize" type="number" value="5" min="2" max="60" step="0.5" style="width:55px;" title="字高 (mm)">
+      <label style="margin-left:12px;" title="字大小上限：實際字身會自動撐滿 cell，但不超過此值。0 = 無上限完全撐滿。">字大小上限</label>
+      <input id="st-charsize" type="number" value="5" min="0" max="60" step="0.5" style="width:55px;" title="字大小上限 (mm) — 實際字身受 cell 限制，0 = 完全撐滿 cell">
       mm
     </div>
 

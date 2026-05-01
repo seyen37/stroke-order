@@ -232,8 +232,11 @@ def _placements_for_preset(
     """
     cx, cy = width_mm / 2.0, height_mm / 2.0
     inset = border_padding_mm + (double_gap_mm if double_border else 0)
-    inner_w = max(width_mm - 2 * inset, char_size_mm)
-    inner_h = max(height_mm - 2 * inset, char_size_mm)
+    # Bug fix (12b-5): 過去用 max(_, char_size_mm) 會讓 user 改 char_size_mm
+    # 時意外把 inner 拉大、外框 inset 縮小，造成「字大小設大 → 章面也跟著
+    # 變大」的錯覺。改成純安全下限（1.0 mm 避免 inner 變負）。
+    inner_w = max(width_mm - 2 * inset, 1.0)
+    inner_h = max(height_mm - 2 * inset, 1.0)
     n = len(chars)
     if n == 0:
         return []
@@ -265,15 +268,24 @@ def _placements_for_preset(
             _add(chars[1], left_x, top_y, 0.0, left_size)
             _add(chars[2], left_x, bot_y, 0.0, left_size)
         else:
-            # 1-2 chars: vertical strip; 4 chars: 2×2. Right column first.
+            # 1-2 chars: vertical strip; 4+ chars: 2×2 grid (5+ overflow).
             if n <= 2:
                 rows, cols = n, 1
-            else:  # n == 4
+            else:  # n >= 4
                 rows, cols = 2, 2
             coords = _grid_positions_right_to_left(
                 n, rows, cols, inner_w, inner_h, cx, cy)
+            # Bug fix (12b-5): 過去用 char_size_mm 當字身大小，搭配 11g
+            # bbox-based scale 會把字 outline 撐到 char_size_mm（不管 cell
+            # 多小），4 字 cell ≈ 4mm 但 char_size_mm 預設 5mm 就會超出 →
+            # 字嚴重重疊。改用 cell-based size，char_size_mm 當「上限 cap」。
+            cell_w = inner_w / cols
+            cell_h = inner_h / rows
+            cell_size = min(cell_w, cell_h)
+            sz = (min(cell_size, char_size_mm)
+                  if char_size_mm > 0 else cell_size)
             for c, (x, y) in zip(chars, coords):
-                _add(c, x, y, 0.0, char_size_mm)
+                _add(c, x, y, 0.0, sz)
 
     elif preset == "square_official":
         rows, cols = _auto_grid_dims(n)
