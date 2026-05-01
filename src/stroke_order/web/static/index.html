@@ -84,9 +84,68 @@
     footer { max-width: 960px; margin: 16px auto 0;
              font-size: 12px; color: var(--muted); text-align: center; }
     footer a { color: var(--muted); }
+
+    /* ==== Wakeup overlay (Render free-tier cold-start UX) ====
+       第一個 fetch 超過 3 秒未回應就顯示。10 秒後補說明，30 秒後升級訊息。
+       同 session 喚醒過後不再觸發（避免每次切功能都跳一下）。 */
+    .wakeup-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(250,250,250,0.92);
+      backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+      display: none;
+      align-items: center; justify-content: center;
+    }
+    .wakeup-overlay.show { display: flex; animation: wakeupFade .25s ease-out; }
+    @keyframes wakeupFade { from { opacity: 0; } to { opacity: 1; } }
+    .wakeup-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px 32px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      max-width: 360px; text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+    .wakeup-card h2 {
+      margin: 0 0 8px; font-size: 18px; color: var(--fg); font-weight: 600;
+    }
+    .wakeup-card .wakeup-sub {
+      margin: 8px 0; color: var(--muted); font-size: 14px; line-height: 1.5;
+    }
+    .wakeup-progress {
+      margin: 18px 0 8px; height: 4px;
+      background: var(--border); border-radius: 2px; overflow: hidden;
+    }
+    .wakeup-progress-bar {
+      display: block; height: 100%; width: 30%;
+      background: var(--accent);
+      animation: wakeupBar 1.5s infinite cubic-bezier(.4,0,.6,1);
+    }
+    @keyframes wakeupBar {
+      0%   { margin-left: -30%; }
+      100% { margin-left: 100%; }
+    }
+    .wakeup-stage-extra, .wakeup-stage-late { display: none; font-size: 12px; }
+    .wakeup-overlay.stage-2 .wakeup-stage-extra { display: block; }
+    .wakeup-overlay.stage-3 .wakeup-stage-late  { display: block; color: var(--accent); }
   </style>
 </head>
 <body>
+
+<!-- Wakeup overlay — 詳見 <style> 註解 -->
+<div class="wakeup-overlay" id="wakeup-overlay" role="status" aria-live="polite" aria-hidden="true">
+  <div class="wakeup-card">
+    <h2>正在喚醒伺服器</h2>
+    <p class="wakeup-sub">約需 30 秒，請稍候</p>
+    <div class="wakeup-progress"><span class="wakeup-progress-bar"></span></div>
+    <p class="wakeup-sub wakeup-stage-extra">
+      Render 免費主機閒置 15 分鐘會休眠，這是正常現象
+    </p>
+    <p class="wakeup-sub wakeup-stage-late">
+      比預期久，可能正在重新部署中
+    </p>
+  </div>
+</div>
 
 <header>
   <h1>stroke-order · 中文字 → 寫字機器人軌跡</h1>
@@ -1844,6 +1903,63 @@
 </footer>
 
 <script>
+// ==== Wakeup overlay controller (Render free-tier cold-start UX) ====
+// 包一層 window.fetch：第一個 fetch 超過 3 秒未回應就顯示 overlay。
+// 同 session 喚醒過後不再觸發（用 sessionStorage 標記）。
+// 多個 fetch 同時 in-flight 時只計第一個 + 最後一個。
+(function installWakeupOverlay() {
+  const SHOW_DELAY = 3000;   // ms — 超過這時間才顯示
+  const STAGE_2_AT = 7000;   // ms — overlay 顯示後再過這時間切 stage 2 (10s 總計)
+  const STAGE_3_AT = 27000;  // ms — overlay 顯示後再過這時間切 stage 3 (30s 總計)
+
+  const overlay = document.getElementById('wakeup-overlay');
+  if (!overlay) return;  // safety: should never happen
+
+  const originalFetch = window.fetch.bind(window);
+  let inFlight = 0;
+  let showTimer = null, stage2Timer = null, stage3Timer = null;
+
+  function isAwake() {
+    try { return sessionStorage.getItem('wakeupSeen') === '1'; }
+    catch (e) { return false; }
+  }
+  function markAwake() {
+    try { sessionStorage.setItem('wakeupSeen', '1'); } catch (e) {}
+  }
+
+  function showOverlay() {
+    overlay.classList.remove('stage-2', 'stage-3');
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden', 'false');
+    stage2Timer = setTimeout(() => overlay.classList.add('stage-2'), STAGE_2_AT);
+    stage3Timer = setTimeout(() => overlay.classList.add('stage-3'), STAGE_3_AT);
+  }
+  function hideOverlay() {
+    overlay.classList.remove('show', 'stage-2', 'stage-3');
+    overlay.setAttribute('aria-hidden', 'true');
+    clearTimeout(showTimer); clearTimeout(stage2Timer); clearTimeout(stage3Timer);
+    showTimer = stage2Timer = stage3Timer = null;
+  }
+
+  window.fetch = function(...args) {
+    if (isAwake()) return originalFetch(...args);
+
+    if (inFlight === 0) {
+      // 第一個請求 — 啟動延遲顯示計時
+      showTimer = setTimeout(showOverlay, SHOW_DELAY);
+    }
+    inFlight++;
+
+    return originalFetch(...args).finally(() => {
+      inFlight--;
+      if (inFlight === 0) {
+        hideOverlay();
+        markAwake();  // 第一輪 fetch 全結束 → 視為已喚醒
+      }
+    });
+  };
+})();
+
 const API_BASE = "";  // same origin
 
 let currentWriter = null;
