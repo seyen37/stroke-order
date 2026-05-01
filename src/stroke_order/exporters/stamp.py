@@ -51,6 +51,12 @@ StampPreset = Literal[
 ]
 
 
+# Phase 12c: 陰刻 (concave, 白文) vs 陽刻 (convex, 朱文)
+# 陰刻：字凹下、雷射沿字筆劃路徑走、白底紅字描邊
+# 陽刻：字凸出、雷射光柵掃描鋪滿背景、紅底白字
+EngraveMode = Literal["concave", "convex"]
+
+
 CharLoader = Callable[[str], Optional[Character]]
 
 
@@ -377,6 +383,7 @@ def render_stamp_svg(
     decorations: list[SvgDecoration] = None,
     color: str = "#000",
     stroke_width: float = 0.6,
+    engrave_mode: EngraveMode = "concave",
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -385,6 +392,10 @@ def render_stamp_svg(
     for visual presence — 0.3mm rendered too thin on the screen preview
     given typical 25mm stamp sizes (ratio 1.2%). Laser engravers can still
     handle 0.6mm cleanly; further customisation via the parameter.
+
+    ``engrave_mode`` (Phase 12c)：
+    - ``"concave"``（陰刻、白文，預設、向後相容）：字凹下、白底紅字描邊
+    - ``"convex"``（陽刻、朱文）：字凸出、紅底白字（fill 模式）
     """
     decorations = decorations or []
     chars: list[Character] = []
@@ -402,8 +413,8 @@ def render_stamp_svg(
         double_border=double_border, double_gap_mm=double_gap_mm,
     )
 
-    # Border polygons (may be hidden via show_border=False).
-    pieces: list[str] = []
+    # Build border path d-strings (used by both modes).
+    border_d_list: list[str] = []
     if show_border:
         for shape in _stamp_border_polys(
             preset, stamp_width_mm, stamp_height_mm,
@@ -412,31 +423,69 @@ def render_stamp_svg(
             poly = _ensure_polygon(shape)
             d = _polygon_to_svg_path(poly)
             if d:
-                pieces.append(f'<path class="stamp-border" d="{d}"/>')
+                border_d_list.append(d)
 
-    # Char outlines. Stamp uses _char_cut_paths_stretched **uniformly**
-    # for all chars (including w == h ones) — this version aligns to
-    # glyph BBOX centre (not EM-frame centre), critical for outline-only
-    # fonts (隸書/宋體/篆書) whose baselines sit at ascender. Without
-    # bbox-centre alignment, those glyphs visually sink to the bottom of
-    # their cell. The function gracefully handles w == h as ordinary
-    # uniform scale (same scale_x / scale_y).
+    # Char outline SVG snippets (already EM-coords inside <g transform>).
+    # Phase 11g uses _char_cut_paths_stretched uniformly with bbox-center alignment.
+    char_pieces: list[str] = []
     for c, x, y, rot, w, h in placements:
-        pieces.append(_char_cut_paths_stretched(c, x, y, w, h, rot))
+        char_pieces.append(_char_cut_paths_stretched(c, x, y, w, h, rot))
 
     # Decorations.
+    deco_pieces: list[str] = []
     for d in decorations:
-        pieces.append(_decoration_svg(d))
+        deco_pieces.append(_decoration_svg(d))
 
-    return (
+    svg_open = (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {stamp_width_mm:.3f} {stamp_height_mm:.3f}" '
         f'width="{stamp_width_mm:.3f}mm" height="{stamp_height_mm:.3f}mm" '
         f'shape-rendering="geometricPrecision">'
+    )
+
+    if engrave_mode == "convex":
+        # 陽刻 (朱文)：紅底 + 字白色填實。
+        # Layer order (z-index 從低到高):
+        #   1. 邊框 fill 紅色（章面內全部紅，傳統朱印色 #c33）
+        #   2. 字 outline fill 白色（凸出效果）
+        #   3. 邊框黑線描邊（清楚邊界）
+        #   4. Decorations（透明可疊）
+        # NB: 顏色硬編碼是傳統印章色彩慣例（朱印紅 + 白字 + 黑邊框），
+        # 不像陰刻 stroke 顏色可由 UI 改 tint。
+        CONVEX_BASE_RED = "#c33"
+        CONVEX_CHAR_WHITE = "#fff"
+        CONVEX_BORDER_BLACK = "#000"
+        body_pieces: list[str] = []
+        # Red fill base — outer border + 雙邊框時 inner 也填紅
+        if border_d_list:
+            for d in border_d_list:
+                body_pieces.append(
+                    f'<path d="{d}" fill="{CONVEX_BASE_RED}" stroke="none"/>'
+                )
+        # 字白色 fill — _char_cut_paths_stretched 路徑已封閉 (M ... Z)
+        body_pieces.append(
+            f'<g id="stamp-chars" fill="{CONVEX_CHAR_WHITE}" stroke="none">'
+            f'{"".join(char_pieces)}</g>'
+        )
+        # 邊框描邊（在字上面，視覺上邊界清楚）
+        if border_d_list:
+            for d in border_d_list:
+                body_pieces.append(
+                    f'<path d="{d}" fill="none" stroke="{CONVEX_BORDER_BLACK}" '
+                    f'stroke-width="{stroke_width}"/>'
+                )
+        body_pieces.extend(deco_pieces)
+        return f'{svg_open}{"".join(body_pieces)}</svg>'
+
+    # 陰刻 (concave，預設，向後相容)：字凹下、白底、字 outline 用 stroke
+    border_pieces = [f'<path class="stamp-border" d="{d}"/>'
+                     for d in border_d_list]
+    return (
+        f'{svg_open}'
         f'<g id="stamp-engrave" stroke="{color}" stroke-width="{stroke_width}" '
         f'fill="none" stroke-linecap="round" stroke-linejoin="round" '
         f'shape-rendering="geometricPrecision">'
-        f'{"".join(pieces)}</g></svg>'
+        f'{"".join(border_pieces + char_pieces + deco_pieces)}</g></svg>'
     )
 
 
@@ -457,10 +506,18 @@ def render_stamp_gcode(
     laser_power: int = 255,
     laser_on: str = None,
     laser_off: str = "M5",
+    engrave_mode: EngraveMode = "concave",
+    line_pitch_mm: float = 0.1,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
-    firmwares that use ``M106``/``M107`` etc."""
+    firmwares that use ``M106``/``M107`` etc.
+
+    ``engrave_mode`` (Phase 12c)：
+    - ``"concave"``（陰刻、預設）：雷射沿字 outline 走，字凹下
+    - ``"convex"``（陽刻）：雷射光柵掃描鋪滿『字外』背景區域，字凸出。
+      ``line_pitch_mm`` 控制掃描密度（0.05 細緻 / 0.10 標準 / 0.20 粗略）。
+    """
     if laser_on is None:
         laser_on = f"M3 S{laser_power}"
     decorations = decorations or []
@@ -503,6 +560,11 @@ def render_stamp_gcode(
     # Phase 11g：跟 _char_cut_paths_stretched 一致使用 bbox-fill 而非
     # EM-fill，避免雷射雕刻的字也比 SVG 預覽小一圈（兩邊現在會視覺一致）。
     from .patch import _char_outline_bbox_full_em
+
+    # 為了 12c 陽刻支援，先把所有 char outline 轉成 mm-space polylines.
+    # 陰刻直接用這些當雕刻路徑；陽刻把它們當成「不該被光柵掃描」的禁區
+    # 餵給 scanline_engrave_gcode（even-odd 自動處理 ON/OFF 區段）。
+    char_polylines_mm: list[list[tuple[float, float]]] = []
     for c, cx_mm, cy_mm, rot, w_mm, h_mm in placements:
         bbox = _char_outline_bbox_full_em(c)
         if bbox is None:
@@ -516,7 +578,6 @@ def render_stamp_gcode(
         glyph_scale_y = h_mm / bbox_h_em
         bcx_em = (min_x + max_x) / 2.0
         bcy_em = (min_y + max_y) / 2.0
-        # Translate so bbox-centre at (bcx*scale, bcy*scale) lands at (cx_mm, cy_mm)
         dx = cx_mm - bcx_em * glyph_scale_x
         dy = cy_mm - bcy_em * glyph_scale_y
         for stroke in c.strokes:
@@ -527,24 +588,54 @@ def render_stamp_gcode(
                 continue
             pts_mm: list[tuple[float, float]] = []
             for px, py in pts_em:
-                # Apply scale, then rotate around (cx_mm, cy_mm) post-scale,
-                # then translate.
                 sx = px * glyph_scale_x
                 sy = py * glyph_scale_y
                 if abs(rot) > 1e-6:
                     import math
                     rad = math.radians(rot)
                     cosr, sinr = math.cos(rad), math.sin(rad)
-                    # Rotation centre in scaled-EM coords:
                     rcx, rcy = bcx_em * glyph_scale_x, bcy_em * glyph_scale_y
                     rx = (sx - rcx) * cosr - (sy - rcy) * sinr + rcx
                     ry = (sx - rcx) * sinr + (sy - rcy) * cosr + rcy
                     sx, sy = rx, ry
-                mx = dx + sx
-                my = dy + sy
-                pts_mm.append((mx, my))
-            if len(pts_mm) < 2:
-                continue
+                pts_mm.append((dx + sx, dy + sy))
+            if len(pts_mm) >= 2:
+                char_polylines_mm.append(pts_mm)
+
+    if engrave_mode == "convex":
+        # 陽刻：scanline 鋪滿『字外』背景；字 outline 不單獨雕（會被光柵
+        # 自動處理，雷射在字內 OFF）
+        # Polygons 需要封閉首尾相同點才能 even-odd intersection 計算
+        closed_polys = []
+        for poly in char_polylines_mm:
+            if poly[0] != poly[-1]:
+                poly = poly + [poly[0]]
+            closed_polys.append(poly)
+        # 內框邊界 = 外框 - border_padding（雙邊框時再 - double_gap）
+        inset = border_padding_mm + (double_gap_mm if double_border else 0)
+        b_left = inset
+        b_right = stamp_width_mm - inset
+        b_top = inset
+        b_bottom = stamp_height_mm - inset
+        from .engrave import scanline_engrave_gcode
+        scan_lines, stats = scanline_engrave_gcode(
+            closed_polys,
+            border_left=b_left, border_right=b_right,
+            border_top=b_top, border_bottom=b_bottom,
+            line_pitch=line_pitch_mm,
+            feed=feed, laser_power=laser_power,
+            laser_on="M3", laser_off=laser_off,
+        )
+        out.append(
+            f"; engrave_mode=convex (陽刻)  scan_lines={stats['scan_lines']}  "
+            f"on_segments={stats['on_segments']}  "
+            f"cut={stats['total_cut_mm']:.1f}mm  "
+            f"~{stats['estimated_min']:.2f}min @ {feed}mm/min"
+        )
+        out.extend(scan_lines)
+    else:
+        # 陰刻 (concave，預設)：每條 polyline 是一條雷射路徑
+        for pts_mm in char_polylines_mm:
             x0, y0 = pts_mm[0]
             out.append(f"G0 X{x0:.3f} Y{y0:.3f}")
             out.append(laser_on)

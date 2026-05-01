@@ -1162,6 +1162,25 @@
       </span>
     </div>
 
+    <!-- 12c: 陰刻 / 陽刻 toggle -->
+    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+         padding:6px 10px;border-radius:3px;margin:4px 0;">
+      <label style="font-weight:600;">刻法</label>
+      <label title="陰刻（白文）：字凹下、白底紅字描邊，現代姓名章常見">
+        <input type="radio" name="st-engrave" value="concave" checked> 陰刻（白文，預設）
+      </label>
+      <label style="margin-left:12px;" title="陽刻（朱文）：字凸出、紅底白字，傳統文人章 / 公司章常見">
+        <input type="radio" name="st-engrave" value="convex"> 陽刻（朱文）
+      </label>
+      <label style="margin-left:12px;" title="陽刻光柵掃描密度。0.05 細緻 / 0.10 標準 / 0.20 粗略（節省雷射時間）">
+        line pitch (mm)
+      </label>
+      <input id="st-line-pitch" type="number" value="0.1" min="0.02" max="2.0" step="0.01" style="width:60px;">
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        陽刻時雷射光柵掃描背景，line pitch 越小越細緻
+      </span>
+    </div>
+
     <!-- 雷射參數 -->
     <details style="margin:8px 0;border:1px solid var(--border);border-radius:4px;">
       <summary style="padding:6px 10px;cursor:pointer;background:#fafafa;font-size:13px;">
@@ -4496,6 +4515,10 @@ function stampBuildBody(format) {
     const fillChar = ($("st-auto-fill-char") || "印").trim().slice(0, 1) || "印";
     text = text + fillChar;
   }
+  // 12c: 陰刻 / 陽刻
+  const engraveRadio = document.querySelector('input[name="st-engrave"]:checked');
+  const engraveMode = engraveRadio ? engraveRadio.value : "concave";
+  const linePitch = parseFloat($("st-line-pitch")) || 0.1;
   return {
     text: text,
     preset: $("st-preset"),
@@ -4511,6 +4534,8 @@ function stampBuildBody(format) {
     feed: parseFloat($("st-feed")),
     decorations: STAMP.decorations,
     format,
+    engrave_mode: engraveMode,
+    line_pitch_mm: linePitch,
   };
 }
 
@@ -4541,7 +4566,13 @@ async function stampRender() {
       inner.style.display = "block";
       inner.style.margin = "0 auto";
       inner.style.background = "white";
-      tintPreviewFill(inner);   // 5ba-5: grey fill instead of thick stroke
+      // 12c: 陽刻 SVG 已自帶紅底白字（傳統朱印色），不套 tint。
+      // 陰刻維持原本灰色 fill 預覽（5ba-5）。
+      const engraveR = document.querySelector('input[name="st-engrave"]:checked');
+      const isConvex = engraveR && engraveR.value === "convex";
+      if (!isConvex) {
+        tintPreviewFill(inner);
+      }
     }
     status.textContent = "✓ 完成";
     status.style.color = "#080";

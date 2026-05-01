@@ -133,7 +133,9 @@ class StampPostRequest(BaseModel):
     decorations: list[PatchDecorationSpec] = []
     laser_power: int = 255
     feed: float = 1500.0
-    format: str = "svg"   # svg | gcode
+    format: str = "svg"   # svg | gcode | pdf
+    engrave_mode: str = "concave"  # 12c: concave (陰刻) | convex (陽刻)
+    line_pitch_mm: float = 0.1     # 12c: convex 光柵掃描密度
 
 
 class SutraPostRequest(BaseModel):
@@ -2517,6 +2519,7 @@ def create_app() -> FastAPI:
         "^(square_name|square_official|round|oval|rectangle_title)$"
     )
     _STAMP_FORMAT_PATTERN = "^(svg|gcode|pdf)$"
+    _STAMP_ENGRAVE_PATTERN = "^(concave|convex)$"
 
     @app.get("/api/stamp/capacity")
     async def stamp_capacity_endpoint(
@@ -2569,6 +2572,11 @@ def create_app() -> FastAPI:
             for d in req.decorations
         ]
 
+        # 12c: validate engrave_mode（POST body 沒走 Query pattern 驗證）
+        if req.engrave_mode not in ("concave", "convex"):
+            raise HTTPException(
+                422, detail=f"unknown engrave_mode {req.engrave_mode!r}")
+
         common = dict(
             text=req.text, char_loader=loader,
             preset=req.preset,                                # type: ignore[arg-type]
@@ -2579,6 +2587,7 @@ def create_app() -> FastAPI:
             double_border=req.double_border,
             border_padding_mm=req.border_padding_mm,
             decorations=decorations,
+            engrave_mode=req.engrave_mode,              # type: ignore[arg-type]
         )
 
         if req.format == "svg":
@@ -2603,6 +2612,7 @@ def create_app() -> FastAPI:
                                      _content_disposition("stamp", "pdf")})
         gc = render_stamp_gcode(
             **common, feed=req.feed, laser_power=req.laser_power,
+            line_pitch_mm=req.line_pitch_mm,
         )
         return Response(content=gc, media_type="text/plain; charset=utf-8",
                         headers={"Content-Disposition":
@@ -2624,6 +2634,8 @@ def create_app() -> FastAPI:
         feed: float = Query(1500.0, gt=0, le=10000),
         laser_power: int = Query(255, ge=1, le=1000),
         format: str = Query("svg", pattern=_STAMP_FORMAT_PATTERN),
+        engrave_mode: str = Query("concave", pattern=_STAMP_ENGRAVE_PATTERN),
+        line_pitch_mm: float = Query(0.1, gt=0, le=2.0),
     ):
         req = StampPostRequest(
             text=text, preset=preset,
@@ -2633,6 +2645,7 @@ def create_app() -> FastAPI:
             border_padding_mm=border_padding_mm,
             style=style, source=source, hook_policy=hook_policy,
             feed=feed, laser_power=laser_power, format=format,
+            engrave_mode=engrave_mode, line_pitch_mm=line_pitch_mm,
         )
         return await stamp_post(req)
 

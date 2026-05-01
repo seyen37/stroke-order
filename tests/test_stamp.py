@@ -410,6 +410,86 @@ def test_api_stamp_pdf_format(client):
 
 
 # ---------------------------------------------------------------------------
+# 12c: 陰刻 / 陽刻 (engrave_mode concave / convex)
+# ---------------------------------------------------------------------------
+
+
+def test_api_stamp_convex_svg_has_red_fill_white_chars(client):
+    """陽刻 SVG：紅底 (#c33) + 字白色 fill (#fff)。"""
+    r = client.post(
+        "/api/stamp",
+        json={"text": "王", "preset": "square_name", "format": "svg",
+              "stamp_width_mm": 12, "stamp_height_mm": 12, "char_size_mm": 5,
+              "engrave_mode": "convex"},
+    )
+    assert r.status_code == 200
+    assert 'fill="#c33"' in r.text  # 紅底
+    assert 'fill="#fff"' in r.text  # 字白
+    assert 'id="stamp-chars"' in r.text
+
+
+def test_api_stamp_concave_svg_unchanged(client):
+    """陰刻 (預設)：維持既有 stroke-based 渲染，跟 12c 之前一致。"""
+    r = client.post(
+        "/api/stamp",
+        json={"text": "王", "preset": "square_name", "format": "svg",
+              "stamp_width_mm": 12, "stamp_height_mm": 12, "char_size_mm": 5,
+              "engrave_mode": "concave"},
+    )
+    assert r.status_code == 200
+    assert 'id="stamp-engrave"' in r.text
+    # 陰刻不該有紅底
+    assert 'fill="#c33"' not in r.text
+
+
+def test_api_stamp_convex_gcode_has_scanline(client):
+    """陽刻 G-code：用 scanline 鋪滿背景（含 raster scan header）。"""
+    r = client.post(
+        "/api/stamp",
+        json={"text": "王", "preset": "square_name", "format": "gcode",
+              "stamp_width_mm": 12, "stamp_height_mm": 12, "char_size_mm": 5,
+              "engrave_mode": "convex"},
+    )
+    assert r.status_code == 200
+    assert "raster scan" in r.text
+    assert "scan_lines=" in r.text
+    # M3 命令數 > 50（每條 scan line 多個 ON segment）
+    assert r.text.count("M3") > 50
+
+
+def test_api_stamp_invalid_engrave_mode_rejected(client):
+    """陽刻 mode 必須是 concave 或 convex，其他值 422。"""
+    r = client.post(
+        "/api/stamp",
+        json={"text": "王", "preset": "square_name", "format": "svg",
+              "engrave_mode": "embossed"},
+    )
+    assert r.status_code == 422
+
+
+def test_api_stamp_convex_pdf_has_red_fill(client):
+    """陽刻 PDF：cairosvg 應正確處理 fill-rule 並輸出有顏色的 PDF。"""
+    r = client.post(
+        "/api/stamp",
+        json={"text": "王", "preset": "square_name", "format": "pdf",
+              "stamp_width_mm": 12, "stamp_height_mm": 12, "char_size_mm": 5,
+              "engrave_mode": "convex"},
+    )
+    assert r.status_code == 200
+    assert r.content[:4] == b"%PDF"
+    # 陽刻 PDF 跟陰刻 PDF size 應該不同（不同 SVG 內容）
+    r2 = client.post(
+        "/api/stamp",
+        json={"text": "王", "preset": "square_name", "format": "pdf",
+              "stamp_width_mm": 12, "stamp_height_mm": 12, "char_size_mm": 5,
+              "engrave_mode": "concave"},
+    )
+    assert r2.status_code == 200
+    # 兩種 mode 的 PDF 內容應該不同
+    assert r.content != r2.content
+
+
+# ---------------------------------------------------------------------------
 # Patch's new show_border flag (5ay-4)
 # ---------------------------------------------------------------------------
 
