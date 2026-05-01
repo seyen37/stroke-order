@@ -1371,3 +1371,34 @@ def test_oval_arc_top_chars_inside_inner_ellipse():
         norm = ((x - 25) / a_padded) ** 2 + ((y - 15) / b_padded) ** 2
         # Char center sits exactly on the (padded) ellipse → norm ≈ 1
         assert norm == pytest.approx(1.0, abs=0.01)
+
+
+def test_oval_arc_chars_uniform_spacing_top():
+    """12m-1 patch r2: 弧長均分 — pairwise Euclidean distances should be
+    near-equal regardless of where on the arc (no apex-clustering)."""
+    import math as _math
+    pos = _oval_arc_positions(11, inner_w=48, inner_h=33, cx=25, cy=17.5,
+                              top=True)
+    dists = []
+    for i in range(len(pos) - 1):
+        dx = pos[i + 1][0] - pos[i][0]
+        dy = pos[i + 1][1] - pos[i][1]
+        dists.append(_math.hypot(dx, dy))
+    # Uniform-spacing property: max/min ratio should be very close to 1
+    # (with old angular parameterization on a 1.45:1 oval, ratio ~1.3-1.5+)
+    ratio = max(dists) / min(dists)
+    assert ratio < 1.05, f"distances not uniform: ratio={ratio:.3f}, dists={dists}"
+
+
+def test_oval_arc_chars_uniform_spacing_bottom():
+    """Same uniform-spacing property for bottom arc."""
+    import math as _math
+    pos = _oval_arc_positions(14, inner_w=48, inner_h=33, cx=25, cy=17.5,
+                              top=False)
+    dists = []
+    for i in range(len(pos) - 1):
+        dx = pos[i + 1][0] - pos[i][0]
+        dy = pos[i + 1][1] - pos[i][1]
+        dists.append(_math.hypot(dx, dy))
+    ratio = max(dists) / min(dists)
+    assert ratio < 1.05, f"bottom distances not uniform: ratio={ratio:.3f}"

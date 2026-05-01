@@ -1131,7 +1131,7 @@
         <label style="min-width:64px;">上弧文</label>
         <input id="st-oval-arc-top" type="text"
                placeholder="公司名稱（沿上半弧）" maxlength="60"
-               value="紅棠文化股份有限公司"
+               value="測試文件股份有限公司"
                style="flex:1;font-size:14px;">
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
@@ -1159,7 +1159,7 @@
         <label style="min-width:64px;">下弧文</label>
         <input id="st-oval-arc-bottom" type="text"
                placeholder="地址 / 統一編號（沿下半弧）" maxlength="60"
-               value="206號新北市新莊區五權西路3鄰3號"
+               value="試題市試題區測試西路1鄰3號579號"
                style="flex:1;font-size:14px;">
       </div>
     </div>
@@ -4520,7 +4520,7 @@ function stampApplyPresetDefaults() {
     round_name:       [12, 12, 5,  false],
     square_official:  [24, 24, 8,  false],
     round:            [24, 24, 8,  false],
-    oval:             [50, 30, 9,  true],   // 12m-1 patch: 預設雙框
+    oval:             [50, 35, 9,  true],   // 12m-1 patch r2: 1.43:1 比例（業界常見），預設雙框
     rectangle_title:  [50, 18, 12, false],
   };
   const d = defaults[$("st-preset").value];

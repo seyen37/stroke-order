@@ -261,6 +261,61 @@ def _arc_text_positions(
 # Phase 12m-1: oval stamp structured layout helpers ------------------------
 
 
+def _ellipse_arc_length_table(
+    t_start: float, t_end: float, a: float, b: float,
+    samples: int = 200,
+) -> tuple[list[float], list[float]]:
+    """Build a (parametric_t, cumulative_arc_length) lookup table.
+
+    For an ellipse parametrized as (a·cos t, b·sin t), the arc length
+    from parameter ``t_start`` to ``t`` is the integral of
+    √(a²·sin²t + b²·cos²t) dt. We integrate numerically (trapezoidal)
+    over ``samples`` sub-intervals. Direction-aware: works for both
+    increasing (``t_end > t_start``) and decreasing iteration.
+
+    Returns ``(ts, cumlens)`` — both length ``samples + 1``, monotonic.
+    """
+    direction = 1.0 if t_end >= t_start else -1.0
+    abs_step = abs(t_end - t_start) / samples
+    ts: list[float] = [t_start + direction * i * abs_step
+                       for i in range(samples + 1)]
+
+    def speed(t: float) -> float:
+        return math.sqrt(a * a * math.sin(t) ** 2 + b * b * math.cos(t) ** 2)
+
+    cumlens: list[float] = [0.0]
+    prev_speed = speed(ts[0])
+    for i in range(1, samples + 1):
+        cur_speed = speed(ts[i])
+        cumlens.append(cumlens[-1] + (prev_speed + cur_speed) / 2.0 * abs_step)
+        prev_speed = cur_speed
+    return ts, cumlens
+
+
+def _t_at_arc_length(
+    target_len: float, ts: list[float], cumlens: list[float],
+) -> float:
+    """Linear-interpolate the parametric t whose cumulative arc length
+    equals ``target_len``. Saturates at endpoints if out of range."""
+    if target_len <= cumlens[0]:
+        return ts[0]
+    if target_len >= cumlens[-1]:
+        return ts[-1]
+    # Binary search the right interval
+    lo, hi = 0, len(cumlens) - 1
+    while lo < hi - 1:
+        mid = (lo + hi) // 2
+        if cumlens[mid] <= target_len:
+            lo = mid
+        else:
+            hi = mid
+    span = cumlens[hi] - cumlens[lo]
+    if span == 0:
+        return ts[lo]
+    frac = (target_len - cumlens[lo]) / span
+    return ts[lo] + frac * (ts[hi] - ts[lo])
+
+
 def _oval_arc_positions(
     n: int, *, inner_w: float, inner_h: float, cx: float, cy: float,
     top: bool, span_deg: float = 160.0, padding_ratio: float = 0.13,
@@ -270,19 +325,22 @@ def _oval_arc_positions(
     Returns ``[(cx_mm, cy_mm, rotation_deg), ...]`` — caller pairs with
     ``Character`` objects + size.
 
-    Rotation conventions (Phase 12m-1 patch — per-arc 朝外 direction):
+    **Spacing**: Phase 12m-1 patch r2 — chars are distributed by **equal
+    arc length** instead of equal angular increment. This eliminates the
+    visual disparity where chars near the apex looked further apart than
+    chars near the sides (because ellipse curvature varies with theta).
+    Numerical integration via trapezoidal rule (200 samples) is fast
+    enough for typical use (called once per stamp render).
+
+    Rotation conventions (per-arc 朝外 direction):
     - **Top arc 頂部朝外**: ``rotation = theta + 90°`` — char's HEAD points
       OUTWARD (upward at top). Reads left→right at top.
     - **Bottom arc 底部朝外**: ``rotation = theta - 90°`` — char's FEET
       point OUTWARD (downward at bottom). Char remains UPRIGHT in viewer's
       frame (head up, feet down). Reads left→right.
 
-    The two arcs together produce the classic 業界橢圓章 visual where
-    BOTH top and bottom text reads naturally upright when viewing the
-    stamp face — matching T-02 and similar industry references.
-
     ``padding_ratio`` shrinks the ellipse so chars don't touch the
-    border (default 13% — patched up from 10% per visual feedback).
+    border (default 13%).
     """
     if n <= 0:
         return []
@@ -291,28 +349,35 @@ def _oval_arc_positions(
     if top:
         # Top half: left to right == theta increases from -90-span/2 → -90+span/2
         start_deg = -90.0 - span_deg / 2.0
-        sweep_deg = span_deg
+        end_deg = -90.0 + span_deg / 2.0
         rot_offset = 90.0       # 頂部朝外 — head outward at top
     else:
         # Bottom half: left to right == theta DECREASES from 90+span/2 → 90-span/2
         start_deg = 90.0 + span_deg / 2.0
-        sweep_deg = -span_deg
-        rot_offset = -90.0      # 底部朝外 — feet outward at bottom (12m-1 patch)
-    out: list[tuple[float, float, float]] = []
+        end_deg = 90.0 - span_deg / 2.0
+        rot_offset = -90.0      # 底部朝外 — feet outward at bottom
+
     if n == 1:
         # Single char at apex (top or bottom centre)
         theta_deg = -90.0 if top else 90.0
         rad = math.radians(theta_deg)
-        out.append((
+        return [(
             cx + a * math.cos(rad),
             cy + b * math.sin(rad),
             theta_deg + rot_offset,
-        ))
-        return out
+        )]
+
+    # Phase 12m-1 patch r2: arc-length-equal spacing
+    start_rad = math.radians(start_deg)
+    end_rad = math.radians(end_deg)
+    ts, cumlens = _ellipse_arc_length_table(start_rad, end_rad, a, b)
+    total_arc = cumlens[-1]
+
+    out: list[tuple[float, float, float]] = []
     for i in range(n):
-        t = i / (n - 1)
-        theta_deg = start_deg + sweep_deg * t
-        rad = math.radians(theta_deg)
+        target = (i / (n - 1)) * total_arc
+        rad = _t_at_arc_length(target, ts, cumlens)
+        theta_deg = math.degrees(rad)
         out.append((
             cx + a * math.cos(rad),
             cy + b * math.sin(rad),
