@@ -1100,6 +1100,87 @@ prototype 通過後才 port 進主線 module。**Prototype 檔案保留** 在 `s
 
 > 📜 **真實案例**：起源於 stroke-order 2026-05-03 Phase 12c-3 — 光柵掃描演算法獨立成 `exporters/engrave.py`，stamp.py 跟（未來的）patch / sutra 都能 import 用。詳見 [`docs/decisions/2026-05-03_phase12c_convex_engrave.md`](decisions/2026-05-03_phase12c_convex_engrave.md)。
 
+### 8.13 結構化 input fields > separator hack
+
+當功能 input 含多個語意獨立欄位（如橢圓章 5 段：上弧 / 中央 1-3 行 body / 下弧），用結構化 schema（多個獨立 fields）優於 single text + separator hack（如 `text="A|B|C|D"`）。
+
+#### 規則
+
+1. **多語意欄位 ≥ 3 個** → 拆獨立 fields，不用 separator string
+2. **list[T] 用 native list type**（Pydantic / JSON），不用 `"a||b||c"` 字串拆分
+3. **GET endpoint 才接受 separator**（query string 沒原生 list） — 但 POST body 一律 native list
+4. **Backward compat**：保留舊 single-text fallback path，新欄位全空時 fallback 老邏輯
+
+#### 為什麼這個習慣值錢
+
+Single text + separator 的問題：
+
+- **User 心智成本**：要學 separator 是什麼字元（`|` ? `||` ? `,` ?）+ 怎麼 escape（內文有 `|` 怎麼辦）
+- **API 不自我文件化**：`text` field 看 type signature 不知有結構，要看 docs / 範例才懂
+- **可選欄位處理麻煩**：empty 欄位要寫 `||` 連續分隔符，user 容易忘
+- **未來擴充 break schema**：要加 per-line font size 等 metadata 時，被 separator 綁死
+- **語意 vs 顯示混淆**：UI 要 5 個 input 對齊 API 5 段，separator 要做 split / join 同步邏輯
+
+結構化 schema 的代價：
+
+- API field 多 3-5 個（surface area 略大）
+- Backward compat 處理：fallback 邏輯（all empty → 走老 path）
+
+代價可控，長期收益大。**反例可參考 CSS `font` shorthand**（多欄位塞 single string 已多次造成 bug，後來 modern CSS 全部拆獨立 property）。
+
+#### Audit checklist
+
+- [ ] grep API field 看有沒有 `text.split("...")` / `text.split("|")` 等 hack
+- [ ] 數該 field 在 UI 對應幾個 input → ≥ 3 個就觸發重構
+- [ ] 重構時：新增獨立 fields + UI 對齊 + backward-compat fallback + tests
+
+> 📜 **真實案例**：起源於 stroke-order 2026-05-04 Phase 12m-1 橢圓章 — 5 段語意獨立欄位（上弧 / 中央 1/2/3 / 下弧），原本只有 single text + 1-2 行 horizontal split layout。重構成結構化 5 欄位後，user UI 一看即懂、API 自我文件化、各欄位 empty 自動 skip。詳見 [`docs/decisions/2026-05-04_phase12m_oval_structured.md`](decisions/2026-05-04_phase12m_oval_structured.md)。
+
+### 8.14 UI 預設套用要 hook init time，不只 change
+
+UI 控件的 default state 由 JS 在 dropdown / preset 變動時填入（如「切到 oval preset → 自動勾雙線外框」），**必須在 init 時也跑一次**。光是 hook `change` event 不夠 — 第一次載入或 user 沒做 change 時不會觸發 → init state 跟 default-after-change 不一致。
+
+#### 規則
+
+```js
+// ❌ 反模式
+$("preset").addEventListener("change", applyDefaults);
+
+// ✅ 正模式
+$("preset").addEventListener("change", applyDefaults);
+applyDefaults();   // ← init 時跑一次，覆蓋首次載入路徑
+```
+
+延伸：所有「依賴 user 互動觸發 default」的 init 邏輯都同樣處理。
+
+#### 為什麼這個習慣值錢
+
+症狀：
+
+- User 截圖顯示 default 未生效（checkbox 沒勾、size 不對、hint 是別的 preset 數值）
+- 開發者 reproduce 困難（自己切 preset 兩下都 OK，因為觸發過 change）
+- 容易誤判為「部署沒上去 / 快取問題」白白浪費排查時間
+
+根因：UI 的 default 邏輯散在兩處 — HTML 寫死 default + JS change-time override。如果 JS change 沒觸發，HTML 寫死的就是「真 default」。但 HTML 不知道目前 preset 是哪個 → 任何依賴 preset 的 default 必然錯。
+
+修法簡單（一行 init call），但容易漏。
+
+#### Audit checklist
+
+- [ ] grep `addEventListener("change",` 對應的 handler 有沒有在 init 也 call
+- [ ] 列出所有「依 preset/select 切換填 default」的 handler → 每個都該 init time 跑
+- [ ] 寫測試：page load 後 dropdown 預設 preset 對應的 default state 對齊（hard）；OR 簡單 grep `function xxx_init` 內呼叫 default-applier（pragma）
+
+#### 反例 vs 正例
+
+**反例**（典型 anti-pattern）：
+> User 進站 → preset dropdown 預設 oval → 但 double_border checkbox 維持 HTML 寫死 unchecked → user 看到「該勾沒勾」回報 bug → 開發者 reproduce 不出來（自己切兩下都 OK）→ 浪費 1 小時排查 cache / 部署 / 後端後才發現是 JS init 沒呼叫 default。
+
+**正例**（stroke-order 12m-1 r3）：
+> `stampInit()` 結尾加 `stampApplyPresetDefaults();` → 任何 preset 進站都同步 default → 跟 change-time 行為完全一致 → 沒 first-time UX bug。
+
+> 📜 **真實案例**：起源於 stroke-order 2026-05-04 Phase 12m-1 r3 — r1 設了 oval default = double_border ON 但只 hook 在 change event。User 截圖顯示首次進站雙線外框沒勾，初步誤判為部署問題，後 trace 到 init 沒呼叫 `stampApplyPresetDefaults()`。修法 1 行。詳見 [`docs/decisions/2026-05-04_phase12m_oval_structured.md`](decisions/2026-05-04_phase12m_oval_structured.md)。
+
 ---
 
 ## 九、附錄：可複製模板
