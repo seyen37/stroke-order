@@ -1197,7 +1197,7 @@
       <summary style="cursor:pointer;padding:6px 10px;background:#f5f0fa;
               border-left:3px solid #88c;border-radius:3px;">
         每字位移微調 <span style="color:var(--muted);font-size:11px;">
-        （advanced — 每字獨立 X/Y 偏移 mm；超出邊框會自動 clamp）</span>
+        （advanced — 每字獨立左右 (X) / 上下 (Y) 偏移 mm；正值 = 右 / 下，負值 = 左 / 上；超出邊框會自動 clamp）</span>
       </summary>
       <div id="st-char-offsets-body" style="padding:8px 10px;background:#fafaff;
            border-left:3px solid #88c;font-size:12px;">
@@ -4505,10 +4505,14 @@ function stampUpdateCharOffsetsUI() {
     row.style.cssText = "display:flex;align-items:center;gap:6px;margin:2px 0;";
     row.innerHTML = `
       <span style="min-width:50px;">第 ${i + 1} 字（${charPreview}）</span>
-      X <input type="number" class="char-dx" value="${old.dx}"
-               step="0.1" min="-5" max="5" style="width:55px;">
-      Y <input type="number" class="char-dy" value="${old.dy}"
-               step="0.1" min="-5" max="5" style="width:55px;">
+      <span title="正值往右、負值往左">左右 X</span>
+      <input type="number" class="char-dx" value="${old.dx}"
+             step="0.1" min="-5" max="5" style="width:55px;"
+             title="正值往右、負值往左">
+      <span title="正值往下、負值往上">上下 Y</span>
+      <input type="number" class="char-dy" value="${old.dy}"
+             step="0.1" min="-5" max="5" style="width:55px;"
+             title="正值往下、負值往上">
       mm
     `;
     body.appendChild(row);
