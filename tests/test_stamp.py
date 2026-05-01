@@ -467,6 +467,56 @@ def test_api_stamp_invalid_engrave_mode_rejected(client):
     assert r.status_code == 422
 
 
+def test_api_stamp_5char_layout_2_plus_3_columns():
+    """12e: 5 字章右欄 2 字 + 左欄 3 字 layout（傳統印章變體）。
+
+    預期：
+    - 右欄字 (chars[0], chars[1]) 上下排列，每格 ~46% inner_h
+    - 左欄字 (chars[2], chars[3], chars[4]) 上中下排列，每格 ~30% inner_h
+    - 右欄 cx > cx_center > 左欄 cx
+    """
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C()] * 5
+    p = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+    )
+    assert len(p) == 5
+    cx_center = 6.0
+    # 右欄 2 字（上下）— x 大於章面中心
+    assert p[0][1] > cx_center, f"第1字 cx={p[0][1]} 應在右欄"
+    assert p[1][1] > cx_center, f"第2字 cx={p[1][1]} 應在右欄"
+    assert p[0][2] < p[1][2], "第1字應在第2字上方"
+    # 左欄 3 字（上中下）— x 小於章面中心
+    for i in (2, 3, 4):
+        assert p[i][1] < cx_center, f"第{i+1}字 cx={p[i][1]} 應在左欄"
+    assert p[2][2] < p[3][2] < p[4][2], "左欄字應由上到下排列"
+    # 右欄 cell h 較大（46%），左欄 cell h 較小（30%）
+    assert p[0][5] > p[2][5], "右欄字 h 應大於左欄字 h"
+
+
+def test_api_stamp_6plus_chars_truncated_to_5():
+    """12e: square_name 後端 hard-cap：6+ 字截斷只取前 5。
+
+    前端應警示，但後端做 safety net 防止 layout 爆炸。
+    """
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C()] * 8
+    p = _placements_for_preset(
+        "square_name", chars, 12, 12, 5,
+        border_padding_mm=0.8,
+        double_border=False, double_gap_mm=0.8,
+    )
+    assert len(p) == 5, f"6+ 字應截斷到 5，實際 {len(p)}"
+
+
 def test_api_stamp_single_char_fills_cell_ignores_cap():
     """12d: 1 字章字身撐滿 inner 96%，不被 char_size_mm cap。
 

@@ -255,6 +255,11 @@ def _placements_for_preset(
         placements.append((c, x, y, rot, sz, sz))
 
     if preset == "square_name":
+        # Phase 12e: square_name 上限 5 字（業界 1.2cm 章 1-5 字常見），
+        # 6+ 字截斷只取前 5（呼叫端應在前端警示，後端做 safety net）。
+        if n > 5:
+            chars = chars[:5]
+            n = 5
         if n == 1:
             # Phase 12d: 1 字章業界慣例 — 字撐滿章面，不套 char_size_mm cap。
             # 豬豬小姐 0.7-1.5cm 1 字章「檀」「福」字佔 90%+，不留 cell padding。
@@ -262,6 +267,30 @@ def _placements_for_preset(
             SINGLE_CHAR_FILL_RATIO = 0.96
             sz = min(inner_w, inner_h) * SINGLE_CHAR_FILL_RATIO
             _add(chars[0], cx, cy, 0.0, sz)
+        elif n == 5:
+            # Phase 12e: 5 字 2+3 column layout（傳統印章變體）。
+            # 右欄 2 字（chars[0], chars[1]）上下拉伸 — 寬 50% inner_w、
+            #   高各 46% inner_h（與 3 字 1+2 layout 左欄堆疊比例一致）。
+            # 左欄 3 字（chars[2], chars[3], chars[4]）上中下拉伸 — 寬 50%、
+            #   高各 30% inner_h（3 字均分 + cell padding ~3%）。
+            # 字身用 non-uniform scale（高 < 寬，左欄字會稍扁，類似日本姓名章慣例）。
+            right_x = cx + inner_w * 0.25
+            left_x = cx - inner_w * 0.25
+            half_w = inner_w * 0.50
+            # 右欄：2 字上下，每格 ~46% × 50%
+            right_h = inner_h * 0.46
+            top_y_r = cy - inner_h * 0.23
+            bot_y_r = cy + inner_h * 0.23
+            placements.append((chars[0], right_x, top_y_r, 0.0, half_w, right_h))
+            placements.append((chars[1], right_x, bot_y_r, 0.0, half_w, right_h))
+            # 左欄：3 字上中下，每格 ~30% × 50%
+            left_h = inner_h * 0.30
+            top_y_l = cy - inner_h * 0.32
+            mid_y_l = cy
+            bot_y_l = cy + inner_h * 0.32
+            placements.append((chars[2], left_x, top_y_l, 0.0, half_w, left_h))
+            placements.append((chars[3], left_x, mid_y_l, 0.0, half_w, left_h))
+            placements.append((chars[4], left_x, bot_y_l, 0.0, half_w, left_h))
         elif n == 3:
             # Taiwan traditional 1+2 layout (Phase 11f tuned for fuller fill):
             # Right column: surname (chars[0]) NON-UNIFORMLY stretched —

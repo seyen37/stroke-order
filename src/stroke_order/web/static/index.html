@@ -1081,7 +1081,7 @@
     <div class="row">
       <label>印章類型</label>
       <select id="st-preset">
-        <option value="square_name" selected>正方形姓名章 (2-5 字)</option>
+        <option value="square_name" selected>正方形姓名章 (1-5 字)</option>
         <option value="square_official">正方形官章/公司章 (多字 auto grid)</option>
         <option value="round">圓形業務單位戳章 (上弧字 + 中央 1 字)</option>
         <option value="oval">橢圓驗收章 (上下兩排)</option>
@@ -4438,19 +4438,30 @@ function stampUpdateSizeHint() {
     2: "1.0–1.8 cm",
     3: "1.2–2.1 cm",
     4: "1.5–2.4 cm",
+    5: "2.4–3.0 cm（公司章常見）",
   };
-  const rec = n >= 5 ? "2.4–3.0 cm（公司章常見）" : recommendations[n];
+  // 12e: square_name 最多 5 字（業界慣例 + 後端 layout 對齊）
+  const preset = $("st-preset").value;
+  const isSquareName = preset === "square_name";
+  const rec = recommendations[n];
 
   const parts = [];
+  // 12e: square_name 6+ 字超過上限 → 紅色警示
+  if (isSquareName && n > 5) {
+    parts.push(`⚠ 正方形姓名章最多 5 字，超過部分（第 6 字以後共 ${n - 5} 字）將不顯示`);
+  }
   // 警示：4 分 1.2cm 以下 + 3 字以上 → 筆劃相連風險
-  if (w <= 12 && n >= 3) {
+  else if (w <= 12 && n >= 3) {
     parts.push("⚠ 1.2 cm 以下尺寸 + 3 字以上時筆劃可能相連，建議先試印確認");
   } else if (w <= 15 && n >= 4) {
     parts.push("⚠ 1.5 cm 以下尺寸 + 4 字以上時筆劃可能相連，建議放大尺寸或減少字數");
   }
   // 字數推薦尺寸（純資訊）
-  if (rec && n > 0) {
+  if (rec && n > 0 && n <= 5) {
     parts.push(`業界 ${n} 字推薦尺寸：${rec}`);
+  } else if (n > 5 && !isSquareName) {
+    // 非 square_name 的多字（公司章 9 字、抄經...）保留
+    parts.push(`業界 ${n} 字推薦尺寸：2.4–3.0 cm（公司章常見）`);
   }
 
   const hintEl = $("st-size-hint");
@@ -4459,6 +4470,17 @@ function stampUpdateSizeHint() {
   } else {
     hintEl.innerHTML = parts.join(" · ");
     hintEl.style.display = "block";
+    // 12e: 6+ 字超過上限 → 紅色警示樣式（區別黃色一般提示）
+    const isOverLimit = isSquareName && n > 5;
+    if (isOverLimit) {
+      hintEl.style.background = "#fef2f2";
+      hintEl.style.borderLeftColor = "#c33";
+      hintEl.style.color = "#9b2c2c";
+    } else {
+      hintEl.style.background = "#fff8e6";
+      hintEl.style.borderLeftColor = "#e0a020";
+      hintEl.style.color = "#7a5500";
+    }
   }
 }
 
