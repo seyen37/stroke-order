@@ -255,7 +255,14 @@ def _placements_for_preset(
         placements.append((c, x, y, rot, sz, sz))
 
     if preset == "square_name":
-        if n == 3:
+        if n == 1:
+            # Phase 12d: 1 字章業界慣例 — 字撐滿章面，不套 char_size_mm cap。
+            # 豬豬小姐 0.7-1.5cm 1 字章「檀」「福」字佔 90%+，不留 cell padding。
+            # ratio 0.96 比 4 字 2×2 的 0.92 更滿（沒有字之間互碰問題）。
+            SINGLE_CHAR_FILL_RATIO = 0.96
+            sz = min(inner_w, inner_h) * SINGLE_CHAR_FILL_RATIO
+            _add(chars[0], cx, cy, 0.0, sz)
+        elif n == 3:
             # Taiwan traditional 1+2 layout (Phase 11f tuned for fuller fill):
             # Right column: surname (chars[0]) NON-UNIFORMLY stretched —
             #   width = ~50% inner_w, height = ~92% inner_h (filling almost

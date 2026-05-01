@@ -467,6 +467,34 @@ def test_api_stamp_invalid_engrave_mode_rejected(client):
     assert r.status_code == 422
 
 
+def test_api_stamp_single_char_fills_cell_ignores_cap():
+    """12d: 1 字章字身撐滿 inner 96%，不被 char_size_mm cap。
+
+    業界 1 字章慣例：字撐滿章面（豬豬小姐 0.7-1.5cm 章「檀」「福」字
+    佔 90%+）。stroke-order 過去用 char_size_mm cap 邏輯讓 1 字章
+    字太小（12mm 章 char_size=5 → 字身只 5mm 佔 48%）。
+    Phase 12d fix：1 字 ignore cap，固定 ratio 0.96 撐滿 cell。
+    """
+    from stroke_order.exporters.stamp import _placements_for_preset
+
+    class C:
+        pass
+    chars = [C()]
+
+    # 不同 char_size_mm 都該得到相同字身大小（1 字 ignore cap）
+    for cs in [0, 5, 12, 20]:
+        p = _placements_for_preset(
+            "square_name", chars, 12, 12, cs,
+            border_padding_mm=0.8,
+            double_border=False, double_gap_mm=0.8,
+        )
+        inner = 12 - 2 * 0.8
+        # 字身應該 96% inner（10.4 * 0.96 = 9.98 mm）
+        assert abs(p[0][4] - inner * 0.96) < 0.01, \
+            f"char_size_mm={cs}: 字身 {p[0][4]} != {inner * 0.96}"
+        assert p[0][4] == p[0][5]  # 1 字 uniform scale (w == h)
+
+
 def test_api_stamp_convex_pdf_has_red_fill(client):
     """陽刻 PDF：cairosvg 應正確處理 fill-rule 並輸出有顏色的 PDF。"""
     r = client.post(
