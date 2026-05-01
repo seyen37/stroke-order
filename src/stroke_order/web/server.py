@@ -136,6 +136,7 @@ class StampPostRequest(BaseModel):
     format: str = "svg"   # svg | gcode | pdf
     engrave_mode: str = "concave"  # 12c: concave (陰刻) | convex (陽刻)
     line_pitch_mm: float = 0.1     # 12c: convex 光柵掃描密度
+    layout_5char: str = "3plus2"   # 12e: 5 字 layout 3plus2 (預設) | 2plus3
 
 
 class SutraPostRequest(BaseModel):
@@ -2520,6 +2521,7 @@ def create_app() -> FastAPI:
     )
     _STAMP_FORMAT_PATTERN = "^(svg|gcode|pdf)$"
     _STAMP_ENGRAVE_PATTERN = "^(concave|convex)$"
+    _STAMP_LAYOUT5_PATTERN = "^(3plus2|2plus3)$"
 
     @app.get("/api/stamp/capacity")
     async def stamp_capacity_endpoint(
@@ -2576,6 +2578,10 @@ def create_app() -> FastAPI:
         if req.engrave_mode not in ("concave", "convex"):
             raise HTTPException(
                 422, detail=f"unknown engrave_mode {req.engrave_mode!r}")
+        # 12e: validate layout_5char
+        if req.layout_5char not in ("3plus2", "2plus3"):
+            raise HTTPException(
+                422, detail=f"unknown layout_5char {req.layout_5char!r}")
 
         common = dict(
             text=req.text, char_loader=loader,
@@ -2588,6 +2594,7 @@ def create_app() -> FastAPI:
             border_padding_mm=req.border_padding_mm,
             decorations=decorations,
             engrave_mode=req.engrave_mode,              # type: ignore[arg-type]
+            layout_5char=req.layout_5char,
         )
 
         if req.format == "svg":
@@ -2636,6 +2643,7 @@ def create_app() -> FastAPI:
         format: str = Query("svg", pattern=_STAMP_FORMAT_PATTERN),
         engrave_mode: str = Query("concave", pattern=_STAMP_ENGRAVE_PATTERN),
         line_pitch_mm: float = Query(0.1, gt=0, le=2.0),
+        layout_5char: str = Query("3plus2", pattern=_STAMP_LAYOUT5_PATTERN),
     ):
         req = StampPostRequest(
             text=text, preset=preset,
@@ -2646,6 +2654,7 @@ def create_app() -> FastAPI:
             style=style, source=source, hook_policy=hook_policy,
             feed=feed, laser_power=laser_power, format=format,
             engrave_mode=engrave_mode, line_pitch_mm=line_pitch_mm,
+            layout_5char=layout_5char,
         )
         return await stamp_post(req)
 

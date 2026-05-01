@@ -1162,6 +1162,21 @@
       </span>
     </div>
 
+    <!-- 12e: 5 字 layout toggle（只在 square_name + 5 字時相關） -->
+    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+         padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
+      <label style="font-weight:600;">5 字排列</label>
+      <label title="傳統台灣印章右起讀：右 3 字（姓名）+ 左 2 字（職稱 / 修飾）">
+        <input type="radio" name="st-5char-layout" value="3plus2" checked> 右 3 字 + 左 2 字（預設）
+      </label>
+      <label style="margin-left:12px;" title="日本姓名章 / 特殊變體：右 2 字 + 左 3 字">
+        <input type="radio" name="st-5char-layout" value="2plus3"> 右 2 字 + 左 3 字
+      </label>
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        僅 5 字情境生效
+      </span>
+    </div>
+
     <!-- 12c: 陰刻 / 陽刻 toggle -->
     <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
          padding:6px 10px;border-radius:3px;margin:4px 0;">
@@ -4541,6 +4556,9 @@ function stampBuildBody(format) {
   const engraveRadio = document.querySelector('input[name="st-engrave"]:checked');
   const engraveMode = engraveRadio ? engraveRadio.value : "concave";
   const linePitch = parseFloat($("st-line-pitch")) || 0.1;
+  // 12e: 5 字 layout
+  const layout5Radio = document.querySelector('input[name="st-5char-layout"]:checked');
+  const layout5Char = layout5Radio ? layout5Radio.value : "3plus2";
   return {
     text: text,
     preset: $("st-preset"),
@@ -4558,6 +4576,7 @@ function stampBuildBody(format) {
     format,
     engrave_mode: engraveMode,
     line_pitch_mm: linePitch,
+    layout_5char: layout5Char,
   };
 }
 

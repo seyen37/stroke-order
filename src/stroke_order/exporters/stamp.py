@@ -222,6 +222,7 @@ def _placements_for_preset(
     border_padding_mm: float = 0.8,
     double_border: bool,
     double_gap_mm: float,
+    layout_5char: str = "3plus2",
 ) -> list[tuple[Character, float, float, float, float, float]]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
@@ -268,29 +269,37 @@ def _placements_for_preset(
             sz = min(inner_w, inner_h) * SINGLE_CHAR_FILL_RATIO
             _add(chars[0], cx, cy, 0.0, sz)
         elif n == 5:
-            # Phase 12e: 5 字 2+3 column layout（傳統印章變體）。
-            # 右欄 2 字（chars[0], chars[1]）上下拉伸 — 寬 50% inner_w、
-            #   高各 46% inner_h（與 3 字 1+2 layout 左欄堆疊比例一致）。
-            # 左欄 3 字（chars[2], chars[3], chars[4]）上中下拉伸 — 寬 50%、
-            #   高各 30% inner_h（3 字均分 + cell padding ~3%）。
-            # 字身用 non-uniform scale（高 < 寬，左欄字會稍扁，類似日本姓名章慣例）。
+            # Phase 12e: 5 字 layout — 兩種變體可切（layout_5char 參數）：
+            #   "3plus2"（預設）：右欄 3 字 + 左欄 2 字（傳統台灣印章右起讀）
+            #   "2plus3"：右欄 2 字 + 左欄 3 字（日本姓名章 / 特殊變體）
+            #
+            # 共通：欄寬 50% inner_w；3 字欄字 cell h 30%；2 字欄 cell h 46%。
+            # 字身用 non-uniform scale，多字欄字會稍扁。
             right_x = cx + inner_w * 0.25
             left_x = cx - inner_w * 0.25
             half_w = inner_w * 0.50
-            # 右欄：2 字上下，每格 ~46% × 50%
-            right_h = inner_h * 0.46
-            top_y_r = cy - inner_h * 0.23
-            bot_y_r = cy + inner_h * 0.23
-            placements.append((chars[0], right_x, top_y_r, 0.0, half_w, right_h))
-            placements.append((chars[1], right_x, bot_y_r, 0.0, half_w, right_h))
-            # 左欄：3 字上中下，每格 ~30% × 50%
-            left_h = inner_h * 0.30
-            top_y_l = cy - inner_h * 0.32
-            mid_y_l = cy
-            bot_y_l = cy + inner_h * 0.32
-            placements.append((chars[2], left_x, top_y_l, 0.0, half_w, left_h))
-            placements.append((chars[3], left_x, mid_y_l, 0.0, half_w, left_h))
-            placements.append((chars[4], left_x, bot_y_l, 0.0, half_w, left_h))
+            cell_h_3 = inner_h * 0.30  # 3 字欄每格 h
+            cell_h_2 = inner_h * 0.46  # 2 字欄每格 h
+            top_3 = cy - inner_h * 0.32
+            mid_3 = cy
+            bot_3 = cy + inner_h * 0.32
+            top_2 = cy - inner_h * 0.23
+            bot_2 = cy + inner_h * 0.23
+
+            if layout_5char == "2plus3":
+                # 右 2 + 左 3：右欄 chars[0/1]、左欄 chars[2/3/4]
+                placements.append((chars[0], right_x, top_2, 0.0, half_w, cell_h_2))
+                placements.append((chars[1], right_x, bot_2, 0.0, half_w, cell_h_2))
+                placements.append((chars[2], left_x, top_3, 0.0, half_w, cell_h_3))
+                placements.append((chars[3], left_x, mid_3, 0.0, half_w, cell_h_3))
+                placements.append((chars[4], left_x, bot_3, 0.0, half_w, cell_h_3))
+            else:  # "3plus2"（預設）
+                # 右 3 + 左 2：右欄 chars[0/1/2]、左欄 chars[3/4]
+                placements.append((chars[0], right_x, top_3, 0.0, half_w, cell_h_3))
+                placements.append((chars[1], right_x, mid_3, 0.0, half_w, cell_h_3))
+                placements.append((chars[2], right_x, bot_3, 0.0, half_w, cell_h_3))
+                placements.append((chars[3], left_x, top_2, 0.0, half_w, cell_h_2))
+                placements.append((chars[4], left_x, bot_2, 0.0, half_w, cell_h_2))
         elif n == 3:
             # Taiwan traditional 1+2 layout (Phase 11f tuned for fuller fill):
             # Right column: surname (chars[0]) NON-UNIFORMLY stretched —
@@ -420,6 +429,7 @@ def render_stamp_svg(
     color: str = "#000",
     stroke_width: float = 0.6,
     engrave_mode: EngraveMode = "concave",
+    layout_5char: str = "3plus2",
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -447,6 +457,7 @@ def render_stamp_svg(
         preset, chars, stamp_width_mm, stamp_height_mm, char_size_mm,
         border_padding_mm=border_padding_mm,
         double_border=double_border, double_gap_mm=double_gap_mm,
+        layout_5char=layout_5char,
     )
 
     # Build border path d-strings (used by both modes).
@@ -544,6 +555,7 @@ def render_stamp_gcode(
     laser_off: str = "M5",
     engrave_mode: EngraveMode = "concave",
     line_pitch_mm: float = 0.1,
+    layout_5char: str = "3plus2",
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -570,6 +582,7 @@ def render_stamp_gcode(
         preset, chars, stamp_width_mm, stamp_height_mm, char_size_mm,
         border_padding_mm=border_padding_mm,
         double_border=double_border, double_gap_mm=double_gap_mm,
+        layout_5char=layout_5char,
     )
 
     out: list[str] = [
