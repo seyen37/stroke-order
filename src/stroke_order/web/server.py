@@ -2516,7 +2516,7 @@ def create_app() -> FastAPI:
     _STAMP_PRESET_PATTERN = (
         "^(square_name|square_official|round|oval|rectangle_title)$"
     )
-    _STAMP_FORMAT_PATTERN = "^(svg|gcode)$"
+    _STAMP_FORMAT_PATTERN = "^(svg|gcode|pdf)$"
 
     @app.get("/api/stamp/capacity")
     async def stamp_capacity_endpoint(
@@ -2543,7 +2543,7 @@ def create_app() -> FastAPI:
             render_stamp_svg, render_stamp_gcode,
         )
         from ..exporters.patch import SvgDecoration
-        if req.format not in ("svg", "gcode"):
+        if req.format not in ("svg", "gcode", "pdf"):
             raise HTTPException(422, detail=f"unknown format {req.format!r}")
 
         def loader(ch: str):
@@ -2586,6 +2586,21 @@ def create_app() -> FastAPI:
             return Response(content=svg, media_type="image/svg+xml",
                             headers={"Content-Disposition":
                                      _content_disposition("stamp", "svg")})
+        if req.format == "pdf":
+            # 12b-4: SVG → PDF 直出（cairosvg svg2pdf）。印章是單頁，
+            # 不需要走 sutra 的 SVG→PNG→Pillow 多頁合併流程。
+            try:
+                import cairosvg
+            except ImportError as e:
+                raise HTTPException(
+                    500, detail=f"PDF backend unavailable: {e}. "
+                                "Install with `pip install cairosvg`.",
+                )
+            svg = render_stamp_svg(**common)
+            pdf_bytes = cairosvg.svg2pdf(bytestring=svg.encode("utf-8"))
+            return Response(content=pdf_bytes, media_type="application/pdf",
+                            headers={"Content-Disposition":
+                                     _content_disposition("stamp", "pdf")})
         gc = render_stamp_gcode(
             **common, feed=req.feed, laser_power=req.laser_power,
         )

@@ -1209,6 +1209,7 @@
     <div class="row">
       <button id="st-render" class="btn-primary">產生預覽</button>
       <button id="st-dl-svg" type="button">⤓ SVG (engrave)</button>
+      <button id="st-dl-pdf" type="button" title="列印樣張 / 客戶確認用">⤓ PDF</button>
       <button id="st-dl-gcode" type="button">⤓ G-code (laser)</button>
       <span id="st-status" style="margin-left:10px;color:var(--muted);font-size:12px;"></span>
     </div>
@@ -4317,6 +4318,7 @@ function stampInit() {
   if (!$("st-render")) return;
   $("st-render").onclick   = () => stampRender();
   $("st-dl-svg").onclick   = () => stampDownload("svg");
+  $("st-dl-pdf").onclick   = () => stampDownload("pdf");
   $("st-dl-gcode").onclick = () => stampDownload("gcode");
   $("st-deco-add").onclick = stampAddDecoration;
   // Capacity hint live-updates + preset-driven default sizing
@@ -4563,7 +4565,10 @@ async function stampDownload(format) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const ext = format === "svg" ? "svg" : "gcode";
+    // 12b-4: format → file extension（svg/pdf/gcode 三選一）
+    const ext = format === "svg" ? "svg"
+              : format === "pdf" ? "pdf"
+              : "gcode";
     a.download = `stamp.${ext}`;
     document.body.appendChild(a);
     a.click();

@@ -388,8 +388,25 @@ def test_api_stamp_invalid_preset_rejected(client):
 
 
 def test_api_stamp_invalid_format_rejected(client):
-    r = client.get("/api/stamp?preset=square_name&text=A&format=pdf")
+    # 12b-4: pdf 已加入支援 format（svg/gcode/pdf 三選一），改用真實
+    # invalid format（如 docx）測試 422 拒絕路徑。
+    r = client.get("/api/stamp?preset=square_name&text=A&format=docx")
     assert r.status_code == 422
+
+
+def test_api_stamp_pdf_format(client):
+    """12b-4: PDF format 走 cairosvg svg2pdf 直出。"""
+    r = client.post(
+        "/api/stamp",
+        json={"text": "王明", "preset": "square_name", "format": "pdf",
+              "stamp_width_mm": 12, "stamp_height_mm": 12, "char_size_mm": 5},
+    )
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    # PDF magic bytes
+    assert r.content[:4] == b"%PDF"
+    # Reasonable size lower bound — 印章 PDF 至少 1KB
+    assert len(r.content) > 1000
 
 
 # ---------------------------------------------------------------------------
