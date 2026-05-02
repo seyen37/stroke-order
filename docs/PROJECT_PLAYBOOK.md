@@ -1181,6 +1181,50 @@ applyDefaults();   // ← init 時跑一次，覆蓋首次載入路徑
 
 > 📜 **真實案例**：起源於 stroke-order 2026-05-02 Phase 12m-1 r3 — r1 設了 oval default = double_border ON 但只 hook 在 change event。User 截圖顯示首次進站雙線外框沒勾，初步誤判為部署問題，後 trace 到 init 沒呼叫 `stampApplyPresetDefaults()`。修法 1 行。詳見 [`docs/decisions/2026-05-02_phase12m_oval_structured.md`](decisions/2026-05-02_phase12m_oval_structured.md)。
 
+### 8.15 Visual rendering 驗證每 round — unit tests 不夠
+
+對 layout / 視覺 / SVG / canvas 工作，**unit tests 驗算法輸出符合預期形狀，但渲染後的 stroke / fill / 多 path 互動可能跟預期完全不同**。每 round 必須 PNG render（或螢幕截圖）視覺驗證，不能光靠單元測試 green 就 ship。
+
+#### 規則
+
+對「視覺輸出」改動（任何 SVG/canvas/UI layout），驗證流程：
+
+1. Unit test 驗演算法核心（座標 / 比例 / count）
+2. **PNG render 視覺驗證**（cairosvg / Playwright screenshot / 等）
+3. 對齊 reference 圖（如有）— 並排視覺對比
+4. 檢查邊角情況（最小/最大 input、極端比例）
+
+少了 step 2/3 容易出**「演算法對、渲染錯」**的 bug。
+
+#### 為什麼這個習慣值錢
+
+SVG render 細節容易 surprise:
+
+- **Stroke** 在 polygon centerline 兩側都加半寬 → 預期單邊效果可能變雙邊
+- **Fill-rule** (even-odd vs non-zero) 對複雜 path 結果不同
+- **Path 順序** (z-index) 影響覆蓋
+- **viewBox padding** 不夠時 stroke 外緣被裁
+- **不同瀏覽器** stroke join / linecap 渲染微差
+
+Unit test 通常測座標、頂點、count；無法捕捉這些渲染細節。
+
+#### 反例 vs 正例
+
+**反例**（typical anti-pattern）：
+> 寫 sawtooth polygon helper，unit test 驗 polygon 有 N 個 vertices alternating outer/inner — 通過。Ship。User 看到「inner side 也鋸齒」回報 bug → 才發現 stroke 雙邊都 zigzag。多 1 round 重設計 + tests 重寫。
+
+**正例**（stroke-order 12m-1 r19）：
+> 改設計用 smooth ellipse + filled triangle teeth attached outside → render PNG → 確認 outer zigzag、inner smooth → user 滿意 1 round 過。Round 之間沒省 PNG verify step。
+
+#### Audit checklist
+
+- [ ] 每個 visual / layout PR 跑了 PNG render 比對
+- [ ] reference 圖（user 提供 / 業界範例）有並排比對
+- [ ] 邊角 input（n=1, n=極大、aspect ratio 極端）視覺檢查
+- [ ] Unit tests 跟 PNG verify 都 green 才 commit
+
+> 📜 **真實案例**：起源於 stroke-order 2026-05-02 Phase 12m-1 r18→r19 — sawtooth 邊飾用 polygon 替換 outer ellipse，unit tests 通過。但 SVG stroke 渲染後 polygon 兩側都 zigzag，user 反映「內側也呈鋸齒」。重設計改用「smooth ellipse + filled triangle teeth attached outside」，PNG verify 通過。詳見 [`docs/decisions/2026-05-02_phase12m_iterative_polish.md`](decisions/2026-05-02_phase12m_iterative_polish.md#3-sawtooth-設計polygon-replace--triangle-attach)。
+
 ---
 
 ## 九、附錄：可複製模板
