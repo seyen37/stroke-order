@@ -4476,18 +4476,19 @@ function stampInit() {
   $("st-dl-pdf").onclick   = () => stampDownload("pdf");
   $("st-dl-gcode").onclick = () => stampDownload("gcode");
   $("st-deco-add").onclick = stampAddDecoration;
-  // Capacity hint live-updates + preset-driven default sizing.
-  // 12m-1 patch r4: 加入 st-pad / st-double-border 觸發 capacity refresh，因
-  // oval inner area 對 padding/double 敏感，少 1.6mm 弧長就差 ~5%。
-  ["st-preset", "st-w", "st-h", "st-charsize", "st-text",
+  // 12m-1 patch r5: applyDefaults 必須先於 capacity 註冊到 st-preset.change
+  // 否則 capacity 拿 stale w/h 發 fetch，跟 applyDefaults 末尾 call 的 fetch
+  // race；網路抖動時 stale response 後到會 overwrite UI。
+  $("st-preset").addEventListener("change", stampApplyPresetDefaults);
+  // Capacity hint live-updates — st-preset 不放這裡（applyDefaults 末尾會 call）
+  // st-pad / st-double-border 影響 oval inner area，必須觸發 refresh
+  ["st-w", "st-h", "st-charsize", "st-text",
    "st-pad", "st-double-border"].forEach(id => {
     const el = $(id);
     if (!el) return;
     el.addEventListener("change", stampUpdateCapacity);
     el.addEventListener("input", stampUpdateCapacity);
   });
-  // Layout preset switch suggests sensible default dimensions
-  $("st-preset").addEventListener("change", stampApplyPresetDefaults);
   // 12g: 每字位移微調 — text 變動時更新 row 數
   $("st-text").addEventListener("input", stampUpdateCharOffsetsUI);
   // 12l: 公司章短列 checkbox group — 隨字數切換 3-col / 4-col / 隱藏
@@ -4612,9 +4613,14 @@ function stampUpdateOfficialShortColUI() {
   });
 }
 
+// 12m-1 patch r5: stampUpdateCapacity 帶 sequence guard 防 async race。
+// 多次併發 fetch 時，舊的 response 可能後到 overwrite 最新 UI；用單調遞增
+// 序號 token，return 時比對最新 token，stale 直接 drop。
+let _capacityReqSeq = 0;
 async function stampUpdateCapacity() {
   const $ = id => document.getElementById(id).value;
   const $$ = id => document.getElementById(id);
+  const myReq = ++_capacityReqSeq;
   // 12m-1 patch r4: 帶 double_border + border_padding 給 backend，否則 oval
   // 雙框時 inner area 跟 capacity 算錯（差 0.8mm × 2 = 1.6mm 影響弧長 cap）。
   const params = new URLSearchParams({
@@ -4629,6 +4635,8 @@ async function stampUpdateCapacity() {
     const r = await fetch(`${API_BASE}/api/stamp/capacity?${params}`);
     if (!r.ok) return;
     const d = await r.json();
+    // 12m-1 patch r5: stale response → drop (newer request already inflight/done)
+    if (myReq !== _capacityReqSeq) return;
     const sizeStr = `<b>${d.inner_size_mm[0]}×${d.inner_size_mm[1]}</b> mm`;
     let hint;
     if (d.preset === "oval" && d.oval_caps) {
