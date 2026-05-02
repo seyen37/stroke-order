@@ -1166,6 +1166,18 @@
                style="flex:1;font-size:14px;">
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:64px;">裝飾</label>
+        <select id="st-oval-decoration" style="font-size:14px;padding:2px 6px;">
+          <option value="plum" selected>梅花（五瓣）</option>
+          <option value="star">五角星</option>
+          <option value="circle">圓形</option>
+          <option value="none">不顯示</option>
+        </select>
+        <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+          外/內框之間左右兩側佔位符
+        </span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">下弧文</label>
         <input id="st-oval-arc-bottom" type="text"
                placeholder="地址 / 統一編號（沿下半弧）" maxlength="60"
@@ -4930,6 +4942,8 @@ function stampBuildBody(format) {
       $$("st-oval-body-2-bold")?.checked || false,
       false,
     ],
+    // 12m-1 patch r13: 裝飾符號（plum / star / circle / none）
+    oval_decoration: $("st-oval-decoration") || "plum",
   };
 }
 

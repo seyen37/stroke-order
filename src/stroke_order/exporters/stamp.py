@@ -319,7 +319,7 @@ def _t_at_arc_length(
 def _oval_arc_positions(
     n: int, *, inner_w: float, inner_h: float, cx: float, cy: float,
     top: bool, char_size: float = 0.0,
-    span_deg: float = 160.0, safety_margin_mm: float = 0.5,
+    span_deg: float = 140.0, safety_margin_mm: float = 0.5,
     padding_ratio: float = 0.13,  # legacy fallback (only used if char_size <= 0)
 ) -> list[tuple[float, float, float]]:
     """Place ``n`` chars along the upper or lower half of an inner ellipse.
@@ -423,7 +423,7 @@ def _oval_arc_positions(
 
 
 def _oval_arc_char_size(
-    n: int, *, inner_w: float, inner_h: float, span_deg: float = 160.0,
+    n: int, *, inner_w: float, inner_h: float, span_deg: float = 140.0,
     padding_ratio: float = 0.13, char_size_cap: float,
     fill_ratio: float = 0.92,
 ) -> float:
@@ -489,7 +489,9 @@ def _oval_body_layout(
     # 中央 2 大字 (max_h 0.30 inner_h)；中央 3 小字 (0.15) 給聯絡資訊縮排；
     # 中央 1 normal title (0.18)。三個 slot 互相獨立。
     SLOT_Y_OFFSETS = [-0.15, 0.0, 0.15]
-    SLOT_MAX_H = [0.18, 0.30, 0.15]
+    # 12m-1 patch r13: bump slot_max_h 讓 chars 自動長大（受 inner_bound_h
+    # 動態 cap 封頂，不會碰內框）。0.30/0.40/0.13 比舊 0.18/0.30/0.15 大。
+    SLOT_MAX_H = [0.30, 0.40, 0.13]
     INNER_ELLIPSE_SAFETY = 0.5  # mm gap between char edge and inner ellipse
 
     a = inner_w / 2.0
@@ -531,26 +533,12 @@ def _oval_body_layout(
 
 def _oval_flower_svg(cx_mm: float, cy_mm: float, radius_mm: float,
                      stroke_width: float = 0.3) -> str:
-    """5-petal plum blossom (梅花) SVG decoration for oval stamp ring band.
-
-    Phase 12m-1 patch r11: industry-standard oval stamps use 5-petal 梅花
-    at left/right edges of the ring band to fill horizontal gaps where
-    arc text doesn't reach. 5 small circles arranged at 72° intervals
-    around a tiny center dot.
-
-    Args:
-        cx_mm, cy_mm: flower centre position
-        radius_mm: outer radius (petal centre offset from flower centre)
-            — petals each have ~radius * 0.55 individual radius
-        stroke_width: stroke for petal outlines
-    """
+    """5-petal plum blossom (梅花) SVG decoration for oval stamp ring band."""
     petal_r = radius_mm * 0.55
-    parts = [f'<g class="stamp-flower" '
+    parts = [f'<g class="stamp-deco" '
              f'transform="translate({cx_mm:.3f},{cy_mm:.3f})" '
              f'fill="none" stroke-width="{stroke_width:.3f}">']
-    # Center dot
     parts.append(f'<circle cx="0" cy="0" r="{petal_r * 0.30:.3f}"/>')
-    # 5 petals at 72° intervals; start from top (-90°) for symmetry
     for i in range(5):
         angle_rad = math.radians(-90.0 + i * 72.0)
         px = radius_mm * 0.55 * math.cos(angle_rad)
@@ -560,6 +548,50 @@ def _oval_flower_svg(cx_mm: float, cy_mm: float, radius_mm: float,
         )
     parts.append('</g>')
     return "".join(parts)
+
+
+def _oval_star_svg(cx_mm: float, cy_mm: float, radius_mm: float,
+                   stroke_width: float = 0.3) -> str:
+    """5-pointed star (五角星) SVG decoration. Outer points at radius_mm,
+    inner points at radius_mm × 0.4 (golden-ratio-ish proportion)."""
+    inner_r = radius_mm * 0.4
+    pts = []
+    for i in range(10):
+        # Alternate outer/inner radii every 36°
+        r = radius_mm if i % 2 == 0 else inner_r
+        angle_rad = math.radians(-90.0 + i * 36.0)
+        x = r * math.cos(angle_rad)
+        y = r * math.sin(angle_rad)
+        pts.append(f"{x:.3f},{y:.3f}")
+    points = " ".join(pts)
+    return (f'<g class="stamp-deco" '
+            f'transform="translate({cx_mm:.3f},{cy_mm:.3f})" '
+            f'fill="none" stroke-width="{stroke_width:.3f}">'
+            f'<polygon points="{points}"/></g>')
+
+
+def _oval_circle_svg(cx_mm: float, cy_mm: float, radius_mm: float,
+                     stroke_width: float = 0.3) -> str:
+    """Simple filled circle SVG decoration. Outer ring at radius_mm,
+    small inner dot for visual focus."""
+    return (f'<g class="stamp-deco" '
+            f'transform="translate({cx_mm:.3f},{cy_mm:.3f})" '
+            f'fill="none" stroke-width="{stroke_width:.3f}">'
+            f'<circle cx="0" cy="0" r="{radius_mm:.3f}"/>'
+            f'<circle cx="0" cy="0" r="{radius_mm * 0.35:.3f}"/></g>')
+
+
+def _oval_decoration_svg(kind: str, cx_mm: float, cy_mm: float,
+                         radius_mm: float, stroke_width: float = 0.3) -> str:
+    """Dispatch decoration SVG by kind. kind ∈ {'plum', 'star', 'circle',
+    'none'}. Returns empty string for 'none' or unknown."""
+    if kind == "plum":
+        return _oval_flower_svg(cx_mm, cy_mm, radius_mm, stroke_width)
+    if kind == "star":
+        return _oval_star_svg(cx_mm, cy_mm, radius_mm, stroke_width)
+    if kind == "circle":
+        return _oval_circle_svg(cx_mm, cy_mm, radius_mm, stroke_width)
+    return ""  # 'none' or unknown — no decoration
 
 
 # ---------------------------------------------------------------------------
@@ -1074,6 +1106,8 @@ def render_stamp_svg(
     oval_body_lines: list[str] = None,
     # Phase 12m-1 patch r12: bold flags per slot (中央 1/2/3)
     oval_body_bold: list[bool] = None,
+    # Phase 12m-1 patch r13: 裝飾符號 ('plum' / 'star' / 'circle' / 'none')
+    oval_decoration: str = "plum",
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -1159,29 +1193,26 @@ def render_stamp_svg(
     for d in decorations:
         deco_pieces.append(_decoration_svg(d))
 
-    # 12m-1 patch r11: oval 五瓣梅花裝飾 — 左右兩側 ring band 中央，業界
-    # 慣例佔位符（弧文不延伸到最左/最右）。位置在 outer 跟 inner ellipse
-    # 之間 ring band 的中線（middle ring）。
-    if preset == "oval" and show_border:
+    # 12m-1 patch r11/r13: oval 裝飾符號（梅花 / 五角星 / 圓形 / 不顯示），
+    # 左右兩側 ring band 中央。佔位避免弧文延伸到最左/最右。
+    if preset == "oval" and show_border and oval_decoration != "none":
         cx_mid = stamp_width_mm / 2.0
         cy_mid = stamp_height_mm / 2.0
         outer_a = stamp_width_mm / 2.0
         outer_b = stamp_height_mm / 2.0
-        # Inner ellipse offset (匹配 _stamp_border_polys r12: d=0.30)
         d_offset = 0.30 * min(outer_a, outer_b)
         inner_a = max(outer_a - d_offset, 0.1)
-        # ring band 中線位置（horizontal axis）
         mid_a = (outer_a + inner_a) / 2.0
-        # 梅花大小：略小於 ring band 寬度
-        flower_r = d_offset * 0.40
-        deco_pieces.append(
-            _oval_flower_svg(cx_mid + mid_a, cy_mid, flower_r,
-                             stroke_width * 0.5)
-        )
-        deco_pieces.append(
-            _oval_flower_svg(cx_mid - mid_a, cy_mid, flower_r,
-                             stroke_width * 0.5)
-        )
+        deco_r = d_offset * 0.40
+        deco_stroke = stroke_width * 0.5
+        right_deco = _oval_decoration_svg(
+            oval_decoration, cx_mid + mid_a, cy_mid, deco_r, deco_stroke)
+        left_deco = _oval_decoration_svg(
+            oval_decoration, cx_mid - mid_a, cy_mid, deco_r, deco_stroke)
+        if right_deco:
+            deco_pieces.append(right_deco)
+        if left_deco:
+            deco_pieces.append(left_deco)
 
     # Phase 12j: viewBox 加 stroke padding 防外框 stroke 外緣被切
     # （圓 path 邊在 width/2，stroke 從中心向外延伸 stroke_width/2，
@@ -1220,13 +1251,14 @@ def render_stamp_svg(
             f'{"".join(char_pieces)}</g>'
         )
         # 邊框描邊（在字上面，視覺上邊界清楚）。
-        # 12m-1 patch r10: oval inner ellipse stroke 較細（× 0.5），對齊 T-02
-        # / TT-* reference visual — 內框視覺上比外框細。
+        # 12m-1 patch r10/r13: oval outer ×1.5 + inner ×0.5 (3:1 ratio for
+        # visible double-line). 對齊 T-02 / TT-* reference visual。
         if border_d_list:
             for i, d in enumerate(border_d_list):
-                stroke_w = (stroke_width * 0.5
-                            if i >= 1 and preset == "oval"
-                            else stroke_width)
+                if preset == "oval":
+                    stroke_w = stroke_width * (1.5 if i == 0 else 0.5)
+                else:
+                    stroke_w = stroke_width
                 body_pieces.append(
                     f'<path d="{d}" fill="none" stroke="{CONVEX_BORDER_BLACK}" '
                     f'stroke-width="{stroke_w}"/>'
@@ -1235,14 +1267,15 @@ def render_stamp_svg(
         return f'{svg_open}{"".join(body_pieces)}</svg>'
 
     # 陰刻 (concave，預設，向後相容)：字凹下、白底、字 outline 用 stroke
-    # 12m-1 patch r10: oval inner ellipse stroke 較細（× 0.5），用 inline
-    # stroke-width override（同 convex 模式邏輯）。
+    # 12m-1 patch r10/r13: oval outer ×1.5 (粗 visible) + inner ×0.5 (細 visible)，
+    # 兩線粗細差 3:1 雙線外框 visually distinct。
     border_pieces = []
     for i, d in enumerate(border_d_list):
-        if i >= 1 and preset == "oval":
+        if preset == "oval":
+            mult = 1.5 if i == 0 else 0.5
             border_pieces.append(
                 f'<path class="stamp-border" d="{d}" '
-                f'stroke-width="{stroke_width * 0.5}"/>'
+                f'stroke-width="{stroke_width * mult}"/>'
             )
         else:
             border_pieces.append(f'<path class="stamp-border" d="{d}"/>')
@@ -1283,6 +1316,7 @@ def render_stamp_gcode(
     oval_arc_bottom: str = "",
     oval_body_lines: list[str] = None,
     oval_body_bold: list[bool] = None,
+    oval_decoration: str = "plum",
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -1489,7 +1523,7 @@ def stamp_capacity(
         a = (inner_w / 2.0) * (1.0 - 0.13)   # match _oval_arc_positions padding
         b = (inner_h / 2.0) * (1.0 - 0.13)
         # Arc length approximation: average-radius × span_rad（160° span）
-        arc_len = ((a + b) / 2.0) * math.radians(160.0)
+        arc_len = ((a + b) / 2.0) * math.radians(140.0)  # r13: span 140
         # 字身 auto-shrink 到 MIN_LEGIBLE_MM 為止（fill_ratio 0.92）
         arc_max = max(int(arc_len * 0.92 / MIN_LEGIBLE_MM), 1)
         # Body per-line: 最寬 y=0 處可用 80% × inner_w，字身可 auto-shrink

@@ -151,8 +151,9 @@ class StampPostRequest(BaseModel):
     oval_arc_bottom: str = ""        # 下弧文（典型：地址 / 統一編號）
     oval_body_lines: list[str] = []  # 中央 1-3 行水平文字（順序 = 上→下）
     # 12m-1 patch r12: 中央 1/2/3 加粗 flags（list of 3 bool；False default）。
-    # True 對應 slot chars 用較粗 stroke（× 2 outer stroke_width）渲染。
     oval_body_bold: list[bool] = []
+    # 12m-1 patch r13: 裝飾符號 — 'plum'/'star'/'circle'/'none'
+    oval_decoration: str = "plum"
 
 
 class SutraPostRequest(BaseModel):
@@ -2644,6 +2645,7 @@ def create_app() -> FastAPI:
             oval_arc_bottom=req.oval_arc_bottom,
             oval_body_lines=list(req.oval_body_lines or []),
             oval_body_bold=list(req.oval_body_bold or []),
+            oval_decoration=req.oval_decoration or "plum",
         )
 
         if req.format == "svg":

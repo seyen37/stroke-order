@@ -1211,10 +1211,9 @@ def test_oval_arc_top_rotation_outward():
     # i=5 top apex: at apex normal direction = -y axis regardless of a/b
     # → rotation = 0
     assert pos[5][2] == pytest.approx(0.0, abs=0.5)
-    # i=0 leftmost-top: normal-based rotation ≈ -73° (was -84° with radius
-    # angle; difference fixes user-reported "edges rotate inward toward
-    # center" mis-alignment with outer frame curvature)
-    assert pos[0][2] == pytest.approx(-73.0, abs=2.0)
+    # i=0 leftmost-top: r13 span 140° → leftmost at theta=-160°, normal
+    # rotation ≈ -58° (was -73° at span 160). 縮 span 給梅花 buffer。
+    assert pos[0][2] == pytest.approx(-58.0, abs=3.0)
     # Sign sanity: leftmost char rotates negative (head tilts left)
     assert pos[0][2] < 0
 
@@ -1251,9 +1250,8 @@ def test_oval_arc_bottom_leftmost_rotation_inward():
     inward tilt → better alignment with outer frame curvature."""
     pos = _oval_arc_positions(14, inner_w=48, inner_h=28, cx=25, cy=15,
                               top=False)
-    # i=0 leftmost-bottom: ellipse-normal rotation ~73° (head tilts toward
-    # center but less than radius-based ~84°)
-    assert pos[0][2] == pytest.approx(73.0, abs=2.0)
+    # i=0 leftmost-bottom: r13 span 140° → ~58° (was ~73° at span 160).
+    assert pos[0][2] == pytest.approx(58.0, abs=3.0)
     # Sign sanity
     assert pos[0][2] > 0
 
@@ -1304,9 +1302,9 @@ def test_oval_body_slot_2_at_middle_large():
     ys = [y for _, _, y, *_ in out]
     # 中央 2 → y = cy
     assert all(y == pytest.approx(15) for y in ys)
-    # 中央 2 max_h = 0.30 inner_h = 8.4mm
+    # 中央 2 max_h = 0.40 inner_h = 11.2mm (r13 bump from 0.30)
     sizes = [w for _, _, _, _, w, *_ in out]
-    assert all(s <= 0.30 * 28 + 0.5 for s in sizes)
+    assert all(s <= 0.40 * 28 + 0.5 for s in sizes)
 
 
 def test_oval_body_slot_3_at_bottom_small():
