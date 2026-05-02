@@ -748,13 +748,13 @@ TAX_INVOICE_CURVE_H_RATIO = 0.30   # legacy fallback (used when straight
 TAX_INVOICE_STRAIGHT_LENGTH_MM = 27.0  # 12m-7 r11: 外框 L/R 直線 = 27mm
                                        # curve_h = (height - 27) / 2
                                        # For 45×40: outer curve_h = 6.5mm
-TAX_INVOICE_INNER_SHOULDER_DIST_MM = 37.0  # 12m-7 r11: legacy（r15 不用）
-TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM = 4.0   # 12m-7 r15: 內 sep apex 距
-                                              # outer apex 的 y 偏移
-                                              # （visibility margin）
-TAX_INVOICE_INNER_SEP_SAGITTA_MM = 2.0       # 12m-7 r15: 內 sep arc sagitta
-                                              # （curve depth, 跟 outer 不同
-                                              # 因為 user 要小 chord 用 ∩ 方向）
+TAX_INVOICE_INNER_SHOULDER_DIST_MM = 37.0  # 12m-7 r11: legacy
+TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM = 6.0   # 12m-7 r16: 內 sep apex 更深
+                                              # （之前 4.0），給 arc text
+                                              # 更多 ring band 空間
+TAX_INVOICE_INNER_SEP_CHORD_HALF_MM = 18.5   # 12m-7 r16: chord_half = 18.5
+                                              # → chord = 37mm（user spec）
+                                              # sagitta 自動由 chord+R 推算
 TAX_INVOICE_BODY_USABLE_W_MM = 36.0  # 12m-7 r14: 中央 1 (slot_0) 文字
                                      # 左右邊界 = 36mm（user spec）。其他
                                      # body slots 共用此寬。Clamp 至 stamp
@@ -795,9 +795,9 @@ def _tax_invoice_inner_sep_geometry(
         inner_a ≈ 10.65 (constrained by outer at y=1.5)
         inner chord ≈ 21.3 mm
     """
-    # 12m-7 r15: 重新設計 — 用固定 apex_offset + sagitta 控制 inner sep
-    # arc，∩ top / ∪ bot 方向。chord_half 由 R + sagitta 推算（保持 same
-    # curvature as outer 其中 R = R_outer）。
+    # 12m-7 r16: chord_half 固定（user spec 37mm chord）→ sagitta 由 R+chord
+    # 推算（same curvature as outer R）。∩ top / ∪ bot 方向 with apex_offset
+    # 控制深度。
     half_w = width_mm / 2.0
     curve_h_outer = _tax_invoice_curve_h(height_mm)
 
@@ -808,24 +808,22 @@ def _tax_invoice_inner_sep_geometry(
     else:
         R_outer = float('inf')
 
-    # User spec r15: apex_offset + sagitta 固定 → 推算 chord_half 跟 shoulders
-    apex_offset = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM
-    sagitta = TAX_INVOICE_INNER_SEP_SAGITTA_MM
+    # 12m-7 r16: chord_half 由 user spec 固定 = 18.5
+    inner_a = TAX_INVOICE_INNER_SEP_CHORD_HALF_MM
+    # Cap at half_w-1 for safety on small stamps
+    inner_a = min(inner_a, half_w - 1.0)
+
+    # Sagitta from R + chord_half (same curvature as outer):
+    # R = (a² + h²) / (2h)  →  h = R - sqrt(R² - a²)
+    if R_outer < float('inf') and inner_a < R_outer:
+        sagitta = R_outer - math.sqrt(R_outer * R_outer - inner_a * inner_a)
+    else:
+        sagitta = inner_a * 0.2   # fallback
+    sagitta = max(sagitta, 0.5)
     inner_curve_h = sagitta
 
-    # chord_half from R + sagitta (same curvature as outer)
-    if R_outer < float('inf') and sagitta < R_outer:
-        chord_half_sq = 2.0 * R_outer * sagitta - sagitta * sagitta
-        if chord_half_sq > 0:
-            inner_a = math.sqrt(chord_half_sq)
-        else:
-            inner_a = half_w * 0.5
-    else:
-        inner_a = half_w * 0.5
-
-    # ∩ top direction: apex above shoulders, apex y = apex_offset (small,
-    # near outer top apex), shoulder_y = apex + sagitta (deeper).
-    # ∪ bot mirror.
+    # ∩ top direction with deeper apex_offset (r16 = 6 vs r15 = 4)
+    apex_offset = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM
     apex_y_top = apex_offset
     shoulder_y_top = apex_y_top + sagitta
     apex_y_bot = height_mm - apex_offset
@@ -1420,11 +1418,12 @@ def _placements_for_preset(
         if has_arc_top:
             arc_n = len(oval_arc_top_chars)
             # ring band 中點半徑
-            arc_a_full = (_half_w_outer + _sep_inner_a) / 2.0   # 12m-7 r14
-            # 12m-7 r9: arc text 弧度加強 — 70% outer + 30% inner
-            # （之前 50/50 太平）。曲率隨 _tax_invoice_curve_h(height)
-            # 自動 scale。
-            arc_b_full = _curve_h * 0.7 + _inner_b_curve * 0.3
+            # 12m-7 r16: arc_a 由 sep_inner_a-1.5 設定（inset from sep
+            # chord_half for outer-cross safety）
+            arc_a_full = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
+            # 12m-7 r16: arc text 曲率再加強 — 78% outer + 22% inner
+            # （之前 r9: 70/30）。User 要 arc text 文字曲率變大。
+            arc_b_full = _curve_h * 0.78 + _inner_b_curve * 0.22
             # Char size：受 ring band width 限制（<= ring_band × 0.85），
             # 並 capped by char_size_mm。Span 160° 留少量 shoulder margin。
             arc_span_deg = 130.0   # 12m-7 r3: 160→130 留更多左右 buffer
@@ -1453,11 +1452,12 @@ def _placements_for_preset(
         # --- Bottom arc (地址沿下半弧) ---
         if has_arc_bot:
             arc_n = len(oval_arc_bottom_chars)
-            arc_a_full = (_half_w_outer + _sep_inner_a) / 2.0   # 12m-7 r14
-            # 12m-7 r9: arc text 弧度加強 — 70% outer + 30% inner
-            # （之前 50/50 太平）。曲率隨 _tax_invoice_curve_h(height)
-            # 自動 scale。
-            arc_b_full = _curve_h * 0.7 + _inner_b_curve * 0.3
+            # 12m-7 r16: arc_a 由 sep_inner_a-1.5 設定（inset from sep
+            # chord_half for outer-cross safety）
+            arc_a_full = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
+            # 12m-7 r16: arc text 曲率再加強 — 78% outer + 22% inner
+            # （之前 r9: 70/30）。User 要 arc text 文字曲率變大。
+            arc_b_full = _curve_h * 0.78 + _inner_b_curve * 0.22
             arc_span_deg = 130.0   # 12m-7 r3: 160→130 留更多左右 buffer
             arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
                 arc_span_deg)
