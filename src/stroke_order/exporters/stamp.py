@@ -318,7 +318,9 @@ def _t_at_arc_length(
 
 def _oval_arc_positions(
     n: int, *, inner_w: float, inner_h: float, cx: float, cy: float,
-    top: bool, span_deg: float = 160.0, padding_ratio: float = 0.13,
+    top: bool, char_size: float = 0.0,
+    span_deg: float = 160.0, safety_margin_mm: float = 0.5,
+    padding_ratio: float = 0.13,  # legacy fallback (only used if char_size <= 0)
 ) -> list[tuple[float, float, float]]:
     """Place ``n`` chars along the upper or lower half of an inner ellipse.
 
@@ -333,29 +335,54 @@ def _oval_arc_positions(
     enough for typical use (called once per stamp render).
 
     Rotation conventions (per-arc 朝外 direction):
-    - **Top arc 頂部朝外**: ``rotation = theta + 90°`` — char's HEAD points
-      OUTWARD (upward at top). Reads left→right at top.
-    - **Bottom arc 底部朝外**: ``rotation = theta - 90°`` — char's FEET
-      point OUTWARD (downward at bottom). Char remains UPRIGHT in viewer's
-      frame (head up, feet down). Reads left→right.
+    - **Top arc 頂部朝外**: ``rotation = phi + 90°`` — char's HEAD points
+      OUTWARD radially (upward at top). Reads left→right at top.
+    - **Bottom arc 底部朝外**: ``rotation = phi - 90°`` — char's FEET
+      point OUTWARD radially (downward at bottom). Char upright. Reads
+      left→right.
 
-    ``padding_ratio`` shrinks the ellipse so chars don't touch the
-    border (default 13%).
+    Where ``phi = atan2(b·sin t, a·cos t)`` is the ELLIPSE-correct
+    radial angle, NOT the parameter ``t``. For circles a=b → phi=t,
+    so this reduces to the original formula. For oblate/elongated
+    ellipses, phi differs from t at "shoulders" (~14° at 1.6:1 aspect),
+    where the parameter-based rotation made chars visibly mis-aligned
+    with the ellipse curvature (Phase 12m-1 patch r8 fix).
+
+    **Placement padding**: Phase 12m-1 patch r8 — char-size aware.
+    Instead of fixed ``padding_ratio``, position chars on an ellipse
+    sized so that the bbox edge sits ``safety_margin_mm`` inside the
+    outer boundary. Small chars push closer to border, big chars pull
+    in to avoid overflow → consistent visual margin across all char
+    counts. Falls back to ``padding_ratio`` if ``char_size <= 0``
+    (legacy behaviour).
     """
     if n <= 0:
         return []
-    a = (inner_w / 2.0) * (1.0 - padding_ratio)
-    b = (inner_h / 2.0) * (1.0 - padding_ratio)
+    if char_size > 0:
+        # Char-size aware padding (12m-1 patch r8): bbox edge ≈ border −
+        # safety_margin. Each direction independently — chars don't overflow
+        # whichever side is tighter.
+        a = max((inner_w / 2.0) - char_size / 2.0 - safety_margin_mm,
+                inner_w / 2.0 * 0.5)
+        b = max((inner_h / 2.0) - char_size / 2.0 - safety_margin_mm,
+                inner_h / 2.0 * 0.5)
+    else:
+        # Legacy fallback (called without char_size — use fixed ratio)
+        a = (inner_w / 2.0) * (1.0 - padding_ratio)
+        b = (inner_h / 2.0) * (1.0 - padding_ratio)
+
     if top:
-        # Top half: left to right == theta increases from -90-span/2 → -90+span/2
         start_deg = -90.0 - span_deg / 2.0
         end_deg = -90.0 + span_deg / 2.0
         rot_offset = 90.0       # 頂部朝外 — head outward at top
     else:
-        # Bottom half: left to right == theta DECREASES from 90+span/2 → 90-span/2
         start_deg = 90.0 + span_deg / 2.0
         end_deg = 90.0 - span_deg / 2.0
         rot_offset = -90.0      # 底部朝外 — feet outward at bottom
+
+    def _ellipse_phi_deg(rad: float) -> float:
+        """ELLIPSE-correct radial angle (12m-1 patch r8) — atan2(b·sin, a·cos)."""
+        return math.degrees(math.atan2(b * math.sin(rad), a * math.cos(rad)))
 
     if n == 1:
         # Single char at apex (top or bottom centre)
@@ -364,7 +391,7 @@ def _oval_arc_positions(
         return [(
             cx + a * math.cos(rad),
             cy + b * math.sin(rad),
-            theta_deg + rot_offset,
+            _ellipse_phi_deg(rad) + rot_offset,
         )]
 
     # Phase 12m-1 patch r2: arc-length-equal spacing
@@ -377,11 +404,10 @@ def _oval_arc_positions(
     for i in range(n):
         target = (i / (n - 1)) * total_arc
         rad = _t_at_arc_length(target, ts, cumlens)
-        theta_deg = math.degrees(rad)
         out.append((
             cx + a * math.cos(rad),
             cy + b * math.sin(rad),
-            theta_deg + rot_offset,
+            _ellipse_phi_deg(rad) + rot_offset,
         ))
     return out
 
@@ -816,6 +842,8 @@ def _placements_for_preset(
         if has_arc_top or has_arc_bot or has_body:
             # --- 新 structured layout ---
             # Arc top (公司名沿上弧)
+            # 12m-1 patch r8: 傳 char_size 給 positions → char-size aware
+            # placement padding（小字推到接近邊框、大字 pull in 不溢出）
             if has_arc_top:
                 arc_n = len(oval_arc_top_chars)
                 arc_sz = _oval_arc_char_size(
@@ -824,7 +852,7 @@ def _placements_for_preset(
                 )
                 positions = _oval_arc_positions(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
-                    cx=cx, cy=cy, top=True,
+                    cx=cx, cy=cy, top=True, char_size=arc_sz,
                 )
                 for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
                     placements.append((ch, x, y, rot, arc_sz, arc_sz))
@@ -837,7 +865,7 @@ def _placements_for_preset(
                 )
                 positions = _oval_arc_positions(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
-                    cx=cx, cy=cy, top=False,
+                    cx=cx, cy=cy, top=False, char_size=arc_sz,
                 )
                 for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
                     placements.append((ch, x, y, rot, arc_sz, arc_sz))

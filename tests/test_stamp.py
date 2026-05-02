@@ -1200,13 +1200,20 @@ def test_oval_arc_top_first_char_on_left():
 
 
 def test_oval_arc_top_rotation_outward():
-    """頂部朝外: char rotation = theta + 90°. Top apex → 0° (upright)."""
+    """頂部朝外: char rotation = phi + 90° (ELLIPSE-correct phi, not circle
+    approximation). Top apex → 0° (upright). For 48×28 oval (1.71 aspect),
+    leftmost char rotation differs ~4° from circle formula due to ellipse
+    curvature (Phase 12m-1 patch r8 fix)."""
     pos = _oval_arc_positions(11, inner_w=48, inner_h=28, cx=25, cy=15,
                               top=True)
-    # i=5 is top center: theta=-90, rotation = 0° (upright)
+    # i=5 top apex: phi at apex = -90° regardless of a/b → rotation = 0
     assert pos[5][2] == pytest.approx(0.0, abs=0.5)
-    # i=0 leftmost-top: theta=-170°, rotation = -80° (head tilts left)
-    assert pos[0][2] == pytest.approx(-80.0, abs=0.5)
+    # i=0 leftmost-top: ellipse-correct rotation ≈ -84° (was -80° with
+    # circle approximation; the ~4° difference is the visible curvature
+    # mis-alignment user reported)
+    assert pos[0][2] == pytest.approx(-84.0, abs=2.0)
+    # Sign sanity: leftmost char rotates negative (head tilts left)
+    assert pos[0][2] < 0
 
 
 def test_oval_arc_bottom_first_char_on_left_too():
@@ -1236,11 +1243,15 @@ def test_oval_arc_bottom_chars_upright():
 
 def test_oval_arc_bottom_leftmost_rotation_inward():
     """12m-1 patch — leftmost-bottom char head tilts toward CENTER
-    (rotation = 80°), not outward."""
+    (positive rotation), not outward. Phase 12m-1 patch r8: ellipse-correct
+    phi → ~84° (was ~80° with circle approximation)."""
     pos = _oval_arc_positions(14, inner_w=48, inner_h=28, cx=25, cy=15,
                               top=False)
-    # i=0 is leftmost-bottom (theta=170°), rotation = 170 - 90 = 80°
-    assert pos[0][2] == pytest.approx(80.0, abs=2.0)
+    # i=0 leftmost-bottom: ellipse-correct rotation ~84° (head tilts
+    # toward center)
+    assert pos[0][2] == pytest.approx(84.0, abs=2.0)
+    # Sign sanity
+    assert pos[0][2] > 0
 
 
 def test_oval_arc_single_char_at_apex():
