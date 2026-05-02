@@ -628,6 +628,35 @@ def _oval_decoration_svg(kind: str, cx_mm: float, cy_mm: float,
 # ---------------------------------------------------------------------------
 
 
+def _oval_sawtooth_polygon(
+    cx: float, cy: float, a: float, b: float, *,
+    num_teeth: int = 80, depth_mm: float = 1.0,
+) -> Polygon:
+    """Return a Polygon with sawtooth (鋸齒) outline on an ellipse.
+
+    Phase 12m-1 patch r18: traditional 印章 邊飾 sometimes uses sawtooth/
+    scalloped outer border. Alternates between full radius (a, b) and
+    inward-shifted (a-depth, b-depth) at every angular step. ``num_teeth``
+    counts of zigzag teeth around full perimeter.
+    """
+    a_inner = max(a - depth_mm, 0.5)
+    b_inner = max(b - depth_mm, 0.5)
+    total_vertices = num_teeth * 2  # one outer + one inner per tooth
+    verts = []
+    for i in range(total_vertices):
+        theta = 2.0 * math.pi * i / total_vertices
+        if i % 2 == 0:
+            # tooth tip (outer ellipse)
+            x = cx + a * math.cos(theta)
+            y = cy + b * math.sin(theta)
+        else:
+            # tooth valley (inward)
+            x = cx + a_inner * math.cos(theta)
+            y = cy + b_inner * math.sin(theta)
+        verts.append((x, y))
+    return Polygon(vertices=verts)
+
+
 def _stamp_border_polys(
     preset: StampPreset,
     width_mm: float,
@@ -635,6 +664,7 @@ def _stamp_border_polys(
     *,
     double_border: bool = False,
     double_gap_mm: float = 0.8,
+    sawtooth: bool = False,
 ) -> list:
     """Return the border shapes (one or two concentric polygons).
 
@@ -642,6 +672,9 @@ def _stamp_border_polys(
     copy ``double_gap_mm`` smaller on each side. Returns a list of
     Polygon-or-Circle-or-Ellipse objects so the caller can render
     each independently.
+
+    Phase 12m-1 patch r18: ``sawtooth`` (oval only) replaces smooth
+    outer ellipse with zigzag tooth pattern (傳統 印章 鋸齒邊飾).
     """
     cx, cy = width_mm / 2, height_mm / 2
 
@@ -649,6 +682,10 @@ def _stamp_border_polys(
         if preset in ("round", "round_name"):
             return Circle(cx, cy, min(width_mm, height_mm) / 2)
         if preset == "oval":
+            if sawtooth:
+                return _oval_sawtooth_polygon(
+                    cx, cy, width_mm / 2, height_mm / 2,
+                )
             return Ellipse(cx, cy, width_mm / 2, height_mm / 2)
         # rectangular / square presets
         return Polygon(vertices=[
@@ -1144,6 +1181,7 @@ def render_stamp_svg(
     oval_body_bold: list[bool] = None,
     # Phase 12m-1 patch r13: 裝飾符號 ('plum' / 'star' / 'circle' / 'none')
     oval_decoration: str = "plum",
+    oval_sawtooth: bool = False,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -1204,6 +1242,7 @@ def render_stamp_svg(
         for shape in _stamp_border_polys(
             preset, stamp_width_mm, stamp_height_mm,
             double_border=double_border, double_gap_mm=double_gap_mm,
+            sawtooth=oval_sawtooth and preset == "oval",
         ):
             poly = _ensure_polygon(shape)
             d = _polygon_to_svg_path(poly)
@@ -1363,6 +1402,7 @@ def render_stamp_gcode(
     oval_body_lines: list[str] = None,
     oval_body_bold: list[bool] = None,
     oval_decoration: str = "plum",
+    oval_sawtooth: bool = False,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -1423,6 +1463,7 @@ def render_stamp_gcode(
         for shape in _stamp_border_polys(
             preset, stamp_width_mm, stamp_height_mm,
             double_border=double_border, double_gap_mm=double_gap_mm,
+            sawtooth=oval_sawtooth and preset == "oval",
         ):
             poly = _ensure_polygon(shape)
             out.extend(_polygon_to_gcode_path(

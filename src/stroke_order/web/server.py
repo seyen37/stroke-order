@@ -154,6 +154,8 @@ class StampPostRequest(BaseModel):
     oval_body_bold: list[bool] = []
     # 12m-1 patch r13: 裝飾符號 — 'plum'/'star'/'circle'/'none'
     oval_decoration: str = "plum"
+    # 12m-1 patch r18: 鋸齒外框（zigzag tooth pattern on outer ellipse）
+    oval_sawtooth: bool = False
 
 
 class SutraPostRequest(BaseModel):
@@ -2646,6 +2648,7 @@ def create_app() -> FastAPI:
             oval_body_lines=list(req.oval_body_lines or []),
             oval_body_bold=list(req.oval_body_bold or []),
             oval_decoration=req.oval_decoration or "plum",
+            oval_sawtooth=bool(req.oval_sawtooth),
         )
 
         if req.format == "svg":

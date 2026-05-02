@@ -1134,14 +1134,14 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">上弧文</label>
         <input id="st-oval-arc-top" type="text"
-               placeholder="公司名稱（沿上半弧）" maxlength="60"
+               placeholder="公司名稱 / 單位名稱" maxlength="60"
                value="測試文件股份有限公司"
                style="flex:1;font-size:14px;">
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">中央 1</label>
         <input id="st-oval-body-1" type="text"
-               placeholder="第 1 行（標題如 收發章）" maxlength="40"
+               placeholder="單位名稱 / 電話 / 統一編號" maxlength="40"
                value="收發章"
                style="flex:1;font-size:14px;">
         <label title="加粗 stroke 強調用，適合標題字" style="font-size:11px;color:var(--muted);">
@@ -1151,7 +1151,7 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">中央 2</label>
         <input id="st-oval-body-2" type="text"
-               placeholder="第 2 行（中央位置強調用，可放大字體）" maxlength="40"
+               placeholder="單位名稱 / 電話 / 統編號碼" maxlength="40"
                value=""
                style="flex:1;font-size:14px;">
         <label title="加粗 stroke 強調用，適合中央大字" style="font-size:11px;color:var(--muted);">
@@ -1161,9 +1161,17 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">中央 3</label>
         <input id="st-oval-body-3" type="text"
-               placeholder="第 3 行（聯絡 / 統編，自動縮小）" maxlength="40"
+               placeholder="電話 / 傳真" maxlength="40"
                value="電話:02-2234567"
                style="flex:1;font-size:14px;">
+      </div>
+      <!-- 12m-1 patch r17: oval 專用「顯示內框」checkbox（取代既有「雙線外框」
+           給橢圓章用）。preset=oval 時隱藏標準雙線外框 row（避免 UI 混淆）。 -->
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:64px;">內框</label>
+        <label title="預設顯示：橢圓章內框包住中央 body，弧文落外/內框之間 ring band。取消勾選＝只顯示外框。">
+          <input id="st-oval-show-inner" type="checkbox" checked> 顯示內框
+        </label>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">裝飾</label>
@@ -1180,7 +1188,7 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">下弧文</label>
         <input id="st-oval-arc-bottom" type="text"
-               placeholder="地址 / 統一編號（沿下半弧）" maxlength="60"
+               placeholder="地址 / 分店名稱" maxlength="60"
                value="試題市試題區測試路1段2巷3弄4號之ㄧ56號7樓"
                style="flex:1;font-size:14px;">
       </div>
@@ -1228,7 +1236,13 @@
          padding:6px 10px;border-radius:3px;margin:4px 0;">
       <label style="font-weight:600;">外框</label>
       <label><input id="st-show-border" type="checkbox" checked> 顯示外框</label>
-      <label style="margin-left:12px;"><input id="st-double-border" type="checkbox"> 雙線外框</label>
+      <label id="st-double-border-label" style="margin-left:12px;"><input id="st-double-border" type="checkbox"> 雙線外框</label>
+      <!-- 12m-1 patch r18: 鋸齒外框（傳統印章邊飾 zigzag pattern，目前只
+           oval preset 適用，其他 preset 不影響）-->
+      <label id="st-sawtooth-label" style="margin-left:12px;display:none;"
+             title="oval 外框改為鋸齒齒狀邊飾（傳統印章 邊飾 樣式）">
+        <input id="st-oval-sawtooth" type="checkbox"> 鋸齒外框
+      </label>
       <label style="margin-left:12px;">內縮 (mm)</label>
       <input id="st-pad" type="number" value="0.8" min="0" max="20" step="0.1" style="width:55px;" title="外框內縮 (mm)。業界小章 ~0.5-1.0，大章 ~1.5-3.0。">
       <span style="margin-left:8px;color:var(--muted);font-size:11px;">
@@ -4526,6 +4540,11 @@ function stampInit() {
   // 12m-1: oval 結構化欄位 — preset=oval 時顯示 5 欄 + 隱藏單一 text
   $("st-preset").addEventListener("change", stampUpdateOvalFieldsUI);
   stampUpdateOvalFieldsUI();
+  // 12m-1 patch r17: oval-show-inner ↔ double-border 雙向同步
+  const ovalShowInner = $("st-oval-show-inner");
+  if (ovalShowInner) {
+    ovalShowInner.addEventListener("change", stampOvalShowInnerSync);
+  }
   // 12m-1 patch r6: 姓名章專用排列（2 字 / 5 字 layout）— preset ∈
   // {square_name, round_name} 時顯示，跟 oval-fields pattern 對齊。
   $("st-preset").addEventListener("change", stampUpdateNameFieldsUI);
@@ -4581,6 +4600,9 @@ function stampApplyPresetDefaults() {
   $("st-charsize").value = d[2];
   if (d.length >= 4 && $("st-double-border")) {
     $("st-double-border").checked = !!d[3];
+    // 12m-1 patch r17: sync oval-show-inner from preset default
+    const innerCb = $("st-oval-show-inner");
+    if (innerCb) innerCb.checked = !!d[3];
   }
   // 同步 size quick-pick 顯示
   stampSyncSizePreset();
@@ -4621,6 +4643,30 @@ function stampUpdateOvalFieldsUI() {
   const isOval = presetEl.value === "oval";
   textRow.style.display = isOval ? "none" : "";
   ovalFields.style.display = isOval ? "flex" : "none";
+  // 12m-1 patch r17: oval 時隱藏標準雙線外框 row（被 oval-fields 內的
+  // 「顯示內框」checkbox 取代），同步雙向 state。
+  const dbLabel = document.getElementById("st-double-border-label");
+  if (dbLabel) dbLabel.style.display = isOval ? "none" : "";
+  // 12m-1 patch r18: 鋸齒外框 checkbox 只在 oval 顯示
+  const sawLabel = document.getElementById("st-sawtooth-label");
+  if (sawLabel) sawLabel.style.display = isOval ? "" : "none";
+  // Sync 內外狀態：oval-show-inner ↔ st-double-border
+  const innerCb = document.getElementById("st-oval-show-inner");
+  const dbCb = document.getElementById("st-double-border");
+  if (isOval && innerCb && dbCb) {
+    // 從 oval-show-inner 同步到 double-border（雙線外框 backend flag）
+    dbCb.checked = innerCb.checked;
+  }
+}
+
+// 12m-1 patch r17: 「顯示內框」checkbox change → sync to st-double-border
+// + trigger capacity refresh
+function stampOvalShowInnerSync() {
+  const innerCb = document.getElementById("st-oval-show-inner");
+  const dbCb = document.getElementById("st-double-border");
+  if (!innerCb || !dbCb) return;
+  dbCb.checked = innerCb.checked;
+  if (typeof stampUpdateCapacity === "function") stampUpdateCapacity();
 }
 
 // 12m-1 patch r6: 姓名章專用排列選項（2 字 / 5 字 layout）。preset ∈
@@ -4944,6 +4990,8 @@ function stampBuildBody(format) {
     ],
     // 12m-1 patch r13: 裝飾符號（plum / star / circle / none）
     oval_decoration: $("st-oval-decoration") || "plum",
+    // 12m-1 patch r18: 鋸齒外框
+    oval_sawtooth: $$("st-oval-sawtooth")?.checked || false,
   };
 }
 
