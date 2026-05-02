@@ -1239,7 +1239,13 @@ def render_stamp_svg(
         d_offset = 0.30 * min(outer_a, outer_b)
         inner_a = max(outer_a - d_offset, 0.1)
         mid_a = (outer_a + inner_a) / 2.0
-        deco_r = d_offset * 0.40
+        # 12m-1 patch r16: 縮小裝飾符號（0.40 → 0.30）給左右 buffer 避免
+        # 觸碰 outer ellipse stroke。對 50×35 (d=5.25mm)：
+        #   舊 0.40：radius 2.1mm，總 extent 2.31mm，距 outer 1.36mm（含粗
+        #     stroke 0.45mm 後實際 gap 0.91mm）
+        #   新 0.30：radius 1.575mm，總 extent 1.73mm，距 outer 1.94mm，
+        #     含 stroke 後 gap 1.49mm — 明顯不貼邊
+        deco_r = d_offset * 0.30
         deco_stroke = stroke_width * 0.5
         right_deco = _oval_decoration_svg(
             oval_decoration, cx_mid + mid_a, cy_mid, deco_r, deco_stroke)
@@ -1253,9 +1259,10 @@ def render_stamp_svg(
     # Phase 12j: viewBox 加 stroke padding 防外框 stroke 外緣被切
     # （圓 path 邊在 width/2，stroke 從中心向外延伸 stroke_width/2，
     # 過去 viewBox=(0, 0, w, h) 會切掉 stroke 外緣 0.3mm）。
-    # 12m-1 patch r14: oval outer stroke × 1.3 (was 1.5)，viewBox padding 用
-    # max stroke 半徑（避免 outer 粗線外緣超出 viewBox 被切割）。
-    max_stroke_mult = 1.3 if preset == "oval" else 1.0
+    # 12m-1 patch r14/r16: oval outer × 1.5 + inner × 0.3 (5:1 ratio
+    # for clearly visible double-line contrast)。viewBox padding 用 outer
+    # 完整半徑（× 1.5 / 2 = 0.45mm）防止粗外框 stroke 外緣被切。
+    max_stroke_mult = 1.5 if preset == "oval" else 1.0
     vb_pad = (stroke_width * max_stroke_mult) / 2
     svg_open = (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
@@ -1295,7 +1302,7 @@ def render_stamp_svg(
         if border_d_list:
             for i, d in enumerate(border_d_list):
                 if preset == "oval":
-                    stroke_w = stroke_width * (1.3 if i == 0 else 0.5)
+                    stroke_w = stroke_width * (1.5 if i == 0 else 0.3)
                 else:
                     stroke_w = stroke_width
                 body_pieces.append(
@@ -1311,7 +1318,7 @@ def render_stamp_svg(
     border_pieces = []
     for i, d in enumerate(border_d_list):
         if preset == "oval":
-            mult = 1.3 if i == 0 else 0.5
+            mult = 1.5 if i == 0 else 0.3   # r16: 5:1 ratio
             border_pieces.append(
                 f'<path class="stamp-border" d="{d}" '
                 f'stroke-width="{stroke_width * mult}"/>'
