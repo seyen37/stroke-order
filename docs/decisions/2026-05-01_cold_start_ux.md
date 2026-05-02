@@ -1,4 +1,6 @@
-# 2026-05-02 — Cold-start wakeup overlay UX 設計決策
+# 2026-05-01 — Cold-start wakeup overlay UX 設計決策
+
+<!-- retrofit 2026-05-02：原檔名 2026-05-02_cold_start_ux.md，內部日期 5-02。git commit 5-01 16:27 (+0800)，align commit date 後重命名。 -->
 
 > Render free tier 閒置 15 分鐘後 server 會 sleep，第一個請求要等 ~30 秒喚醒。**選擇：把這個延遲從「無聲缺陷」變成「告知式等待」**——加 wakeup overlay。本決策記錄五個關鍵設計選擇與替代方案。
 

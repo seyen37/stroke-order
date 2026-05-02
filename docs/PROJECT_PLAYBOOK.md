@@ -1013,7 +1013,7 @@ stroke-order 11g 改 bbox-based scale（從 EM-based）—— 字身改成「out
 - [ ] 跑全套 pytest 看 regression（不只直接 test file）
 - [ ] 若有 UI，spot-check 所有相關面板的「user 看到的數字」
 
-> 📜 **真實案例**：起源於 stroke-order 2026-05-03 Phase 12b — 11g bbox-scale 改動之後 5 週才被 user 撞到 inner_w bug。詳見 [`docs/decisions/2026-05-03_stamp_industry_alignment.md`](decisions/2026-05-03_stamp_industry_alignment.md)。
+> 📜 **真實案例**：起源於 stroke-order 2026-05-01 Phase 12b — 11g bbox-scale 改動之後 5 週才被 user 撞到 inner_w bug。詳見 [`docs/decisions/2026-05-01_stamp_industry_alignment.md`](decisions/2026-05-01_stamp_industry_alignment.md)。
 
 ### 8.10 Default 值 single source of truth
 
@@ -1035,7 +1035,7 @@ stroke-order 11g 改 bbox-based scale（從 EM-based）—— 字身改成「out
 - [ ] 數出現次數 ≥ 3 → 列入 backlog
 - [ ] 重構時：建 module constant + 全部 import + 加 test 確認 default 對齊
 
-> 📜 **真實案例**：起源於 stroke-order 2026-05-03 Phase 12b-6 — 改 `border_padding_mm` 預設要同步 7 處。詳見 [`docs/decisions/2026-05-03_stamp_industry_alignment.md`](decisions/2026-05-03_stamp_industry_alignment.md)。
+> 📜 **真實案例**：起源於 stroke-order 2026-05-01 Phase 12b-6 — 改 `border_padding_mm` 預設要同步 7 處。詳見 [`docs/decisions/2026-05-01_stamp_industry_alignment.md`](decisions/2026-05-01_stamp_industry_alignment.md)。
 
 ### 8.11 演算法工作 SOP：先 prototype 後主線
 
@@ -1074,7 +1074,7 @@ prototype 通過後才 port 進主線 module。**Prototype 檔案保留** 在 `s
 
 簡單說：**「演算法行為的 first-time 實作」才需要 prototype**。
 
-> 📜 **真實案例**：起源於 stroke-order 2026-05-03 Phase 12c-3 G-code 陽刻光柵掃描——prototype 確認 scanline + even-odd + boustrophedon 演算法可行（4 分章 38 秒、1 寸 4.5 分、演算 < 100ms），主分支 1 commit (74b996d) 完成 5 子任務。詳見 [`docs/decisions/2026-05-03_phase12c_convex_engrave.md`](decisions/2026-05-03_phase12c_convex_engrave.md)。
+> 📜 **真實案例**：起源於 stroke-order 2026-05-01 Phase 12c-3 G-code 陽刻光柵掃描——prototype 確認 scanline + even-odd + boustrophedon 演算法可行（4 分章 38 秒、1 寸 4.5 分、演算 < 100ms），主分支 1 commit (74b996d) 完成 5 子任務。詳見 [`docs/decisions/2026-05-01_phase12c_convex_engrave.md`](decisions/2026-05-01_phase12c_convex_engrave.md)。
 
 ### 8.12 演算法 module 獨立、不依賴業務 module
 
@@ -1098,7 +1098,7 @@ prototype 通過後才 port 進主線 module。**Prototype 檔案保留** 在 `s
 - [ ] 演算法 module 名稱反映「做什麼」（`engrave.py` / `scanline.py`）而非「給誰用」（`stamp_engrave.py`）
 - [ ] 演算法 module 文件含「跨用途複用提示」段落
 
-> 📜 **真實案例**：起源於 stroke-order 2026-05-03 Phase 12c-3 — 光柵掃描演算法獨立成 `exporters/engrave.py`，stamp.py 跟（未來的）patch / sutra 都能 import 用。詳見 [`docs/decisions/2026-05-03_phase12c_convex_engrave.md`](decisions/2026-05-03_phase12c_convex_engrave.md)。
+> 📜 **真實案例**：起源於 stroke-order 2026-05-01 Phase 12c-3 — 光柵掃描演算法獨立成 `exporters/engrave.py`，stamp.py 跟（未來的）patch / sutra 都能 import 用。詳見 [`docs/decisions/2026-05-01_phase12c_convex_engrave.md`](decisions/2026-05-01_phase12c_convex_engrave.md)。
 
 ### 8.13 結構化 input fields > separator hack
 
@@ -1134,7 +1134,7 @@ Single text + separator 的問題：
 - [ ] 數該 field 在 UI 對應幾個 input → ≥ 3 個就觸發重構
 - [ ] 重構時：新增獨立 fields + UI 對齊 + backward-compat fallback + tests
 
-> 📜 **真實案例**：起源於 stroke-order 2026-05-04 Phase 12m-1 橢圓章 — 5 段語意獨立欄位（上弧 / 中央 1/2/3 / 下弧），原本只有 single text + 1-2 行 horizontal split layout。重構成結構化 5 欄位後，user UI 一看即懂、API 自我文件化、各欄位 empty 自動 skip。詳見 [`docs/decisions/2026-05-04_phase12m_oval_structured.md`](decisions/2026-05-04_phase12m_oval_structured.md)。
+> 📜 **真實案例**：起源於 stroke-order 2026-05-02 Phase 12m-1 橢圓章 — 5 段語意獨立欄位（上弧 / 中央 1/2/3 / 下弧），原本只有 single text + 1-2 行 horizontal split layout。重構成結構化 5 欄位後，user UI 一看即懂、API 自我文件化、各欄位 empty 自動 skip。詳見 [`docs/decisions/2026-05-02_phase12m_oval_structured.md`](decisions/2026-05-02_phase12m_oval_structured.md)。
 
 ### 8.14 UI 預設套用要 hook init time，不只 change
 
@@ -1179,7 +1179,7 @@ applyDefaults();   // ← init 時跑一次，覆蓋首次載入路徑
 **正例**（stroke-order 12m-1 r3）：
 > `stampInit()` 結尾加 `stampApplyPresetDefaults();` → 任何 preset 進站都同步 default → 跟 change-time 行為完全一致 → 沒 first-time UX bug。
 
-> 📜 **真實案例**：起源於 stroke-order 2026-05-04 Phase 12m-1 r3 — r1 設了 oval default = double_border ON 但只 hook 在 change event。User 截圖顯示首次進站雙線外框沒勾，初步誤判為部署問題，後 trace 到 init 沒呼叫 `stampApplyPresetDefaults()`。修法 1 行。詳見 [`docs/decisions/2026-05-04_phase12m_oval_structured.md`](decisions/2026-05-04_phase12m_oval_structured.md)。
+> 📜 **真實案例**：起源於 stroke-order 2026-05-02 Phase 12m-1 r3 — r1 設了 oval default = double_border ON 但只 hook 在 change event。User 截圖顯示首次進站雙線外框沒勾，初步誤判為部署問題，後 trace 到 init 沒呼叫 `stampApplyPresetDefaults()`。修法 1 行。詳見 [`docs/decisions/2026-05-02_phase12m_oval_structured.md`](decisions/2026-05-02_phase12m_oval_structured.md)。
 
 ---
 

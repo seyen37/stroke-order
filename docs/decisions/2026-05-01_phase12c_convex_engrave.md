@@ -1,4 +1,6 @@
-# 2026-05-03 — Phase 12c 陽刻支援（concave / convex engrave mode）
+# 2026-05-01 — Phase 12c 陽刻支援（concave / convex engrave mode）
+
+<!-- retrofit 2026-05-02：原檔名 2026-05-03_phase12c_convex_engrave.md，內部日期 5-03。git commit 5-01 18:39 (+0800)，align commit date 後重命名。 -->
 
 > 印章新增「陽刻」（朱文，字凸出 + 紅底白字）模式，補齊業界規範對齊缺口。從 prototype 驗證演算法可行性 → 5 子任務主線實作 → 5 個新測試 + 200 passed 回歸。**演算法工程量等同於另開一個 mode 系統**，但決策路線、prototype-first SOP、向後相容設計都很單純。
 

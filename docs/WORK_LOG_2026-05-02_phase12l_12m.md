@@ -1,4 +1,5 @@
-# Work Log — 2026-05-04
+# Work Log — 2026-05-02 — Phase 12l + 12m-1
+> （retrofit 2026-05-02：原檔名 `WORK_LOG_2026-05-04.md`、內部日期 5-04。git commit 5-02 凌晨，align commit date 後重命名 `WORK_LOG_2026-05-02_phase12l_12m.md`。）
 
 > Phase 12l（square_official 7-16 字 multi-short-col layout）+ Phase 12m-1（oval 結構化 + T-02 業界 layout）共 6 輪迭代。**user reference image + 截圖反饋驅動**的多輪 layout 修正 — 跟 12b 的 SOP 一致但這次強度拉滿，5 個 patch round 把 oval 從「平均 1-2 行 horizontal」做到貼合台灣業界橢圓章。
 
@@ -194,8 +195,8 @@ stampApplyPresetDefaults();   // ← 缺這行就會有 init-time inconsistency
 
 ## 四、決策紀錄
 
-- [Phase 12l：square_official 7-16 字 multi-short-col layout](decisions/2026-05-04_phase12l_official_multi_short.md)
-- [Phase 12m-1：oval 結構化 + T-02 業界 layout（5 round）](decisions/2026-05-04_phase12m_oval_structured.md)
+- [Phase 12l：square_official 7-16 字 multi-short-col layout](decisions/2026-05-02_phase12l_official_multi_short.md)
+- [Phase 12m-1：oval 結構化 + T-02 業界 layout（5 round）](decisions/2026-05-02_phase12m_oval_structured.md)
 
 ---
 

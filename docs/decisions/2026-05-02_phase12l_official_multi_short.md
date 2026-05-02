@@ -1,4 +1,6 @@
-# 2026-05-04 — Phase 12l 公司章 7-16 字 multi-short-col layout
+# 2026-05-02 — Phase 12l 公司章 7-16 字 multi-short-col layout
+
+<!-- retrofit 2026-05-02：原檔名 2026-05-04_phase12l_official_multi_short.md，內部日期 5-04。git commit 5-02 04:01 (+0800)，align commit date 後重命名。 -->
 
 > 把 square_official 從 1-9 字擴充到 1-16 字 + 加可複選短列位置（右行 / 中右 / 中左 / 左行）。從 12k 7/8 字單選 radio 升級為通用 multi-short-col + 集中短/平均短可切。整個 phase 1 commit (fde450d)、64 → 124 個測試、bump 0.14.17。
 
@@ -108,7 +110,7 @@ A 的 7 字 [3,3,1] 視覺上單字孤立，並非業界 majority。但 user 確
 
 ## 相關檔案
 
-- 工作紀錄：[`docs/WORK_LOG_2026-05-04.md`](../WORK_LOG_2026-05-04.md)
+- 工作紀錄：[`docs/WORK_LOG_2026-05-02_phase12l_12m.md`](../WORK_LOG_2026-05-02_phase12l_12m.md)
 - 程式碼異動：
   - `src/stroke_order/exporters/stamp.py`：+4 helpers (`_square_official_grid_for` / `_short_col_name_to_idx` / `_normalize_short_cols` / `_distribute_official_short`) + square_official 分支重構
   - `src/stroke_order/web/server.py`：StampPostRequest field 升 `list[str] | str`，POST/GET 驗證 + comma-split 支援

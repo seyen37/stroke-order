@@ -1,4 +1,5 @@
-# Work Log — 2026-05-01
+# Work Log — 2026-05-01 — Phase 11 stamp module
+> （retrofit 2026-05-02：原檔名 `WORK_LOG_2026-05-01.md`，加 topic 後綴維持與同日其他兩份 work log 一致命名。）
 
 > Phase 11：印章模組精修（字型授權 gate 收尾 + 3 字傳統 1+2 layout + outline 字型對齊修正 + 篆書邊緣平滑度）
 

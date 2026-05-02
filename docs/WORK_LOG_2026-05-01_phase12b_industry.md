@@ -1,4 +1,5 @@
-# Work Log — 2026-05-03
+# Work Log — 2026-05-01 — Phase 12b 業界規範對齊
+> （retrofit 2026-05-02：原檔名 `WORK_LOG_2026-05-03.md`、內部日期 5-03。git commit 5-01 17:53 (+0800)，align commit date 後重命名 `WORK_LOG_2026-05-01_phase12b_industry.md`。）
 
 > Phase 12b：印章模組業界規範對齊 + PDF 下載。User 上傳 8 張業界範例圖驅動，產生 7 個子任務 / 6 個 commit / 3 次版本 bump（0.14.2 → 0.14.5）。**用戶主動提供高品質參考圖** 是本日推進效率的關鍵。
 
@@ -14,13 +15,13 @@
 
 User 開工後問了「網站架構在哪、字型放哪、使用者下載什麼」三段架構問題。我用「角色分層 → 流量 trace → 三種等待」三段答完，他追問「所以等的是 server 重啟？」**這個問題直接觸發 12a-1（wakeup overlay）的工作**。
 
-教訓沉澱進 [decision log 12a §教訓 2](decisions/2026-05-02_cold_start_ux.md)：「使用者問架構 ≠ 要架構圖，是想做下一步動作的決策依據」。
+教訓沉澱進 [decision log 12a §教訓 2](decisions/2026-05-01_cold_start_ux.md)：「使用者問架構 ≠ 要架構圖，是想做下一步動作的決策依據」。
 
 ### Phase 12b 觸發點：8 張業界範例圖
 
 中段，user 上傳 8 張印章業界規範範例圖（豬豬小姐、吉祥刻印、無上印鋪、傳家手工、好福印、隆興印章 + 兩張字體範例）並要求「先檢視範例 → 看業界規範 → 修正設定」。
 
-我從 8 張圖整理出共識（[decision log §業界規範彙總](decisions/2026-05-03_stamp_industry_alignment.md#業界規範彙總)）：
+我從 8 張圖整理出共識（[decision log §業界規範彙總](decisions/2026-05-01_stamp_industry_alignment.md#業界規範彙總)）：
 - **8 級尺寸**（公分 1.0 ~ 1 寸 3.0 cm）方圓共用
 - **6 種字體**（楷 / 隸 / 仿宋 / 毛楷 / 毛行 / 篆）
 - **字數對應排列**（1 字粗體 / 2 字上下或左右 / 3 字 1+2 / 4 字 2×2 / 5+ 字直書）
@@ -140,7 +141,7 @@ URL: https://stroke-order.onrender.com/
 
 收尾還要：
 - [ ] 補 v0.14.5 annotated git tag + push 雙 remote
-- [ ] commit + push 本日 docs（`WORK_LOG_2026-05-03.md` + `decisions/2026-05-03_stamp_industry_alignment.md`）
+- [ ] commit + push 本日 docs（`WORK_LOG_2026-05-01_phase12b_industry.md` + `decisions/2026-05-01_stamp_industry_alignment.md`）
 
 ---
 
@@ -179,7 +180,7 @@ URL: https://stroke-order.onrender.com/
 
 **版本**：0.14.5 → 0.14.6
 **Commits**：1 個（`74b996d`）
-**新檔**：`exporters/engrave.py`（演算法 module）+ `scripts/prototype_engrave_convex.py`（prototype 保留參考）+ `docs/decisions/2026-05-03_phase12c_convex_engrave.md`
+**新檔**：`exporters/engrave.py`（演算法 module）+ `scripts/prototype_engrave_convex.py`（prototype 保留參考）+ `docs/decisions/2026-05-01_phase12c_convex_engrave.md`
 
 ## 九、12c 整體 narrative
 

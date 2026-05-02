@@ -1,4 +1,5 @@
-# Work Log — 2026-05-02
+# Work Log — 2026-05-01 — Phase 12 wakeup overlay
+> （retrofit 2026-05-02：原檔名 `WORK_LOG_2026-05-02.md`、內部日期 5-02。git commit 5-01 16:27 (+0800)，align commit date 後重命名 `WORK_LOG_2026-05-01_phase12_wakeup.md`。）
 
 > Phase 12 第一發：cold-start wakeup overlay。**昨天的 §8.7 morning audit 真的抓到價值** — Phase 11 收尾的 4 件 gap（雙 remote sync / v0.14.1 tag / §8.8 同步 / .gitattributes）今早 30 分鐘清完，乾淨進主工作。
 
@@ -57,7 +58,7 @@
 
 ### 設計決策（細節進 decision log）
 
-詳見 `docs/decisions/2026-05-02_cold_start_ux.md`。摘要：
+詳見 `docs/decisions/2026-05-01_cold_start_ux.md`。摘要：
 
 - **3 秒延遲才顯示**（不立即顯示）：避免 normal request 也閃 overlay
 - **包 fetch 而不改呼叫端**：~50 處 fetch 自動受惠，無需動 30+ 個 callsite

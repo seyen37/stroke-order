@@ -1,4 +1,6 @@
-# 2026-05-04 — Phase 12m-1 橢圓章結構化 + T-02 業界 layout（5 round）
+# 2026-05-02 — Phase 12m-1 橢圓章結構化 + T-02 業界 layout（5 round）
+
+<!-- retrofit 2026-05-02：原檔名 2026-05-04_phase12m_oval_structured.md，內部日期 5-04。git commit 5-02 02:45-04:08 (+0800)，align commit date 後重命名。 -->
 
 > 把橢圓章從「單一 text 字串平均分 1-2 行 horizontal」重構成業界橢圓章標準格式：上弧文 + 中央 1-3 行水平 body + 下弧文。User 上傳 8 張業界範例圖驅動，連續 5 個 patch round（r0-r3）做出貼近 T-02 復刻效果。**這次新增最多的 architecture decisions** — 結構化 vs separator / 弧文方向 / 弧長均分 / UI default init time / oval 比例。
 
@@ -222,8 +224,8 @@ applyDefaults();   // ← 這行不能漏
 
 ## 相關檔案
 
-- 工作紀錄：[`docs/WORK_LOG_2026-05-04.md`](../WORK_LOG_2026-05-04.md)
-- 12l 同日決策：[`docs/decisions/2026-05-04_phase12l_official_multi_short.md`](2026-05-04_phase12l_official_multi_short.md)
+- 工作紀錄：[`docs/WORK_LOG_2026-05-02_phase12l_12m.md`](../WORK_LOG_2026-05-02_phase12l_12m.md)
+- 12l 同日決策：[`docs/decisions/2026-05-02_phase12l_official_multi_short.md`](2026-05-02_phase12l_official_multi_short.md)
 - 程式碼異動（5 round 累計）：
   - `src/stroke_order/exporters/stamp.py`：+5 helpers (`_oval_arc_positions` / `_oval_arc_char_size` / `_oval_body_layout` / `_ellipse_arc_length_table` / `_t_at_arc_length`)，oval 分支新 layout
   - `src/stroke_order/web/server.py`：StampPostRequest +3 oval fields，POST/GET plumbing

@@ -1,4 +1,6 @@
-# 2026-05-03 — 印章模組業界規範對齊（Phase 12b）
+# 2026-05-01 — 印章模組業界規範對齊（Phase 12b）
+
+<!-- retrofit 2026-05-02：原檔名 2026-05-03_stamp_industry_alignment.md，內部日期 5-03。git commit 5-01 17:53 (+0800)，align commit date 後重命名。 -->
 
 > User 上傳 8 張業界範例圖驅動，整理出印章規格的 8 級制 / 字數對應排列 / 字體 / 印面類型四個維度。對照 stroke-order 現況決定 Phase 12b/c/d/e 路線；本次完成 12b（8 級尺寸 quick-pick + 警示 + PDF 下載 + 兩輪 bug fix）。
 
