@@ -1251,34 +1251,40 @@
       </span>
     </div>
 
-    <!-- 12h: 2 字 layout toggle（只在 square_name + 2 字時相關） -->
-    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
-         padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
-      <label style="font-weight:600;">2 字排列</label>
-      <label title="左右排列右起讀（傳統慣例：右字 + 左字），字身上下拉長到接近邊框">
-        <input type="radio" name="st-2char-layout" value="horizontal" checked> 左右排列（預設，右起讀）
-      </label>
-      <label style="margin-left:12px;" title="上下排列：上字 + 下字，字身左右拉寬到接近邊框">
-        <input type="radio" name="st-2char-layout" value="vertical"> 上下排列
-      </label>
-      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
-        僅 2 字情境生效
-      </span>
-    </div>
+    <!-- 12m-1 patch r6: 姓名章專用排列選項（2 字 / 5 字 layout）。
+         只在 preset ∈ {square_name, round_name} 時顯示，跟 oval 結構化欄位
+         模式對齊。其他 preset（square_official / round / oval / rectangle_title）
+         自動隱藏整個區塊。 -->
+    <div id="st-name-fields" style="display:none;">
+      <!-- 12h: 2 字 layout toggle（只在 square_name/round_name + 2 字時相關） -->
+      <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+           padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
+        <label style="font-weight:600;">2 字排列</label>
+        <label title="左右排列右起讀（傳統慣例：右字 + 左字），字身上下拉長到接近邊框">
+          <input type="radio" name="st-2char-layout" value="horizontal" checked> 左右排列（預設，右起讀）
+        </label>
+        <label style="margin-left:12px;" title="上下排列：上字 + 下字，字身左右拉寬到接近邊框">
+          <input type="radio" name="st-2char-layout" value="vertical"> 上下排列
+        </label>
+        <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+          僅 2 字情境生效
+        </span>
+      </div>
 
-    <!-- 12e: 5 字 layout toggle（只在 square_name + 5 字時相關） -->
-    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
-         padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
-      <label style="font-weight:600;">5 字排列</label>
-      <label title="姓名章：右 2 字（姓）+ 左 3 字（名），姓名分欄不拆破">
-        <input type="radio" name="st-5char-layout" value="2plus3" checked> 右 2 字 + 左 3 字（預設，姓名章）
-      </label>
-      <label style="margin-left:12px;" title="職名章變體：右 3 字（主名）+ 左 2 字（職稱 / 修飾）">
-        <input type="radio" name="st-5char-layout" value="3plus2"> 右 3 字 + 左 2 字（職名章）
-      </label>
-      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
-        僅 5 字情境生效
-      </span>
+      <!-- 12e: 5 字 layout toggle（只在 square_name/round_name + 5 字時相關） -->
+      <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+           padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
+        <label style="font-weight:600;">5 字排列</label>
+        <label title="姓名章：右 2 字（姓）+ 左 3 字（名），姓名分欄不拆破">
+          <input type="radio" name="st-5char-layout" value="2plus3" checked> 右 2 字 + 左 3 字（預設，姓名章）
+        </label>
+        <label style="margin-left:12px;" title="職名章變體：右 3 字（主名）+ 左 2 字（職稱 / 修飾）">
+          <input type="radio" name="st-5char-layout" value="3plus2"> 右 3 字 + 左 2 字（職名章）
+        </label>
+        <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+          僅 5 字情境生效
+        </span>
+      </div>
     </div>
 
     <!-- 12g: 每字位移微調（折疊 advanced） -->
@@ -4500,6 +4506,10 @@ function stampInit() {
   // 12m-1: oval 結構化欄位 — preset=oval 時顯示 5 欄 + 隱藏單一 text
   $("st-preset").addEventListener("change", stampUpdateOvalFieldsUI);
   stampUpdateOvalFieldsUI();
+  // 12m-1 patch r6: 姓名章專用排列（2 字 / 5 字 layout）— preset ∈
+  // {square_name, round_name} 時顯示，跟 oval-fields pattern 對齊。
+  $("st-preset").addEventListener("change", stampUpdateNameFieldsUI);
+  stampUpdateNameFieldsUI();
   // 12m-1 patch r3: 初次載入也套用 preset defaults（含雙線外框 ON for oval）。
   // 過去 stampApplyPresetDefaults 只 hook 在 change，初始狀態靠 HTML 寫死，
   // 結果使用者第一次選 oval 時若 cached JS 沒 4-element default，雙框沒生效。
@@ -4585,6 +4595,18 @@ function stampUpdateOvalFieldsUI() {
   const isOval = presetEl.value === "oval";
   textRow.style.display = isOval ? "none" : "";
   ovalFields.style.display = isOval ? "flex" : "none";
+}
+
+// 12m-1 patch r6: 姓名章專用排列選項（2 字 / 5 字 layout）。preset ∈
+// {square_name, round_name} 時顯示。其他 preset（公司章 / 圓章 / 橢圓 /
+// 長方）不適用，整個區塊隱藏避免 UI 雜訊。
+function stampUpdateNameFieldsUI() {
+  const presetEl = document.getElementById("st-preset");
+  const nameFields = document.getElementById("st-name-fields");
+  if (!presetEl || !nameFields) return;
+  const isPersonalName = presetEl.value === "square_name"
+                       || presetEl.value === "round_name";
+  nameFields.style.display = isPersonalName ? "" : "none";
 }
 
 function stampUpdateOfficialShortColUI() {
