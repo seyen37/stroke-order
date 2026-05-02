@@ -964,26 +964,26 @@ def _stadium_inner_separator_paths(
     alpha_full = math.asin(min(inner_a / R, 1.0))
     alpha_used = alpha_full * span_ratio
 
-    # 12m-7 r12: 內框上下弧曲率「開口朝向」修正 — top apex 應 ABOVE
-    # shoulders (朝 outer top frame, 不是 stamp center)，bot apex BELOW
-    # shoulders. 跟 outer frame 同方向凸出（visually parallel）。
+    # 12m-7 r13: 回 r11 方向（∪ top / ∩ bot），讓 inner sep 弧明顯距離
+    # outer frame 一段視覺差。r12 方向（apex 貼 outer frame）geometrically
+    # 正確但 inner stroke 跟 outer stroke 視覺合一變不可見。
     #
-    # Top arc: apex y = shoulder_y_top - inner_curve_h (above shoulders).
-    # Circle center BELOW shoulders by (R - sagitta), 在 stamp 內 (greater y).
-    top_circle_cy = shoulder_y_top + R - inner_curve_h
-    # Bot arc: apex y = shoulder_y_bot + inner_curve_h (below shoulders).
-    # Circle center ABOVE shoulders by (R - sagitta).
-    bot_circle_cy = shoulder_y_bot - R + inner_curve_h
+    # Top arc: apex BELOW shoulders (toward stamp center, ∪ shape)
+    #   apex y = shoulder_y_top + inner_curve_h
+    # Bot arc: apex ABOVE shoulders (toward stamp center, ∩ shape)
+    #   apex y = shoulder_y_bot - inner_curve_h
+    top_circle_cy = shoulder_y_top + inner_curve_h - R
+    bot_circle_cy = shoulder_y_bot - inner_curve_h + R
 
     top_pts = []
     bot_pts = []
     for i in range(n_curve + 1):
         theta = -alpha_used + (i / n_curve) * 2 * alpha_used
         x = cx + R * math.sin(theta)
-        # Top: y = top_circle_cy - R cos(theta) (apex at theta=0, MIN y)
-        top_pts.append((x, top_circle_cy - R * math.cos(theta)))
-        # Bot: y = bot_circle_cy + R cos(theta) (apex at theta=0, MAX y)
-        bot_pts.append((x, bot_circle_cy + R * math.cos(theta)))
+        # Top: y = top_circle_cy + R cos(theta) (apex at theta=0, MAX y)
+        top_pts.append((x, top_circle_cy + R * math.cos(theta)))
+        # Bot: y = bot_circle_cy - R cos(theta) (apex at theta=0, MIN y)
+        bot_pts.append((x, bot_circle_cy - R * math.cos(theta)))
 
     def _polyline_d(verts):
         if not verts:
