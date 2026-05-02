@@ -304,6 +304,40 @@ def test_capacity_double_border_shrinks_inner():
     assert db["inner_size_mm"][0] < no_db["inner_size_mm"][0]
 
 
+def test_capacity_oval_returns_structured_caps():
+    """12m-1 patch r4: oval 應該回傳 oval_caps dict 含 arc/body 各自 cap。"""
+    info = stamp_capacity(preset="oval", stamp_width_mm=50, stamp_height_mm=35,
+                          char_size_mm=9, double_border=True)
+    assert "oval_caps" in info
+    caps = info["oval_caps"]
+    # 50×35 雙框 oval：弧文 ≥10、body ≥10 是合理下限（auto-shrink 假設下）
+    assert caps["arc_top_max"] >= 10
+    assert caps["arc_bottom_max"] >= 10
+    assert caps["body_per_line_max"] >= 10
+    assert caps["body_lines_max"] == 3
+    assert caps["min_legible_mm"] == 2.5
+    # inner 對 50×35 + double border 0.8+0.8 → 46.8×31.8
+    assert info["inner_size_mm"] == [46.8, 31.8]
+
+
+def test_capacity_oval_inner_size_correct():
+    """12m-1 patch r4 reporter 修正: oval 50×35 + 0.8 padding 應該回 48.4×33.4"""
+    info = stamp_capacity(preset="oval", stamp_width_mm=50, stamp_height_mm=35,
+                          char_size_mm=9, border_padding_mm=0.8,
+                          double_border=False)
+    # 50 - 1.6 = 48.4, 35 - 1.6 = 33.4
+    assert info["inner_size_mm"] == [48.4, 33.4]
+
+
+def test_capacity_non_oval_no_oval_caps():
+    """非 oval preset 不應出現 oval_caps key（避免 schema 污染）。"""
+    for preset in ("square_name", "square_official", "round_name",
+                   "round", "rectangle_title"):
+        info = stamp_capacity(preset=preset, stamp_width_mm=24,  # type: ignore[arg-type]
+                              stamp_height_mm=24, char_size_mm=8)
+        assert "oval_caps" not in info, f"{preset} should not have oval_caps"
+
+
 # ---------------------------------------------------------------------------
 # Web API
 # ---------------------------------------------------------------------------

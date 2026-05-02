@@ -1112,7 +1112,11 @@
       <label>文字</label>
       <input id="st-text" type="text" value="王小明"
              style="flex:1;min-width:200px;font-size:14px;">
-      <span id="st-capacity" style="margin-left:10px;color:var(--muted);font-size:11px;"></span>
+    </div>
+    <!-- 12m-1 patch r4: capacity hint 移到 text-row 外（preset=oval 時 text-row
+         會被 hide，hint 不該跟著消失）。橢圓章 hint 由 JS 換 oval-specific 格式。 -->
+    <div class="row" id="st-capacity-row" style="margin-top:-2px;">
+      <span id="st-capacity" style="color:var(--muted);font-size:11px;"></span>
     </div>
 
     <!-- 12m-1: 橢圓章專用欄位（preset=oval 時顯示，取代單一 text 欄）。
@@ -4472,10 +4476,15 @@ function stampInit() {
   $("st-dl-pdf").onclick   = () => stampDownload("pdf");
   $("st-dl-gcode").onclick = () => stampDownload("gcode");
   $("st-deco-add").onclick = stampAddDecoration;
-  // Capacity hint live-updates + preset-driven default sizing
-  ["st-preset", "st-w", "st-h", "st-charsize", "st-text"].forEach(id => {
-    $(id).addEventListener("change", stampUpdateCapacity);
-    $(id).addEventListener("input", stampUpdateCapacity);
+  // Capacity hint live-updates + preset-driven default sizing.
+  // 12m-1 patch r4: 加入 st-pad / st-double-border 觸發 capacity refresh，因
+  // oval inner area 對 padding/double 敏感，少 1.6mm 弧長就差 ~5%。
+  ["st-preset", "st-w", "st-h", "st-charsize", "st-text",
+   "st-pad", "st-double-border"].forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener("change", stampUpdateCapacity);
+    el.addEventListener("input", stampUpdateCapacity);
   });
   // Layout preset switch suggests sensible default dimensions
   $("st-preset").addEventListener("change", stampApplyPresetDefaults);
@@ -4605,18 +4614,31 @@ function stampUpdateOfficialShortColUI() {
 
 async function stampUpdateCapacity() {
   const $ = id => document.getElementById(id).value;
+  const $$ = id => document.getElementById(id);
+  // 12m-1 patch r4: 帶 double_border + border_padding 給 backend，否則 oval
+  // 雙框時 inner area 跟 capacity 算錯（差 0.8mm × 2 = 1.6mm 影響弧長 cap）。
   const params = new URLSearchParams({
     preset: $("st-preset"),
     stamp_width_mm: $("st-w"),
     stamp_height_mm: $("st-h"),
     char_size_mm: $("st-charsize"),
+    border_padding_mm: $("st-pad") || "0.8",
+    double_border: $$("st-double-border")?.checked ? "true" : "false",
   });
   try {
     const r = await fetch(`${API_BASE}/api/stamp/capacity?${params}`);
     if (!r.ok) return;
     const d = await r.json();
-    document.getElementById("st-capacity").innerHTML =
-      `章面內框 <b>${d.inner_size_mm[0]}×${d.inner_size_mm[1]}</b> mm ｜ 建議文字 ≤ <b>${d.max_chars}</b> 字`;
+    const sizeStr = `<b>${d.inner_size_mm[0]}×${d.inner_size_mm[1]}</b> mm`;
+    let hint;
+    if (d.preset === "oval" && d.oval_caps) {
+      // 12m-1 patch r4: oval 結構化 hint — 弧文 / body 各自 cap
+      const c = d.oval_caps;
+      hint = `章面內框 ${sizeStr} ｜ 弧文每行 ≤ <b>${c.arc_top_max}</b> 字、中央每行 ≤ <b>${c.body_per_line_max}</b> 字（自動縮放至 ${c.min_legible_mm}mm 為下限）`;
+    } else {
+      hint = `章面內框 ${sizeStr} ｜ 建議文字 ≤ <b>${d.max_chars}</b> 字`;
+    }
+    $$("st-capacity").innerHTML = hint;
   } catch (_) {}
   stampUpdateSizeHint();
 }

@@ -1294,18 +1294,44 @@ def stamp_capacity(
         arc_len = (240.0 / 360.0) * 2 * math.pi * r   # span 240°
         max_chars = max(int(arc_len / (char_size_mm * 1.2)), 1) + 1
     elif preset == "oval":
-        per_row = max(int(inner_w / (char_size_mm * 1.1)), 1)
-        max_chars = per_row * 2
+        # 12m-1 patch r4: oval 結構化後 max_chars single number 不再有意義；
+        # 改回傳結構化 caps（弧文 / body 各自）。Legacy max_chars 保留為估計值。
+        # Cap 計算用「最小可讀字身 2.5mm」當下限，因為 _oval_arc_char_size
+        # 跟 _oval_body_layout 都會 auto-shrink 字身來容納更多字 — 真實 cap
+        # 是 readability，不是 char_size_mm。
+        MIN_LEGIBLE_MM = 2.5
+        a = (inner_w / 2.0) * (1.0 - 0.13)   # match _oval_arc_positions padding
+        b = (inner_h / 2.0) * (1.0 - 0.13)
+        # Arc length approximation: average-radius × span_rad（160° span）
+        arc_len = ((a + b) / 2.0) * math.radians(160.0)
+        # 字身 auto-shrink 到 MIN_LEGIBLE_MM 為止（fill_ratio 0.92）
+        arc_max = max(int(arc_len * 0.92 / MIN_LEGIBLE_MM), 1)
+        # Body per-line: 最寬 y=0 處可用 80% × inner_w，字身可 auto-shrink
+        body_per_line = max(
+            int((0.80 * inner_w) / (MIN_LEGIBLE_MM * 0.92)), 1)
+        # Legacy max_chars: 上弧 + 下弧 + 3 行 body 總和上限估計
+        max_chars = arc_max * 2 + body_per_line * 3
+        oval_caps = {
+            "arc_top_max": arc_max,
+            "arc_bottom_max": arc_max,
+            "body_per_line_max": body_per_line,
+            "body_lines_max": 3,
+            "min_legible_mm": MIN_LEGIBLE_MM,
+        }
     elif preset == "rectangle_title":
         per_row = max(int(inner_w / (char_size_mm * 1.1)), 1)
         max_chars = per_row * 2
     else:
         max_chars = 0
-    return {
+    result = {
         "preset": preset,
         "max_chars": max_chars,
         "inner_size_mm": [round(inner_w, 2), round(inner_h, 2)],
     }
+    # 12m-1 patch r4: oval extra structured caps
+    if preset == "oval":
+        result["oval_caps"] = oval_caps  # type: ignore[name-defined]
+    return result
 
 
 __all__ = [
