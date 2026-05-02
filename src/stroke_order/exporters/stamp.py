@@ -32,6 +32,7 @@ from .patch import (
     SvgDecoration,
     _char_cut_paths,
     _char_cut_paths_stretched,
+    _char_outline_bbox_full_em,
     _ensure_polygon,
     _polygon_to_svg_path,
     _decoration_svg,
@@ -39,7 +40,71 @@ from .patch import (
     _outline_to_polyline,
     _transform_pt,
 )
+from .svg import _outline_path_d
 from ..shapes import Circle, Ellipse, Polygon, make_shape
+
+
+def _char_capped_stretch_svg(
+    c: Character, cx_mm: float, cy_mm: float,
+    cell_w_mm: float, cell_h_mm: float,
+    rotation_deg: float = 0.0,
+    max_aspect_ratio: float = 2.0,
+) -> str:
+    """Render a Character bbox-fit to (cell_w, cell_h) with **scale-ratio
+    capped** at ``max_aspect_ratio`` to prevent extreme distortion.
+
+    12m-7 r2: Pure bbox-fit (`_char_cut_paths_stretched`) breaks chars
+    with extreme bbox aspect — e.g. 「一」 has bbox aspect 7:1 wide-short,
+    fitting it into a 1:1 cell stretches y-axis 7× → thin vertical bar
+    (visually wrong). Pure uniform scale fixes 一 but makes square chars
+    much smaller than cells in wide-short slots (label / title rows).
+
+    This helper bridges: it computes independent scale_x / scale_y but
+    CAPS the ratio between them at ``max_aspect_ratio``. So:
+    - 一 (bbox aspect 7:1): natural scale_y/scale_x = 7 → capped to 2.0
+      → renders as wide thin line (proportional, not distorted bar).
+    - 王 / 大 / 同 (square bbox): scale_x ≈ scale_y → no cap, fills cell.
+    - 月 (bbox aspect 0.5:1): natural scale_x/scale_y = 2 → at threshold
+      → fills cell normally.
+
+    Centred on (cx_mm, cy_mm). ``max_aspect_ratio = 2.0`` keeps 一 visibly
+    wide-short while allowing standard chars to fill 1:1 cells.
+    """
+    bbox = _char_outline_bbox_full_em(c)
+    if bbox is None:
+        return ""
+    min_x, min_y, max_x, max_y = bbox
+    bbox_w = max_x - min_x
+    bbox_h = max_y - min_y
+    if bbox_w <= 0 or bbox_h <= 0:
+        return ""
+    scale_x = cell_w_mm / bbox_w
+    scale_y = cell_h_mm / bbox_h
+    # Cap scale-ratio: neither axis stretches beyond max_aspect_ratio
+    # times the other. Reduces the OVER-scaled axis to fit.
+    if scale_y > scale_x * max_aspect_ratio:
+        scale_y = scale_x * max_aspect_ratio
+    elif scale_x > scale_y * max_aspect_ratio:
+        scale_x = scale_y * max_aspect_ratio
+    bcx = (min_x + max_x) / 2.0
+    bcy = (min_y + max_y) / 2.0
+    dx = cx_mm - bcx * scale_x
+    dy = cy_mm - bcy * scale_y
+    tform_parts = [f"translate({dx:.3f},{dy:.3f})"]
+    if abs(rotation_deg) > 1e-6:
+        tform_parts.append(
+            f"rotate({rotation_deg:.2f},"
+            f"{bcx * scale_x:.3f},{bcy * scale_y:.3f})"
+        )
+    tform_parts.append(f"scale({scale_x:.6f},{scale_y:.6f})")
+    parts = []
+    for stroke in c.strokes:
+        if stroke.outline:
+            d = _outline_path_d(stroke)
+            parts.append(f'<path d="{d}"/>')
+    if not parts:
+        return ""
+    return f'<g transform="{" ".join(tform_parts)}">{"".join(parts)}</g>'
 
 
 StampPreset = Literal[
@@ -746,6 +811,59 @@ def _stadium_polygon_vertices(
     return pts
 
 
+def _stadium_inner_separator_paths(
+    width_mm: float, height_mm: float,
+    *,
+    curve_h_ratio: float = TAX_INVOICE_CURVE_H_RATIO,
+    n_curve: int = TAX_INVOICE_POLYGON_CURVE_VERTICES,
+    d_offset_ratio: float = 0.30,
+) -> tuple[str, str]:
+    """Return SVG path d-strings (top_arc, bot_arc) — the 2 OPEN
+    inner separator arcs for tax_invoice stamps.
+
+    12m-7 r3: tax_invoice 內邊不是 closed inner stadium（含左右直線），
+    而是 2 個分開的弧線 — 上分隔弧 + 下分隔弧 — 把弧文與中央 body
+    分開。Reference (ED2/ED4) 顯示這個設計：左右只有外框直線，內部
+    沒有對應的內框直線，僅靠頂部 / 底部弧線分隔內容區域。
+
+    Math: 內弧 = 外 stadium 的上 / 下 curve 內縮 d_offset。Width =
+    inner_a, height = inner_curve_h，沿用 _stadium_polygon_vertices
+    的 inner stadium top / bottom curve geometry。輸出 SVG path:
+    M ... L ... L ...（open polyline，無 Z），讓 caller 渲染為
+    open stroke path（不 fill）。
+    """
+    cx, cy = width_mm / 2.0, height_mm / 2.0
+    half_w = width_mm / 2.0
+    half_h = height_mm / 2.0
+    d_offset = d_offset_ratio * min(half_w, half_h)
+    inner_a = max(half_w - d_offset, 0.1)
+    inner_b = max(half_h - d_offset, 0.1)
+    # Reuse _stadium_polygon_vertices on inner geometry to get all curves;
+    # extract just top + bottom curve segments (no straight sides).
+    inner_verts = _stadium_polygon_vertices(
+        cx, cy, inner_a, inner_b,
+        curve_h_ratio=curve_h_ratio, n_curve=n_curve,
+    )
+    # Vertex layout from helper:
+    #   [0 .. n_curve]      = top curve (n_curve + 1 points)
+    #   [n_curve + 1]        = right corner (skip)
+    #   [n_curve+2 .. 2*n_curve+2] = bottom curve (n_curve + 1 points)
+    #   [2*n_curve + 3]      = left corner (skip)
+    top_verts = inner_verts[:n_curve + 1]
+    bot_start = n_curve + 2
+    bot_verts = inner_verts[bot_start:bot_start + n_curve + 1]
+
+    def _polyline_d(verts):
+        if not verts:
+            return ""
+        parts = [f"M {verts[0][0]:.3f} {verts[0][1]:.3f}"]
+        for x, y in verts[1:]:
+            parts.append(f"L {x:.3f} {y:.3f}")
+        return " ".join(parts)
+
+    return _polyline_d(top_verts), _polyline_d(bot_verts)
+
+
 def _stamp_border_polys(
     preset: StampPreset,
     width_mm: float,
@@ -806,18 +924,11 @@ def _stamp_border_polys(
                 max(half_b - d, 0.1),
             ))
         elif preset == "tax_invoice":
-            # 12m-7: inner stadium = outer stadium 內縮 d on all sides。
-            # d 沿用 oval 的 0.30 × min(half_a, half_b) 對齊視覺一致性。
-            # 嚴格 stadium offset curve 不是另一 stadium，但 d/half_w < 0.30
-            # 對 ED2/ED4 比例視覺夠 parallel。
-            half_a = width_mm / 2.0
-            half_b = height_mm / 2.0
-            d = 0.30 * min(half_a, half_b)
-            polys.append(Polygon(vertices=_stadium_polygon_vertices(
-                cx, cy,
-                max(half_a - d, 0.1),
-                max(half_b - d, 0.1),
-            )))
+            # 12m-7 r3: tax_invoice double_border 不是 closed inner
+            # stadium，而是 2 個 OPEN separator arcs — 渲染時另外處理
+            # （見 render_stamp_svg 的 _stadium_inner_separator_paths
+            # 注入段）。這裡不 append polygon — 維持 polys = [outer 唯一]。
+            pass
         else:
             polys.append(Polygon(vertices=[
                 (gap, gap),
@@ -1175,7 +1286,7 @@ def _placements_for_preset(
             arc_b_full = (_curve_h + _inner_b_curve) / 2.0
             # Char size：受 ring band width 限制（<= ring_band × 0.85），
             # 並 capped by char_size_mm。Span 160° 留少量 shoulder margin。
-            arc_span_deg = 160.0
+            arc_span_deg = 130.0   # 12m-7 r3: 160→130 留更多左右 buffer
             arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
                 arc_span_deg)
             arc_sz = min(arc_len_approx / arc_n * 0.92, char_size_mm,
@@ -1190,15 +1301,20 @@ def _placements_for_preset(
                 cx=cx, cy=_top_curve_cy, top=True, char_size=0,
                 span_deg=arc_span_deg, padding_ratio=0.0,
             )
+            # 12m-7 r2: tag all tax_invoice placements 8-tuple with
+            # uniform_scale=True (8th elem) → render uses uniform-bbox
+            # scaling, fixes 「一」 etc. distortion.
             for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
-                placements.append((ch, x, y, rot, arc_sz, arc_sz))
+                placements.append(
+                    (ch, x, y, rot, arc_sz, arc_sz, False, True)
+                )
 
         # --- Bottom arc (地址沿下半弧) ---
         if has_arc_bot:
             arc_n = len(oval_arc_bottom_chars)
             arc_a_full = (_half_w_outer + _inner_a) / 2.0
             arc_b_full = (_curve_h + _inner_b_curve) / 2.0
-            arc_span_deg = 160.0
+            arc_span_deg = 130.0   # 12m-7 r3: 160→130 留更多左右 buffer
             arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
                 arc_span_deg)
             arc_sz = min(arc_len_approx / arc_n * 0.92, char_size_mm,
@@ -1210,7 +1326,9 @@ def _placements_for_preset(
                 span_deg=arc_span_deg, padding_ratio=0.0,
             )
             for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
-                placements.append((ch, x, y, rot, arc_sz, arc_sz))
+                placements.append(
+                    (ch, x, y, rot, arc_sz, arc_sz, False, True)
+                )
 
         # --- Body / 中央 1-3 + 統一編號 label + 上方標題 + 縣市 ---
         # Stadium 中央 = rectangular area。usable_w = inner_w（全寬可用）。
@@ -1223,66 +1341,100 @@ def _placements_for_preset(
         #   slot ↓     縣市 (optional, position=bottom)               y=+0.34
         # 縣市 position=left → 替換 left plum decoration，不放 body slot
         if has_body or has_top_title or has_location or oval_label_chars:
-            # 中央 矩形 usable_w = stadium 中段全寬 - safety margin
-            # Slot 在中段時可用 inner_w；slot 接近 curve 端時受限於 curve
-            # 邊界（statium 上下緣 curve 把 usable_w 縮小 — 用 stadium
-            # boundary helper 算）。為了簡化，body 全部用 inner_w * 0.90
-            # （留兩側少量 padding）即可，因為中央 slot 都在矩形段內。
-            body_usable_w = inner_w * 0.90
+            # 12m-7 r3: body chars 不應碰內 separator 弧線。Inner stadium
+            # 半寬 = _inner_a，但靠近 top/bot separator 處 inner curve 會
+            # 內凹，所以 body_usable_w 進一步縮 → × 0.80（保留兩側 10%
+            # margin，總共 20%）。
+            body_usable_w = (2 * _inner_a) * 0.80
 
-            # tax_invoice slot y offsets — 比 oval 緊湊，因為 stadium 中段
-            # 矩形空間比橢圓中段大 25%，可放更多行
+            # tax_invoice slot heights — 12m-7 r3 縮小避免碰 separator：
+            # slot_0 (統編，bold) 0.20→0.16；其他略縮
+            # Slot Y 偏移微調，騰出空間給 separator
+            # tight=True：標題型 row 緊湊置中 (label/title/location)
             STADIUM_BODY_SLOTS = {
-                "top_title":  (-0.32, 0.08),   # (y_ratio, max_h_ratio)
-                "label":      (-0.20, 0.08),   # 統一編號 label
-                "slot_0":     (-0.05, 0.18),   # 統編 number (大字)
-                "slot_1":     (+0.10, 0.10),   # 負責人
-                "slot_2":     (+0.22, 0.10),   # 電話
-                "location":   (+0.34, 0.08),   # 縣市 (bottom)
+                "top_title":  (-0.30, 0.09, True),
+                "label":      (-0.18, 0.10, True),
+                "slot_0":     (-0.02, 0.16, False),
+                "slot_1":     (+0.13, 0.09, False),
+                "slot_2":     (+0.24, 0.08, False),
+                "location":   (+0.34, 0.08, True),
             }
 
             def _stadium_body_row(line_chars, y_ratio, max_h_ratio,
-                                  bold=False):
-                """Place horizontal row of chars at given slot."""
+                                  bold=False, tight=False):
+                """Place horizontal row of chars at given slot.
+                12m-7 r2: 8-tuple with capped_stretch=True (8th elem) →
+                render uses _char_capped_stretch_svg, prevents 「一」 etc.
+                extreme-aspect distortion while letting square chars fill.
+
+                tight=True (label/title/location): chars pack tight
+                (spacing = ch_sz × 1.15), centered in row — matches
+                ED2/ED4 reference visuals where 4-char labels don't span
+                full width.
+
+                tight=False (body slots): chars fill cells uniformly
+                across body_usable_w — for primary content rows.
+                """
                 if not line_chars:
                     return
                 m = len(line_chars)
                 slot_max_h = max_h_ratio * inner_h
-                cell_w = body_usable_w / m
-                # Char size = min(cell_w * fill_ratio, slot_max_h, char_size_cap)
-                FILL_W = 0.90
-                ch_sz = min(cell_w * FILL_W, slot_max_h, char_size_mm)
-                # Min 2.5mm legibility
-                ch_sz = max(ch_sz, 2.5) if ch_sz > 0 else ch_sz
+                if tight:
+                    # Tight pack: char size driven by slot_max_h, NOT cell_w
+                    ch_sz = min(slot_max_h, char_size_mm)
+                    ch_sz = max(ch_sz, 2.5)
+                    spacing = ch_sz * 1.15
+                    # Centre row horizontally; ensure not exceeding body_usable_w
+                    total_w = spacing * m
+                    if total_w > body_usable_w:
+                        # Fallback: shrink to fit usable_w
+                        spacing = body_usable_w / m
+                        ch_sz = min(spacing * 0.90, slot_max_h, char_size_mm)
+                    x0 = cx - (spacing * m) / 2.0 + spacing / 2.0
+                else:
+                    # Body slot: cell-based (full usable_w)
+                    cell_w = body_usable_w / m
+                    FILL_W = 0.90
+                    ch_sz = min(cell_w * FILL_W, slot_max_h, char_size_mm)
+                    ch_sz = max(ch_sz, 2.5) if ch_sz > 0 else ch_sz
+                    spacing = cell_w
+                    x0 = cx - body_usable_w / 2.0 + cell_w / 2.0
                 y = cy + y_ratio * inner_h
-                x0 = cx - body_usable_w / 2.0 + cell_w / 2.0
                 for i, ch in enumerate(line_chars):
                     placements.append(
-                        (ch, x0 + i * cell_w, y, 0.0, ch_sz, ch_sz, bold)
+                        (ch, x0 + i * spacing, y, 0.0, ch_sz, ch_sz,
+                         bold, True)
                     )
 
-            # 上方標題 (optional)
+            # 上方標題 (optional, tight)
             if has_top_title:
-                y_r, h_r = STADIUM_BODY_SLOTS["top_title"]
-                _stadium_body_row(oval_top_title_chars, y_r, h_r)
-            # 統一編號 label (fixed when oval_label_chars provided)
+                y_r, h_r, tight = STADIUM_BODY_SLOTS["top_title"]
+                _stadium_body_row(oval_top_title_chars, y_r, h_r, tight=tight)
+            # 統一編號 label (fixed when oval_label_chars provided, tight)
             if oval_label_chars:
-                y_r, h_r = STADIUM_BODY_SLOTS["label"]
-                _stadium_body_row(list(oval_label_chars), y_r, h_r)
-            # Body slots (中央 1/2/3)
+                y_r, h_r, tight = STADIUM_BODY_SLOTS["label"]
+                _stadium_body_row(list(oval_label_chars), y_r, h_r,
+                                  tight=tight)
+            # Body slots (中央 1/2/3, fill cells)
+            # 12m-7 r3: 中央 2 (slot_1) 自動加「負責人：」前綴對齊 ED2/ED4
+            # reference visual。若 user 已在 slot_1 加「負責人」字串，不重複。
+            # Slot 1 expected to be a copy of oval_body_lines_chars[1]; we
+            # can't easily re-load chars here (loader not in scope), so do
+            # the prefix at render_stamp_svg level (see _load_chars wrap).
             if has_body:
                 bold_flags = oval_body_bold or [False] * 3
                 slot_keys = ["slot_0", "slot_1", "slot_2"]
                 for i, line in enumerate(oval_body_lines_chars[:3]):
                     if not line:
                         continue
-                    y_r, h_r = STADIUM_BODY_SLOTS[slot_keys[i]]
+                    y_r, h_r, tight = STADIUM_BODY_SLOTS[slot_keys[i]]
                     bold = (bold_flags[i] if i < len(bold_flags) else False)
-                    _stadium_body_row(line, y_r, h_r, bold=bold)
-            # 縣市 (optional, position=bottom)
+                    _stadium_body_row(line, y_r, h_r, bold=bold, tight=tight)
+            # 縣市 (optional, position=bottom, tight)
             if has_location and oval_location_position == "bottom":
-                y_r, h_r = STADIUM_BODY_SLOTS["location"]
-                _stadium_body_row(list(oval_location_chars), y_r, h_r)
+                y_r, h_r, tight = STADIUM_BODY_SLOTS["location"]
+                _stadium_body_row(list(oval_location_chars), y_r, h_r,
+                                  tight=tight)
             # 縣市 (position=left) — 直立排列於章面最左邊，取代左側梅花
             # 位置：左側 stadium curve & inner curve 中點 (x=ring_band_mid_x)，
             # y 從中心向上下擴散，每字一格。
@@ -1305,7 +1457,8 @@ def _placements_for_preset(
                 y0 = cy - total_h / 2.0 + spacing / 2.0
                 for i, ch in enumerate(loc_chars):
                     placements.append(
-                        (ch, loc_x, y0 + i * spacing, 0.0, ch_sz, ch_sz, False)
+                        (ch, loc_x, y0 + i * spacing, 0.0, ch_sz, ch_sz,
+                         False, True)
                     )
 
     elif preset == "oval":
@@ -1517,7 +1670,17 @@ def render_stamp_svg(
     oval_arc_bottom_chars = (
         _load_chars(oval_arc_bottom) if oval_arc_bottom else []
     )
-    oval_body_lines_chars = [_load_chars(line) for line in oval_body_lines]
+    # Phase 12m-7 r3: tax_invoice 中央 2 (slot_1) auto-prepend「負責人：」
+    # 對齊 ED2/ED4 reference (e.g. 「負責人：王大同」). 偵測 user 已含
+    # 「負責人」字串 → 不重複前綴。
+    _body_lines_for_render = list(oval_body_lines)
+    if (preset == "tax_invoice"
+            and len(_body_lines_for_render) >= 2
+            and _body_lines_for_render[1]
+            and "負責人" not in _body_lines_for_render[1]):
+        _body_lines_for_render[1] = "負責人：" + _body_lines_for_render[1]
+    oval_body_lines_chars = [_load_chars(line)
+                             for line in _body_lines_for_render]
     # Phase 12m-6: tax_invoice 固定「統一編號」標題
     oval_label_chars = (_load_chars("統一編號")
                         if preset == "tax_invoice" else [])
@@ -1562,11 +1725,18 @@ def render_stamp_svg(
     # Char outline SVG snippets (already EM-coords inside <g transform>).
     # Phase 11g uses _char_cut_paths_stretched uniformly with bbox-center alignment.
     # 12m-1 patch r12: bold flag optional 7th element (oval body chars).
+    # 12m-7 r2: capped_stretch optional 8th element (tax_invoice all chars
+    # — fixes 「一」 etc. extreme-aspect chars getting bbox-stretched into
+    # vertical bars while still letting square chars fill cells).
     char_pieces: list[str] = []
     for placement in placements:
         c, x, y, rot, w, h = placement[:6]
         bold = placement[6] if len(placement) > 6 else False
-        piece = _char_cut_paths_stretched(c, x, y, w, h, rot)
+        capped_stretch = placement[7] if len(placement) > 7 else False
+        if capped_stretch:
+            piece = _char_capped_stretch_svg(c, x, y, w, h, rot)
+        else:
+            piece = _char_cut_paths_stretched(c, x, y, w, h, rot)
         if bold:
             # Bold render：wrap with thicker stroke override (×2 outer stroke)
             piece = (f'<g stroke-width="{stroke_width * 2.0:.3f}">'
@@ -1673,14 +1843,31 @@ def render_stamp_svg(
         # visible double-line). 對齊 T-02 / TT-* reference visual。
         if border_d_list:
             for i, d in enumerate(border_d_list):
-                if preset in ("oval", "tax_invoice"):
+                if preset == "oval":
+                    # 12m-1 r16: oval 5:1 ratio (粗 outer + thin inner) for
+                    # visible double-line contrast — user 明確要求
                     stroke_w = stroke_width * (1.5 if i == 0 else 0.3)
+                elif preset == "tax_invoice":
+                    # 12m-7 r3: 更細外框（×0.7）
+                    stroke_w = stroke_width * 0.7
                 else:
                     stroke_w = stroke_width
                 body_pieces.append(
                     f'<path d="{d}" fill="none" stroke="{CONVEX_BORDER_BLACK}" '
                     f'stroke-width="{stroke_w}"/>'
                 )
+        # 12m-7 r3: tax_invoice convex separator arcs
+        if preset == "tax_invoice" and show_border and double_border:
+            top_sep_d, bot_sep_d = _stadium_inner_separator_paths(
+                stamp_width_mm, stamp_height_mm)
+            sep_stroke = stroke_width * 0.7
+            for sep_d in (top_sep_d, bot_sep_d):
+                if sep_d:
+                    body_pieces.append(
+                        f'<path d="{sep_d}" fill="none" '
+                        f'stroke="{CONVEX_BORDER_BLACK}" '
+                        f'stroke-width="{sep_stroke}"/>'
+                    )
         body_pieces.extend(deco_pieces)
         return f'{svg_open}{"".join(body_pieces)}</svg>'
 
@@ -1689,14 +1876,35 @@ def render_stamp_svg(
     # 兩線粗細差 3:1 雙線外框 visually distinct。
     border_pieces = []
     for i, d in enumerate(border_d_list):
-        if preset in ("oval", "tax_invoice"):
-            mult = 1.5 if i == 0 else 0.3   # r16: 5:1 ratio
+        if preset == "oval":
+            # 12m-1 r16: oval 5:1 visible double-line（user 明確要對比）
+            mult = 1.5 if i == 0 else 0.3
             border_pieces.append(
                 f'<path class="stamp-border" d="{d}" '
                 f'stroke-width="{stroke_width * mult}"/>'
             )
+        elif preset == "tax_invoice":
+            # 12m-7 r3: 更細外框（×0.7 比 char stroke 細，~0.42mm）
+            # 配合 separator arcs 統一視覺粗細，對齊 ED2/ED4 reference
+            border_pieces.append(
+                f'<path class="stamp-border" d="{d}" '
+                f'stroke-width="{stroke_width * 0.7}"/>'
+            )
         else:
             border_pieces.append(f'<path class="stamp-border" d="{d}"/>')
+    # 12m-7 r3: tax_invoice double_border → render 2 OPEN separator arcs
+    # （上下分隔弧），不是 closed inner stadium。Reference (ED2/ED4) 顯示
+    # inner 邊只有上下弧，不含左右直線。
+    if preset == "tax_invoice" and show_border and double_border:
+        top_sep_d, bot_sep_d = _stadium_inner_separator_paths(
+            stamp_width_mm, stamp_height_mm)
+        sep_stroke = stroke_width * 0.7
+        for sep_d in (top_sep_d, bot_sep_d):
+            if sep_d:
+                border_pieces.append(
+                    f'<path class="stamp-border" d="{sep_d}" '
+                    f'fill="none" stroke-width="{sep_stroke}"/>'
+                )
     return (
         f'{svg_open}'
         f'<g id="stamp-engrave" stroke="{color}" stroke-width="{stroke_width}" '
@@ -1771,7 +1979,15 @@ def render_stamp_gcode(
     oval_arc_bottom_chars = (
         _load_chars(oval_arc_bottom) if oval_arc_bottom else []
     )
-    oval_body_lines_chars = [_load_chars(line) for line in oval_body_lines]
+    # Phase 12m-7 r3: tax_invoice slot_1 auto-prepend「負責人：」
+    _body_lines_for_render = list(oval_body_lines)
+    if (preset == "tax_invoice"
+            and len(_body_lines_for_render) >= 2
+            and _body_lines_for_render[1]
+            and "負責人" not in _body_lines_for_render[1]):
+        _body_lines_for_render[1] = "負責人：" + _body_lines_for_render[1]
+    oval_body_lines_chars = [_load_chars(line)
+                             for line in _body_lines_for_render]
     # Phase 12m-6: tax_invoice 固定「統一編號」標題
     oval_label_chars = (_load_chars("統一編號")
                         if preset == "tax_invoice" else [])
