@@ -748,12 +748,13 @@ TAX_INVOICE_CURVE_H_RATIO = 0.30   # legacy fallback (used when straight
 TAX_INVOICE_STRAIGHT_LENGTH_MM = 27.0  # 12m-7 r11: 外框 L/R 直線 = 27mm
                                        # curve_h = (height - 27) / 2
                                        # For 45×40: outer curve_h = 6.5mm
-TAX_INVOICE_INNER_SHOULDER_DIST_MM = 37.0  # 12m-7 r11: 內框上下弧 shoulders
-                                           # 之間 vertical distance = 37mm。
-                                           # Inner sep arc shoulder positions:
-                                           #   y_top = (height - 37) / 2
-                                           #   y_bot = height - y_top
-                                           # For 45×40: y_top=1.5, y_bot=38.5
+TAX_INVOICE_INNER_SHOULDER_DIST_MM = 37.0  # 12m-7 r11: legacy（r15 不用）
+TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM = 4.0   # 12m-7 r15: 內 sep apex 距
+                                              # outer apex 的 y 偏移
+                                              # （visibility margin）
+TAX_INVOICE_INNER_SEP_SAGITTA_MM = 2.0       # 12m-7 r15: 內 sep arc sagitta
+                                              # （curve depth, 跟 outer 不同
+                                              # 因為 user 要小 chord 用 ∩ 方向）
 TAX_INVOICE_BODY_USABLE_W_MM = 36.0  # 12m-7 r14: 中央 1 (slot_0) 文字
                                      # 左右邊界 = 36mm（user spec）。其他
                                      # body slots 共用此寬。Clamp 至 stamp
@@ -794,47 +795,41 @@ def _tax_invoice_inner_sep_geometry(
         inner_a ≈ 10.65 (constrained by outer at y=1.5)
         inner chord ≈ 21.3 mm
     """
+    # 12m-7 r15: 重新設計 — 用固定 apex_offset + sagitta 控制 inner sep
+    # arc，∩ top / ∪ bot 方向。chord_half 由 R + sagitta 推算（保持 same
+    # curvature as outer 其中 R = R_outer）。
     half_w = width_mm / 2.0
     curve_h_outer = _tax_invoice_curve_h(height_mm)
 
-    # Inner shoulder Y by INNER_SHOULDER_DIST_MM
-    shoulder_y_top = max(
-        (height_mm - TAX_INVOICE_INNER_SHOULDER_DIST_MM) / 2.0,
-        0.5,
-    )
-    shoulder_y_bot = height_mm - shoulder_y_top
-
-    # User spec: "以此曲率調整內框上下弧的曲率" —
-    # 曲率 (curvature) = 1/R。Same R (radius of curvature) as outer。
-    # Same R 但 chord 不同 → sagitta 不同（內弧 chord 較短→sagitta 較小）。
+    # Same R as outer
     if curve_h_outer > 0:
         R_outer = (half_w * half_w + curve_h_outer * curve_h_outer) / (
             2.0 * curve_h_outer)
     else:
         R_outer = float('inf')
 
-    # Inner_a constrained by outer frame at shoulder_y_top.
-    # If shoulder_y in outer curve section (y < curve_h_outer):
-    #   solve for x where outer frame y = shoulder_y_top
-    if shoulder_y_top < curve_h_outer and curve_h_outer > 0:
-        # y_outer(x) = R_outer - sqrt(R_outer² - x²) = shoulder_y_top
-        # → x² = R_outer² - (R_outer - shoulder_y_top)²
-        target = R_outer - shoulder_y_top
-        if abs(target) < R_outer:
-            x_at = math.sqrt(R_outer * R_outer - target * target)
-            inner_a = max(x_at - 0.5, 1.0)   # 0.5mm safety margin
+    # User spec r15: apex_offset + sagitta 固定 → 推算 chord_half 跟 shoulders
+    apex_offset = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM
+    sagitta = TAX_INVOICE_INNER_SEP_SAGITTA_MM
+    inner_curve_h = sagitta
+
+    # chord_half from R + sagitta (same curvature as outer)
+    if R_outer < float('inf') and sagitta < R_outer:
+        chord_half_sq = 2.0 * R_outer * sagitta - sagitta * sagitta
+        if chord_half_sq > 0:
+            inner_a = math.sqrt(chord_half_sq)
         else:
             inner_a = half_w * 0.5
     else:
-        inner_a = max(half_w - 1.0, 1.0)
+        inner_a = half_w * 0.5
 
-    # Inner curve_h derived from SAME R_outer and constrained inner_a:
-    # R = (a² + h²) / (2h)  →  h = R - sqrt(R² - a²)
-    if R_outer < float('inf') and inner_a < R_outer:
-        inner_curve_h = R_outer - math.sqrt(R_outer * R_outer - inner_a * inner_a)
-    else:
-        inner_curve_h = curve_h_outer * 0.5   # safe fallback
-    inner_curve_h = max(inner_curve_h, 0.3)   # at least 0.3mm to be visible
+    # ∩ top direction: apex above shoulders, apex y = apex_offset (small,
+    # near outer top apex), shoulder_y = apex + sagitta (deeper).
+    # ∪ bot mirror.
+    apex_y_top = apex_offset
+    shoulder_y_top = apex_y_top + sagitta
+    apex_y_bot = height_mm - apex_offset
+    shoulder_y_bot = apex_y_bot - sagitta
 
     return shoulder_y_top, shoulder_y_bot, inner_a, inner_curve_h
 
@@ -968,26 +963,27 @@ def _stadium_inner_separator_paths(
     alpha_full = math.asin(min(inner_a / R, 1.0))
     alpha_used = alpha_full * span_ratio
 
-    # 12m-7 r13: 回 r11 方向（∪ top / ∩ bot），讓 inner sep 弧明顯距離
-    # outer frame 一段視覺差。r12 方向（apex 貼 outer frame）geometrically
-    # 正確但 inner stroke 跟 outer stroke 視覺合一變不可見。
+    # 12m-7 r15: ∩ top / ∪ bot 方向（user spec），shoulders 移深以保
+    # visibility 跟 arc text 不撞。
     #
-    # Top arc: apex BELOW shoulders (toward stamp center, ∪ shape)
-    #   apex y = shoulder_y_top + inner_curve_h
-    # Bot arc: apex ABOVE shoulders (toward stamp center, ∩ shape)
-    #   apex y = shoulder_y_bot - inner_curve_h
-    top_circle_cy = shoulder_y_top + inner_curve_h - R
-    bot_circle_cy = shoulder_y_bot - inner_curve_h + R
+    # Top arc ∩: apex y < shoulder y (apex toward outer top, smaller y)
+    #   apex_y = shoulder_y_top - inner_curve_h
+    #   circle center y = shoulder_y_top + (R - sagitta) (BELOW shoulders)
+    # Bot arc ∪: apex y > shoulder y (apex toward outer bot, greater y)
+    #   apex_y = shoulder_y_bot + inner_curve_h
+    #   circle center y = shoulder_y_bot - (R - sagitta) (ABOVE shoulders)
+    top_circle_cy = shoulder_y_top + R - inner_curve_h
+    bot_circle_cy = shoulder_y_bot - R + inner_curve_h
 
     top_pts = []
     bot_pts = []
     for i in range(n_curve + 1):
         theta = -alpha_used + (i / n_curve) * 2 * alpha_used
         x = cx + R * math.sin(theta)
-        # Top: y = top_circle_cy + R cos(theta) (apex at theta=0, MAX y)
-        top_pts.append((x, top_circle_cy + R * math.cos(theta)))
-        # Bot: y = bot_circle_cy - R cos(theta) (apex at theta=0, MIN y)
-        bot_pts.append((x, bot_circle_cy - R * math.cos(theta)))
+        # Top: y = top_circle_cy - R cos(theta) (apex at theta=0, MIN y)
+        top_pts.append((x, top_circle_cy - R * math.cos(theta)))
+        # Bot: y = bot_circle_cy + R cos(theta) (apex at theta=0, MAX y)
+        bot_pts.append((x, bot_circle_cy + R * math.cos(theta)))
 
     def _polyline_d(verts):
         if not verts:
@@ -1501,13 +1497,15 @@ def _placements_for_preset(
             #     @x=cx+10 ✓
             #   - location at y=24.09, max_h=0.07 → char bot=25.09 < arc
             #     25.35 @x=cx+4 ✓
+            # 12m-7 r15: slot Y compressed (smaller chars 後 row 更近)
+            # title/label 移近 slot_0；slot_1/2/location 也壓縮
             STADIUM_BODY_SLOTS = {
-                "top_title":  (-0.24, 0.07, True),
-                "label":      (-0.15, 0.07, True),
-                "slot_0":     (-0.02, 0.14, False),
-                "slot_1":     (+0.13, 0.07, False),
-                "slot_2":     (+0.22, 0.07, False),
-                "location":   (+0.32, 0.07, True),
+                "top_title":  (-0.20, 0.07, True),
+                "label":      (-0.13, 0.07, True),
+                "slot_0":     (-0.02, 0.12, False),
+                "slot_1":     (+0.10, 0.06, False),
+                "slot_2":     (+0.18, 0.06, False),
+                "location":   (+0.27, 0.06, True),
             }
 
             def _stadium_body_row(line_chars, y_ratio, max_h_ratio,
@@ -1544,7 +1542,8 @@ def _placements_for_preset(
                 else:
                     # Body slot: cell-based (full usable_w)
                     cell_w = body_usable_w / m
-                    FILL_W = 0.90
+                    # 12m-7 r15: FILL_W 0.90 → 0.78（chars 縮小，user spec B）
+                    FILL_W = 0.78
                     ch_sz = min(cell_w * FILL_W, slot_max_h, char_size_mm)
                     ch_sz = max(ch_sz, 2.5) if ch_sz > 0 else ch_sz
                     spacing = cell_w
@@ -1922,15 +1921,14 @@ def render_stamp_svg(
             body_usable_w_calc = min(TAX_INVOICE_BODY_USABLE_W_MM,
                                      stamp_width_mm * 0.90)
             inner_h_calc = stamp_height_mm - 2 * border_padding_mm
+            # 12m-7 r15: 同步 STADIUM_BODY_SLOTS 新值
             slot_0_y = cy_mid + (-0.02) * inner_h_calc
-            label_y = cy_mid + (-0.15) * inner_h_calc
-            slot_1_y = cy_mid + (+0.13) * inner_h_calc
-            # Char heights (slot max_h ratios from STADIUM_BODY_SLOTS)
+            label_y = cy_mid + (-0.13) * inner_h_calc
+            slot_1_y = cy_mid + (+0.10) * inner_h_calc
+            # Char heights (slot max_h ratios from STADIUM_BODY_SLOTS r15)
             ch_sz_label = 0.07 * inner_h_calc
-            ch_sz_slot_1 = 0.07 * inner_h_calc
+            ch_sz_slot_1 = 0.06 * inner_h_calc
             margin = 0.3
-            # 12m-7 r7: 計算 slot_0 char size — 跟 _stadium_body_row 一致
-            # n_slot_0 = 中央 1 row 字數（default 8 for 統編 number row）
             n_slot_0 = (
                 len(oval_body_lines[0])
                 if (oval_body_lines and len(oval_body_lines) > 0
@@ -1938,8 +1936,9 @@ def render_stamp_svg(
                 else 8
             )
             cell_w_slot_0 = body_usable_w_calc / max(n_slot_0, 1)
-            slot_0_max_h = 0.14 * inner_h_calc
-            ch_sz_slot_0 = min(cell_w_slot_0 * 0.9, slot_0_max_h,
+            slot_0_max_h = 0.12 * inner_h_calc   # r15
+            # 12m-7 r15: 0.9 → 0.78 一致 with _stadium_body_row
+            ch_sz_slot_0 = min(cell_w_slot_0 * 0.78, slot_0_max_h,
                                char_size_mm)
             ch_sz_slot_0 = max(ch_sz_slot_0, 2.5)  # 2.5mm min legibility
             # x_fill / y_fill 當上限，目標尺寸 = ch_sz_slot_0
