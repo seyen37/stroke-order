@@ -1086,6 +1086,7 @@
         <option value="square_official">正方形官章/公司章</option>
         <option value="round">圓戳章</option>
         <option value="oval">橢圓章</option>
+        <option value="tax_invoice">統一發票章（電視章）</option>
         <option value="rectangle_title">職名章</option>
       </select>
       <label style="margin-left:12px;">尺寸</label>
@@ -1191,6 +1192,39 @@
                placeholder="地址 / 分店名稱" maxlength="60"
                value="試題市試題區測試路1段2巷3弄4號之ㄧ56號7樓"
                style="flex:1;font-size:14px;">
+      </div>
+      <!-- 12m-7: tax_invoice (統一發票章「電視章」) 專用 — 上方標題 + 縣市
+           其他 preset (oval) 隱藏這 3 個欄位 -->
+      <div id="st-taxinv-extra"
+           style="display:none;flex-direction:column;gap:6px;
+                  border-top:1px dashed #b5c6d3;padding-top:6px;margin-top:2px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="min-width:64px;">上方標題</label>
+          <input id="st-oval-top-title" type="text"
+                 placeholder="統一發票專用章 / 免用發票專用章 (空＝不顯示)"
+                 maxlength="20"
+                 value="統一發票專用章"
+                 style="flex:1;font-size:14px;">
+          <span style="color:var(--muted);font-size:11px;">
+            位置：統一編號 上方
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="min-width:64px;">縣市</label>
+          <input id="st-oval-location" type="text"
+                 placeholder="台北市 (空＝不顯示)"
+                 maxlength="10"
+                 value="台北市"
+                 style="width:120px;font-size:14px;">
+          <label style="margin-left:8px;font-size:13px;">
+            <input id="st-oval-location-pos-bottom" type="radio"
+                   name="oval-location-pos" value="bottom" checked> 下方
+          </label>
+          <label style="font-size:13px;">
+            <input id="st-oval-location-pos-left" type="radio"
+                   name="oval-location-pos" value="left"> 左側直立
+          </label>
+        </div>
       </div>
     </div>
 
@@ -4591,6 +4625,7 @@ function stampApplyPresetDefaults() {
     square_official:  [24, 24, 8,  false],
     round:            [24, 24, 8,  false],
     oval:             [50, 35, 9,  true],   // 12m-1 patch r2: 1.43:1 比例（業界常見），預設雙框
+    tax_invoice:      [45, 30, 8,  true],   // 12m-6: 統一發票章「電視章」常見尺寸 4.5×3.0 cm，預設雙框（內框分隔弧文/body）
     rectangle_title:  [50, 18, 12, false],
   };
   const d = defaults[$("st-preset").value];
@@ -4635,27 +4670,88 @@ function stampSyncSizePreset() {
 
 // 12l: 公司章短列 UI 切換 — 依字數顯示 3-col / 4-col checkbox 或隱藏整列
 // 12m-1: oval preset 切換時顯示橢圓章 5 欄位 + 隱藏單一 text 欄
+// 12m-6: tax_invoice 共用 oval-fields，但語意 / 預設值 / label 不同：
+//   上弧文=公司名稱、中央 1=統一編號（標題固定「統一編號」）、
+//   中央 2=負責人、中央 3=電話、下弧文=地址
 function stampUpdateOvalFieldsUI() {
-  const presetEl = document.getElementById("st-preset");
-  const textRow = document.getElementById("st-text-row");
-  const ovalFields = document.getElementById("st-oval-fields");
+  const $ = id => document.getElementById(id);
+  const presetEl = $("st-preset");
+  const textRow = $("st-text-row");
+  const ovalFields = $("st-oval-fields");
   if (!presetEl || !textRow || !ovalFields) return;
-  const isOval = presetEl.value === "oval";
-  textRow.style.display = isOval ? "none" : "";
-  ovalFields.style.display = isOval ? "flex" : "none";
-  // 12m-1 patch r17: oval 時隱藏標準雙線外框 row（被 oval-fields 內的
+  const v = presetEl.value;
+  const isOval = v === "oval";
+  const isTaxInvoice = v === "tax_invoice";
+  const showFields = isOval || isTaxInvoice;
+  textRow.style.display = showFields ? "none" : "";
+  ovalFields.style.display = showFields ? "flex" : "none";
+  // 12m-1 patch r17: oval-like 時隱藏標準雙線外框 row（被 oval-fields 內的
   // 「顯示內框」checkbox 取代），同步雙向 state。
-  const dbLabel = document.getElementById("st-double-border-label");
-  if (dbLabel) dbLabel.style.display = isOval ? "none" : "";
-  // 12m-1 patch r18: 鋸齒外框 checkbox 只在 oval 顯示
-  const sawLabel = document.getElementById("st-sawtooth-label");
-  if (sawLabel) sawLabel.style.display = isOval ? "" : "none";
+  const dbLabel = $("st-double-border-label");
+  if (dbLabel) dbLabel.style.display = showFields ? "none" : "";
+  // 12m-1 patch r18: 鋸齒外框 checkbox 在 oval-like 顯示
+  const sawLabel = $("st-sawtooth-label");
+  if (sawLabel) sawLabel.style.display = showFields ? "" : "none";
   // Sync 內外狀態：oval-show-inner ↔ st-double-border
-  const innerCb = document.getElementById("st-oval-show-inner");
-  const dbCb = document.getElementById("st-double-border");
-  if (isOval && innerCb && dbCb) {
+  const innerCb = $("st-oval-show-inner");
+  const dbCb = $("st-double-border");
+  if (showFields && innerCb && dbCb) {
     // 從 oval-show-inner 同步到 double-border（雙線外框 backend flag）
     dbCb.checked = innerCb.checked;
+  }
+  // 12m-7: tax_invoice 額外欄位（上方標題 / 縣市 / 縣市位置）
+  const taxinvExtra = $("st-taxinv-extra");
+  if (taxinvExtra) {
+    taxinvExtra.style.display = isTaxInvoice ? "flex" : "none";
+  }
+  // 12m-6: tax_invoice 切換 oval-fields label / placeholder / default 文字
+  // 對齊「電視章」用途。Oval 改回原 placeholder。
+  const lblBody1 = ovalFields.querySelector('label[for="st-oval-body-1"]')
+    || ovalFields.querySelectorAll('div > label')[1]; // 中央 1 row label
+  // 透過 id 直接抓 input
+  const txTitle = ovalFields.querySelector('[style*="font-weight:600"]');
+  const inpArcTop = $("st-oval-arc-top");
+  const inpBody1 = $("st-oval-body-1");
+  const inpBody2 = $("st-oval-body-2");
+  const inpBody3 = $("st-oval-body-3");
+  const inpArcBot = $("st-oval-arc-bottom");
+  if (isTaxInvoice) {
+    if (txTitle) {
+      txTitle.innerHTML = '統一發票章「電視章」欄位'
+        + '<span style="color:var(--muted);font-weight:normal;font-size:11px;'
+        + 'margin-left:6px;">公司名稱 + 統一編號（固定標題）+ 負責人 + 電話 + 地址</span>';
+    }
+    if (inpArcTop) inpArcTop.placeholder = "公司名稱 / 商號";
+    if (inpBody1) inpBody1.placeholder = "統一編號（8 位數字）";
+    if (inpBody2) inpBody2.placeholder = "負責人姓名";
+    if (inpBody3) inpBody3.placeholder = "電話";
+    if (inpArcBot) inpArcBot.placeholder = "公司地址";
+    // 套用 tax_invoice 預設文字（只在欄位空 / 是 oval default 時填）
+    const ovalDefaults = new Set([
+      "測試文件股份有限公司", "收發章", "電話:02-2234567",
+      "試題市試題區測試路1段2巷3弄4號之ㄧ56號7樓", "",
+    ]);
+    if (inpArcTop && ovalDefaults.has(inpArcTop.value))
+      inpArcTop.value = "測試發票股份有限公司";
+    if (inpBody1 && ovalDefaults.has(inpBody1.value))
+      inpBody1.value = "12345678";
+    if (inpBody2 && ovalDefaults.has(inpBody2.value))
+      inpBody2.value = "王大同";
+    if (inpBody3 && ovalDefaults.has(inpBody3.value))
+      inpBody3.value = "02-23456789";
+    if (inpArcBot && ovalDefaults.has(inpArcBot.value))
+      inpArcBot.value = "台北市中正區測試路100號";
+  } else if (isOval) {
+    if (txTitle) {
+      txTitle.innerHTML = '橢圓章欄位（業界格式）'
+        + '<span style="color:var(--muted);font-weight:normal;font-size:11px;'
+        + 'margin-left:6px;">上弧文 + 中央 1-3 行 + 下弧文（任一空白即略過）</span>';
+    }
+    if (inpArcTop) inpArcTop.placeholder = "公司名稱 / 單位名稱";
+    if (inpBody1) inpBody1.placeholder = "單位名稱 / 電話 / 統一編號";
+    if (inpBody2) inpBody2.placeholder = "單位名稱 / 電話 / 統編號碼";
+    if (inpBody3) inpBody3.placeholder = "電話 / 傳真";
+    if (inpArcBot) inpArcBot.placeholder = "地址 / 分店名稱";
   }
 }
 
@@ -4753,8 +4849,8 @@ async function stampUpdateCapacity() {
     if (myReq !== _capacityReqSeq) return;
     const sizeStr = `<b>${d.inner_size_mm[0]}×${d.inner_size_mm[1]}</b> mm`;
     let hint;
-    if (d.preset === "oval" && d.oval_caps) {
-      // 12m-1 patch r4: oval 結構化 hint — 弧文 / body 各自 cap
+    if ((d.preset === "oval" || d.preset === "tax_invoice") && d.oval_caps) {
+      // 12m-1 patch r4 / 12m-6: oval-like 結構化 hint — 弧文 / body 各自 cap
       const c = d.oval_caps;
       hint = `章面內框 ${sizeStr} ｜ 弧文每行 ≤ <b>${c.arc_top_max}</b> 字、中央每行 ≤ <b>${c.body_per_line_max}</b> 字（自動縮放至 ${c.min_legible_mm}mm 為下限）`;
     } else {
@@ -4992,6 +5088,12 @@ function stampBuildBody(format) {
     oval_decoration: $("st-oval-decoration") || "plum",
     // 12m-1 patch r18: 鋸齒外框
     oval_sawtooth: $$("st-oval-sawtooth")?.checked || false,
+    // 12m-7: tax_invoice 上方標題 + 縣市 + 縣市位置
+    oval_top_title: ($("st-oval-top-title") || "").trim(),
+    oval_location: ($("st-oval-location") || "").trim(),
+    oval_location_position: (
+      $$("st-oval-location-pos-left")?.checked ? "left" : "bottom"
+    ),
   };
 }
 

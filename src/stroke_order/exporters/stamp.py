@@ -48,6 +48,7 @@ StampPreset = Literal[
     "square_official",  # 2-9 chars, company / official seal
     "round",            # ring text + centre char
     "oval",             # 1-2 horizontal lines, acceptance seal
+    "tax_invoice",      # 統一發票章「電視章」— Phase 12m-6
     "rectangle_title",  # 2 lines: title row + name row
 ]
 
@@ -470,6 +471,8 @@ def _oval_body_layout(
     inner_ellipse_a: float = 0.0,
     inner_ellipse_b: float = 0.0,
     bold_flags: list[bool] = None,
+    slot_y_offsets: list[float] = None,    # 12m-6: tax_invoice override
+    slot_max_h_ratios: list[float] = None,
 ) -> list[tuple[Character, float, float, float, float, float, bool]]:
     """Lay out body slots（中央 1/2/3）at FIXED positions inside an oval.
 
@@ -509,10 +512,12 @@ def _oval_body_layout(
     # Per-SLOT y_offset (ratio of inner_h) + max char height (ratio of inner_h).
     # 中央 2 大字 (max_h 0.30 inner_h)；中央 3 小字 (0.15) 給聯絡資訊縮排；
     # 中央 1 normal title (0.18)。三個 slot 互相獨立。
-    SLOT_Y_OFFSETS = [-0.15, 0.0, 0.15]
     # 12m-1 patch r13: bump slot_max_h 讓 chars 自動長大（受 inner_bound_h
     # 動態 cap 封頂，不會碰內框）。0.30/0.40/0.13 比舊 0.18/0.30/0.15 大。
-    SLOT_MAX_H = [0.30, 0.40, 0.13]
+    # 12m-6: tax_invoice 用不同 slot 分布（統編大字 / 負責人小 / 電話小），
+    # caller 可 override（pass slot_y_offsets / slot_max_h_ratios）。
+    SLOT_Y_OFFSETS = slot_y_offsets if slot_y_offsets else [-0.15, 0.0, 0.15]
+    SLOT_MAX_H = slot_max_h_ratios if slot_max_h_ratios else [0.30, 0.40, 0.13]
     INNER_ELLIPSE_SAFETY = 0.5  # mm gap between char edge and inner ellipse
 
     a = inner_w / 2.0
@@ -664,6 +669,83 @@ def _oval_sawtooth_teeth_svg(
     return " ".join(parts)
 
 
+# Phase 12m-7: tax_invoice stadium / 「電視章」shape constants
+#
+# Stadium = top half-ellipse + straight L/R sides + bottom half-ellipse.
+# Looks like an old CRT TV — origin of「電視章」nickname. ED2/ED4 reference
+# stamps follow this. Different from橢圓 (full ellipse) which lacks straight
+# sides.
+#
+# curve_h_ratio = 上下弧 高度 / 總高度。0.30 = 上 30% + 下 30% = 60% curve，
+# 中間 40% 直線部分。對齊 ED2/ED4 reference 視覺。
+TAX_INVOICE_CURVE_H_RATIO = 0.30
+TAX_INVOICE_POLYGON_CURVE_VERTICES = 32   # per top/bottom curve
+
+
+def _stadium_polygon_vertices(
+    cx: float, cy: float,
+    half_w: float, half_h: float,
+    *,
+    curve_h_ratio: float = TAX_INVOICE_CURVE_H_RATIO,
+    n_curve: int = TAX_INVOICE_POLYGON_CURVE_VERTICES,
+) -> list[tuple[float, float]]:
+    """Build a stadium / TV-shape polygon as a vertex list.
+
+    Stadium geometry (axis-aligned, centered at cx/cy):
+    - Top: half-ellipse with semi-axes (half_w, curve_h)
+    - Sides: straight vertical lines, length = 2*(half_h - curve_h)
+    - Bottom: half-ellipse mirroring top
+
+    Where curve_h = curve_h_ratio * (2*half_h).
+
+    Vertex order goes clockwise starting at top-left
+    (left edge meets top curve at y = top of straight section):
+
+        ─►──  top curve  ──►─┐
+        ▲                    ▼
+        │  left straight     right straight
+        │                    │
+        ▲                    ▼
+        └──◄── bottom curve ◄┘
+    """
+    height = 2.0 * half_h
+    curve_h = curve_h_ratio * height
+    # curve y-coordinates: top curve apex at (cx, cy - half_h),
+    # top curve "shoulder" (curve meets straight side) at y = cy - half_h + curve_h
+    # = cy - (half_h - curve_h)
+    top_curve_center_y = cy - (half_h - curve_h)   # half-ellipse vertical center
+    bot_curve_center_y = cy + (half_h - curve_h)
+    pts: list[tuple[float, float]] = []
+
+    # Top curve: from left shoulder (cx - half_w, top_curve_center_y)
+    # → apex (cx, cy - half_h) → right shoulder (cx + half_w, top_curve_center_y).
+    # Parameterize by θ from π (left) → 0 (right), point on half-ellipse.
+    for i in range(n_curve + 1):
+        theta = math.pi - (i / n_curve) * math.pi
+        x = cx + half_w * math.cos(theta)
+        y = top_curve_center_y - curve_h * math.sin(theta)
+        pts.append((x, y))
+
+    # Right straight side: from (cx + half_w, top_curve_center_y)
+    # down to (cx + half_w, bot_curve_center_y). Polygon uses straight
+    # edges between consecutive vertices, so just add endpoint.
+    pts.append((cx + half_w, bot_curve_center_y))
+
+    # Bottom curve: mirror of top.
+    # From (cx + half_w, bot_curve_center_y) → apex (cx, cy + half_h)
+    # → (cx - half_w, bot_curve_center_y). θ from 0 → π.
+    for i in range(n_curve + 1):
+        theta = (i / n_curve) * math.pi
+        x = cx + half_w * math.cos(theta)
+        y = bot_curve_center_y + curve_h * math.sin(theta)
+        pts.append((x, y))
+
+    # Left straight side: closes back to top-left shoulder.
+    pts.append((cx - half_w, top_curve_center_y))
+
+    return pts
+
+
 def _stamp_border_polys(
     preset: StampPreset,
     width_mm: float,
@@ -683,6 +765,10 @@ def _stamp_border_polys(
     （那會讓 inner side 也呈鋸齒）。改成：smooth ellipse 維持原樣，鋸齒
     teeth 另以 filled triangle paths 黏在 outer side（render 時 inject）。
     這個 helper 不再處理 sawtooth — 只回傳 smooth shapes。
+
+    Phase 12m-7: tax_invoice 從 oval 拆出 → stadium / 「電視章」shape
+    （上下圓弧 + 左右直線），匹配 ED2/ED4 reference。Polygon 用 stadium
+    helper 生 ~66 vertices。
     """
     cx, cy = width_mm / 2, height_mm / 2
 
@@ -691,6 +777,10 @@ def _stamp_border_polys(
             return Circle(cx, cy, min(width_mm, height_mm) / 2)
         if preset == "oval":
             return Ellipse(cx, cy, width_mm / 2, height_mm / 2)
+        if preset == "tax_invoice":   # 12m-7: stadium shape
+            return Polygon(vertices=_stadium_polygon_vertices(
+                cx, cy, width_mm / 2, height_mm / 2,
+            ))
         # rectangular / square presets
         return Polygon(vertices=[
             (0, 0), (width_mm, 0), (width_mm, height_mm), (0, height_mm),
@@ -707,13 +797,6 @@ def _stamp_border_polys(
             # 12m-1 patch r9 / r10 / r11: oval double_border = body-wrapping
             # inner ellipse + 內外框等距 ring band（user 觀察「內外框距離
             # 恆定」→ 用 constant offset (a-d, b-d) 取代 uniform scale）。
-            #
-            # 嚴格上橢圓 offset curve 不是另一橢圓，但對 typical
-            # d/a < 0.25 視覺夠 close。Heuristic d = 0.20 × min(half_a,
-            # half_b)，對 50×35 stamp → d = 3.5mm:
-            #   - inner half-axes (25-3.5, 17.5-3.5) = (21.5, 14)
-            #   - ring band 寬 3.5mm — 限制弧文 char_size 上限
-            #   - 視覺類似 T-02 / 印面樣式 reference 的 ring band
             half_a = width_mm / 2.0
             half_b = height_mm / 2.0
             d = 0.30 * min(half_a, half_b)
@@ -722,6 +805,19 @@ def _stamp_border_polys(
                 max(half_a - d, 0.1),
                 max(half_b - d, 0.1),
             ))
+        elif preset == "tax_invoice":
+            # 12m-7: inner stadium = outer stadium 內縮 d on all sides。
+            # d 沿用 oval 的 0.30 × min(half_a, half_b) 對齊視覺一致性。
+            # 嚴格 stadium offset curve 不是另一 stadium，但 d/half_w < 0.30
+            # 對 ED2/ED4 比例視覺夠 parallel。
+            half_a = width_mm / 2.0
+            half_b = height_mm / 2.0
+            d = 0.30 * min(half_a, half_b)
+            polys.append(Polygon(vertices=_stadium_polygon_vertices(
+                cx, cy,
+                max(half_a - d, 0.1),
+                max(half_b - d, 0.1),
+            )))
         else:
             polys.append(Polygon(vertices=[
                 (gap, gap),
@@ -757,6 +853,18 @@ def _placements_for_preset(
     # Phase 12m-1 patch r12: oval body slot bold flags (length 3, default
     # all False). When True, char rendered with thicker stroke for emphasis.
     oval_body_bold: list[bool] = None,
+    # Phase 12m-6: tax_invoice 固定「統一編號」4 字標題（位於 中央 1 上方）
+    oval_label_chars: list[Character] = None,
+    # Phase 12m-7: tax_invoice optional 上方標題（位於 統一編號 label 上方），
+    # 典型「統一發票專用章」/「免用發票專用章」。空 list = 不顯示
+    oval_top_title_chars: list[Character] = None,
+    # Phase 12m-7: tax_invoice optional 縣市名（如「台北市」），位置由
+    # oval_location_position 控制
+    oval_location_chars: list[Character] = None,
+    # Phase 12m-7: 縣市顯示位置：
+    #   "bottom" = 中央 3 下方 horizontal（預設）
+    #   "left"   = 章面最左側 vertical 直立（取代左梅花裝飾）
+    oval_location_position: str = "bottom",
 ) -> list[tuple]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
@@ -775,7 +883,7 @@ def _placements_for_preset(
     # 12m-1 patch r9: oval 雙框 semantic 變了（body-wrapping 不再 concentric），
     # 弧文要佔外-內框環帶 → inset 不加 double_gap_mm，弧文 placement 用 outer
     # 邊距即可。其他 preset 維持既有 concentric 語意。
-    if preset == "oval":
+    if preset in ("oval", "tax_invoice"):
         inset = border_padding_mm
     else:
         inset = border_padding_mm + (double_gap_mm if double_border else 0)
@@ -787,11 +895,18 @@ def _placements_for_preset(
     n = len(chars)
     # Phase 12m-1: oval preset 結構化 fields 可能讓 `chars` 是空的（user 只填
     # oval_arc_top / oval_arc_bottom / oval_body_lines），此時不能 early-return。
-    _has_oval_structured = preset == "oval" and (
+    _has_oval_structured = preset in ("oval", "tax_invoice") and (
         (oval_arc_top_chars and len(oval_arc_top_chars) > 0)
         or (oval_arc_bottom_chars and len(oval_arc_bottom_chars) > 0)
         or (oval_body_lines_chars and any(
             ln for ln in oval_body_lines_chars if ln))
+        # 12m-7: tax_invoice 額外 fields
+        or (preset == "tax_invoice" and oval_label_chars
+            and len(oval_label_chars) > 0)
+        or (preset == "tax_invoice" and oval_top_title_chars
+            and len(oval_top_title_chars) > 0)
+        or (preset == "tax_invoice" and oval_location_chars
+            and len(oval_location_chars) > 0)
     )
     if n == 0 and not _has_oval_structured:
         return []
@@ -1020,6 +1135,179 @@ def _placements_for_preset(
         else:
             _add(chars[0], cx, cy, 0.0, char_size_mm)
 
+    elif preset == "tax_invoice":
+        # Phase 12m-7: tax_invoice 統一發票章 / 「電視章」— stadium shape
+        # （上下圓弧 + 左右直線）。跟 oval 不同：
+        #   - 邊框：stadium polygon（_stamp_border_polys 已處理）
+        #   - 上下弧文：沿 stadium 上下半圓弧（half-ellipse 切片，axes
+        #     = (half_w, curve_h)）
+        #   - Body：中央 rectangular area（左右直邊 → 全 inner_w 可用）
+        #   - 上方標題：可選，於 統一編號 label 上方
+        #   - 縣市：可選，下方 horizontal 或 左側 vertical 直立
+        has_arc_top = oval_arc_top_chars and len(oval_arc_top_chars) > 0
+        has_arc_bot = oval_arc_bottom_chars and len(oval_arc_bottom_chars) > 0
+        has_body = oval_body_lines_chars and any(
+            ln for ln in oval_body_lines_chars if ln)
+        has_top_title = (oval_top_title_chars
+                         and len(oval_top_title_chars) > 0)
+        has_location = oval_location_chars and len(oval_location_chars) > 0
+
+        # Stadium geometry (mirrors _stadium_polygon_vertices).
+        _half_w_outer = width_mm / 2.0
+        _half_h_outer = height_mm / 2.0
+        _curve_h = TAX_INVOICE_CURVE_H_RATIO * height_mm
+        _top_curve_cy = cy - (_half_h_outer - _curve_h)
+        _bot_curve_cy = cy + (_half_h_outer - _curve_h)
+        # d offset for inner stadium (matches _stamp_border_polys logic).
+        _d_offset = 0.30 * min(_half_w_outer, _half_h_outer)
+        # Inner stadium axes (matched to inner border for ring-band midpoint)
+        _inner_a = max(_half_w_outer - _d_offset, 0.1)
+        _inner_b_curve = max(_curve_h - _d_offset, 0.1)
+        _ring_band_width = _d_offset
+
+        # --- Top arc (公司名沿上半弧) ---
+        # 沿 top half-ellipse curve，centered at (cx, _top_curve_cy)，axes
+        # (a, curve_h)。char 落在 outer 與 inner stadium curve 中點 ring band。
+        if has_arc_top:
+            arc_n = len(oval_arc_top_chars)
+            # ring band 中點半徑
+            arc_a_full = (_half_w_outer + _inner_a) / 2.0
+            arc_b_full = (_curve_h + _inner_b_curve) / 2.0
+            # Char size：受 ring band width 限制（<= ring_band × 0.85），
+            # 並 capped by char_size_mm。Span 160° 留少量 shoulder margin。
+            arc_span_deg = 160.0
+            arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
+                arc_span_deg)
+            arc_sz = min(arc_len_approx / arc_n * 0.92, char_size_mm,
+                         _ring_band_width * 0.85)
+            # 用 _oval_arc_positions 的 legacy fallback path：
+            # 傳 char_size=0 + inner_ellipse_a/b=0 → fallback uses
+            # inner_w/h * (1 - padding_ratio) as axes。Pass padding_ratio=0
+            # 並把 (a, b) plumb 進 inner_w/h = 2*a, 2*b 達成精準控制。
+            positions = _oval_arc_positions(
+                arc_n,
+                inner_w=2 * arc_a_full, inner_h=2 * arc_b_full,
+                cx=cx, cy=_top_curve_cy, top=True, char_size=0,
+                span_deg=arc_span_deg, padding_ratio=0.0,
+            )
+            for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
+                placements.append((ch, x, y, rot, arc_sz, arc_sz))
+
+        # --- Bottom arc (地址沿下半弧) ---
+        if has_arc_bot:
+            arc_n = len(oval_arc_bottom_chars)
+            arc_a_full = (_half_w_outer + _inner_a) / 2.0
+            arc_b_full = (_curve_h + _inner_b_curve) / 2.0
+            arc_span_deg = 160.0
+            arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
+                arc_span_deg)
+            arc_sz = min(arc_len_approx / arc_n * 0.92, char_size_mm,
+                         _ring_band_width * 0.85)
+            positions = _oval_arc_positions(
+                arc_n,
+                inner_w=2 * arc_a_full, inner_h=2 * arc_b_full,
+                cx=cx, cy=_bot_curve_cy, top=False, char_size=0,
+                span_deg=arc_span_deg, padding_ratio=0.0,
+            )
+            for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
+                placements.append((ch, x, y, rot, arc_sz, arc_sz))
+
+        # --- Body / 中央 1-3 + 統一編號 label + 上方標題 + 縣市 ---
+        # Stadium 中央 = rectangular area。usable_w = inner_w（全寬可用）。
+        # Y offsets：以 cy 為中心，ratio 乘 inner_h。
+        #   slot ↑↑    上方標題 (optional, e.g.「統一發票專用章」)  y=-0.32
+        #   slot ↑     統一編號 label (fixed)                        y=-0.20
+        #   slot 0     中央 1：統編 number (大粗字)                  y=-0.05
+        #   slot 1     中央 2：負責人                                y=+0.10
+        #   slot 2     中央 3：電話                                  y=+0.22
+        #   slot ↓     縣市 (optional, position=bottom)               y=+0.34
+        # 縣市 position=left → 替換 left plum decoration，不放 body slot
+        if has_body or has_top_title or has_location or oval_label_chars:
+            # 中央 矩形 usable_w = stadium 中段全寬 - safety margin
+            # Slot 在中段時可用 inner_w；slot 接近 curve 端時受限於 curve
+            # 邊界（statium 上下緣 curve 把 usable_w 縮小 — 用 stadium
+            # boundary helper 算）。為了簡化，body 全部用 inner_w * 0.90
+            # （留兩側少量 padding）即可，因為中央 slot 都在矩形段內。
+            body_usable_w = inner_w * 0.90
+
+            # tax_invoice slot y offsets — 比 oval 緊湊，因為 stadium 中段
+            # 矩形空間比橢圓中段大 25%，可放更多行
+            STADIUM_BODY_SLOTS = {
+                "top_title":  (-0.32, 0.08),   # (y_ratio, max_h_ratio)
+                "label":      (-0.20, 0.08),   # 統一編號 label
+                "slot_0":     (-0.05, 0.18),   # 統編 number (大字)
+                "slot_1":     (+0.10, 0.10),   # 負責人
+                "slot_2":     (+0.22, 0.10),   # 電話
+                "location":   (+0.34, 0.08),   # 縣市 (bottom)
+            }
+
+            def _stadium_body_row(line_chars, y_ratio, max_h_ratio,
+                                  bold=False):
+                """Place horizontal row of chars at given slot."""
+                if not line_chars:
+                    return
+                m = len(line_chars)
+                slot_max_h = max_h_ratio * inner_h
+                cell_w = body_usable_w / m
+                # Char size = min(cell_w * fill_ratio, slot_max_h, char_size_cap)
+                FILL_W = 0.90
+                ch_sz = min(cell_w * FILL_W, slot_max_h, char_size_mm)
+                # Min 2.5mm legibility
+                ch_sz = max(ch_sz, 2.5) if ch_sz > 0 else ch_sz
+                y = cy + y_ratio * inner_h
+                x0 = cx - body_usable_w / 2.0 + cell_w / 2.0
+                for i, ch in enumerate(line_chars):
+                    placements.append(
+                        (ch, x0 + i * cell_w, y, 0.0, ch_sz, ch_sz, bold)
+                    )
+
+            # 上方標題 (optional)
+            if has_top_title:
+                y_r, h_r = STADIUM_BODY_SLOTS["top_title"]
+                _stadium_body_row(oval_top_title_chars, y_r, h_r)
+            # 統一編號 label (fixed when oval_label_chars provided)
+            if oval_label_chars:
+                y_r, h_r = STADIUM_BODY_SLOTS["label"]
+                _stadium_body_row(list(oval_label_chars), y_r, h_r)
+            # Body slots (中央 1/2/3)
+            if has_body:
+                bold_flags = oval_body_bold or [False] * 3
+                slot_keys = ["slot_0", "slot_1", "slot_2"]
+                for i, line in enumerate(oval_body_lines_chars[:3]):
+                    if not line:
+                        continue
+                    y_r, h_r = STADIUM_BODY_SLOTS[slot_keys[i]]
+                    bold = (bold_flags[i] if i < len(bold_flags) else False)
+                    _stadium_body_row(line, y_r, h_r, bold=bold)
+            # 縣市 (optional, position=bottom)
+            if has_location and oval_location_position == "bottom":
+                y_r, h_r = STADIUM_BODY_SLOTS["location"]
+                _stadium_body_row(list(oval_location_chars), y_r, h_r)
+            # 縣市 (position=left) — 直立排列於章面最左邊，取代左側梅花
+            # 位置：左側 stadium curve & inner curve 中點 (x=ring_band_mid_x)，
+            # y 從中心向上下擴散，每字一格。
+            if has_location and oval_location_position == "left":
+                loc_chars = list(oval_location_chars)
+                m = len(loc_chars)
+                # X 位置：左 ring band 中點。ring_band 在 x ∈ [0, _d_offset]
+                # 之間（outer at 0，inner at d）→ midpoint x = d/2
+                loc_x = _d_offset / 2.0
+                # Char size：受 ring band 寬度 + slot 高度限制
+                # 直立 m 個字總高度 = m × ch_sz × 1.05 (1.05 = letter spacing)
+                # 必須 ≤ inner_h × 0.85（留邊距）
+                # 也受 ring_band_width × 0.85 限制（不超出 ring band 寬）
+                max_total_h = inner_h * 0.85
+                ch_sz = min(_ring_band_width * 0.85, char_size_mm,
+                            max_total_h / max(m, 1) / 1.05)
+                ch_sz = max(ch_sz, 2.0)
+                spacing = ch_sz * 1.05
+                total_h = spacing * m
+                y0 = cy - total_h / 2.0 + spacing / 2.0
+                for i, ch in enumerate(loc_chars):
+                    placements.append(
+                        (ch, loc_x, y0 + i * spacing, 0.0, ch_sz, ch_sz, False)
+                    )
+
     elif preset == "oval":
         # Phase 12m-1: 結構化 oval layout — 上弧文 + 中央 1-3 行 + 下弧文。
         # 偵測任一 oval_* 欄位非空 → 走新 layout，否則 fallback 1-2 行 horizontal
@@ -1054,7 +1342,7 @@ def _placements_for_preset(
                 )
                 for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
                     placements.append((ch, x, y, rot, arc_sz, arc_sz))
-            # Arc bottom (地址 / 統編沿下弧)
+            # Arc bottom (地址沿下弧)
             if has_arc_bot:
                 arc_n = len(oval_arc_bottom_chars)
                 arc_sz = _oval_arc_char_size(
@@ -1073,7 +1361,6 @@ def _placements_for_preset(
             # 12m-1 patch r12: 傳 inner_ellipse_b 給 dynamic max_h cap +
             # bold flags 給 slot-level 加粗 (中央 1 / 中央 2 強調用)
             if has_body:
-                # 12m-1 patch r15: reuse precomputed inner ellipse axes
                 body_placements = _oval_body_layout(
                     oval_body_lines_chars,
                     inner_w=inner_w, inner_h=inner_h,
@@ -1186,6 +1473,12 @@ def render_stamp_svg(
     # Phase 12m-1 patch r13: 裝飾符號 ('plum' / 'star' / 'circle' / 'none')
     oval_decoration: str = "plum",
     oval_sawtooth: bool = False,
+    # Phase 12m-7: tax_invoice 上方標題（如「統一發票專用章」）
+    oval_top_title: str = "",
+    # Phase 12m-7: tax_invoice 縣市名（如「台北市」）
+    oval_location: str = "",
+    # Phase 12m-7: 縣市位置 ("bottom" | "left")
+    oval_location_position: str = "bottom",
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -1225,6 +1518,16 @@ def render_stamp_svg(
         _load_chars(oval_arc_bottom) if oval_arc_bottom else []
     )
     oval_body_lines_chars = [_load_chars(line) for line in oval_body_lines]
+    # Phase 12m-6: tax_invoice 固定「統一編號」標題
+    oval_label_chars = (_load_chars("統一編號")
+                        if preset == "tax_invoice" else [])
+    # Phase 12m-7: tax_invoice optional 上方標題 + 縣市
+    oval_top_title_chars = (_load_chars(oval_top_title)
+                            if (preset == "tax_invoice" and oval_top_title)
+                            else [])
+    oval_location_chars = (_load_chars(oval_location)
+                           if (preset == "tax_invoice" and oval_location)
+                           else [])
 
     placements = _placements_for_preset(
         preset, chars, stamp_width_mm, stamp_height_mm, char_size_mm,
@@ -1238,6 +1541,10 @@ def render_stamp_svg(
         oval_arc_bottom_chars=oval_arc_bottom_chars,
         oval_body_lines_chars=oval_body_lines_chars,
         oval_body_bold=oval_body_bold,
+        oval_label_chars=oval_label_chars,
+        oval_top_title_chars=oval_top_title_chars,
+        oval_location_chars=oval_location_chars,
+        oval_location_position=oval_location_position,
     )
 
     # Build border path d-strings (used by both modes).
@@ -1273,7 +1580,9 @@ def render_stamp_svg(
 
     # 12m-1 patch r11/r13: oval 裝飾符號（梅花 / 五角星 / 圓形 / 不顯示），
     # 左右兩側 ring band 中央。佔位避免弧文延伸到最左/最右。
-    if preset == "oval" and show_border and oval_decoration != "none":
+    # 12m-7: tax_invoice 縣市 position=left 時隱藏 LEFT 裝飾（讓位給縣市直立字）
+    if (preset in ("oval", "tax_invoice")
+            and show_border and oval_decoration != "none"):
         cx_mid = stamp_width_mm / 2.0
         cy_mid = stamp_height_mm / 2.0
         outer_a = stamp_width_mm / 2.0
@@ -1281,17 +1590,15 @@ def render_stamp_svg(
         d_offset = 0.30 * min(outer_a, outer_b)
         inner_a = max(outer_a - d_offset, 0.1)
         mid_a = (outer_a + inner_a) / 2.0
-        # 12m-1 patch r16: 縮小裝飾符號（0.40 → 0.30）給左右 buffer 避免
-        # 觸碰 outer ellipse stroke。對 50×35 (d=5.25mm)：
-        #   舊 0.40：radius 2.1mm，總 extent 2.31mm，距 outer 1.36mm（含粗
-        #     stroke 0.45mm 後實際 gap 0.91mm）
-        #   新 0.30：radius 1.575mm，總 extent 1.73mm，距 outer 1.94mm，
-        #     含 stroke 後 gap 1.49mm — 明顯不貼邊
         deco_r = d_offset * 0.30
         deco_stroke = stroke_width * 0.5
         right_deco = _oval_decoration_svg(
             oval_decoration, cx_mid + mid_a, cy_mid, deco_r, deco_stroke)
-        left_deco = _oval_decoration_svg(
+        # 12m-7: 隱藏 LEFT 裝飾 if tax_invoice 且 縣市放左邊
+        suppress_left = (preset == "tax_invoice"
+                         and oval_location_position == "left"
+                         and oval_location)
+        left_deco = "" if suppress_left else _oval_decoration_svg(
             oval_decoration, cx_mid - mid_a, cy_mid, deco_r, deco_stroke)
         if right_deco:
             deco_pieces.append(right_deco)
@@ -1301,7 +1608,8 @@ def render_stamp_svg(
     # 12m-1 patch r19: oval 鋸齒邊飾 — smooth ellipse 外側貼填三角形。
     # 設計上 inner side（朝印面內）保持 smooth（user 要求），outer side
     # 呈鋸齒。filled 三角形 fill 用同 stroke 顏色，stroke=none。
-    if preset == "oval" and show_border and oval_sawtooth:
+    if (preset in ("oval", "tax_invoice")
+            and show_border and oval_sawtooth):
         teeth_d = _oval_sawtooth_teeth_svg(
             stamp_width_mm / 2.0, stamp_height_mm / 2.0,
             stamp_width_mm / 2.0, stamp_height_mm / 2.0,
@@ -1322,9 +1630,10 @@ def render_stamp_svg(
     # （0.45mm）；sawtooth 開啟時加 tooth depth（1mm）防 teeth 超出 viewBox
     # 被切。
     SAWTOOTH_DEPTH_MM = 1.0
-    max_stroke_mult = 1.5 if preset == "oval" else 1.0
+    max_stroke_mult = (1.5 if preset in ("oval", "tax_invoice") else 1.0)
     sawtooth_extra = (SAWTOOTH_DEPTH_MM
-                      if (oval_sawtooth and preset == "oval") else 0.0)
+                      if (oval_sawtooth
+                          and preset in ("oval", "tax_invoice")) else 0.0)
     vb_pad = max(stroke_width * max_stroke_mult / 2,
                  sawtooth_extra + stroke_width * 0.5)
     svg_open = (
@@ -1364,7 +1673,7 @@ def render_stamp_svg(
         # visible double-line). 對齊 T-02 / TT-* reference visual。
         if border_d_list:
             for i, d in enumerate(border_d_list):
-                if preset == "oval":
+                if preset in ("oval", "tax_invoice"):
                     stroke_w = stroke_width * (1.5 if i == 0 else 0.3)
                 else:
                     stroke_w = stroke_width
@@ -1380,7 +1689,7 @@ def render_stamp_svg(
     # 兩線粗細差 3:1 雙線外框 visually distinct。
     border_pieces = []
     for i, d in enumerate(border_d_list):
-        if preset == "oval":
+        if preset in ("oval", "tax_invoice"):
             mult = 1.5 if i == 0 else 0.3   # r16: 5:1 ratio
             border_pieces.append(
                 f'<path class="stamp-border" d="{d}" '
@@ -1427,6 +1736,10 @@ def render_stamp_gcode(
     oval_body_bold: list[bool] = None,
     oval_decoration: str = "plum",
     oval_sawtooth: bool = False,
+    # Phase 12m-7: tax_invoice 上方標題 / 縣市
+    oval_top_title: str = "",
+    oval_location: str = "",
+    oval_location_position: str = "bottom",
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -1459,6 +1772,16 @@ def render_stamp_gcode(
         _load_chars(oval_arc_bottom) if oval_arc_bottom else []
     )
     oval_body_lines_chars = [_load_chars(line) for line in oval_body_lines]
+    # Phase 12m-6: tax_invoice 固定「統一編號」標題
+    oval_label_chars = (_load_chars("統一編號")
+                        if preset == "tax_invoice" else [])
+    # Phase 12m-7: tax_invoice optional 上方標題 + 縣市
+    oval_top_title_chars = (_load_chars(oval_top_title)
+                            if (preset == "tax_invoice" and oval_top_title)
+                            else [])
+    oval_location_chars = (_load_chars(oval_location)
+                           if (preset == "tax_invoice" and oval_location)
+                           else [])
 
     placements = _placements_for_preset(
         preset, chars, stamp_width_mm, stamp_height_mm, char_size_mm,
@@ -1472,6 +1795,10 @@ def render_stamp_gcode(
         oval_arc_bottom_chars=oval_arc_bottom_chars,
         oval_body_lines_chars=oval_body_lines_chars,
         oval_body_bold=oval_body_bold,
+        oval_label_chars=oval_label_chars,
+        oval_top_title_chars=oval_top_title_chars,
+        oval_location_chars=oval_location_chars,
+        oval_location_position=oval_location_position,
     )
 
     out: list[str] = [
@@ -1608,7 +1935,7 @@ def stamp_capacity(
     """How many characters fit at the chosen size?"""
     # 12m-1 patch r9: oval double_border 是 body-wrapping inner ellipse，
     # 不再是 concentric — 弧文佔外-內框環帶，inset 只算 border_padding。
-    if preset == "oval":
+    if preset in ("oval", "tax_invoice"):
         inset = border_padding_mm
     else:
         inset = border_padding_mm + (double_gap_mm if double_border else 0)
@@ -1623,9 +1950,10 @@ def stamp_capacity(
         r = min(stamp_width_mm, stamp_height_mm) / 2 - inset
         arc_len = (240.0 / 360.0) * 2 * math.pi * r   # span 240°
         max_chars = max(int(arc_len / (char_size_mm * 1.2)), 1) + 1
-    elif preset == "oval":
-        # 12m-1 patch r4: oval 結構化後 max_chars single number 不再有意義；
-        # 改回傳結構化 caps（弧文 / body 各自）。Legacy max_chars 保留為估計值。
+    elif preset in ("oval", "tax_invoice"):
+        # 12m-1 patch r4 / 12m-6: oval 結構化後 max_chars single number 不再
+        # 有意義；改回傳結構化 caps（弧文 / body 各自）。Legacy max_chars 保留
+        # 為估計值。tax_invoice 共用 oval shape + caps logic。
         # Cap 計算用「最小可讀字身 2.5mm」當下限，因為 _oval_arc_char_size
         # 跟 _oval_body_layout 都會 auto-shrink 字身來容納更多字 — 真實 cap
         # 是 readability，不是 char_size_mm。
@@ -1658,8 +1986,8 @@ def stamp_capacity(
         "max_chars": max_chars,
         "inner_size_mm": [round(inner_w, 2), round(inner_h, 2)],
     }
-    # 12m-1 patch r4: oval extra structured caps
-    if preset == "oval":
+    # 12m-1 patch r4 / 12m-6: oval & tax_invoice extra structured caps
+    if preset in ("oval", "tax_invoice"):
         result["oval_caps"] = oval_caps  # type: ignore[name-defined]
     return result
 

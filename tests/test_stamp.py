@@ -1439,6 +1439,155 @@ def test_render_oval_gcode_t02_replica(stub_loader):
     assert "G21" in gc and "G90" in gc
 
 
+# ---------------------------------------------------------------------------
+# Phase 12m-6: 統一發票章 (tax_invoice) preset tests
+# ---------------------------------------------------------------------------
+
+
+def test_tax_invoice_preset_renders_without_error(stub_loader):
+    """tax_invoice 走 oval-shape ellipse path，含 5 結構化欄位 + 固定標題."""
+    svg = render_stamp_svg(
+        "", stub_loader, preset="tax_invoice",
+        stamp_width_mm=45, stamp_height_mm=30, char_size_mm=8,
+        double_border=True,
+        oval_arc_top="測試發票股份有限公司",
+        oval_arc_bottom="台北市測試路100號",
+        oval_body_lines=["12345678", "王大同", "02-23456789"],
+    )
+    assert 'id="stamp-engrave"' in svg
+    # Outer + inner ellipse paths (double_border)
+    assert svg.count('<path class="stamp-border"') >= 2
+
+
+def test_tax_invoice_capacity_returns_oval_caps():
+    """tax_invoice 共用 oval_caps schema（弧文 / body 各自 cap）."""
+    info = stamp_capacity(preset="tax_invoice", stamp_width_mm=45,  # type: ignore[arg-type]
+                          stamp_height_mm=30, char_size_mm=8,
+                          double_border=True)
+    assert "oval_caps" in info
+    caps = info["oval_caps"]
+    assert "arc_top_max" in caps
+    assert "arc_bottom_max" in caps
+    assert "body_per_line_max" in caps
+
+
+def test_tax_invoice_includes_fixed_label_chars(stub_loader):
+    """tax_invoice 應自動加「統一編號」4 字標題（user 不需手填）."""
+    placements = _placements_for_preset(
+        "tax_invoice", [], 45.0, 30.0, 8.0,
+        double_border=True, double_gap_mm=0.8,
+        oval_body_lines_chars=[[stub_loader("1"), stub_loader("2"),
+                                stub_loader("3"), stub_loader("4"),
+                                stub_loader("5"), stub_loader("6"),
+                                stub_loader("7"), stub_loader("8")]],
+        oval_label_chars=[stub_loader(c) for c in "統一編號"],
+    )
+    # 8 (body slot 0) + 4 (label) = 12 placements
+    assert len(placements) == 12
+    # 12m-7: label placed BEFORE body in y-order top→bottom — first 4 are label
+    label_chars_found = [p[0].char for p in placements
+                         if p[0].char in "統一編號"]
+    assert set(label_chars_found) == {"統", "一", "編", "號"}, (
+        f"missing label chars: {label_chars_found}")
+
+
+def test_tax_invoice_label_above_body_slot_0(stub_loader):
+    """統一編號 標題 y < 中央 1 (統編 number) y — 標題在 number 上方."""
+    placements = _placements_for_preset(
+        "tax_invoice", [], 45.0, 30.0, 8.0,
+        double_border=True, double_gap_mm=0.8,
+        oval_body_lines_chars=[[stub_loader("1"), stub_loader("2"),
+                                stub_loader("3"), stub_loader("4")]],
+        oval_label_chars=[stub_loader(c) for c in "統一編號"],
+    )
+    # Find label and body chars by their content
+    label_y = next(p[2] for p in placements if p[0].char == "統")
+    body_y = next(p[2] for p in placements if p[0].char == "1")
+    assert label_y < body_y, (
+        f"label y={label_y} should be < body slot 0 y={body_y}")
+
+
+def test_tax_invoice_uses_stadium_border(stub_loader):
+    """tax_invoice 使用 stadium / 「電視章」border (Polygon, 不是 ellipse)."""
+    from stroke_order.exporters.stamp import _stamp_border_polys
+    from stroke_order.shapes import Polygon
+    polys = _stamp_border_polys("tax_invoice", 45, 30, double_border=True)
+    assert len(polys) == 2  # outer + inner stadium
+    # Stadium border is Polygon (not Ellipse). 12m-7 changed shape.
+    assert isinstance(polys[0], Polygon)
+    assert isinstance(polys[1], Polygon)
+    # Sanity: stadium has straight L/R sides — there should be vertices
+    # at x=0 and x=45 (extreme L/R) at the y-center area.
+    outer_verts = polys[0].vertices
+    xs = [v[0] for v in outer_verts]
+    assert min(xs) == 0.0   # left edge
+    assert max(xs) == 45.0  # right edge
+
+
+def test_tax_invoice_top_title_placed_above_label(stub_loader):
+    """12m-7: top_title (e.g.「統一發票專用章」) y < label (統一編號) y."""
+    placements = _placements_for_preset(
+        "tax_invoice", [], 45.0, 30.0, 8.0,
+        double_border=True, double_gap_mm=0.8,
+        oval_top_title_chars=[stub_loader(c) for c in "ABC"],
+        oval_label_chars=[stub_loader(c) for c in "統一編號"],
+    )
+    # Title chars (A/B/C) are placed before label chars (統一編號) by y-order
+    title_y = next(p[2] for p in placements if p[0].char == "B")
+    label_y = next(p[2] for p in placements if p[0].char == "編")
+    assert title_y < label_y, (
+        f"top_title y={title_y} should be < label y={label_y}")
+
+
+def test_tax_invoice_location_bottom_below_slot_2(stub_loader):
+    """12m-7: 縣市 position=bottom — y > 中央 3 (slot_2) y."""
+    placements = _placements_for_preset(
+        "tax_invoice", [], 45.0, 30.0, 8.0,
+        double_border=True, double_gap_mm=0.8,
+        oval_body_lines_chars=[
+            [], [], [stub_loader(c) for c in "TEL"]
+        ],
+        oval_location_chars=[stub_loader(c) for c in "台北市"],
+        oval_location_position="bottom",
+    )
+    slot_2_y = next(p[2] for p in placements if p[0].char == "T")
+    loc_y = next(p[2] for p in placements if p[0].char == "台")
+    assert loc_y > slot_2_y, (
+        f"location y={loc_y} should be > slot_2 y={slot_2_y}")
+
+
+def test_tax_invoice_location_left_vertical_at_left_edge(stub_loader):
+    """12m-7: 縣市 position=left — x 在 stamp 最左側 ring band，垂直排列."""
+    placements = _placements_for_preset(
+        "tax_invoice", [], 45.0, 30.0, 8.0,
+        double_border=True, double_gap_mm=0.8,
+        oval_location_chars=[stub_loader(c) for c in "台北市"],
+        oval_location_position="left",
+    )
+    loc_placements = [p for p in placements if p[0].char in "台北市"]
+    assert len(loc_placements) == 3
+    # All 3 chars should have very similar X (vertical alignment)
+    xs = [p[1] for p in loc_placements]
+    assert max(xs) - min(xs) < 0.1, f"chars not vertically aligned: xs={xs}"
+    # X should be near the LEFT side (x < stamp_width / 4)
+    assert all(x < 45 / 4 for x in xs), f"chars not on left side: xs={xs}"
+    # Y values should be increasing (top to bottom)
+    ys = [p[2] for p in loc_placements]
+    assert ys == sorted(ys), f"chars not in top-to-bottom order: ys={ys}"
+
+
+def test_tax_invoice_render_gcode_has_preset_marker(stub_loader):
+    """G-code 帶 tax_invoice 標記，且自動加上 統一編號 label."""
+    gc = render_stamp_gcode(
+        "", stub_loader, preset="tax_invoice",
+        stamp_width_mm=45, stamp_height_mm=30, char_size_mm=8,
+        oval_arc_top="測試公司",
+        oval_body_lines=["12345678"],
+    )
+    assert "preset=tax_invoice" in gc
+    assert "G21" in gc and "G90" in gc
+
+
 def test_oval_arc_top_chars_inside_inner_ellipse():
     """所有上弧 char 中心都在 inner ellipse 內（13% padding，12m-1 patch）."""
     pos = _oval_arc_positions(11, inner_w=48, inner_h=28, cx=25, cy=15,

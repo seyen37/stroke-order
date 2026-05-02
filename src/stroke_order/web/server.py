@@ -156,6 +156,12 @@ class StampPostRequest(BaseModel):
     oval_decoration: str = "plum"
     # 12m-1 patch r18: 鋸齒外框（zigzag tooth pattern on outer ellipse）
     oval_sawtooth: bool = False
+    # 12m-7: tax_invoice 上方標題（如「統一發票專用章」）
+    oval_top_title: str = ""
+    # 12m-7: tax_invoice 縣市名（如「台北市」）
+    oval_location: str = ""
+    # 12m-7: 縣市位置 — "bottom" (中央 3 下方) | "left" (左側直立)
+    oval_location_position: str = "bottom"
 
 
 class SutraPostRequest(BaseModel):
@@ -2536,7 +2542,8 @@ def create_app() -> FastAPI:
     # ------ 印章 (stamp) — Phase 5ay --------------------------------------
 
     _STAMP_PRESET_PATTERN = (
-        "^(square_name|round_name|square_official|round|oval|rectangle_title)$"
+        "^(square_name|round_name|square_official|round|oval|"
+        "tax_invoice|rectangle_title)$"
     )
     _STAMP_FORMAT_PATTERN = "^(svg|gcode|pdf)$"
     _STAMP_ENGRAVE_PATTERN = "^(concave|convex)$"
@@ -2649,6 +2656,10 @@ def create_app() -> FastAPI:
             oval_body_bold=list(req.oval_body_bold or []),
             oval_decoration=req.oval_decoration or "plum",
             oval_sawtooth=bool(req.oval_sawtooth),
+            # 12m-7: tax_invoice 上方標題 + 縣市 + 縣市位置
+            oval_top_title=req.oval_top_title or "",
+            oval_location=req.oval_location or "",
+            oval_location_position=req.oval_location_position or "bottom",
         )
 
         if req.format == "svg":
