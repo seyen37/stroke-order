@@ -426,12 +426,17 @@ def _oval_arc_char_size(
     n: int, *, inner_w: float, inner_h: float, span_deg: float = 140.0,
     padding_ratio: float = 0.13, char_size_cap: float,
     fill_ratio: float = 0.92,
+    ring_band_width: float = 0.0,
 ) -> float:
     """Auto-fit char size for arc text — limited by per-char arc chord.
 
     Approximates ellipse arc length via average-radius × span_rad, then
     divides by N for per-char chord. Capped by ``char_size_cap`` (the
     user-supplied ``char_size_mm`` upper bound).
+
+    12m-1 patch r14: ``ring_band_width`` (= outer_b − inner_b) caps char
+    size so chars don't span both outer and inner ellipse edges. Need
+    char_size ≤ ring_band_width − 2 × safety (1mm typical).
     """
     if n <= 0:
         return char_size_cap
@@ -440,13 +445,17 @@ def _oval_arc_char_size(
     avg_r = (a + b) / 2.0
     arc_len_approx = avg_r * math.radians(span_deg)
     per_char = arc_len_approx / max(n, 1)
-    return min(char_size_cap, per_char * fill_ratio)
+    candidates = [char_size_cap, per_char * fill_ratio]
+    if ring_band_width > 0:
+        candidates.append(max(ring_band_width - 1.0, 0.5))
+    return min(candidates)
 
 
 def _oval_body_layout(
     lines_chars: list[list[Character]], *,
     inner_w: float, inner_h: float, cx: float, cy: float,
     char_size_cap: float,
+    inner_ellipse_a: float = 0.0,
     inner_ellipse_b: float = 0.0,
     bold_flags: list[bool] = None,
 ) -> list[tuple[Character, float, float, float, float, float, bool]]:
@@ -505,11 +514,19 @@ def _oval_body_layout(
         y_off_ratio = SLOT_Y_OFFSETS[slot_idx]
         slot_max_h = SLOT_MAX_H[slot_idx] * inner_h
         y = cy + y_off_ratio * inner_h
-        # Available x-half-width at this y from ellipse equation
-        y_norm = (y - cy) / b
-        if abs(y_norm) >= 0.999:
-            continue  # line off the ellipse — skip silently
-        x_half = a * math.sqrt(1.0 - y_norm * y_norm)
+        # 12m-1 patch r14: usable_w 用 INNER ellipse 算（body 字必須在內框內），
+        # fallback 到 OUTER ellipse 如果沒提供 inner ellipse 參數。
+        if inner_ellipse_a > 0 and inner_ellipse_b > 0:
+            y_norm_inner = (y - cy) / inner_ellipse_b
+            if abs(y_norm_inner) >= 0.999:
+                continue  # off inner ellipse
+            x_half = inner_ellipse_a * math.sqrt(
+                1.0 - y_norm_inner * y_norm_inner)
+        else:
+            y_norm = (y - cy) / b
+            if abs(y_norm) >= 0.999:
+                continue  # line off the ellipse — skip silently
+            x_half = a * math.sqrt(1.0 - y_norm * y_norm)
         usable_w = USABLE_WIDTH_RATIO * 2.0 * x_half
         cell_w = usable_w / n
         # 12m-1 patch r12: dynamic max_h cap from inner ellipse boundary
@@ -965,9 +982,12 @@ def _placements_for_preset(
             # placement padding（小字推到接近邊框、大字 pull in 不溢出）
             if has_arc_top:
                 arc_n = len(oval_arc_top_chars)
+                # 12m-1 patch r14: 傳 ring_band_width 限制 char_size
+                # 不超過 outer-inner ring band 寬度
                 arc_sz = _oval_arc_char_size(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
                     char_size_cap=char_size_mm,
+                    ring_band_width=0.30 * min(width_mm/2, height_mm/2),
                 )
                 positions = _oval_arc_positions(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
@@ -978,9 +998,12 @@ def _placements_for_preset(
             # Arc bottom (地址 / 統編沿下弧)
             if has_arc_bot:
                 arc_n = len(oval_arc_bottom_chars)
+                # 12m-1 patch r14: 傳 ring_band_width 限制 char_size
+                # 不超過 outer-inner ring band 寬度
                 arc_sz = _oval_arc_char_size(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
                     char_size_cap=char_size_mm,
+                    ring_band_width=0.30 * min(width_mm/2, height_mm/2),
                 )
                 positions = _oval_arc_positions(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
@@ -992,16 +1015,17 @@ def _placements_for_preset(
             # 12m-1 patch r12: 傳 inner_ellipse_b 給 dynamic max_h cap +
             # bold flags 給 slot-level 加粗 (中央 1 / 中央 2 強調用)
             if has_body:
-                # inner ellipse half-height (matches _stamp_border_polys
-                # constant offset d=0.30)
+                # inner ellipse axes (matches _stamp_border_polys r12: d=0.30)
                 _half_a = width_mm / 2.0
                 _half_b = height_mm / 2.0
                 _d = 0.30 * min(_half_a, _half_b)
+                _inner_a = max(_half_a - _d, 0.1)
                 _inner_b = max(_half_b - _d, 0.1)
                 body_placements = _oval_body_layout(
                     oval_body_lines_chars,
                     inner_w=inner_w, inner_h=inner_h,
                     cx=cx, cy=cy, char_size_cap=char_size_mm,
+                    inner_ellipse_a=_inner_a,
                     inner_ellipse_b=_inner_b,
                     bold_flags=oval_body_bold,
                 )
@@ -1217,7 +1241,10 @@ def render_stamp_svg(
     # Phase 12j: viewBox 加 stroke padding 防外框 stroke 外緣被切
     # （圓 path 邊在 width/2，stroke 從中心向外延伸 stroke_width/2，
     # 過去 viewBox=(0, 0, w, h) 會切掉 stroke 外緣 0.3mm）。
-    vb_pad = stroke_width / 2
+    # 12m-1 patch r14: oval outer stroke × 1.3 (was 1.5)，viewBox padding 用
+    # max stroke 半徑（避免 outer 粗線外緣超出 viewBox 被切割）。
+    max_stroke_mult = 1.3 if preset == "oval" else 1.0
+    vb_pad = (stroke_width * max_stroke_mult) / 2
     svg_open = (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="{-vb_pad:.3f} {-vb_pad:.3f} '
@@ -1256,7 +1283,7 @@ def render_stamp_svg(
         if border_d_list:
             for i, d in enumerate(border_d_list):
                 if preset == "oval":
-                    stroke_w = stroke_width * (1.5 if i == 0 else 0.5)
+                    stroke_w = stroke_width * (1.3 if i == 0 else 0.5)
                 else:
                     stroke_w = stroke_width
                 body_pieces.append(
@@ -1272,7 +1299,7 @@ def render_stamp_svg(
     border_pieces = []
     for i, d in enumerate(border_d_list):
         if preset == "oval":
-            mult = 1.5 if i == 0 else 0.5
+            mult = 1.3 if i == 0 else 0.5
             border_pieces.append(
                 f'<path class="stamp-border" d="{d}" '
                 f'stroke-width="{stroke_width * mult}"/>'
