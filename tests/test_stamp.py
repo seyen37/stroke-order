@@ -1288,7 +1288,7 @@ def test_oval_body_slot_1_at_top():
     out = _oval_body_layout([chars], inner_w=48, inner_h=28,
                             cx=25, cy=15, char_size_cap=9)
     assert len(out) == 3
-    ys = [y for _, _, y, _, _, _ in out]
+    ys = [y for _, _, y, *_ in out]
     # 中央 1 → y = cy + (-0.15) * inner_h = 15 - 4.2 = 10.8
     assert all(y < 15 for y in ys)
     assert all(y == pytest.approx(15 - 0.15 * 28, abs=0.5) for y in ys)
@@ -1301,11 +1301,11 @@ def test_oval_body_slot_2_at_middle_large():
     out = _oval_body_layout([[], chars, []], inner_w=48, inner_h=28,
                             cx=25, cy=15, char_size_cap=99)
     assert len(out) == 3
-    ys = [y for _, _, y, _, _, _ in out]
+    ys = [y for _, _, y, *_ in out]
     # 中央 2 → y = cy
     assert all(y == pytest.approx(15) for y in ys)
     # 中央 2 max_h = 0.30 inner_h = 8.4mm
-    sizes = [w for _, _, _, _, w, _ in out]
+    sizes = [w for _, _, _, _, w, *_ in out]
     assert all(s <= 0.30 * 28 + 0.5 for s in sizes)
 
 
@@ -1316,7 +1316,7 @@ def test_oval_body_slot_3_at_bottom_small():
     out = _oval_body_layout([[], [], chars], inner_w=48, inner_h=28,
                             cx=25, cy=15, char_size_cap=9)
     assert len(out) == 13
-    ys = [y for _, _, y, _, _, _ in out]
+    ys = [y for _, _, y, *_ in out]
     # 中央 3 → y = cy + 0.15 * inner_h = 19.2
     assert all(y > 15 for y in ys)
     assert all(y == pytest.approx(15 + 0.15 * 28, abs=0.5) for y in ys)
@@ -1330,8 +1330,8 @@ def test_oval_body_slots_1_and_3_skip_middle():
                             inner_w=48, inner_h=28, cx=25, cy=15,
                             char_size_cap=9)
     assert len(out) == 16  # 3 + 0 + 13
-    title_ys = [y for _, _, y, _, _, _ in out[:3]]
-    contact_ys = [y for _, _, y, _, _, _ in out[3:]]
+    title_ys = [y for _, _, y, *_ in out[:3]]
+    contact_ys = [y for _, _, y, *_ in out[3:]]
     assert all(y < 15 for y in title_ys)   # top
     assert all(y > 15 for y in contact_ys)  # bottom
 
@@ -1344,7 +1344,7 @@ def test_oval_body_visual_hierarchy_slot_2_largest():
                             char_size_cap=99)  # let max_h govern
     # Group by y to identify slot
     by_y = {}
-    for c, x, y, rot, w, h in out:
+    for c, x, y, rot, w, h, *_ in out:
         by_y.setdefault(round(y, 1), []).append(w)
     ys_sorted = sorted(by_y.keys())  # top, middle, bottom
     top_w = by_y[ys_sorted[0]][0]
@@ -1363,7 +1363,7 @@ def test_oval_body_all_three_slots_fixed_positions():
         inner_w=48, inner_h=28, cx=25, cy=15, char_size_cap=9,
     )
     assert len(out) == 15
-    ys = sorted({round(y, 1) for _, _, y, _, _, _ in out})
+    ys = sorted({round(y, 1) for _, _, y, *_ in out})
     assert len(ys) == 3
     assert ys[0] == pytest.approx(15 - 0.15 * 28, abs=0.5)
     assert ys[1] == pytest.approx(15, abs=0.5)
@@ -1400,7 +1400,7 @@ def test_placements_oval_backward_compat_with_text_only():
     )
     # 3 chars, all on a single row at y=cy=15
     assert len(pl) == 3
-    ys = [y for _, _, y, _, _, _ in pl]
+    ys = [y for _, _, y, *_ in pl]
     assert all(y == pytest.approx(15, abs=0.1) for y in ys)
 
 

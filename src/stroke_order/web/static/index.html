@@ -1144,6 +1144,9 @@
                placeholder="第 1 行（標題如 收發章）" maxlength="40"
                value="收發章"
                style="flex:1;font-size:14px;">
+        <label title="加粗 stroke 強調用，適合標題字" style="font-size:11px;color:var(--muted);">
+          <input id="st-oval-body-1-bold" type="checkbox"> 加粗
+        </label>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">中央 2</label>
@@ -1151,6 +1154,9 @@
                placeholder="第 2 行（中央位置強調用，可放大字體）" maxlength="40"
                value=""
                style="flex:1;font-size:14px;">
+        <label title="加粗 stroke 強調用，適合中央大字" style="font-size:11px;color:var(--muted);">
+          <input id="st-oval-body-2-bold" type="checkbox"> 加粗
+        </label>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">中央 3</label>
@@ -4917,6 +4923,12 @@ function stampBuildBody(format) {
       ($("st-oval-body-1") || "").trim(),
       ($("st-oval-body-2") || "").trim(),
       ($("st-oval-body-3") || "").trim(),
+    ],
+    // 12m-1 patch r12: 中央 1/2/3 加粗 flags（中央 3 不可加粗，固定 false）
+    oval_body_bold: [
+      $$("st-oval-body-1-bold")?.checked || false,
+      $$("st-oval-body-2-bold")?.checked || false,
+      false,
     ],
   };
 }

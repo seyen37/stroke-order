@@ -447,7 +447,9 @@ def _oval_body_layout(
     lines_chars: list[list[Character]], *,
     inner_w: float, inner_h: float, cx: float, cy: float,
     char_size_cap: float,
-) -> list[tuple[Character, float, float, float, float, float]]:
+    inner_ellipse_b: float = 0.0,
+    bold_flags: list[bool] = None,
+) -> list[tuple[Character, float, float, float, float, float, bool]]:
     """Lay out body slots（中央 1/2/3）at FIXED positions inside an oval.
 
     Phase 12m-1 patch r11: **slot-based positioning** — each slot has
@@ -465,12 +467,14 @@ def _oval_body_layout(
             Empty inner list = skip that slot.
         char_size_cap: upper bound on char width/height (matches user's
             ``char_size_mm`` setting).
+        inner_ellipse_b: half-height of inner ellipse (12m-1 patch r12).
+            If > 0, char_size auto-shrinks so char top/bottom doesn't
+            cross inner ellipse boundary at slot's y position.
+        bold_flags: position-indexed list of bool, one per slot. True
+            for slot ⇒ chars in that slot rendered with thicker stroke.
 
-    Each filled slot auto-fits width based on ellipse's available x at
-    its y — natural visual hierarchy emerges (short text in 中央 2 grows
-    big; long text in 中央 3 stays compact).
-
-    Returns ``[(char, cx, cy, rot, w, h), ...]``.
+    Returns ``[(char, cx, cy, rot, w, h, bold), ...]`` — 7-tuple
+    (bold added in patch r12 for 中央 1/2 加粗 feature).
     """
     # 12m-1 patch r11: pad/truncate to exactly 3 slots, preserve slot index
     lines_chars = list(lines_chars)[:3]
@@ -478,23 +482,26 @@ def _oval_body_layout(
         lines_chars.append([])
     if not any(lines_chars):
         return []
+    # 12m-1 patch r12: bold flags per slot (default False)
+    bold_flags = (list(bold_flags or []) + [False, False, False])[:3]
 
     # Per-SLOT y_offset (ratio of inner_h) + max char height (ratio of inner_h).
     # 中央 2 大字 (max_h 0.30 inner_h)；中央 3 小字 (0.15) 給聯絡資訊縮排；
     # 中央 1 normal title (0.18)。三個 slot 互相獨立。
     SLOT_Y_OFFSETS = [-0.15, 0.0, 0.15]
     SLOT_MAX_H = [0.18, 0.30, 0.15]
+    INNER_ELLIPSE_SAFETY = 0.5  # mm gap between char edge and inner ellipse
 
     a = inner_w / 2.0
     b = inner_h / 2.0
     USABLE_WIDTH_RATIO = 0.80
-    out: list[tuple[Character, float, float, float, float, float]] = []
+    out: list[tuple[Character, float, float, float, float, float, bool]] = []
     for slot_idx, line_chars in enumerate(lines_chars):
         n = len(line_chars)
         if n == 0:
             continue
         y_off_ratio = SLOT_Y_OFFSETS[slot_idx]
-        max_h = SLOT_MAX_H[slot_idx] * inner_h
+        slot_max_h = SLOT_MAX_H[slot_idx] * inner_h
         y = cy + y_off_ratio * inner_h
         # Available x-half-width at this y from ellipse equation
         y_norm = (y - cy) / b
@@ -503,12 +510,22 @@ def _oval_body_layout(
         x_half = a * math.sqrt(1.0 - y_norm * y_norm)
         usable_w = USABLE_WIDTH_RATIO * 2.0 * x_half
         cell_w = usable_w / n
-        sz = min(char_size_cap, cell_w * 0.92, max_h)
+        # 12m-1 patch r12: dynamic max_h cap from inner ellipse boundary
+        # (char top/bottom must not cross inner ellipse line at this y)
+        if inner_ellipse_b > 0:
+            slot_offset_abs = abs(y_off_ratio * inner_h)
+            inner_bound_h = 2.0 * (inner_ellipse_b - slot_offset_abs
+                                   - INNER_ELLIPSE_SAFETY)
+            inner_bound_h = max(inner_bound_h, 0.5)  # never below 0.5mm
+            sz = min(char_size_cap, cell_w * 0.92, slot_max_h, inner_bound_h)
+        else:
+            sz = min(char_size_cap, cell_w * 0.92, slot_max_h)
         total_w = cell_w * n
         x_start = cx - total_w / 2.0 + cell_w / 2.0
+        bold = bold_flags[slot_idx]
         for i, c in enumerate(line_chars):
             x = x_start + i * cell_w
-            out.append((c, x, y, 0.0, sz, sz))
+            out.append((c, x, y, 0.0, sz, sz, bold))
     return out
 
 
@@ -597,7 +614,7 @@ def _stamp_border_polys(
             #   - 視覺類似 T-02 / 印面樣式 reference 的 ring band
             half_a = width_mm / 2.0
             half_b = height_mm / 2.0
-            d = 0.20 * min(half_a, half_b)
+            d = 0.30 * min(half_a, half_b)
             polys.append(Ellipse(
                 cx, cy,
                 max(half_a - d, 0.1),
@@ -635,7 +652,10 @@ def _placements_for_preset(
     oval_arc_top_chars: list[Character] = None,
     oval_arc_bottom_chars: list[Character] = None,
     oval_body_lines_chars: list[list[Character]] = None,
-) -> list[tuple[Character, float, float, float, float, float]]:
+    # Phase 12m-1 patch r12: oval body slot bold flags (length 3, default
+    # all False). When True, char rendered with thicker stroke for emphasis.
+    oval_body_bold: list[bool] = None,
+) -> list[tuple]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
     ``(w_mm, h_mm)`` are independent per-character width / height. Most
@@ -937,11 +957,21 @@ def _placements_for_preset(
                 for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
                     placements.append((ch, x, y, rot, arc_sz, arc_sz))
             # Body 1-3 行水平文字
+            # 12m-1 patch r12: 傳 inner_ellipse_b 給 dynamic max_h cap +
+            # bold flags 給 slot-level 加粗 (中央 1 / 中央 2 強調用)
             if has_body:
+                # inner ellipse half-height (matches _stamp_border_polys
+                # constant offset d=0.30)
+                _half_a = width_mm / 2.0
+                _half_b = height_mm / 2.0
+                _d = 0.30 * min(_half_a, _half_b)
+                _inner_b = max(_half_b - _d, 0.1)
                 body_placements = _oval_body_layout(
                     oval_body_lines_chars,
                     inner_w=inner_w, inner_h=inner_h,
                     cx=cx, cy=cy, char_size_cap=char_size_mm,
+                    inner_ellipse_b=_inner_b,
+                    bold_flags=oval_body_bold,
                 )
                 placements.extend(body_placements)
         else:
@@ -992,7 +1022,11 @@ def _placements_for_preset(
         inner_right = width_mm - inset
         inner_top = inset
         inner_bot = height_mm - inset
-        for i, (c, pcx, pcy, prot, pw, ph) in enumerate(placements):
+        # 12m-1 patch r12: handle both 6-tuple and 7-tuple placements
+        # (oval body chars carry bold flag; other presets remain 6-tuple)
+        for i, placement in enumerate(placements):
+            c, pcx, pcy, prot, pw, ph = placement[:6]
+            extra = placement[6:]   # bold flag if present
             dx, dy = (0.0, 0.0)
             if i < len(char_offsets):
                 ofs = char_offsets[i]
@@ -1000,11 +1034,10 @@ def _placements_for_preset(
                     dx, dy = float(ofs[0]), float(ofs[1])
             new_cx = pcx + dx
             new_cy = pcy + dy
-            # bounds clamp（字 outline bbox = (cx ± w/2, cy ± h/2)）
             half_w, half_h = pw / 2.0, ph / 2.0
             new_cx = max(inner_left + half_w, min(inner_right - half_w, new_cx))
             new_cy = max(inner_top + half_h, min(inner_bot - half_h, new_cy))
-            clamped.append((c, new_cx, new_cy, prot, pw, ph))
+            clamped.append((c, new_cx, new_cy, prot, pw, ph, *extra))
         return clamped
 
     return placements
@@ -1039,6 +1072,8 @@ def render_stamp_svg(
     oval_arc_top: str = "",
     oval_arc_bottom: str = "",
     oval_body_lines: list[str] = None,
+    # Phase 12m-1 patch r12: bold flags per slot (中央 1/2/3)
+    oval_body_bold: list[bool] = None,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -1090,6 +1125,7 @@ def render_stamp_svg(
         oval_arc_top_chars=oval_arc_top_chars,
         oval_arc_bottom_chars=oval_arc_bottom_chars,
         oval_body_lines_chars=oval_body_lines_chars,
+        oval_body_bold=oval_body_bold,
     )
 
     # Build border path d-strings (used by both modes).
@@ -1106,9 +1142,17 @@ def render_stamp_svg(
 
     # Char outline SVG snippets (already EM-coords inside <g transform>).
     # Phase 11g uses _char_cut_paths_stretched uniformly with bbox-center alignment.
+    # 12m-1 patch r12: bold flag optional 7th element (oval body chars).
     char_pieces: list[str] = []
-    for c, x, y, rot, w, h in placements:
-        char_pieces.append(_char_cut_paths_stretched(c, x, y, w, h, rot))
+    for placement in placements:
+        c, x, y, rot, w, h = placement[:6]
+        bold = placement[6] if len(placement) > 6 else False
+        piece = _char_cut_paths_stretched(c, x, y, w, h, rot)
+        if bold:
+            # Bold render：wrap with thicker stroke override (×2 outer stroke)
+            piece = (f'<g stroke-width="{stroke_width * 2.0:.3f}">'
+                     f'{piece}</g>')
+        char_pieces.append(piece)
 
     # Decorations.
     deco_pieces: list[str] = []
@@ -1123,18 +1167,20 @@ def render_stamp_svg(
         cy_mid = stamp_height_mm / 2.0
         outer_a = stamp_width_mm / 2.0
         outer_b = stamp_height_mm / 2.0
-        # Inner ellipse offset (匹配 _stamp_border_polys)
-        d_offset = 0.20 * min(outer_a, outer_b)
+        # Inner ellipse offset (匹配 _stamp_border_polys r12: d=0.30)
+        d_offset = 0.30 * min(outer_a, outer_b)
         inner_a = max(outer_a - d_offset, 0.1)
         # ring band 中線位置（horizontal axis）
         mid_a = (outer_a + inner_a) / 2.0
         # 梅花大小：略小於 ring band 寬度
         flower_r = d_offset * 0.40
         deco_pieces.append(
-            _oval_flower_svg(cx_mid + mid_a, cy_mid, flower_r, stroke_width)
+            _oval_flower_svg(cx_mid + mid_a, cy_mid, flower_r,
+                             stroke_width * 0.5)
         )
         deco_pieces.append(
-            _oval_flower_svg(cx_mid - mid_a, cy_mid, flower_r, stroke_width)
+            _oval_flower_svg(cx_mid - mid_a, cy_mid, flower_r,
+                             stroke_width * 0.5)
         )
 
     # Phase 12j: viewBox 加 stroke padding 防外框 stroke 外緣被切
@@ -1236,6 +1282,7 @@ def render_stamp_gcode(
     oval_arc_top: str = "",
     oval_arc_bottom: str = "",
     oval_body_lines: list[str] = None,
+    oval_body_bold: list[bool] = None,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -1280,6 +1327,7 @@ def render_stamp_gcode(
         oval_arc_top_chars=oval_arc_top_chars,
         oval_arc_bottom_chars=oval_arc_bottom_chars,
         oval_body_lines_chars=oval_body_lines_chars,
+        oval_body_bold=oval_body_bold,
     )
 
     out: list[str] = [
@@ -1311,7 +1359,9 @@ def render_stamp_gcode(
     # 陰刻直接用這些當雕刻路徑；陽刻把它們當成「不該被光柵掃描」的禁區
     # 餵給 scanline_engrave_gcode（even-odd 自動處理 ON/OFF 區段）。
     char_polylines_mm: list[list[tuple[float, float]]] = []
-    for c, cx_mm, cy_mm, rot, w_mm, h_mm in placements:
+    # 12m-1 patch r12: handle 6-tuple or 7-tuple (with bold flag) placements
+    for placement in placements:
+        c, cx_mm, cy_mm, rot, w_mm, h_mm = placement[:6]
         bbox = _char_outline_bbox_full_em(c)
         if bbox is None:
             continue
