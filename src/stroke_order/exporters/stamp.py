@@ -743,8 +743,96 @@ def _oval_sawtooth_teeth_svg(
 #
 # curve_h_ratio = 上下弧 高度 / 總高度。0.30 = 上 30% + 下 30% = 60% curve，
 # 中間 40% 直線部分。對齊 ED2/ED4 reference 視覺。
-TAX_INVOICE_CURVE_H_RATIO = 0.30
+TAX_INVOICE_CURVE_H_RATIO = 0.30   # legacy fallback (used when straight
+                                   # length spec disabled)
+TAX_INVOICE_STRAIGHT_LENGTH_MM = 27.0  # 12m-7 r11: 外框 L/R 直線 = 27mm
+                                       # curve_h = (height - 27) / 2
+                                       # For 45×40: outer curve_h = 6.5mm
+TAX_INVOICE_INNER_SHOULDER_DIST_MM = 37.0  # 12m-7 r11: 內框上下弧 shoulders
+                                           # 之間 vertical distance = 37mm。
+                                           # Inner sep arc shoulder positions:
+                                           #   y_top = (height - 37) / 2
+                                           #   y_bot = height - y_top
+                                           # For 45×40: y_top=1.5, y_bot=38.5
 TAX_INVOICE_POLYGON_CURVE_VERTICES = 32   # per top/bottom curve
+
+
+def _tax_invoice_curve_h(height_mm: float) -> float:
+    """12m-7 r8/r11: 計算 tax_invoice stamp outer frame 的 curve_h。
+
+    L/R 直線長度固定 = TAX_INVOICE_STRAIGHT_LENGTH_MM (27mm in r11)。
+    curve_h = (height - 27) / 2
+    For default 45×40: curve_h = 6.5mm
+
+    For height < 27 + 2，clamp 至最小 1.0mm。
+    """
+    target = (height_mm - TAX_INVOICE_STRAIGHT_LENGTH_MM) / 2.0
+    return max(target, 1.0)
+
+
+def _tax_invoice_inner_sep_geometry(
+    width_mm: float, height_mm: float,
+) -> tuple[float, float, float, float]:
+    """12m-7 r11: 計算 inner sep arc 的幾何參數（不再 derive from
+    "inner stadium"，而是直接由 outer + INNER_SHOULDER_DIST 推算）。
+
+    Returns: (shoulder_y_top, shoulder_y_bot, inner_a, inner_curve_h)
+    where:
+    - shoulder_y_top, shoulder_y_bot: 內 sep arc 上下 shoulders 的 y
+        位置（用 INNER_SHOULDER_DIST_MM = 37 計算）
+    - inner_a: chord half-length（受 outer frame 限制 — shoulders 必須
+        在 outer 內）
+    - inner_curve_h: same as outer curve_h（parallel curvature）
+
+    For default 45×40:
+        shoulder_y_top = 1.5, shoulder_y_bot = 38.5
+        inner_curve_h = 6.5
+        inner_a ≈ 10.65 (constrained by outer at y=1.5)
+        inner chord ≈ 21.3 mm
+    """
+    half_w = width_mm / 2.0
+    curve_h_outer = _tax_invoice_curve_h(height_mm)
+
+    # Inner shoulder Y by INNER_SHOULDER_DIST_MM
+    shoulder_y_top = max(
+        (height_mm - TAX_INVOICE_INNER_SHOULDER_DIST_MM) / 2.0,
+        0.5,
+    )
+    shoulder_y_bot = height_mm - shoulder_y_top
+
+    # User spec: "以此曲率調整內框上下弧的曲率" —
+    # 曲率 (curvature) = 1/R。Same R (radius of curvature) as outer。
+    # Same R 但 chord 不同 → sagitta 不同（內弧 chord 較短→sagitta 較小）。
+    if curve_h_outer > 0:
+        R_outer = (half_w * half_w + curve_h_outer * curve_h_outer) / (
+            2.0 * curve_h_outer)
+    else:
+        R_outer = float('inf')
+
+    # Inner_a constrained by outer frame at shoulder_y_top.
+    # If shoulder_y in outer curve section (y < curve_h_outer):
+    #   solve for x where outer frame y = shoulder_y_top
+    if shoulder_y_top < curve_h_outer and curve_h_outer > 0:
+        # y_outer(x) = R_outer - sqrt(R_outer² - x²) = shoulder_y_top
+        # → x² = R_outer² - (R_outer - shoulder_y_top)²
+        target = R_outer - shoulder_y_top
+        if abs(target) < R_outer:
+            x_at = math.sqrt(R_outer * R_outer - target * target)
+            inner_a = max(x_at - 0.5, 1.0)   # 0.5mm safety margin
+        else:
+            inner_a = half_w * 0.5
+    else:
+        inner_a = max(half_w - 1.0, 1.0)
+
+    # Inner curve_h derived from SAME R_outer and constrained inner_a:
+    # R = (a² + h²) / (2h)  →  h = R - sqrt(R² - a²)
+    if R_outer < float('inf') and inner_a < R_outer:
+        inner_curve_h = R_outer - math.sqrt(R_outer * R_outer - inner_a * inner_a)
+    else:
+        inner_curve_h = curve_h_outer * 0.5   # safe fallback
+    inner_curve_h = max(inner_curve_h, 0.3)   # at least 0.3mm to be visible
+
+    return shoulder_y_top, shoulder_y_bot, inner_a, inner_curve_h
 
 
 def _stadium_polygon_vertices(
@@ -753,18 +841,28 @@ def _stadium_polygon_vertices(
     *,
     curve_h_ratio: float = TAX_INVOICE_CURVE_H_RATIO,
     n_curve: int = TAX_INVOICE_POLYGON_CURVE_VERTICES,
+    curve_type: str = "circle",
 ) -> list[tuple[float, float]]:
     """Build a stadium / TV-shape polygon as a vertex list.
 
     Stadium geometry (axis-aligned, centered at cx/cy):
-    - Top: half-ellipse with semi-axes (half_w, curve_h)
-    - Sides: straight vertical lines, length = 2*(half_h - curve_h)
-    - Bottom: half-ellipse mirroring top
+    - Top:    sphere-cap arc with chord 2*half_w, sagitta curve_h
+    - Sides:  straight vertical lines, length = 2*(half_h - curve_h)
+    - Bottom: sphere-cap arc mirroring top
 
     Where curve_h = curve_h_ratio * (2*half_h).
 
+    ``curve_type`` selects the curve geometry:
+    - ``"circle"`` (default, 12m-7 r4): circular arc — tangent at the
+      shoulder (curve↔straight joint) is NOT vertical, so the joint
+      has a VISIBLE corner (對齊 ED2/ED4 reference 的轉折感)。Tangent
+      angle = arctan(half_w / (R - curve_h)) ≠ 90°.
+    - ``"ellipse"`` (legacy): half-ellipse — tangent at shoulder is
+      vertical, matches straight side tangent → smooth (no visible
+      corner)。Used by older code paths if explicitly requested.
+
     Vertex order goes clockwise starting at top-left
-    (left edge meets top curve at y = top of straight section):
+    (left edge meets curve at y = top of straight section):
 
         ─►──  top curve  ──►─┐
         ▲                    ▼
@@ -775,83 +873,117 @@ def _stadium_polygon_vertices(
     """
     height = 2.0 * half_h
     curve_h = curve_h_ratio * height
-    # curve y-coordinates: top curve apex at (cx, cy - half_h),
-    # top curve "shoulder" (curve meets straight side) at y = cy - half_h + curve_h
-    # = cy - (half_h - curve_h)
-    top_curve_center_y = cy - (half_h - curve_h)   # half-ellipse vertical center
+    top_curve_center_y = cy - (half_h - curve_h)
     bot_curve_center_y = cy + (half_h - curve_h)
     pts: list[tuple[float, float]] = []
 
-    # Top curve: from left shoulder (cx - half_w, top_curve_center_y)
-    # → apex (cx, cy - half_h) → right shoulder (cx + half_w, top_curve_center_y).
-    # Parameterize by θ from π (left) → 0 (right), point on half-ellipse.
+    if curve_type == "circle":
+        # Circular arc: chord = 2*half_w, sagitta = curve_h.
+        # R = (half_w² + curve_h²) / (2 × curve_h) (geometry derivation).
+        # Center of top circle is BELOW apex by R (in y-down coords),
+        # so center_y = apex_y + R = (cy - half_h) + R.
+        # Half-angle subtended from circle center to chord endpoints:
+        #   alpha = arcsin(half_w / R)
+        # Top arc: theta from -alpha (left shoulder) to +alpha (right
+        # shoulder), 0 = apex.
+        if curve_h <= 0:
+            R = float("inf")
+        else:
+            R = (half_w * half_w + curve_h * curve_h) / (2.0 * curve_h)
+        top_circle_cy = (cy - half_h) + R
+        bot_circle_cy = (cy + half_h) - R
+        alpha = math.asin(min(half_w / R, 1.0)) if R > 0 else math.pi / 2
+
+        # Top arc: left shoulder (-alpha) → apex (0) → right shoulder (+alpha)
+        for i in range(n_curve + 1):
+            theta = -alpha + (i / n_curve) * 2 * alpha
+            x = cx + R * math.sin(theta)
+            y = top_circle_cy - R * math.cos(theta)
+            pts.append((x, y))
+
+        pts.append((cx + half_w, bot_curve_center_y))
+
+        # Bottom arc: right shoulder (+alpha) → apex (0) → left shoulder (-alpha)
+        for i in range(n_curve + 1):
+            theta = alpha - (i / n_curve) * 2 * alpha
+            x = cx + R * math.sin(theta)
+            y = bot_circle_cy + R * math.cos(theta)
+            pts.append((x, y))
+
+        pts.append((cx - half_w, top_curve_center_y))
+        return pts
+
+    # ---- Ellipse curve (legacy / fallback) ----
     for i in range(n_curve + 1):
         theta = math.pi - (i / n_curve) * math.pi
         x = cx + half_w * math.cos(theta)
         y = top_curve_center_y - curve_h * math.sin(theta)
         pts.append((x, y))
-
-    # Right straight side: from (cx + half_w, top_curve_center_y)
-    # down to (cx + half_w, bot_curve_center_y). Polygon uses straight
-    # edges between consecutive vertices, so just add endpoint.
     pts.append((cx + half_w, bot_curve_center_y))
-
-    # Bottom curve: mirror of top.
-    # From (cx + half_w, bot_curve_center_y) → apex (cx, cy + half_h)
-    # → (cx - half_w, bot_curve_center_y). θ from 0 → π.
     for i in range(n_curve + 1):
         theta = (i / n_curve) * math.pi
         x = cx + half_w * math.cos(theta)
         y = bot_curve_center_y + curve_h * math.sin(theta)
         pts.append((x, y))
-
-    # Left straight side: closes back to top-left shoulder.
     pts.append((cx - half_w, top_curve_center_y))
-
     return pts
 
 
 def _stadium_inner_separator_paths(
     width_mm: float, height_mm: float,
     *,
-    curve_h_ratio: float = TAX_INVOICE_CURVE_H_RATIO,
     n_curve: int = TAX_INVOICE_POLYGON_CURVE_VERTICES,
-    d_offset_ratio: float = 0.30,
+    span_ratio: float = 1.0,
 ) -> tuple[str, str]:
     """Return SVG path d-strings (top_arc, bot_arc) — the 2 OPEN
     inner separator arcs for tax_invoice stamps.
 
-    12m-7 r3: tax_invoice 內邊不是 closed inner stadium（含左右直線），
-    而是 2 個分開的弧線 — 上分隔弧 + 下分隔弧 — 把弧文與中央 body
-    分開。Reference (ED2/ED4) 顯示這個設計：左右只有外框直線，內部
-    沒有對應的內框直線，僅靠頂部 / 底部弧線分隔內容區域。
+    12m-7 r11: 重新設計 — 用 _tax_invoice_inner_sep_geometry() 計算所有
+    參數。內框上下弧 shoulders 之間 vertical 距離 = 37mm（user 要求）。
+    inner_a 由 outer frame 限制（shoulders 不超出 outer）。
 
-    Math: 內弧 = 外 stadium 的上 / 下 curve 內縮 d_offset。Width =
-    inner_a, height = inner_curve_h，沿用 _stadium_polygon_vertices
-    的 inner stadium top / bottom curve geometry。輸出 SVG path:
-    M ... L ... L ...（open polyline，無 Z），讓 caller 渲染為
-    open stroke path（不 fill）。
+    For default 45×40:
+        shoulder_y_top = 1.5, shoulder_y_bot = 38.5
+        inner_curve_h = 6.5 (matches outer)
+        inner_a ≈ 10.65 (constrained by outer)
+
+    span_ratio: 弧橫向佔 chord 比例。1.0 = 全 chord（shoulders 各
+    端點），<1.0 = 中間部分。Default 1.0 因為 inner_a 已被 outer
+    constraint 算好，不需再縮。
     """
-    cx, cy = width_mm / 2.0, height_mm / 2.0
-    half_w = width_mm / 2.0
-    half_h = height_mm / 2.0
-    d_offset = d_offset_ratio * min(half_w, half_h)
-    inner_a = max(half_w - d_offset, 0.1)
-    inner_b = max(half_h - d_offset, 0.1)
-    # Reuse _stadium_polygon_vertices on inner geometry to get all curves;
-    # extract just top + bottom curve segments (no straight sides).
-    inner_verts = _stadium_polygon_vertices(
-        cx, cy, inner_a, inner_b,
-        curve_h_ratio=curve_h_ratio, n_curve=n_curve,
-    )
-    # Vertex layout from helper:
-    #   [0 .. n_curve]      = top curve (n_curve + 1 points)
-    #   [n_curve + 1]        = right corner (skip)
-    #   [n_curve+2 .. 2*n_curve+2] = bottom curve (n_curve + 1 points)
-    #   [2*n_curve + 3]      = left corner (skip)
-    top_verts = inner_verts[:n_curve + 1]
-    bot_start = n_curve + 2
-    bot_verts = inner_verts[bot_start:bot_start + n_curve + 1]
+    cx = width_mm / 2.0
+    shoulder_y_top, shoulder_y_bot, inner_a, inner_curve_h = (
+        _tax_invoice_inner_sep_geometry(width_mm, height_mm))
+
+    if inner_curve_h <= 0 or inner_a <= 0:
+        return "", ""
+
+    # Circular arc: chord = 2 × inner_a, sagitta = inner_curve_h
+    R = (inner_a * inner_a + inner_curve_h * inner_curve_h) / (
+        2.0 * inner_curve_h)
+    alpha_full = math.asin(min(inner_a / R, 1.0))
+    alpha_used = alpha_full * span_ratio
+
+    # 12m-7 r12: 內框上下弧曲率「開口朝向」修正 — top apex 應 ABOVE
+    # shoulders (朝 outer top frame, 不是 stamp center)，bot apex BELOW
+    # shoulders. 跟 outer frame 同方向凸出（visually parallel）。
+    #
+    # Top arc: apex y = shoulder_y_top - inner_curve_h (above shoulders).
+    # Circle center BELOW shoulders by (R - sagitta), 在 stamp 內 (greater y).
+    top_circle_cy = shoulder_y_top + R - inner_curve_h
+    # Bot arc: apex y = shoulder_y_bot + inner_curve_h (below shoulders).
+    # Circle center ABOVE shoulders by (R - sagitta).
+    bot_circle_cy = shoulder_y_bot - R + inner_curve_h
+
+    top_pts = []
+    bot_pts = []
+    for i in range(n_curve + 1):
+        theta = -alpha_used + (i / n_curve) * 2 * alpha_used
+        x = cx + R * math.sin(theta)
+        # Top: y = top_circle_cy - R cos(theta) (apex at theta=0, MIN y)
+        top_pts.append((x, top_circle_cy - R * math.cos(theta)))
+        # Bot: y = bot_circle_cy + R cos(theta) (apex at theta=0, MAX y)
+        bot_pts.append((x, bot_circle_cy + R * math.cos(theta)))
 
     def _polyline_d(verts):
         if not verts:
@@ -861,7 +993,7 @@ def _stadium_inner_separator_paths(
             parts.append(f"L {x:.3f} {y:.3f}")
         return " ".join(parts)
 
-    return _polyline_d(top_verts), _polyline_d(bot_verts)
+    return _polyline_d(top_pts), _polyline_d(bot_pts)
 
 
 def _stamp_border_polys(
@@ -896,8 +1028,11 @@ def _stamp_border_polys(
         if preset == "oval":
             return Ellipse(cx, cy, width_mm / 2, height_mm / 2)
         if preset == "tax_invoice":   # 12m-7: stadium shape
+            # 12m-7 r8: curve_h 由 fixed straight length 27mm 推算
+            ratio = _tax_invoice_curve_h(height_mm) / height_mm
             return Polygon(vertices=_stadium_polygon_vertices(
                 cx, cy, width_mm / 2, height_mm / 2,
+                curve_h_ratio=ratio,
             ))
         # rectangular / square presets
         return Polygon(vertices=[
@@ -1266,13 +1401,15 @@ def _placements_for_preset(
         # Stadium geometry (mirrors _stadium_polygon_vertices).
         _half_w_outer = width_mm / 2.0
         _half_h_outer = height_mm / 2.0
-        _curve_h = TAX_INVOICE_CURVE_H_RATIO * height_mm
+        _curve_h = _tax_invoice_curve_h(height_mm)   # 12m-7 r8
         _top_curve_cy = cy - (_half_h_outer - _curve_h)
         _bot_curve_cy = cy + (_half_h_outer - _curve_h)
-        # d offset for inner stadium (matches _stamp_border_polys logic).
+        # 12m-7 r11 fix: body / arc text 用 OLD d_offset-based _inner_a
+        # （= 16.5 for 45×40），不要被 INNER sep arc geometry 限制。Body
+        # chars 在 outer L/R straight section 高度（slot_0 y ≈ 19，跟
+        # inner sep arc 不衝突），可寬延。
         _d_offset = 0.30 * min(_half_w_outer, _half_h_outer)
-        # Inner stadium axes (matched to inner border for ring-band midpoint)
-        _inner_a = max(_half_w_outer - _d_offset, 0.1)
+        _inner_a = max(_half_w_outer - _d_offset, 0.1)   # body/arc X 用
         _inner_b_curve = max(_curve_h - _d_offset, 0.1)
         _ring_band_width = _d_offset
 
@@ -1283,7 +1420,10 @@ def _placements_for_preset(
             arc_n = len(oval_arc_top_chars)
             # ring band 中點半徑
             arc_a_full = (_half_w_outer + _inner_a) / 2.0
-            arc_b_full = (_curve_h + _inner_b_curve) / 2.0
+            # 12m-7 r9: arc text 弧度加強 — 70% outer + 30% inner
+            # （之前 50/50 太平）。曲率隨 _tax_invoice_curve_h(height)
+            # 自動 scale。
+            arc_b_full = _curve_h * 0.7 + _inner_b_curve * 0.3
             # Char size：受 ring band width 限制（<= ring_band × 0.85），
             # 並 capped by char_size_mm。Span 160° 留少量 shoulder margin。
             arc_span_deg = 130.0   # 12m-7 r3: 160→130 留更多左右 buffer
@@ -1313,7 +1453,10 @@ def _placements_for_preset(
         if has_arc_bot:
             arc_n = len(oval_arc_bottom_chars)
             arc_a_full = (_half_w_outer + _inner_a) / 2.0
-            arc_b_full = (_curve_h + _inner_b_curve) / 2.0
+            # 12m-7 r9: arc text 弧度加強 — 70% outer + 30% inner
+            # （之前 50/50 太平）。曲率隨 _tax_invoice_curve_h(height)
+            # 自動 scale。
+            arc_b_full = _curve_h * 0.7 + _inner_b_curve * 0.3
             arc_span_deg = 130.0   # 12m-7 r3: 160→130 留更多左右 buffer
             arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
                 arc_span_deg)
@@ -1341,23 +1484,24 @@ def _placements_for_preset(
         #   slot ↓     縣市 (optional, position=bottom)               y=+0.34
         # 縣市 position=left → 替換 left plum decoration，不放 body slot
         if has_body or has_top_title or has_location or oval_label_chars:
-            # 12m-7 r3: body chars 不應碰內 separator 弧線。Inner stadium
-            # 半寬 = _inner_a，但靠近 top/bot separator 處 inner curve 會
-            # 內凹，所以 body_usable_w 進一步縮 → × 0.80（保留兩側 10%
-            # margin，總共 20%）。
-            body_usable_w = (2 * _inner_a) * 0.80
+            # 12m-7 r5: body_usable_w × 0.78 (略放寬，配合 inner sep arc
+            # span_ratio 0.80 — body chars 在 sep arc 涵蓋範圍內安全)
+            body_usable_w = (2 * _inner_a) * 0.78
 
-            # tax_invoice slot heights — 12m-7 r3 縮小避免碰 separator：
-            # slot_0 (統編，bold) 0.20→0.16；其他略縮
-            # Slot Y 偏移微調，騰出空間給 separator
-            # tight=True：標題型 row 緊湊置中 (label/title/location)
+            # 12m-7 r4: slot Y + 高度重新校準，避免 title/location 碰
+            # 上下 inner separator 弧。經 math 驗證 (45×30 stamp，inner
+            # arc 在 y=4.5-10.8 / 19.2-25.5)：
+            #   - title at y=8.18, max_h=0.07 → char top=7.18 > arc 5.63
+            #     @x=cx+10 ✓
+            #   - location at y=24.09, max_h=0.07 → char bot=25.09 < arc
+            #     25.35 @x=cx+4 ✓
             STADIUM_BODY_SLOTS = {
-                "top_title":  (-0.30, 0.09, True),
-                "label":      (-0.18, 0.10, True),
-                "slot_0":     (-0.02, 0.16, False),
-                "slot_1":     (+0.13, 0.09, False),
-                "slot_2":     (+0.24, 0.08, False),
-                "location":   (+0.34, 0.08, True),
+                "top_title":  (-0.24, 0.07, True),
+                "label":      (-0.15, 0.07, True),
+                "slot_0":     (-0.02, 0.14, False),
+                "slot_1":     (+0.13, 0.07, False),
+                "slot_2":     (+0.22, 0.07, False),
+                "location":   (+0.32, 0.07, True),
             }
 
             def _stadium_body_row(line_chars, y_ratio, max_h_ratio,
@@ -1751,6 +1895,8 @@ def render_stamp_svg(
     # 12m-1 patch r11/r13: oval 裝飾符號（梅花 / 五角星 / 圓形 / 不顯示），
     # 左右兩側 ring band 中央。佔位避免弧文延伸到最左/最右。
     # 12m-7: tax_invoice 縣市 position=left 時隱藏 LEFT 裝飾（讓位給縣市直立字）
+    # 12m-7 r6: tax_invoice 梅花尺寸 + 位置 fill side compartment：
+    # 內邊接近中央 1 文字邊緣，外邊接近外框 L/R 直線，恰好不碰觸。
     if (preset in ("oval", "tax_invoice")
             and show_border and oval_decoration != "none"):
         cx_mid = stamp_width_mm / 2.0
@@ -1759,17 +1905,65 @@ def render_stamp_svg(
         outer_b = stamp_height_mm / 2.0
         d_offset = 0.30 * min(outer_a, outer_b)
         inner_a = max(outer_a - d_offset, 0.1)
-        mid_a = (outer_a + inner_a) / 2.0
-        deco_r = d_offset * 0.30
         deco_stroke = stroke_width * 0.5
+        if preset == "tax_invoice":
+            # 12m-7 r7: 梅花尺寸 = 中央 1 字體大小（user 要求）。
+            # 仍用 x_fill / y_fill 當上限避免梅花超出 side compartment 或
+            # 撞 label/slot_1 row。
+            # X: side compartment midpoint
+            # Y: slot_0 row level
+            body_usable_w_calc = (2 * inner_a) * 0.78
+            inner_h_calc = stamp_height_mm - 2 * border_padding_mm
+            slot_0_y = cy_mid + (-0.02) * inner_h_calc
+            label_y = cy_mid + (-0.15) * inner_h_calc
+            slot_1_y = cy_mid + (+0.13) * inner_h_calc
+            # Char heights (slot max_h ratios from STADIUM_BODY_SLOTS)
+            ch_sz_label = 0.07 * inner_h_calc
+            ch_sz_slot_1 = 0.07 * inner_h_calc
+            margin = 0.3
+            # 12m-7 r7: 計算 slot_0 char size — 跟 _stadium_body_row 一致
+            # n_slot_0 = 中央 1 row 字數（default 8 for 統編 number row）
+            n_slot_0 = (
+                len(oval_body_lines[0])
+                if (oval_body_lines and len(oval_body_lines) > 0
+                    and oval_body_lines[0])
+                else 8
+            )
+            cell_w_slot_0 = body_usable_w_calc / max(n_slot_0, 1)
+            slot_0_max_h = 0.14 * inner_h_calc
+            ch_sz_slot_0 = min(cell_w_slot_0 * 0.9, slot_0_max_h,
+                               char_size_mm)
+            ch_sz_slot_0 = max(ch_sz_slot_0, 2.5)  # 2.5mm min legibility
+            # x_fill / y_fill 當上限，目標尺寸 = ch_sz_slot_0
+            side_compartment_w = outer_a - body_usable_w_calc / 2.0
+            plum_r_x_max = side_compartment_w / 2.0 - margin
+            plum_r_y_max = min(
+                (slot_0_y - label_y) - ch_sz_label / 2.0 - margin,
+                (slot_1_y - slot_0_y) - ch_sz_slot_1 / 2.0 - margin,
+            )
+            plum_r_target = ch_sz_slot_0 / 2.0
+            deco_r = max(min(plum_r_target, plum_r_x_max, plum_r_y_max),
+                         0.5)
+            # X: side compartment midpoint
+            plum_x_offset = (body_usable_w_calc / 2.0 + outer_a) / 2.0
+            right_x = cx_mid + plum_x_offset
+            left_x = cx_mid - plum_x_offset
+            deco_y = slot_0_y
+        else:
+            # oval / others: 既有 ring band midpoint 邏輯 + d_offset×0.30 plum
+            mid_a = (outer_a + inner_a) / 2.0
+            deco_r = d_offset * 0.30
+            right_x = cx_mid + mid_a
+            left_x = cx_mid - mid_a
+            deco_y = cy_mid
         right_deco = _oval_decoration_svg(
-            oval_decoration, cx_mid + mid_a, cy_mid, deco_r, deco_stroke)
+            oval_decoration, right_x, deco_y, deco_r, deco_stroke)
         # 12m-7: 隱藏 LEFT 裝飾 if tax_invoice 且 縣市放左邊
         suppress_left = (preset == "tax_invoice"
                          and oval_location_position == "left"
                          and oval_location)
         left_deco = "" if suppress_left else _oval_decoration_svg(
-            oval_decoration, cx_mid - mid_a, cy_mid, deco_r, deco_stroke)
+            oval_decoration, left_x, deco_y, deco_r, deco_stroke)
         if right_deco:
             deco_pieces.append(right_deco)
         if left_deco:
@@ -1849,7 +2043,7 @@ def render_stamp_svg(
                     stroke_w = stroke_width * (1.5 if i == 0 else 0.3)
                 elif preset == "tax_invoice":
                     # 12m-7 r3: 更細外框（×0.7）
-                    stroke_w = stroke_width * 0.7
+                    stroke_w = stroke_width * 0.5
                 else:
                     stroke_w = stroke_width
                 body_pieces.append(
@@ -1860,7 +2054,7 @@ def render_stamp_svg(
         if preset == "tax_invoice" and show_border and double_border:
             top_sep_d, bot_sep_d = _stadium_inner_separator_paths(
                 stamp_width_mm, stamp_height_mm)
-            sep_stroke = stroke_width * 0.7
+            sep_stroke = stroke_width * 0.5
             for sep_d in (top_sep_d, bot_sep_d):
                 if sep_d:
                     body_pieces.append(
@@ -1888,7 +2082,7 @@ def render_stamp_svg(
             # 配合 separator arcs 統一視覺粗細，對齊 ED2/ED4 reference
             border_pieces.append(
                 f'<path class="stamp-border" d="{d}" '
-                f'stroke-width="{stroke_width * 0.7}"/>'
+                f'stroke-width="{stroke_width * 0.5}"/>'
             )
         else:
             border_pieces.append(f'<path class="stamp-border" d="{d}"/>')
@@ -1898,7 +2092,7 @@ def render_stamp_svg(
     if preset == "tax_invoice" and show_border and double_border:
         top_sep_d, bot_sep_d = _stadium_inner_separator_paths(
             stamp_width_mm, stamp_height_mm)
-        sep_stroke = stroke_width * 0.7
+        sep_stroke = stroke_width * 0.5
         for sep_d in (top_sep_d, bot_sep_d):
             if sep_d:
                 border_pieces.append(

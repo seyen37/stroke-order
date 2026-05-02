@@ -1523,8 +1523,9 @@ def test_tax_invoice_uses_stadium_border(stub_loader):
     # at x=0 and x=45 (extreme L/R) at the y-center area.
     outer_verts = polys[0].vertices
     xs = [v[0] for v in outer_verts]
-    assert min(xs) == 0.0   # left edge
-    assert max(xs) == 45.0  # right edge
+    # 12m-7 r8: 用 approx — circular arc 計算可能有微小 floating-point drift
+    assert abs(min(xs)) < 1e-9   # left edge ≈ 0.0
+    assert abs(max(xs) - 45.0) < 1e-9   # right edge ≈ 45.0
 
 
 def test_tax_invoice_inner_separator_arcs():

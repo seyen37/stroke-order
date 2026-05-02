@@ -4625,7 +4625,7 @@ function stampApplyPresetDefaults() {
     square_official:  [24, 24, 8,  false],
     round:            [24, 24, 8,  false],
     oval:             [50, 35, 9,  true],   // 12m-1 patch r2: 1.43:1 比例（業界常見），預設雙框
-    tax_invoice:      [45, 30, 8,  true],   // 12m-6: 統一發票章「電視章」常見尺寸 4.5×3.0 cm，預設雙框（內框分隔弧文/body）
+    tax_invoice:      [45, 40, 8,  true],   // 12m-7 r7: 統一發票章「電視章」改 45×40 (4.5×4.0 cm) 給更多 vertical 空間（plum 跟 char 同寬時不擠）
     rectangle_title:  [50, 18, 12, false],
   };
   const d = defaults[$("st-preset").value];
