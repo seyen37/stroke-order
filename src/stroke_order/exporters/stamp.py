@@ -628,33 +628,40 @@ def _oval_decoration_svg(kind: str, cx_mm: float, cy_mm: float,
 # ---------------------------------------------------------------------------
 
 
-def _oval_sawtooth_polygon(
+def _oval_sawtooth_teeth_svg(
     cx: float, cy: float, a: float, b: float, *,
-    num_teeth: int = 80, depth_mm: float = 1.0,
-) -> Polygon:
-    """Return a Polygon with sawtooth (鋸齒) outline on an ellipse.
+    num_teeth: int = 80, depth_outward_mm: float = 1.0,
+) -> str:
+    """Generate SVG path string for filled sawtooth teeth attached OUTSIDE
+    smooth ellipse (Phase 12m-1 patch r19 redesign).
 
-    Phase 12m-1 patch r18: traditional 印章 邊飾 sometimes uses sawtooth/
-    scalloped outer border. Alternates between full radius (a, b) and
-    inward-shifted (a-depth, b-depth) at every angular step. ``num_teeth``
-    counts of zigzag teeth around full perimeter.
+    Each tooth is a triangle:
+      - base: chord between two adjacent ellipse sample points (P_left, P_right)
+      - apex: pushed OUTWARD radially by ``depth_outward_mm`` at midangle
+
+    Result: outer rim shows zigzag teeth pointing outward; inner side
+    of stamp (smooth ellipse) stays smooth — matches traditional 印章
+    鋸齒 邊飾 visual where teeth are decorative protrusions.
+
+    Returns concatenated SVG path data string (M ... L ... L ... Z per
+    tooth). Caller renders as filled `<path>`.
     """
-    a_inner = max(a - depth_mm, 0.5)
-    b_inner = max(b - depth_mm, 0.5)
-    total_vertices = num_teeth * 2  # one outer + one inner per tooth
-    verts = []
-    for i in range(total_vertices):
-        theta = 2.0 * math.pi * i / total_vertices
-        if i % 2 == 0:
-            # tooth tip (outer ellipse)
-            x = cx + a * math.cos(theta)
-            y = cy + b * math.sin(theta)
-        else:
-            # tooth valley (inward)
-            x = cx + a_inner * math.cos(theta)
-            y = cy + b_inner * math.sin(theta)
-        verts.append((x, y))
-    return Polygon(vertices=verts)
+    parts = []
+    for i in range(num_teeth):
+        theta_left = 2.0 * math.pi * i / num_teeth
+        theta_right = 2.0 * math.pi * (i + 1) / num_teeth
+        theta_apex = 2.0 * math.pi * (i + 0.5) / num_teeth
+        bxl = cx + a * math.cos(theta_left)
+        byl = cy + b * math.sin(theta_left)
+        bxr = cx + a * math.cos(theta_right)
+        byr = cy + b * math.sin(theta_right)
+        ax = cx + (a + depth_outward_mm) * math.cos(theta_apex)
+        ay = cy + (b + depth_outward_mm) * math.sin(theta_apex)
+        parts.append(
+            f"M {bxl:.3f},{byl:.3f} L {ax:.3f},{ay:.3f} "
+            f"L {bxr:.3f},{byr:.3f} Z"
+        )
+    return " ".join(parts)
 
 
 def _stamp_border_polys(
@@ -664,7 +671,6 @@ def _stamp_border_polys(
     *,
     double_border: bool = False,
     double_gap_mm: float = 0.8,
-    sawtooth: bool = False,
 ) -> list:
     """Return the border shapes (one or two concentric polygons).
 
@@ -673,8 +679,10 @@ def _stamp_border_polys(
     Polygon-or-Circle-or-Ellipse objects so the caller can render
     each independently.
 
-    Phase 12m-1 patch r18: ``sawtooth`` (oval only) replaces smooth
-    outer ellipse with zigzag tooth pattern (傳統 印章 鋸齒邊飾).
+    Phase 12m-1 patch r19: sawtooth 鋸齒邊飾 不再 polygon-replace 外框
+    （那會讓 inner side 也呈鋸齒）。改成：smooth ellipse 維持原樣，鋸齒
+    teeth 另以 filled triangle paths 黏在 outer side（render 時 inject）。
+    這個 helper 不再處理 sawtooth — 只回傳 smooth shapes。
     """
     cx, cy = width_mm / 2, height_mm / 2
 
@@ -682,10 +690,6 @@ def _stamp_border_polys(
         if preset in ("round", "round_name"):
             return Circle(cx, cy, min(width_mm, height_mm) / 2)
         if preset == "oval":
-            if sawtooth:
-                return _oval_sawtooth_polygon(
-                    cx, cy, width_mm / 2, height_mm / 2,
-                )
             return Ellipse(cx, cy, width_mm / 2, height_mm / 2)
         # rectangular / square presets
         return Polygon(vertices=[
@@ -1242,7 +1246,6 @@ def render_stamp_svg(
         for shape in _stamp_border_polys(
             preset, stamp_width_mm, stamp_height_mm,
             double_border=double_border, double_gap_mm=double_gap_mm,
-            sawtooth=oval_sawtooth and preset == "oval",
         ):
             poly = _ensure_polygon(shape)
             d = _polygon_to_svg_path(poly)
@@ -1295,14 +1298,35 @@ def render_stamp_svg(
         if left_deco:
             deco_pieces.append(left_deco)
 
+    # 12m-1 patch r19: oval 鋸齒邊飾 — smooth ellipse 外側貼填三角形。
+    # 設計上 inner side（朝印面內）保持 smooth（user 要求），outer side
+    # 呈鋸齒。filled 三角形 fill 用同 stroke 顏色，stroke=none。
+    if preset == "oval" and show_border and oval_sawtooth:
+        teeth_d = _oval_sawtooth_teeth_svg(
+            stamp_width_mm / 2.0, stamp_height_mm / 2.0,
+            stamp_width_mm / 2.0, stamp_height_mm / 2.0,
+            num_teeth=80, depth_outward_mm=1.0,
+        )
+        # Concave: fill black (or color) so teeth render as solid triangles
+        sawtooth_fill = ("#000" if engrave_mode == "concave"
+                         else "#c33")  # match convex base red
+        deco_pieces.append(
+            f'<path d="{teeth_d}" fill="{sawtooth_fill}" stroke="none"/>'
+        )
+
     # Phase 12j: viewBox 加 stroke padding 防外框 stroke 外緣被切
     # （圓 path 邊在 width/2，stroke 從中心向外延伸 stroke_width/2，
     # 過去 viewBox=(0, 0, w, h) 會切掉 stroke 外緣 0.3mm）。
-    # 12m-1 patch r14/r16: oval outer × 1.5 + inner × 0.3 (5:1 ratio
-    # for clearly visible double-line contrast)。viewBox padding 用 outer
-    # 完整半徑（× 1.5 / 2 = 0.45mm）防止粗外框 stroke 外緣被切。
+    # 12m-1 patch r14/r16/r19: oval outer × 1.5 + inner × 0.3 (5:1
+    # ratio for visible double-line)。viewBox padding 用 outer 完整半徑
+    # （0.45mm）；sawtooth 開啟時加 tooth depth（1mm）防 teeth 超出 viewBox
+    # 被切。
+    SAWTOOTH_DEPTH_MM = 1.0
     max_stroke_mult = 1.5 if preset == "oval" else 1.0
-    vb_pad = (stroke_width * max_stroke_mult) / 2
+    sawtooth_extra = (SAWTOOTH_DEPTH_MM
+                      if (oval_sawtooth and preset == "oval") else 0.0)
+    vb_pad = max(stroke_width * max_stroke_mult / 2,
+                 sawtooth_extra + stroke_width * 0.5)
     svg_open = (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="{-vb_pad:.3f} {-vb_pad:.3f} '
@@ -1463,7 +1487,6 @@ def render_stamp_gcode(
         for shape in _stamp_border_polys(
             preset, stamp_width_mm, stamp_height_mm,
             double_border=double_border, double_gap_mm=double_gap_mm,
-            sawtooth=oval_sawtooth and preset == "oval",
         ):
             poly = _ensure_polygon(shape)
             out.extend(_polygon_to_gcode_path(
