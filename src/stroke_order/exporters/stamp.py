@@ -754,6 +754,10 @@ TAX_INVOICE_INNER_SHOULDER_DIST_MM = 37.0  # 12m-7 r11: 內框上下弧 shoulder
                                            #   y_top = (height - 37) / 2
                                            #   y_bot = height - y_top
                                            # For 45×40: y_top=1.5, y_bot=38.5
+TAX_INVOICE_BODY_USABLE_W_MM = 36.0  # 12m-7 r14: 中央 1 (slot_0) 文字
+                                     # 左右邊界 = 36mm（user spec）。其他
+                                     # body slots 共用此寬。Clamp 至 stamp
+                                     # width × 0.90 避免超過 narrow stamps。
 TAX_INVOICE_POLYGON_CURVE_VERTICES = 32   # per top/bottom curve
 
 
@@ -1404,12 +1408,13 @@ def _placements_for_preset(
         _curve_h = _tax_invoice_curve_h(height_mm)   # 12m-7 r8
         _top_curve_cy = cy - (_half_h_outer - _curve_h)
         _bot_curve_cy = cy + (_half_h_outer - _curve_h)
-        # 12m-7 r11 fix: body / arc text 用 OLD d_offset-based _inner_a
-        # （= 16.5 for 45×40），不要被 INNER sep arc geometry 限制。Body
-        # chars 在 outer L/R straight section 高度（slot_0 y ≈ 19，跟
-        # inner sep arc 不衝突），可寬延。
+        # 12m-7 r14: 用 sep arc geometry 的 inner_a 算 arc text X spread
+        # （之前用 d_offset-based 16.5 → arc text 邊邊字碰 outer frame）。
+        # New arc_a 用 sep_inner_a (≈10.65)，arc text 縮 width 進 outer 內。
+        _sep_shoulder_y, _, _sep_inner_a, _ = _tax_invoice_inner_sep_geometry(
+            width_mm, height_mm)
         _d_offset = 0.30 * min(_half_w_outer, _half_h_outer)
-        _inner_a = max(_half_w_outer - _d_offset, 0.1)   # body/arc X 用
+        _inner_a = max(_half_w_outer - _d_offset, 0.1)   # legacy, body 不用
         _inner_b_curve = max(_curve_h - _d_offset, 0.1)
         _ring_band_width = _d_offset
 
@@ -1419,7 +1424,7 @@ def _placements_for_preset(
         if has_arc_top:
             arc_n = len(oval_arc_top_chars)
             # ring band 中點半徑
-            arc_a_full = (_half_w_outer + _inner_a) / 2.0
+            arc_a_full = (_half_w_outer + _sep_inner_a) / 2.0   # 12m-7 r14
             # 12m-7 r9: arc text 弧度加強 — 70% outer + 30% inner
             # （之前 50/50 太平）。曲率隨 _tax_invoice_curve_h(height)
             # 自動 scale。
@@ -1452,7 +1457,7 @@ def _placements_for_preset(
         # --- Bottom arc (地址沿下半弧) ---
         if has_arc_bot:
             arc_n = len(oval_arc_bottom_chars)
-            arc_a_full = (_half_w_outer + _inner_a) / 2.0
+            arc_a_full = (_half_w_outer + _sep_inner_a) / 2.0   # 12m-7 r14
             # 12m-7 r9: arc text 弧度加強 — 70% outer + 30% inner
             # （之前 50/50 太平）。曲率隨 _tax_invoice_curve_h(height)
             # 自動 scale。
@@ -1484,9 +1489,10 @@ def _placements_for_preset(
         #   slot ↓     縣市 (optional, position=bottom)               y=+0.34
         # 縣市 position=left → 替換 left plum decoration，不放 body slot
         if has_body or has_top_title or has_location or oval_label_chars:
-            # 12m-7 r5: body_usable_w × 0.78 (略放寬，配合 inner sep arc
-            # span_ratio 0.80 — body chars 在 sep arc 涵蓋範圍內安全)
-            body_usable_w = (2 * _inner_a) * 0.78
+            # 12m-7 r14: body_usable_w 直接用常數 36mm (user spec)
+            # Clamp at stamp width × 0.90 for narrow stamps to avoid overflow.
+            body_usable_w = min(TAX_INVOICE_BODY_USABLE_W_MM,
+                                width_mm * 0.90)
 
             # 12m-7 r4: slot Y + 高度重新校準，避免 title/location 碰
             # 上下 inner separator 弧。經 math 驗證 (45×30 stamp，inner
@@ -1912,7 +1918,9 @@ def render_stamp_svg(
             # 撞 label/slot_1 row。
             # X: side compartment midpoint
             # Y: slot_0 row level
-            body_usable_w_calc = (2 * inner_a) * 0.78
+            # 12m-7 r14: 跟 _placements_for_preset 一致用常數 36mm
+            body_usable_w_calc = min(TAX_INVOICE_BODY_USABLE_W_MM,
+                                     stamp_width_mm * 0.90)
             inner_h_calc = stamp_height_mm - 2 * border_padding_mm
             slot_0_y = cy_mid + (-0.02) * inner_h_calc
             label_y = cy_mid + (-0.15) * inner_h_calc
