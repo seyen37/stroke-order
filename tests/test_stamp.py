@@ -316,8 +316,10 @@ def test_capacity_oval_returns_structured_caps():
     assert caps["body_per_line_max"] >= 10
     assert caps["body_lines_max"] == 3
     assert caps["min_legible_mm"] == 2.5
-    # inner 對 50×35 + double border 0.8+0.8 → 46.8×31.8
-    assert info["inner_size_mm"] == [46.8, 31.8]
+    # 12m-1 patch r9: oval double_border 改 body-wrapping inner ellipse，
+    # 不再縮 inner area。inner_size_mm 對 oval 不受 double_border 影響：
+    # 50 - 1.6 = 48.4, 35 - 1.6 = 33.4 (just border_padding 0.8)
+    assert info["inner_size_mm"] == [48.4, 33.4]
 
 
 def test_capacity_oval_inner_size_correct():
@@ -1200,18 +1202,19 @@ def test_oval_arc_top_first_char_on_left():
 
 
 def test_oval_arc_top_rotation_outward():
-    """頂部朝外: char rotation = phi + 90° (ELLIPSE-correct phi, not circle
-    approximation). Top apex → 0° (upright). For 48×28 oval (1.71 aspect),
-    leftmost char rotation differs ~4° from circle formula due to ellipse
-    curvature (Phase 12m-1 patch r8 fix)."""
+    """頂部朝外: char rotation = phi + 90° where phi = ELLIPSE OUTWARD
+    NORMAL angle (Phase 12m-1 patch r10 fix), not radius vector angle.
+    Apex → 0° (upright). At shoulders, normal direction differs ~10°+
+    from radius direction for elongated ellipses (1.71:1 → ~10°)."""
     pos = _oval_arc_positions(11, inner_w=48, inner_h=28, cx=25, cy=15,
                               top=True)
-    # i=5 top apex: phi at apex = -90° regardless of a/b → rotation = 0
+    # i=5 top apex: at apex normal direction = -y axis regardless of a/b
+    # → rotation = 0
     assert pos[5][2] == pytest.approx(0.0, abs=0.5)
-    # i=0 leftmost-top: ellipse-correct rotation ≈ -84° (was -80° with
-    # circle approximation; the ~4° difference is the visible curvature
-    # mis-alignment user reported)
-    assert pos[0][2] == pytest.approx(-84.0, abs=2.0)
+    # i=0 leftmost-top: normal-based rotation ≈ -73° (was -84° with radius
+    # angle; difference fixes user-reported "edges rotate inward toward
+    # center" mis-alignment with outer frame curvature)
+    assert pos[0][2] == pytest.approx(-73.0, abs=2.0)
     # Sign sanity: leftmost char rotates negative (head tilts left)
     assert pos[0][2] < 0
 
@@ -1243,13 +1246,14 @@ def test_oval_arc_bottom_chars_upright():
 
 def test_oval_arc_bottom_leftmost_rotation_inward():
     """12m-1 patch — leftmost-bottom char head tilts toward CENTER
-    (positive rotation), not outward. Phase 12m-1 patch r8: ellipse-correct
-    phi → ~84° (was ~80° with circle approximation)."""
+    (positive rotation), not outward. Phase 12m-1 patch r10: ellipse
+    NORMAL direction → ~73° (was ~84° with radius angle in r8). Smaller
+    inward tilt → better alignment with outer frame curvature."""
     pos = _oval_arc_positions(14, inner_w=48, inner_h=28, cx=25, cy=15,
                               top=False)
-    # i=0 leftmost-bottom: ellipse-correct rotation ~84° (head tilts
-    # toward center)
-    assert pos[0][2] == pytest.approx(84.0, abs=2.0)
+    # i=0 leftmost-bottom: ellipse-normal rotation ~73° (head tilts toward
+    # center but less than radius-based ~84°)
+    assert pos[0][2] == pytest.approx(73.0, abs=2.0)
     # Sign sanity
     assert pos[0][2] > 0
 
@@ -1277,68 +1281,100 @@ def test_oval_arc_char_size_capped_by_user():
     assert sz <= 4
 
 
-def test_oval_body_1_line_centered_at_y0():
-    """1 body line: y_offset = 0 (centered)."""
+def test_oval_body_slot_1_at_top():
+    """Slot-based (12m-1 patch r11): 中央 1 (index 0) 永遠 top."""
     chars = _stub_chars(3)
+    # Pass [chars] = 中央 1 only
     out = _oval_body_layout([chars], inner_w=48, inner_h=28,
                             cx=25, cy=15, char_size_cap=9)
     assert len(out) == 3
-    # All 3 chars at same y = cy
     ys = [y for _, _, y, _, _, _ in out]
+    # 中央 1 → y = cy + (-0.15) * inner_h = 15 - 4.2 = 10.8
+    assert all(y < 15 for y in ys)
+    assert all(y == pytest.approx(15 - 0.15 * 28, abs=0.5) for y in ys)
+
+
+def test_oval_body_slot_2_at_middle_large():
+    """Slot-based: 中央 2 (index 1) 永遠 middle, 字身大（max_h 0.30）."""
+    chars = _stub_chars(3)
+    # Pass [[], chars, []] = 中央 2 only
+    out = _oval_body_layout([[], chars, []], inner_w=48, inner_h=28,
+                            cx=25, cy=15, char_size_cap=99)
+    assert len(out) == 3
+    ys = [y for _, _, y, _, _, _ in out]
+    # 中央 2 → y = cy
     assert all(y == pytest.approx(15) for y in ys)
+    # 中央 2 max_h = 0.30 inner_h = 8.4mm
+    sizes = [w for _, _, _, _, w, _ in out]
+    assert all(s <= 0.30 * 28 + 0.5 for s in sizes)
 
 
-def test_oval_body_2_lines_split_top_bottom():
-    """2 body lines: y_offsets = ±0.18 inner_h."""
+def test_oval_body_slot_3_at_bottom_small():
+    """Slot-based: 中央 3 (index 2) 永遠 bottom, 字身小（max_h 0.15）."""
+    chars = _stub_chars(13)  # 聯絡資訊 13 chars
+    # Pass [[], [], chars] = 中央 3 only
+    out = _oval_body_layout([[], [], chars], inner_w=48, inner_h=28,
+                            cx=25, cy=15, char_size_cap=9)
+    assert len(out) == 13
+    ys = [y for _, _, y, _, _, _ in out]
+    # 中央 3 → y = cy + 0.15 * inner_h = 19.2
+    assert all(y > 15 for y in ys)
+    assert all(y == pytest.approx(15 + 0.15 * 28, abs=0.5) for y in ys)
+
+
+def test_oval_body_slots_1_and_3_skip_middle():
+    """T-02 風格 (中央 1 + 中央 3 填，中央 2 空): top + bottom 兩行。"""
     title = _stub_chars(3)
     contact = _stub_chars(13)
-    out = _oval_body_layout([title, contact], inner_w=48, inner_h=28,
-                            cx=25, cy=15, char_size_cap=9)
-    # 16 placements (3 + 13)
-    assert len(out) == 16
-    # Title line y < cy (top), contact y > cy (bottom)
+    out = _oval_body_layout([title, [], contact],
+                            inner_w=48, inner_h=28, cx=25, cy=15,
+                            char_size_cap=9)
+    assert len(out) == 16  # 3 + 0 + 13
     title_ys = [y for _, _, y, _, _, _ in out[:3]]
     contact_ys = [y for _, _, y, _, _, _ in out[3:]]
-    assert all(y < 15 for y in title_ys)
-    assert all(y > 15 for y in contact_ys)
-    # Each line internally same y
-    assert len(set(round(y, 1) for y in title_ys)) == 1
-    assert len(set(round(y, 1) for y in contact_ys)) == 1
+    assert all(y < 15 for y in title_ys)   # top
+    assert all(y > 15 for y in contact_ys)  # bottom
 
 
-def test_oval_body_visual_hierarchy_title_bigger_than_contact():
-    """T-02 復刻關鍵：3-char title 比 13-char 聯絡行字大很多。"""
-    title = _stub_chars(3)        # "收發章"
-    contact = _stub_chars(13)     # "電話:02-2234567"
-    out = _oval_body_layout([title, contact], inner_w=48, inner_h=28,
-                            cx=25, cy=15, char_size_cap=9)
-    title_size = out[0][4]    # w of first title char
-    contact_size = out[3][4]  # w of first contact char
-    assert title_size > contact_size * 2  # 至少 2× 大
+def test_oval_body_visual_hierarchy_slot_2_largest():
+    """Slot-based 視覺階層：中央 2 (大字) > 中央 1 ≈ 中央 3 (小字)。"""
+    chars3 = _stub_chars(3)
+    out = _oval_body_layout([chars3, chars3, chars3],
+                            inner_w=48, inner_h=28, cx=25, cy=15,
+                            char_size_cap=99)  # let max_h govern
+    # Group by y to identify slot
+    by_y = {}
+    for c, x, y, rot, w, h in out:
+        by_y.setdefault(round(y, 1), []).append(w)
+    ys_sorted = sorted(by_y.keys())  # top, middle, bottom
+    top_w = by_y[ys_sorted[0]][0]
+    mid_w = by_y[ys_sorted[1]][0]
+    bot_w = by_y[ys_sorted[2]][0]
+    # 中央 2 (mid) 字身最大；中央 3 (bottom) 字身最小
+    assert mid_w > top_w
+    assert mid_w > bot_w
+    assert top_w >= bot_w
 
 
-def test_oval_body_3_lines_top_middle_bottom():
-    """3 body lines: y_offsets = -0.25, 0, +0.25 inner_h."""
+def test_oval_body_all_three_slots_fixed_positions():
+    """Slot-based: 三 slot 都填 → fixed -0.15 / 0 / +0.15 y_offsets."""
     out = _oval_body_layout(
         [_stub_chars(3), _stub_chars(5), _stub_chars(7)],
         inner_w=48, inner_h=28, cx=25, cy=15, char_size_cap=9,
     )
     assert len(out) == 15
-    # Three distinct y values
     ys = sorted({round(y, 1) for _, _, y, _, _, _ in out})
     assert len(ys) == 3
-    assert ys[0] < 15 < ys[2]   # top < middle < bottom
+    assert ys[0] == pytest.approx(15 - 0.15 * 28, abs=0.5)
     assert ys[1] == pytest.approx(15, abs=0.5)
+    assert ys[2] == pytest.approx(15 + 0.15 * 28, abs=0.5)
 
 
-def test_oval_body_skips_empty_lines():
-    """Empty inner lists are dropped, treated as fewer lines."""
-    out = _oval_body_layout(
-        [_stub_chars(3), [], _stub_chars(5)],
-        inner_w=48, inner_h=28, cx=25, cy=15, char_size_cap=9,
-    )
-    # Treated as 2 lines (3 + 5 = 8 chars)
-    assert len(out) == 8
+def test_oval_body_all_empty_returns_empty():
+    """Slot-based: 全部 slot 空 → 空輸出。"""
+    out = _oval_body_layout([[], [], []], inner_w=48, inner_h=28,
+                            cx=25, cy=15, char_size_cap=9)
+    assert out == []
 
 
 def test_placements_oval_structured_yields_arc_plus_body():

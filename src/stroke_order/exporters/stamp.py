@@ -336,17 +336,19 @@ def _oval_arc_positions(
 
     Rotation conventions (per-arc 朝外 direction):
     - **Top arc 頂部朝外**: ``rotation = phi + 90°`` — char's HEAD points
-      OUTWARD radially (upward at top). Reads left→right at top.
+      OUTWARD along ellipse normal (upward at top). Reads left→right.
     - **Bottom arc 底部朝外**: ``rotation = phi - 90°`` — char's FEET
-      point OUTWARD radially (downward at bottom). Char upright. Reads
-      left→right.
+      point OUTWARD along ellipse normal (downward at bottom). Char
+      upright. Reads left→right.
 
-    Where ``phi = atan2(b·sin t, a·cos t)`` is the ELLIPSE-correct
-    radial angle, NOT the parameter ``t``. For circles a=b → phi=t,
-    so this reduces to the original formula. For oblate/elongated
-    ellipses, phi differs from t at "shoulders" (~14° at 1.6:1 aspect),
-    where the parameter-based rotation made chars visibly mis-aligned
-    with the ellipse curvature (Phase 12m-1 patch r8 fix).
+    Where ``phi = atan2(a·sin t, b·cos t)`` is the ELLIPSE OUTWARD
+    NORMAL angle (gradient of ellipse equation), NOT the radius vector
+    angle. Phase 12m-1 patch r10 fix: r8 used radius angle
+    ``atan2(b sin, a cos)`` which is wrong for ellipses — it makes
+    edge chars rotate INWARD toward the geometric center instead of
+    along the ellipse's actual curvature. For circles (a=b) the two
+    formulas coincide; for elongated ellipses they differ ~10°+ at
+    shoulders, visibly mis-aligning chars with the outer frame.
 
     **Placement padding**: Phase 12m-1 patch r8 — char-size aware.
     Instead of fixed ``padding_ratio``, position chars on an ellipse
@@ -381,8 +383,16 @@ def _oval_arc_positions(
         rot_offset = -90.0      # 底部朝外 — feet outward at bottom
 
     def _ellipse_phi_deg(rad: float) -> float:
-        """ELLIPSE-correct radial angle (12m-1 patch r8) — atan2(b·sin, a·cos)."""
-        return math.degrees(math.atan2(b * math.sin(rad), a * math.cos(rad)))
+        """ELLIPSE outward normal angle (12m-1 patch r10).
+
+        Uses ``atan2(a·sin t, b·cos t)`` = gradient direction of
+        ellipse equation = outward normal direction. Differs from
+        the simpler radius-vector angle ``atan2(b sin, a cos)`` for
+        non-circles. Edge chars now align with ellipse curvature
+        (matches outer frame), instead of pointing toward geometric
+        center.
+        """
+        return math.degrees(math.atan2(a * math.sin(rad), b * math.cos(rad)))
 
     if n == 1:
         # Single char at apex (top or bottom centre)
@@ -438,46 +448,53 @@ def _oval_body_layout(
     inner_w: float, inner_h: float, cx: float, cy: float,
     char_size_cap: float,
 ) -> list[tuple[Character, float, float, float, float, float]]:
-    """Lay out 1-3 horizontal body lines centred inside an oval.
+    """Lay out body slots（中央 1/2/3）at FIXED positions inside an oval.
+
+    Phase 12m-1 patch r11: **slot-based positioning** — each slot has
+    its own fixed y_offset and max_h regardless of which other slots
+    are filled. Empty slot = skip rendering (leaves visual gap).
+
+    Slot semantics (跟 T-02 / 印面樣式 reference 對齊):
+    - **中央 1** (lines_chars[0]): TOP, normal-size title line
+    - **中央 2** (lines_chars[1]): MIDDLE, **大字**（強調用）
+    - **中央 3** (lines_chars[2]): BOTTOM, **小字**（聯絡 / 統編）
 
     Args:
-        lines_chars: list of (already-loaded) Character lists, one per line.
-            Empty inner lists are skipped. Outer list capped at 3.
-        char_size_cap: upper bound on char width/height (matches the
-            user's ``char_size_mm`` setting).
+        lines_chars: position-indexed list of Character lists.
+            Index 0 = 中央 1, 1 = 中央 2, 2 = 中央 3.
+            Empty inner list = skip that slot.
+        char_size_cap: upper bound on char width/height (matches user's
+            ``char_size_mm`` setting).
 
-    Each line auto-fits its width based on the ellipse's available
-    horizontal span at the line's y, so a 3-char title line gets large
-    chars while a 15-char contact line gets compact chars — matching
-    real-world 橢圓章 visual hierarchy (cf. T-02 reference).
+    Each filled slot auto-fits width based on ellipse's available x at
+    its y — natural visual hierarchy emerges (short text in 中央 2 grows
+    big; long text in 中央 3 stays compact).
 
     Returns ``[(char, cx, cy, rot, w, h), ...]``.
     """
-    # Drop empty lines, cap to 3
-    lines_chars = [ln for ln in lines_chars if ln][:3]
-    n_lines = len(lines_chars)
-    if n_lines == 0:
+    # 12m-1 patch r11: pad/truncate to exactly 3 slots, preserve slot index
+    lines_chars = list(lines_chars)[:3]
+    while len(lines_chars) < 3:
+        lines_chars.append([])
+    if not any(lines_chars):
         return []
-    # Per-line y offset (ratio of inner_h half) and max char height (ratio
-    # of inner_h). Tuned to match T-01/T-02/T-04 reference visual.
-    # 12m-1 patch: 拉近 2/3 行 spacing 給上下 arc 留更多空間（user 反映兩
-    # body line 之間距太大，title 跟 contact 互相隔開過遠）。
-    Y_OFFSETS = {
-        1: [0.0],
-        2: [-0.10, 0.10],     # was ±0.18 → 更緊湊置中
-        3: [-0.20, 0.0, 0.20],  # was ±0.25 → 同上邏輯
-    }
-    MAX_H_PER_LINE = {1: 0.40, 2: 0.20, 3: 0.15}  # 2/3 行字身略縮
-    offs = Y_OFFSETS[n_lines]
-    max_h = MAX_H_PER_LINE[n_lines] * inner_h
+
+    # Per-SLOT y_offset (ratio of inner_h) + max char height (ratio of inner_h).
+    # 中央 2 大字 (max_h 0.30 inner_h)；中央 3 小字 (0.15) 給聯絡資訊縮排；
+    # 中央 1 normal title (0.18)。三個 slot 互相獨立。
+    SLOT_Y_OFFSETS = [-0.15, 0.0, 0.15]
+    SLOT_MAX_H = [0.18, 0.30, 0.15]
+
     a = inner_w / 2.0
     b = inner_h / 2.0
-    USABLE_WIDTH_RATIO = 0.80   # leave 10% margin each side at full width
+    USABLE_WIDTH_RATIO = 0.80
     out: list[tuple[Character, float, float, float, float, float]] = []
-    for line_chars, y_off_ratio in zip(lines_chars, offs):
+    for slot_idx, line_chars in enumerate(lines_chars):
         n = len(line_chars)
         if n == 0:
             continue
+        y_off_ratio = SLOT_Y_OFFSETS[slot_idx]
+        max_h = SLOT_MAX_H[slot_idx] * inner_h
         y = cy + y_off_ratio * inner_h
         # Available x-half-width at this y from ellipse equation
         y_norm = (y - cy) / b
@@ -486,15 +503,46 @@ def _oval_body_layout(
         x_half = a * math.sqrt(1.0 - y_norm * y_norm)
         usable_w = USABLE_WIDTH_RATIO * 2.0 * x_half
         cell_w = usable_w / n
-        # Char size: limited by cell width AND vertical band height AND cap
         sz = min(char_size_cap, cell_w * 0.92, max_h)
-        # Centre line horizontally
         total_w = cell_w * n
         x_start = cx - total_w / 2.0 + cell_w / 2.0
         for i, c in enumerate(line_chars):
             x = x_start + i * cell_w
             out.append((c, x, y, 0.0, sz, sz))
     return out
+
+
+def _oval_flower_svg(cx_mm: float, cy_mm: float, radius_mm: float,
+                     stroke_width: float = 0.3) -> str:
+    """5-petal plum blossom (梅花) SVG decoration for oval stamp ring band.
+
+    Phase 12m-1 patch r11: industry-standard oval stamps use 5-petal 梅花
+    at left/right edges of the ring band to fill horizontal gaps where
+    arc text doesn't reach. 5 small circles arranged at 72° intervals
+    around a tiny center dot.
+
+    Args:
+        cx_mm, cy_mm: flower centre position
+        radius_mm: outer radius (petal centre offset from flower centre)
+            — petals each have ~radius * 0.55 individual radius
+        stroke_width: stroke for petal outlines
+    """
+    petal_r = radius_mm * 0.55
+    parts = [f'<g class="stamp-flower" '
+             f'transform="translate({cx_mm:.3f},{cy_mm:.3f})" '
+             f'fill="none" stroke-width="{stroke_width:.3f}">']
+    # Center dot
+    parts.append(f'<circle cx="0" cy="0" r="{petal_r * 0.30:.3f}"/>')
+    # 5 petals at 72° intervals; start from top (-90°) for symmetry
+    for i in range(5):
+        angle_rad = math.radians(-90.0 + i * 72.0)
+        px = radius_mm * 0.55 * math.cos(angle_rad)
+        py = radius_mm * 0.55 * math.sin(angle_rad)
+        parts.append(
+            f'<circle cx="{px:.3f}" cy="{py:.3f}" r="{petal_r:.3f}"/>'
+        )
+    parts.append('</g>')
+    return "".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -537,10 +585,23 @@ def _stamp_border_polys(
             if r > 0:
                 polys.append(Circle(cx, cy, r))
         elif preset == "oval":
+            # 12m-1 patch r9 / r10 / r11: oval double_border = body-wrapping
+            # inner ellipse + 內外框等距 ring band（user 觀察「內外框距離
+            # 恆定」→ 用 constant offset (a-d, b-d) 取代 uniform scale）。
+            #
+            # 嚴格上橢圓 offset curve 不是另一橢圓，但對 typical
+            # d/a < 0.25 視覺夠 close。Heuristic d = 0.20 × min(half_a,
+            # half_b)，對 50×35 stamp → d = 3.5mm:
+            #   - inner half-axes (25-3.5, 17.5-3.5) = (21.5, 14)
+            #   - ring band 寬 3.5mm — 限制弧文 char_size 上限
+            #   - 視覺類似 T-02 / 印面樣式 reference 的 ring band
+            half_a = width_mm / 2.0
+            half_b = height_mm / 2.0
+            d = 0.20 * min(half_a, half_b)
             polys.append(Ellipse(
                 cx, cy,
-                max(width_mm / 2 - gap, 0.1),
-                max(height_mm / 2 - gap, 0.1),
+                max(half_a - d, 0.1),
+                max(half_b - d, 0.1),
             ))
         else:
             polys.append(Polygon(vertices=[
@@ -589,7 +650,13 @@ def _placements_for_preset(
     :func:`_char_cut_paths`.
     """
     cx, cy = width_mm / 2.0, height_mm / 2.0
-    inset = border_padding_mm + (double_gap_mm if double_border else 0)
+    # 12m-1 patch r9: oval 雙框 semantic 變了（body-wrapping 不再 concentric），
+    # 弧文要佔外-內框環帶 → inset 不加 double_gap_mm，弧文 placement 用 outer
+    # 邊距即可。其他 preset 維持既有 concentric 語意。
+    if preset == "oval":
+        inset = border_padding_mm
+    else:
+        inset = border_padding_mm + (double_gap_mm if double_border else 0)
     # Bug fix (12b-5): 過去用 max(_, char_size_mm) 會讓 user 改 char_size_mm
     # 時意外把 inner 拉大、外框 inset 縮小，造成「字大小設大 → 章面也跟著
     # 變大」的錯覺。改成純安全下限（1.0 mm 避免 inner 變負）。
@@ -1048,6 +1115,28 @@ def render_stamp_svg(
     for d in decorations:
         deco_pieces.append(_decoration_svg(d))
 
+    # 12m-1 patch r11: oval 五瓣梅花裝飾 — 左右兩側 ring band 中央，業界
+    # 慣例佔位符（弧文不延伸到最左/最右）。位置在 outer 跟 inner ellipse
+    # 之間 ring band 的中線（middle ring）。
+    if preset == "oval" and show_border:
+        cx_mid = stamp_width_mm / 2.0
+        cy_mid = stamp_height_mm / 2.0
+        outer_a = stamp_width_mm / 2.0
+        outer_b = stamp_height_mm / 2.0
+        # Inner ellipse offset (匹配 _stamp_border_polys)
+        d_offset = 0.20 * min(outer_a, outer_b)
+        inner_a = max(outer_a - d_offset, 0.1)
+        # ring band 中線位置（horizontal axis）
+        mid_a = (outer_a + inner_a) / 2.0
+        # 梅花大小：略小於 ring band 寬度
+        flower_r = d_offset * 0.40
+        deco_pieces.append(
+            _oval_flower_svg(cx_mid + mid_a, cy_mid, flower_r, stroke_width)
+        )
+        deco_pieces.append(
+            _oval_flower_svg(cx_mid - mid_a, cy_mid, flower_r, stroke_width)
+        )
+
     # Phase 12j: viewBox 加 stroke padding 防外框 stroke 外緣被切
     # （圓 path 邊在 width/2，stroke 從中心向外延伸 stroke_width/2，
     # 過去 viewBox=(0, 0, w, h) 會切掉 stroke 外緣 0.3mm）。
@@ -1084,19 +1173,33 @@ def render_stamp_svg(
             f'<g id="stamp-chars" fill="{CONVEX_CHAR_WHITE}" stroke="none">'
             f'{"".join(char_pieces)}</g>'
         )
-        # 邊框描邊（在字上面，視覺上邊界清楚）
+        # 邊框描邊（在字上面，視覺上邊界清楚）。
+        # 12m-1 patch r10: oval inner ellipse stroke 較細（× 0.5），對齊 T-02
+        # / TT-* reference visual — 內框視覺上比外框細。
         if border_d_list:
-            for d in border_d_list:
+            for i, d in enumerate(border_d_list):
+                stroke_w = (stroke_width * 0.5
+                            if i >= 1 and preset == "oval"
+                            else stroke_width)
                 body_pieces.append(
                     f'<path d="{d}" fill="none" stroke="{CONVEX_BORDER_BLACK}" '
-                    f'stroke-width="{stroke_width}"/>'
+                    f'stroke-width="{stroke_w}"/>'
                 )
         body_pieces.extend(deco_pieces)
         return f'{svg_open}{"".join(body_pieces)}</svg>'
 
     # 陰刻 (concave，預設，向後相容)：字凹下、白底、字 outline 用 stroke
-    border_pieces = [f'<path class="stamp-border" d="{d}"/>'
-                     for d in border_d_list]
+    # 12m-1 patch r10: oval inner ellipse stroke 較細（× 0.5），用 inline
+    # stroke-width override（同 convex 模式邏輯）。
+    border_pieces = []
+    for i, d in enumerate(border_d_list):
+        if i >= 1 and preset == "oval":
+            border_pieces.append(
+                f'<path class="stamp-border" d="{d}" '
+                f'stroke-width="{stroke_width * 0.5}"/>'
+            )
+        else:
+            border_pieces.append(f'<path class="stamp-border" d="{d}"/>')
     return (
         f'{svg_open}'
         f'<g id="stamp-engrave" stroke="{color}" stroke-width="{stroke_width}" '
@@ -1309,7 +1412,12 @@ def stamp_capacity(
     double_gap_mm: float = 0.8,
 ) -> dict:
     """How many characters fit at the chosen size?"""
-    inset = border_padding_mm + (double_gap_mm if double_border else 0)
+    # 12m-1 patch r9: oval double_border 是 body-wrapping inner ellipse，
+    # 不再是 concentric — 弧文佔外-內框環帶，inset 只算 border_padding。
+    if preset == "oval":
+        inset = border_padding_mm
+    else:
+        inset = border_padding_mm + (double_gap_mm if double_border else 0)
     inner_w = max(stamp_width_mm - 2 * inset, 1.0)
     inner_h = max(stamp_height_mm - 2 * inset, 1.0)
     if preset == "square_name":

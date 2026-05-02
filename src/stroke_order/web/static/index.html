@@ -1148,15 +1148,15 @@
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">中央 2</label>
         <input id="st-oval-body-2" type="text"
-               placeholder="第 2 行（聯絡如 TEL:02-2234567，可空）" maxlength="40"
-               value="電話:02-2234567"
+               placeholder="第 2 行（中央位置強調用，可放大字體）" maxlength="40"
+               value=""
                style="flex:1;font-size:14px;">
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">中央 3</label>
         <input id="st-oval-body-3" type="text"
-               placeholder="第 3 行（可空）" maxlength="40"
-               value=""
+               placeholder="第 3 行（聯絡 / 統編，自動縮小）" maxlength="40"
+               value="電話:02-2234567"
                style="flex:1;font-size:14px;">
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
@@ -1173,7 +1173,9 @@
          border-left:3px solid #e0a020;padding:6px 10px;border-radius:3px;
          margin:4px 0;font-size:12px;color:#7a5500;"></div>
 
-    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+    <!-- 12m-1 patch r9: 3 字自動補字僅 square_name 適用（個人姓名章慣例）。
+         其他 preset（公司章 / 圓章 / 圓戳章 / 橢圓 / 職名章）整個 row 隱藏。 -->
+    <div class="row" id="st-autofill-row" style="background:#fafaf5;border-left:3px solid #cc8;
          padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
       <label title="3 字姓名章慣例會在第 4 格補一個字（預設「印」）湊成 2×2 對稱佈局，視覺更傳統。其他字數時不補。">
         <input id="st-auto-fill" type="checkbox" checked> 3 字自動補字
@@ -4510,6 +4512,12 @@ function stampInit() {
   // {square_name, round_name} 時顯示，跟 oval-fields pattern 對齊。
   $("st-preset").addEventListener("change", stampUpdateNameFieldsUI);
   stampUpdateNameFieldsUI();
+  // 12m-1 patch r9: 3 字自動補字僅 square_name；每字位移微調僅
+  // square_name / round_name / square_official 適用。
+  $("st-preset").addEventListener("change", stampUpdateAutofillUI);
+  $("st-preset").addEventListener("change", stampUpdateCharOffsetsVisibilityUI);
+  stampUpdateAutofillUI();
+  stampUpdateCharOffsetsVisibilityUI();
   // 12m-1 patch r3: 初次載入也套用 preset defaults（含雙線外框 ON for oval）。
   // 過去 stampApplyPresetDefaults 只 hook 在 change，初始狀態靠 HTML 寫死，
   // 結果使用者第一次選 oval 時若 cached JS 沒 4-element default，雙框沒生效。
@@ -4607,6 +4615,26 @@ function stampUpdateNameFieldsUI() {
   const isPersonalName = presetEl.value === "square_name"
                        || presetEl.value === "round_name";
   nameFields.style.display = isPersonalName ? "" : "none";
+}
+
+// 12m-1 patch r9: 3 字自動補字僅 square_name 慣例（個人姓名章 4 格 2×2
+// 補「印」），其他 preset 沒此邏輯需求 → 整 row 隱藏。
+function stampUpdateAutofillUI() {
+  const presetEl = document.getElementById("st-preset");
+  const row = document.getElementById("st-autofill-row");
+  if (!presetEl || !row) return;
+  row.style.display = (presetEl.value === "square_name") ? "" : "none";
+}
+
+// 12m-1 patch r9: 每字位移微調僅 square_name / round_name / square_official
+// 適用（這 3 個 preset 是 grid-based，每字有獨立 cell 可位移）。橢圓 /
+// 圓戳章 / 職名章 layout 是 arc 或固定 stretch，per-char offset 沒意義。
+function stampUpdateCharOffsetsVisibilityUI() {
+  const presetEl = document.getElementById("st-preset");
+  const det = document.getElementById("st-char-offsets");
+  if (!presetEl || !det) return;
+  const allowed = ["square_name", "round_name", "square_official"];
+  det.style.display = allowed.includes(presetEl.value) ? "" : "none";
 }
 
 function stampUpdateOfficialShortColUI() {
@@ -4883,11 +4911,13 @@ function stampBuildBody(format) {
     // 12m-1: 橢圓章結構化欄位 — 後端只在 preset=oval 時用，其他 preset 忽略
     oval_arc_top: ($("st-oval-arc-top") || "").trim(),
     oval_arc_bottom: ($("st-oval-arc-bottom") || "").trim(),
+    // 12m-1 patch r11: 不 filter empty — slot-based positioning，
+    // empty index 對應該 slot 不渲染（保留 positional semantic）。
     oval_body_lines: [
       ($("st-oval-body-1") || "").trim(),
       ($("st-oval-body-2") || "").trim(),
       ($("st-oval-body-3") || "").trim(),
-    ].filter(line => line.length > 0),
+    ],
   };
 }
 
