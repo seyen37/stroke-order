@@ -321,6 +321,8 @@ def _oval_arc_positions(
     top: bool, char_size: float = 0.0,
     span_deg: float = 140.0, safety_margin_mm: float = 0.5,
     padding_ratio: float = 0.13,  # legacy fallback (only used if char_size <= 0)
+    inner_ellipse_a: float = 0.0,  # 12m-1 patch r15: ring-band midpoint
+    inner_ellipse_b: float = 0.0,
 ) -> list[tuple[float, float, float]]:
     """Place ``n`` chars along the upper or lower half of an inner ellipse.
 
@@ -360,10 +362,20 @@ def _oval_arc_positions(
     """
     if n <= 0:
         return []
-    if char_size > 0:
+    if char_size > 0 and inner_ellipse_a > 0 and inner_ellipse_b > 0:
+        # 12m-1 patch r15: arc text 放在 outer 跟 inner ellipse 的 midpoint。
+        # `inner_w/h` 是 outer 扣掉 border_padding 後的尺寸，但是 arc text
+        # 應該以 OUTER ellipse 完整半徑為基準算 midpoint（不然會偏內 0.4mm
+        # 導致 inner side gap 只有 0.1mm 太近内框）。
+        # 推導：caller 傳 inner_w 是 OUTER 扣 border_padding 0.8mm，所以
+        # outer_a = inner_w / 2 + border_padding。border_padding 假設 0.8。
+        outer_a_full = (inner_w / 2.0) + 0.8
+        outer_b_full = (inner_h / 2.0) + 0.8
+        a = (outer_a_full + inner_ellipse_a) / 2.0
+        b = (outer_b_full + inner_ellipse_b) / 2.0
+    elif char_size > 0:
         # Char-size aware padding (12m-1 patch r8): bbox edge ≈ border −
-        # safety_margin. Each direction independently — chars don't overflow
-        # whichever side is tighter.
+        # safety_margin (legacy when inner ellipse not provided).
         a = max((inner_w / 2.0) - char_size / 2.0 - safety_margin_mm,
                 inner_w / 2.0 * 0.5)
         b = max((inner_h / 2.0) - char_size / 2.0 - safety_margin_mm,
@@ -977,37 +989,42 @@ def _placements_for_preset(
             ln for ln in oval_body_lines_chars if ln)
         if has_arc_top or has_arc_bot or has_body:
             # --- 新 structured layout ---
+            # 12m-1 patch r15: precompute inner ellipse axes for arc & body
+            # — both share the same inner ellipse (consistent geometry).
+            _half_a_outer = width_mm / 2.0
+            _half_b_outer = height_mm / 2.0
+            _d_offset = 0.30 * min(_half_a_outer, _half_b_outer)
+            _inner_a = max(_half_a_outer - _d_offset, 0.1)
+            _inner_b = max(_half_b_outer - _d_offset, 0.1)
             # Arc top (公司名沿上弧)
-            # 12m-1 patch r8: 傳 char_size 給 positions → char-size aware
-            # placement padding（小字推到接近邊框、大字 pull in 不溢出）
+            # 12m-1 patch r8/r14/r15: char-size aware placement +
+            # ring-band cap + ring-band midpoint placement.
             if has_arc_top:
                 arc_n = len(oval_arc_top_chars)
-                # 12m-1 patch r14: 傳 ring_band_width 限制 char_size
-                # 不超過 outer-inner ring band 寬度
                 arc_sz = _oval_arc_char_size(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
                     char_size_cap=char_size_mm,
-                    ring_band_width=0.30 * min(width_mm/2, height_mm/2),
+                    ring_band_width=_d_offset,
                 )
                 positions = _oval_arc_positions(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
                     cx=cx, cy=cy, top=True, char_size=arc_sz,
+                    inner_ellipse_a=_inner_a, inner_ellipse_b=_inner_b,
                 )
                 for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
                     placements.append((ch, x, y, rot, arc_sz, arc_sz))
             # Arc bottom (地址 / 統編沿下弧)
             if has_arc_bot:
                 arc_n = len(oval_arc_bottom_chars)
-                # 12m-1 patch r14: 傳 ring_band_width 限制 char_size
-                # 不超過 outer-inner ring band 寬度
                 arc_sz = _oval_arc_char_size(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
                     char_size_cap=char_size_mm,
-                    ring_band_width=0.30 * min(width_mm/2, height_mm/2),
+                    ring_band_width=_d_offset,
                 )
                 positions = _oval_arc_positions(
                     arc_n, inner_w=inner_w, inner_h=inner_h,
                     cx=cx, cy=cy, top=False, char_size=arc_sz,
+                    inner_ellipse_a=_inner_a, inner_ellipse_b=_inner_b,
                 )
                 for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
                     placements.append((ch, x, y, rot, arc_sz, arc_sz))
@@ -1015,12 +1032,7 @@ def _placements_for_preset(
             # 12m-1 patch r12: 傳 inner_ellipse_b 給 dynamic max_h cap +
             # bold flags 給 slot-level 加粗 (中央 1 / 中央 2 強調用)
             if has_body:
-                # inner ellipse axes (matches _stamp_border_polys r12: d=0.30)
-                _half_a = width_mm / 2.0
-                _half_b = height_mm / 2.0
-                _d = 0.30 * min(_half_a, _half_b)
-                _inner_a = max(_half_a - _d, 0.1)
-                _inner_b = max(_half_b - _d, 0.1)
+                # 12m-1 patch r15: reuse precomputed inner ellipse axes
                 body_placements = _oval_body_layout(
                     oval_body_lines_chars,
                     inner_w=inner_w, inner_h=inner_h,
