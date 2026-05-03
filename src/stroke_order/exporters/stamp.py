@@ -1040,14 +1040,15 @@ def _stamp_border_polys(
     polys = [_outer()]
     if double_border:
         gap = double_gap_mm
-        if preset in ("round", "round_name"):
+        if preset == "round_name":
             r = min(width_mm, height_mm) / 2 - gap
             if r > 0:
                 polys.append(Circle(cx, cy, r))
-        elif preset == "oval":
+        elif preset in ("oval", "round"):
             # 12m-1 patch r9 / r10 / r11: oval double_border = body-wrapping
             # inner ellipse + 內外框等距 ring band（user 觀察「內外框距離
             # 恆定」→ 用 constant offset (a-d, b-d) 取代 uniform scale）。
+            # 12m-7 r25: round 共用相同邏輯（w==h ⇒ ellipse 退化為正圓）。
             half_a = width_mm / 2.0
             half_b = height_mm / 2.0
             d = 0.30 * min(half_a, half_b)
@@ -1127,7 +1128,7 @@ def _placements_for_preset(
     # 12m-1 patch r9: oval 雙框 semantic 變了（body-wrapping 不再 concentric），
     # 弧文要佔外-內框環帶 → inset 不加 double_gap_mm，弧文 placement 用 outer
     # 邊距即可。其他 preset 維持既有 concentric 語意。
-    if preset in ("oval", "tax_invoice"):
+    if preset in ("oval", "tax_invoice", "round"):
         inset = border_padding_mm
     else:
         inset = border_padding_mm + (double_gap_mm if double_border else 0)
@@ -1139,7 +1140,7 @@ def _placements_for_preset(
     n = len(chars)
     # Phase 12m-1: oval preset 結構化 fields 可能讓 `chars` 是空的（user 只填
     # oval_arc_top / oval_arc_bottom / oval_body_lines），此時不能 early-return。
-    _has_oval_structured = preset in ("oval", "tax_invoice") and (
+    _has_oval_structured = preset in ("oval", "tax_invoice", "round") and (
         (oval_arc_top_chars and len(oval_arc_top_chars) > 0)
         or (oval_arc_bottom_chars and len(oval_arc_bottom_chars) > 0)
         or (oval_body_lines_chars and any(
@@ -1362,22 +1363,6 @@ def _placements_for_preset(
                   if char_size_mm > 0 else cell_fill)
             for c, (x, y) in zip(chars, coords):
                 _add(c, x, y, 0.0, sz)
-
-    elif preset == "round":
-        # First (n-1) chars on outer arc, last char in centre.
-        radius = min(width_mm, height_mm) / 2 - inset - char_size_mm * 0.55
-        if n >= 2:
-            arc_chars = chars[:-1]
-            ring = _arc_text_positions(
-                len(arc_chars), radius, cx, cy,
-                span_deg=240.0, start_deg=-120.0,
-            )
-            for c, (x, y, rot) in zip(arc_chars, ring):
-                _add(c, x, y, rot, char_size_mm)
-            # Centre char 1.4× larger for visual weight.
-            _add(chars[-1], cx, cy, 0.0, char_size_mm * 1.4)
-        else:
-            _add(chars[0], cx, cy, 0.0, char_size_mm)
 
     elif preset == "tax_invoice":
         # Phase 12m-7: tax_invoice 統一發票章 / 「電視章」— stadium shape
@@ -1641,8 +1626,11 @@ def _placements_for_preset(
                          False, True)
                     )
 
-    elif preset == "oval":
+    elif preset in ("oval", "round"):
         # Phase 12m-1: 結構化 oval layout — 上弧文 + 中央 1-3 行 + 下弧文。
+        # 12m-7 r25: round (圓戳章) 共用 oval 結構化 layout。w==h ⇒ ellipse
+        # 退化為正圓，arc text 弧為上下半圓，inner frame 也為正圓（d_offset
+        # 邏輯 a==b 結果 a-d==b-d）。
         # 偵測任一 oval_* 欄位非空 → 走新 layout，否則 fallback 1-2 行 horizontal
         # （向後兼容：既有 oval test / 簡單橢圓章 用 text 一字串依然 work）。
         has_arc_top = oval_arc_top_chars and len(oval_arc_top_chars) > 0
@@ -1938,7 +1926,7 @@ def render_stamp_svg(
     # 12m-7: tax_invoice 縣市 position=left 時隱藏 LEFT 裝飾（讓位給縣市直立字）
     # 12m-7 r6: tax_invoice 梅花尺寸 + 位置 fill side compartment：
     # 內邊接近中央 1 文字邊緣，外邊接近外框 L/R 直線，恰好不碰觸。
-    if (preset in ("oval", "tax_invoice")
+    if (preset in ("oval", "tax_invoice", "round")
             and show_border and oval_decoration != "none"):
         cx_mid = stamp_width_mm / 2.0
         cy_mid = stamp_height_mm / 2.0
@@ -2015,7 +2003,7 @@ def render_stamp_svg(
     # 12m-1 patch r19: oval 鋸齒邊飾 — smooth ellipse 外側貼填三角形。
     # 設計上 inner side（朝印面內）保持 smooth（user 要求），outer side
     # 呈鋸齒。filled 三角形 fill 用同 stroke 顏色，stroke=none。
-    if (preset in ("oval", "tax_invoice")
+    if (preset in ("oval", "tax_invoice", "round")
             and show_border and oval_sawtooth):
         teeth_d = _oval_sawtooth_teeth_svg(
             stamp_width_mm / 2.0, stamp_height_mm / 2.0,
@@ -2037,10 +2025,10 @@ def render_stamp_svg(
     # （0.45mm）；sawtooth 開啟時加 tooth depth（1mm）防 teeth 超出 viewBox
     # 被切。
     SAWTOOTH_DEPTH_MM = 1.0
-    max_stroke_mult = (1.5 if preset in ("oval", "tax_invoice") else 1.0)
+    max_stroke_mult = (1.5 if preset in ("oval", "tax_invoice", "round") else 1.0)
     sawtooth_extra = (SAWTOOTH_DEPTH_MM
                       if (oval_sawtooth
-                          and preset in ("oval", "tax_invoice")) else 0.0)
+                          and preset in ("oval", "tax_invoice", "round")) else 0.0)
     vb_pad = max(stroke_width * max_stroke_mult / 2,
                  sawtooth_extra + stroke_width * 0.5)
     svg_open = (
@@ -2080,9 +2068,10 @@ def render_stamp_svg(
         # visible double-line). 對齊 T-02 / TT-* reference visual。
         if border_d_list:
             for i, d in enumerate(border_d_list):
-                if preset == "oval":
+                if preset in ("oval", "round"):
                     # 12m-1 r16: oval 5:1 ratio (粗 outer + thin inner) for
-                    # visible double-line contrast — user 明確要求
+                    # visible double-line contrast — user 明確要求。
+                    # 12m-7 r25: round 共用相同視覺對比規則。
                     stroke_w = stroke_width * (1.5 if i == 0 else 0.3)
                 elif preset == "tax_invoice":
                     # 12m-7 r3: 更細外框（×0.7）
@@ -2113,8 +2102,9 @@ def render_stamp_svg(
     # 兩線粗細差 3:1 雙線外框 visually distinct。
     border_pieces = []
     for i, d in enumerate(border_d_list):
-        if preset == "oval":
+        if preset in ("oval", "round"):
             # 12m-1 r16: oval 5:1 visible double-line（user 明確要對比）
+            # 12m-7 r25: round 共用
             mult = 1.5 if i == 0 else 0.3
             border_pieces.append(
                 f'<path class="stamp-border" d="{d}" '
@@ -2392,7 +2382,7 @@ def stamp_capacity(
     """How many characters fit at the chosen size?"""
     # 12m-1 patch r9: oval double_border 是 body-wrapping inner ellipse，
     # 不再是 concentric — 弧文佔外-內框環帶，inset 只算 border_padding。
-    if preset in ("oval", "tax_invoice"):
+    if preset in ("oval", "tax_invoice", "round"):
         inset = border_padding_mm
     else:
         inset = border_padding_mm + (double_gap_mm if double_border else 0)
@@ -2402,12 +2392,9 @@ def stamp_capacity(
         max_chars = 4   # spec
     elif preset == "square_official":
         max_chars = 9   # 3×3 cap
-    elif preset == "round":
-        # Outer arc fits ~2πr/spacing chars + 1 centre.
-        r = min(stamp_width_mm, stamp_height_mm) / 2 - inset
-        arc_len = (240.0 / 360.0) * 2 * math.pi * r   # span 240°
-        max_chars = max(int(arc_len / (char_size_mm * 1.2)), 1) + 1
-    elif preset in ("oval", "tax_invoice"):
+    elif preset in ("oval", "tax_invoice", "round"):
+        # 12m-7 r25: round (圓戳章) 共用 oval 結構化 caps（移除舊
+        # 簡單 ring text + center 計算邏輯）
         # 12m-1 patch r4 / 12m-6: oval 結構化後 max_chars single number 不再
         # 有意義；改回傳結構化 caps（弧文 / body 各自）。Legacy max_chars 保留
         # 為估計值。tax_invoice 共用 oval shape + caps logic。
@@ -2444,7 +2431,7 @@ def stamp_capacity(
         "inner_size_mm": [round(inner_w, 2), round(inner_h, 2)],
     }
     # 12m-1 patch r4 / 12m-6: oval & tax_invoice extra structured caps
-    if preset in ("oval", "tax_invoice"):
+    if preset in ("oval", "tax_invoice", "round"):
         result["oval_caps"] = oval_caps  # type: ignore[name-defined]
     return result
 

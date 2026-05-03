@@ -332,9 +332,10 @@ def test_capacity_oval_inner_size_correct():
 
 
 def test_capacity_non_oval_no_oval_caps():
-    """非 oval preset 不應出現 oval_caps key（避免 schema 污染）。"""
+    """非 oval-like preset 不應出現 oval_caps key（避免 schema 污染）。
+    12m-7 r25: round 改用 oval 結構化 layout，oval_caps 視為 oval-like。"""
     for preset in ("square_name", "square_official", "round_name",
-                   "round", "rectangle_title"):
+                   "rectangle_title"):
         info = stamp_capacity(preset=preset, stamp_width_mm=24,  # type: ignore[arg-type]
                               stamp_height_mm=24, char_size_mm=8)
         assert "oval_caps" not in info, f"{preset} should not have oval_caps"

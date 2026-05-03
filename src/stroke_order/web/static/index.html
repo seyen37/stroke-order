@@ -4623,7 +4623,7 @@ function stampApplyPresetDefaults() {
     square_name:      [12, 12, 5,  false],
     round_name:       [12, 12, 5,  false],
     square_official:  [24, 24, 8,  false],
-    round:            [24, 24, 8,  false],
+    round:            [24, 24, 8,  true],   // 12m-7 r25: 圓戳章預設雙框（內圓+外圓 ring band）
     oval:             [50, 35, 9,  true],   // 12m-1 patch r2: 1.43:1 比例（業界常見），預設雙框
     tax_invoice:      [45, 40, 8,  true],   // 12m-7 r7: 統一發票章「電視章」改 45×40 (4.5×4.0 cm) 給更多 vertical 空間（plum 跟 char 同寬時不擠）
     rectangle_title:  [50, 18, 12, false],
@@ -4682,7 +4682,8 @@ function stampUpdateOvalFieldsUI() {
   const v = presetEl.value;
   const isOval = v === "oval";
   const isTaxInvoice = v === "tax_invoice";
-  const showFields = isOval || isTaxInvoice;
+  const isRound = v === "round";   // 12m-7 r25: 圓戳章共用 oval 結構化 layout
+  const showFields = isOval || isTaxInvoice || isRound;
   textRow.style.display = showFields ? "none" : "";
   ovalFields.style.display = showFields ? "flex" : "none";
   // 12m-1 patch r17: oval-like 時隱藏標準雙線外框 row（被 oval-fields 內的
