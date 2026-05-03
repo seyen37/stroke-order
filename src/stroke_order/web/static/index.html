@@ -5129,9 +5129,13 @@ function stampComputeRoundInnerLayout() {
     const maxH = (yBot - yTop) * 0.92;
     return [(yCtr - cy) / innerHRatioDenom, maxH / innerHRatioDenom];
   };
+  // 12m-7 r34: imgBbox 加大 internal margin (0.6 → 1.0mm) 給 image-text
+  // 邊界額外 0.4mm 安全距離，確保任何 case 下 image visible circle 都不
+  // 撞到 adjacent text slot 字體
+  const imgMargin = 1.0;
   const imgBbox = (rStart, rEnd) => {
-    const yTop = cy - innerB + rStart * innerV + margin;
-    const yBot = cy - innerB + rEnd * innerV - margin;
+    const yTop = cy - innerB + rStart * innerV + imgMargin;
+    const yBot = cy - innerB + rEnd * innerV - imgMargin;
     if (yBot <= yTop) return null;
     const imgCy = (yTop + yBot) / 2;
     const imgDy = Math.abs(imgCy - cy);
