@@ -1619,31 +1619,22 @@ def _placements_for_preset(
                 y_r, h_r, tight, sp_mul = STADIUM_BODY_SLOTS["location"]
                 _stadium_body_row(list(oval_location_chars), y_r, h_r,
                                   tight=tight, spacing_mul=sp_mul)
-            # 縣市 (position=left / bottom-left) — 直立排列於章面最左邊，取代
-            # 左側梅花。位置 x = 左 ring band 中點 (_d_offset / 2)。
-            # - "left": y 從 stamp 中心 cy 向上下擴散（全高居中）
-            # - "bottom-left" (12m-7 r22): y 集中在下半部（cy 到底部之間
-            #   midpoint），保留上半空間
-            # 12m-7 r22: 字體大小 = slot_1 (中央 2) max_h_ratio (0.06)，
-            # 與 slot_1 視覺一致；仍由 ring_band_width * 0.85 上限保護
-            # （avoid 直立字寬超出 ring band）
-            if has_location and oval_location_position in (
-                    "left", "bottom-left"):
+            # 縣市 (position=left) — 直立排列於章面最左邊，取代左側梅花。
+            # 位置 x = 左 ring band 中點 (_d_offset / 2)。
+            # 12m-7 r23: 字體大小 = slot_0 (中央 1) max_h_ratio (0.12)，與
+            # 大字統編 row 視覺一致；spacing_mul 1.05→1.20 增加字距。
+            # 仍由 ring_band_width * 0.85 上限保護避免字寬超出 ring band。
+            if has_location and oval_location_position == "left":
                 loc_chars = list(oval_location_chars)
                 m = len(loc_chars)
                 loc_x = _d_offset / 2.0
-                slot_1_max_h_ratio = STADIUM_BODY_SLOTS["slot_1"][1]
-                ch_sz = min(slot_1_max_h_ratio * inner_h,
+                slot_0_max_h_ratio = STADIUM_BODY_SLOTS["slot_0"][1]
+                ch_sz = min(slot_0_max_h_ratio * inner_h,
                             _ring_band_width * 0.85, char_size_mm)
                 ch_sz = max(ch_sz, 2.0)
-                spacing = ch_sz * 1.05
+                spacing = ch_sz * 1.20
                 total_h = spacing * m
-                # y center：left 模式 = cy；bottom-left 模式 = cy 與底部 mid
-                if oval_location_position == "bottom-left":
-                    y_center = cy + 0.20 * inner_h
-                else:
-                    y_center = cy
-                y0 = y_center - total_h / 2.0 + spacing / 2.0
+                y0 = cy - total_h / 2.0 + spacing / 2.0
                 for i, ch in enumerate(loc_chars):
                     placements.append(
                         (ch, loc_x, y0 + i * spacing, 0.0, ch_sz, ch_sz,
