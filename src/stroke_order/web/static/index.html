@@ -5117,13 +5117,13 @@ function stampComputeRoundInnerLayout() {
   const innerHRatioDenom = h - 2 * padding;
   const innerV = 2 * innerB;
   const margin = 0.6;
-  // 12m-7 r33: 在 inner ellipse top/bot 邊緣的 slot 自動加 SAFETY margin，
-  // 避免 char 邊界碰觸內框弧線（特別是底部 slot_2 / 頂部 slot_0）
-  // 12m-7 r35: fill ratio 0.92 → 0.85 給 char 在 slot 內留更多 padding，
-  // 確保相鄰 text rows 之間的 char-char gap 至少 ~0.7mm（避免字體碰觸）。
-  // 字體略小 ~7% 但所有 case 視覺安全距離達標。
+  // 12m-7 r33: 在 inner ellipse top/bot 邊緣的 slot 自動加 SAFETY margin
+  // 12m-7 r36: 改用 explicit gap allocation 策略 — slot 之間留 2-3% gap
+  // region 由 case 配置直接設定，不用 fill ratio 收縮 char。FILL_RATIO 從
+  // 0.85 → 0.92（char 更貼合 slot），imgMargin 1.0 → 0（image 不再收縮，
+  // gap 由 case % allocation 提供）。整體效果：字體跟圖都更大、填滿內框。
   const SAFETY = 0.04;
-  const FILL_RATIO = 0.85;
+  const FILL_RATIO = 0.92;
   const slotOverride = (rStart, rEnd) => {
     const rs = rStart < 0.01 ? SAFETY : rStart;
     const re = rEnd > 0.99 ? (1 - SAFETY) : rEnd;
@@ -5133,10 +5133,8 @@ function stampComputeRoundInnerLayout() {
     const maxH = (yBot - yTop) * FILL_RATIO;
     return [(yCtr - cy) / innerHRatioDenom, maxH / innerHRatioDenom];
   };
-  // 12m-7 r34: imgBbox 加大 internal margin (0.6 → 1.0mm) 給 image-text
-  // 邊界額外 0.4mm 安全距離，確保任何 case 下 image visible circle 都不
-  // 撞到 adjacent text slot 字體
-  const imgMargin = 1.0;
+  // 12m-7 r36: imgMargin 0（gap by explicit case allocation）
+  const imgMargin = 0;
   const imgBbox = (rStart, rEnd) => {
     const yTop = cy - innerB + rStart * innerV + imgMargin;
     const yBot = cy - innerB + rEnd * innerV - imgMargin;
@@ -5151,44 +5149,47 @@ function stampComputeRoundInnerLayout() {
   };
   let bbox = null;
   const overrides = {};
+  // 12m-7 r36: 全部使用 explicit gap allocation — 每個 case 的 r_start/r_end
+  // 都已預留 SAFETY (4% top/bot 給 inner ellipse boundary) + gap region
+  // (2-3% 之間給相鄰 element 不碰觸)。FILL_RATIO=0.92 + imgMargin=0 給最大
+  // 字體與最大圖。
   if (!has1 && !has2 && !has3) {
-    // 全空 → image 100%
-    bbox = imgBbox(0, 1);
+    // 全空 → image 92% (0.04..0.96)
+    bbox = imgBbox(0.04, 0.96);
   } else if (has1 && !has2 && !has3) {
-    // 只 1 → text 上 33% / image 下 67%（r32: 33%→67%）
-    overrides.slot_0 = slotOverride(0, 0.33);
-    bbox = imgBbox(0.33, 1);
+    // 只 1 → slot_0 30% + gap 3% + image 59%
+    overrides.slot_0 = slotOverride(0.04, 0.34);
+    bbox = imgBbox(0.37, 0.96);
   } else if (has1 && has2 && !has3) {
-    // r33: 1+2 → text 上 66% (split 33+33) / image 下 34%
-    overrides.slot_0 = slotOverride(0, 0.33);
-    overrides.slot_1 = slotOverride(0.33, 0.66);
-    bbox = imgBbox(0.66, 1);
+    // 1+2 → slot_0 28% + gap 2% + slot_1 28% + gap 3% + image 31%
+    overrides.slot_0 = slotOverride(0.04, 0.32);
+    overrides.slot_1 = slotOverride(0.34, 0.62);
+    bbox = imgBbox(0.65, 0.96);
   } else if (has1 && !has2 && has3) {
-    // 1+3 → text 上 30% + 下 30% / image 中 40%
-    overrides.slot_0 = slotOverride(0, 0.30);
-    overrides.slot_2 = slotOverride(0.70, 1);
-    bbox = imgBbox(0.30, 0.70);
+    // 1+3 → slot_0 26% + gap 3% + image 34% + gap 3% + slot_2 26%
+    overrides.slot_0 = slotOverride(0.04, 0.30);
+    overrides.slot_2 = slotOverride(0.70, 0.96);
+    bbox = imgBbox(0.33, 0.67);
   } else if (!has1 && has2 && !has3) {
-    // 只 2 → 用戶選擇 image 上方 or 下方（dropdown 取代 confirm）
+    // 只 2 → 用戶選 image 上方/下方。各 44-45% + gap 3%
     const sel = $("st-round-inner-deco-only2-pos");
     const pos = (sel?.value === "up") ? "up" : "down";
     if (pos === "up") {
-      bbox = imgBbox(0, 0.50);
-      overrides.slot_1 = slotOverride(0.50, 1);
+      bbox = imgBbox(0.04, 0.48);
+      overrides.slot_1 = slotOverride(0.51, 0.96);
     } else {
-      overrides.slot_1 = slotOverride(0, 0.50);
-      bbox = imgBbox(0.50, 1);
+      overrides.slot_1 = slotOverride(0.04, 0.48);
+      bbox = imgBbox(0.51, 0.96);
     }
   } else if (!has1 && has2 && has3) {
-    // r33: 2+3 → image 上 34% / text 下 66% (split 33+33)。slotOverride
-    // 自動套用 SAFETY 給 slot_2 r_end=1.0 → 中央 3 底部不碰內框線。
-    bbox = imgBbox(0, 0.34);
-    overrides.slot_1 = slotOverride(0.34, 0.67);
-    overrides.slot_2 = slotOverride(0.67, 1);
+    // 2+3 → image 27% + gap 3% + slot_1 28% + gap 2% + slot_2 28%
+    bbox = imgBbox(0.04, 0.31);
+    overrides.slot_1 = slotOverride(0.34, 0.62);
+    overrides.slot_2 = slotOverride(0.64, 0.92);
   } else if (!has1 && !has2 && has3) {
-    // 只 3 → image 上 67% / text 下 33%（r32: 33%→67%）
-    bbox = imgBbox(0, 0.67);
-    overrides.slot_2 = slotOverride(0.67, 1);
+    // 只 3 → image 61% + gap 3% + slot_2 28%
+    bbox = imgBbox(0.04, 0.65);
+    overrides.slot_2 = slotOverride(0.68, 0.96);
   }
   return {bbox, overrides};
 }
