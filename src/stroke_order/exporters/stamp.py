@@ -1110,6 +1110,8 @@ def _placements_for_preset(
     #   "bottom" = 中央 3 下方 horizontal（預設）
     #   "left"   = 章面最左側 vertical 直立（取代左梅花裝飾）
     oval_location_position: str = "bottom",
+    # Phase 12m-7 r26: 圓戳章 (round) 單圓周模式
+    round_continuous_arc: bool = False,
 ) -> list[tuple]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
@@ -1646,51 +1648,86 @@ def _placements_for_preset(
             _d_offset = 0.30 * min(_half_a_outer, _half_b_outer)
             _inner_a = max(_half_a_outer - _d_offset, 0.1)
             _inner_b = max(_half_b_outer - _d_offset, 0.1)
-            # Arc top (公司名沿上弧)
-            # 12m-1 patch r8/r14/r15: char-size aware placement +
-            # ring-band cap + ring-band midpoint placement.
-            if has_arc_top:
-                arc_n = len(oval_arc_top_chars)
-                arc_sz = _oval_arc_char_size(
-                    arc_n, inner_w=inner_w, inner_h=inner_h,
-                    char_size_cap=char_size_mm,
-                    ring_band_width=_d_offset,
-                )
-                positions = _oval_arc_positions(
-                    arc_n, inner_w=inner_w, inner_h=inner_h,
-                    cx=cx, cy=cy, top=True, char_size=arc_sz,
-                    inner_ellipse_a=_inner_a, inner_ellipse_b=_inner_b,
-                )
-                for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
-                    placements.append((ch, x, y, rot, arc_sz, arc_sz))
-            # Arc bottom (地址沿下弧)
-            if has_arc_bot:
-                arc_n = len(oval_arc_bottom_chars)
-                arc_sz = _oval_arc_char_size(
-                    arc_n, inner_w=inner_w, inner_h=inner_h,
-                    char_size_cap=char_size_mm,
-                    ring_band_width=_d_offset,
-                )
-                positions = _oval_arc_positions(
-                    arc_n, inner_w=inner_w, inner_h=inner_h,
-                    cx=cx, cy=cy, top=False, char_size=arc_sz,
-                    inner_ellipse_a=_inner_a, inner_ellipse_b=_inner_b,
-                )
-                for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
-                    placements.append((ch, x, y, rot, arc_sz, arc_sz))
-            # Body 1-3 行水平文字
-            # 12m-1 patch r12: 傳 inner_ellipse_b 給 dynamic max_h cap +
-            # bold flags 給 slot-level 加粗 (中央 1 / 中央 2 強調用)
-            if has_body:
-                body_placements = _oval_body_layout(
-                    oval_body_lines_chars,
-                    inner_w=inner_w, inner_h=inner_h,
-                    cx=cx, cy=cy, char_size_cap=char_size_mm,
-                    inner_ellipse_a=_inner_a,
-                    inner_ellipse_b=_inner_b,
-                    bold_flags=oval_body_bold,
-                )
-                placements.extend(body_placements)
+            # 12m-7 r26: 圓戳章單圓周模式（round_continuous_arc）—
+            # 上弧文 wrap 300° 環繞（從 7 點鐘起 CW 到 5 點鐘），
+            # 下弧文輸入忽略，body 在中央維持。底部 6 點鐘留 60° gap 給梅花。
+            if preset == "round" and round_continuous_arc:
+                if has_arc_top:
+                    arc_n = len(oval_arc_top_chars)
+                    # Ring band midpoint as radius
+                    ring_radius = (_half_a_outer + _inner_a) / 2.0
+                    # Char size: ring band width 0.85 主限、char_size_mm 上限
+                    # 弧長除以字數 × 0.85 fill ratio 為 spacing 限制
+                    arc_len_300 = ring_radius * math.radians(300.0)
+                    arc_sz_by_spacing = arc_len_300 / max(arc_n, 1) * 0.85
+                    arc_sz = min(_d_offset * 0.85, char_size_mm,
+                                 arc_sz_by_spacing)
+                    arc_sz = max(arc_sz, 2.0)
+                    # span 300° start 120° (7 點鐘); _arc_text_positions
+                    # theta 增加 = CW direction in screen coords。
+                    positions = _arc_text_positions(
+                        arc_n, ring_radius, cx, cy,
+                        span_deg=300.0, start_deg=120.0,
+                    )
+                    for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
+                        placements.append((ch, x, y, rot, arc_sz, arc_sz))
+                # 下弧文 ignored in continuous arc mode
+                if has_body:
+                    body_placements = _oval_body_layout(
+                        oval_body_lines_chars,
+                        inner_w=inner_w, inner_h=inner_h,
+                        cx=cx, cy=cy, char_size_cap=char_size_mm,
+                        inner_ellipse_a=_inner_a,
+                        inner_ellipse_b=_inner_b,
+                        bold_flags=oval_body_bold,
+                    )
+                    placements.extend(body_placements)
+            else:
+                # Arc top (公司名沿上弧) — 既有 oval/round 結構化 layout
+                # 12m-1 patch r8/r14/r15: char-size aware placement +
+                # ring-band cap + ring-band midpoint placement.
+                if has_arc_top:
+                    arc_n = len(oval_arc_top_chars)
+                    arc_sz = _oval_arc_char_size(
+                        arc_n, inner_w=inner_w, inner_h=inner_h,
+                        char_size_cap=char_size_mm,
+                        ring_band_width=_d_offset,
+                    )
+                    positions = _oval_arc_positions(
+                        arc_n, inner_w=inner_w, inner_h=inner_h,
+                        cx=cx, cy=cy, top=True, char_size=arc_sz,
+                        inner_ellipse_a=_inner_a, inner_ellipse_b=_inner_b,
+                    )
+                    for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
+                        placements.append((ch, x, y, rot, arc_sz, arc_sz))
+                # Arc bottom (地址沿下弧)
+                if has_arc_bot:
+                    arc_n = len(oval_arc_bottom_chars)
+                    arc_sz = _oval_arc_char_size(
+                        arc_n, inner_w=inner_w, inner_h=inner_h,
+                        char_size_cap=char_size_mm,
+                        ring_band_width=_d_offset,
+                    )
+                    positions = _oval_arc_positions(
+                        arc_n, inner_w=inner_w, inner_h=inner_h,
+                        cx=cx, cy=cy, top=False, char_size=arc_sz,
+                        inner_ellipse_a=_inner_a, inner_ellipse_b=_inner_b,
+                    )
+                    for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
+                        placements.append((ch, x, y, rot, arc_sz, arc_sz))
+                # Body 1-3 行水平文字
+                # 12m-1 patch r12: 傳 inner_ellipse_b 給 dynamic max_h cap +
+                # bold flags 給 slot-level 加粗 (中央 1 / 中央 2 強調用)
+                if has_body:
+                    body_placements = _oval_body_layout(
+                        oval_body_lines_chars,
+                        inner_w=inner_w, inner_h=inner_h,
+                        cx=cx, cy=cy, char_size_cap=char_size_mm,
+                        inner_ellipse_a=_inner_a,
+                        inner_ellipse_b=_inner_b,
+                        bold_flags=oval_body_bold,
+                    )
+                    placements.extend(body_placements)
         else:
             # --- 向後兼容 fallback：既有 1-2 行 horizontal layout ---
             if n <= 4:
@@ -1800,6 +1837,9 @@ def render_stamp_svg(
     oval_location: str = "",
     # Phase 12m-7: 縣市位置 ("bottom" | "left")
     oval_location_position: str = "bottom",
+    # Phase 12m-7 r26: 圓戳章 (round) 單圓周模式 — 上弧文 wrap 300°，
+    # 取消左右梅花，只保留底部梅花。僅 round preset 啟用時生效。
+    round_continuous_arc: bool = False,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -1881,6 +1921,7 @@ def render_stamp_svg(
         oval_top_title_chars=oval_top_title_chars,
         oval_location_chars=oval_location_chars,
         oval_location_position=oval_location_position,
+        round_continuous_arc=round_continuous_arc,
     )
 
     # Build border path d-strings (used by both modes).
@@ -1987,18 +2028,28 @@ def render_stamp_svg(
             right_x = cx_mid + mid_a
             left_x = cx_mid - mid_a
             deco_y = cy_mid
-        right_deco = _oval_decoration_svg(
-            oval_decoration, right_x, deco_y, deco_r, deco_stroke)
-        # 12m-7: 隱藏 LEFT 裝飾 if tax_invoice 且 縣市放左邊
-        suppress_left = (preset == "tax_invoice"
-                         and oval_location_position == "left"
-                         and oval_location)
-        left_deco = "" if suppress_left else _oval_decoration_svg(
-            oval_decoration, left_x, deco_y, deco_r, deco_stroke)
-        if right_deco:
-            deco_pieces.append(right_deco)
-        if left_deco:
-            deco_pieces.append(left_deco)
+        # 12m-7 r26: 圓戳章單圓周模式 — 取消左右梅花，改放單一梅花在 6 點鐘
+        if preset == "round" and round_continuous_arc:
+            mid_a = (outer_a + inner_a) / 2.0
+            bottom_x = cx_mid
+            bottom_y = cy_mid + mid_a   # ring band 底部中點 (6 點鐘方向)
+            bottom_deco = _oval_decoration_svg(
+                oval_decoration, bottom_x, bottom_y, deco_r, deco_stroke)
+            if bottom_deco:
+                deco_pieces.append(bottom_deco)
+        else:
+            right_deco = _oval_decoration_svg(
+                oval_decoration, right_x, deco_y, deco_r, deco_stroke)
+            # 12m-7: 隱藏 LEFT 裝飾 if tax_invoice 且 縣市放左邊
+            suppress_left = (preset == "tax_invoice"
+                             and oval_location_position == "left"
+                             and oval_location)
+            left_deco = "" if suppress_left else _oval_decoration_svg(
+                oval_decoration, left_x, deco_y, deco_r, deco_stroke)
+            if right_deco:
+                deco_pieces.append(right_deco)
+            if left_deco:
+                deco_pieces.append(left_deco)
 
     # 12m-1 patch r19: oval 鋸齒邊飾 — smooth ellipse 外側貼填三角形。
     # 設計上 inner side（朝印面內）保持 smooth（user 要求），outer side
@@ -2175,6 +2226,8 @@ def render_stamp_gcode(
     oval_top_title: str = "",
     oval_location: str = "",
     oval_location_position: str = "bottom",
+    # Phase 12m-7 r26: 圓戳章 (round) 單圓周模式
+    round_continuous_arc: bool = False,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -2246,6 +2299,7 @@ def render_stamp_gcode(
         oval_top_title_chars=oval_top_title_chars,
         oval_location_chars=oval_location_chars,
         oval_location_position=oval_location_position,
+        round_continuous_arc=round_continuous_arc,
     )
 
     out: list[str] = [

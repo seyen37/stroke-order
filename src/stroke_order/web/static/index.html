@@ -1277,6 +1277,11 @@
              title="oval 外框改為鋸齒齒狀邊飾（傳統印章 邊飾 樣式）">
         <input id="st-oval-sawtooth" type="checkbox"> 鋸齒外框
       </label>
+      <!-- 12m-7 r26: 圓戳章單圓周模式（僅 round preset 適用）-->
+      <label id="st-round-cont-arc-label" style="margin-left:12px;display:none;"
+             title="上弧文 wrap 300° 環繞一圈（從 7 點鐘 CW 至 5 點鐘），單一梅花在底部">
+        <input id="st-round-continuous-arc" type="checkbox"> 單圓周排列
+      </label>
       <label style="margin-left:12px;">內縮 (mm)</label>
       <input id="st-pad" type="number" value="0.8" min="0" max="20" step="0.1" style="width:55px;" title="外框內縮 (mm)。業界小章 ~0.5-1.0，大章 ~1.5-3.0。">
       <span style="margin-left:8px;color:var(--muted);font-size:11px;">
@@ -4693,6 +4698,9 @@ function stampUpdateOvalFieldsUI() {
   // 12m-1 patch r18: 鋸齒外框 checkbox 在 oval-like 顯示
   const sawLabel = $("st-sawtooth-label");
   if (sawLabel) sawLabel.style.display = showFields ? "" : "none";
+  // 12m-7 r26: 圓戳章單圓周排列 checkbox 僅 round preset 顯示
+  const rcaLabel = $("st-round-cont-arc-label");
+  if (rcaLabel) rcaLabel.style.display = isRound ? "" : "none";
   // Sync 內外狀態：oval-show-inner ↔ st-double-border
   const innerCb = $("st-oval-show-inner");
   const dbCb = $("st-double-border");
@@ -5102,6 +5110,8 @@ function stampBuildBody(format) {
     oval_location_position: (
       $$("st-oval-location-pos-left")?.checked ? "left" : "bottom"
     ),
+    // 12m-7 r26: 圓戳章單圓周模式
+    round_continuous_arc: $$("st-round-continuous-arc")?.checked || false,
   };
 }
 

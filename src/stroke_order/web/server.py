@@ -162,6 +162,8 @@ class StampPostRequest(BaseModel):
     oval_location: str = ""
     # 12m-7: 縣市位置 — "bottom" (中央 3 下方) | "left" (左側直立)
     oval_location_position: str = "bottom"
+    # 12m-7 r26: 圓戳章單圓周模式 — 上弧文 wrap 300° + 單一梅花在底部
+    round_continuous_arc: bool = False
 
 
 class SutraPostRequest(BaseModel):
@@ -2660,6 +2662,8 @@ def create_app() -> FastAPI:
             oval_top_title=req.oval_top_title or "",
             oval_location=req.oval_location or "",
             oval_location_position=req.oval_location_position or "bottom",
+            # 12m-7 r26: 圓戳章單圓周模式
+            round_continuous_arc=bool(req.round_continuous_arc),
         )
 
         if req.format == "svg":
