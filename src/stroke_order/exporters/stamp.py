@@ -1619,26 +1619,31 @@ def _placements_for_preset(
                 y_r, h_r, tight, sp_mul = STADIUM_BODY_SLOTS["location"]
                 _stadium_body_row(list(oval_location_chars), y_r, h_r,
                                   tight=tight, spacing_mul=sp_mul)
-            # 縣市 (position=left) — 直立排列於章面最左邊，取代左側梅花
-            # 位置：左側 stadium curve & inner curve 中點 (x=ring_band_mid_x)，
-            # y 從中心向上下擴散，每字一格。
-            if has_location and oval_location_position == "left":
+            # 縣市 (position=left / bottom-left) — 直立排列於章面最左邊，取代
+            # 左側梅花。位置 x = 左 ring band 中點 (_d_offset / 2)。
+            # - "left": y 從 stamp 中心 cy 向上下擴散（全高居中）
+            # - "bottom-left" (12m-7 r22): y 集中在下半部（cy 到底部之間
+            #   midpoint），保留上半空間
+            # 12m-7 r22: 字體大小 = slot_1 (中央 2) max_h_ratio (0.06)，
+            # 與 slot_1 視覺一致；仍由 ring_band_width * 0.85 上限保護
+            # （avoid 直立字寬超出 ring band）
+            if has_location and oval_location_position in (
+                    "left", "bottom-left"):
                 loc_chars = list(oval_location_chars)
                 m = len(loc_chars)
-                # X 位置：左 ring band 中點。ring_band 在 x ∈ [0, _d_offset]
-                # 之間（outer at 0，inner at d）→ midpoint x = d/2
                 loc_x = _d_offset / 2.0
-                # Char size：受 ring band 寬度 + slot 高度限制
-                # 直立 m 個字總高度 = m × ch_sz × 1.05 (1.05 = letter spacing)
-                # 必須 ≤ inner_h × 0.85（留邊距）
-                # 也受 ring_band_width × 0.85 限制（不超出 ring band 寬）
-                max_total_h = inner_h * 0.85
-                ch_sz = min(_ring_band_width * 0.85, char_size_mm,
-                            max_total_h / max(m, 1) / 1.05)
+                slot_1_max_h_ratio = STADIUM_BODY_SLOTS["slot_1"][1]
+                ch_sz = min(slot_1_max_h_ratio * inner_h,
+                            _ring_band_width * 0.85, char_size_mm)
                 ch_sz = max(ch_sz, 2.0)
                 spacing = ch_sz * 1.05
                 total_h = spacing * m
-                y0 = cy - total_h / 2.0 + spacing / 2.0
+                # y center：left 模式 = cy；bottom-left 模式 = cy 與底部 mid
+                if oval_location_position == "bottom-left":
+                    y_center = cy + 0.20 * inner_h
+                else:
+                    y_center = cy
+                y0 = y_center - total_h / 2.0 + spacing / 2.0
                 for i, ch in enumerate(loc_chars):
                     placements.append(
                         (ch, loc_x, y0 + i * spacing, 0.0, ch_sz, ch_sz,

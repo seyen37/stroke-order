@@ -1224,6 +1224,11 @@
             <input id="st-oval-location-pos-left" type="radio"
                    name="oval-location-pos" value="left"> 左側直立
           </label>
+          <label style="font-size:13px;">
+            <input id="st-oval-location-pos-bottom-left" type="radio"
+                   name="oval-location-pos" value="bottom-left">
+            下方左側直立
+          </label>
         </div>
       </div>
     </div>
@@ -5092,7 +5097,9 @@ function stampBuildBody(format) {
     oval_top_title: ($("st-oval-top-title") || "").trim(),
     oval_location: ($("st-oval-location") || "").trim(),
     oval_location_position: (
-      $$("st-oval-location-pos-left")?.checked ? "left" : "bottom"
+      $$("st-oval-location-pos-bottom-left")?.checked ? "bottom-left"
+      : $$("st-oval-location-pos-left")?.checked ? "left"
+      : "bottom"
     ),
   };
 }
