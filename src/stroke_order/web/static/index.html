@@ -1145,7 +1145,8 @@
                placeholder="單位名稱 / 電話 / 統一編號" maxlength="40"
                value="收發章"
                style="flex:1;font-size:14px;">
-        <label title="加粗 stroke 強調用，適合標題字" style="font-size:11px;color:var(--muted);">
+        <label id="st-oval-body-1-bold-label"
+               title="加粗 stroke 強調用，適合標題字" style="font-size:11px;color:var(--muted);">
           <input id="st-oval-body-1-bold" type="checkbox"> 加粗
         </label>
       </div>
@@ -1155,7 +1156,8 @@
                placeholder="單位名稱 / 電話 / 統編號碼" maxlength="40"
                value=""
                style="flex:1;font-size:14px;">
-        <label title="加粗 stroke 強調用，適合中央大字" style="font-size:11px;color:var(--muted);">
+        <label id="st-oval-body-2-bold-label"
+               title="加粗 stroke 強調用，適合中央大字" style="font-size:11px;color:var(--muted);">
           <input id="st-oval-body-2-bold" type="checkbox"> 加粗
         </label>
       </div>
@@ -4701,6 +4703,12 @@ function stampUpdateOvalFieldsUI() {
   // 12m-7 r26: 圓戳章單圓周排列 checkbox 僅 round preset 顯示
   const rcaLabel = $("st-round-cont-arc-label");
   if (rcaLabel) rcaLabel.style.display = isRound ? "" : "none";
+  // 12m-7 r28: 圓戳章不顯示中央 1/2「加粗」checkbox（user 要求簡化版面）
+  const bold1Label = $("st-oval-body-1-bold-label");
+  const bold2Label = $("st-oval-body-2-bold-label");
+  const showBold = isOval || isTaxInvoice;
+  if (bold1Label) bold1Label.style.display = showBold ? "" : "none";
+  if (bold2Label) bold2Label.style.display = showBold ? "" : "none";
   // Sync 內外狀態：oval-show-inner ↔ st-double-border
   const innerCb = $("st-oval-show-inner");
   const dbCb = $("st-double-border");
@@ -4919,6 +4927,13 @@ function stampUpdateCharOffsetsUI() {
 // 小尺寸警示：邊長 ≤ 1.5 cm AND 字數 ≥ 3 → 提示筆劃可能相連
 function stampUpdateSizeHint() {
   const $ = id => document.getElementById(id);
+  // 12m-7 r28: 圓戳章使用 oval-fields 結構化欄位，st-text 字數非實際內容，
+  // 推薦尺寸 hint 不適用 → 隱藏。
+  const presetVal = $("st-preset").value;
+  if (presetVal === "round") {
+    $("st-size-hint").style.display = "none";
+    return;
+  }
   const w = parseFloat($("st-w").value) || 0;
   const text = $("st-text").value || "";
   // 用 [...str] 正確處理中文字元 / 表情 / 多碼點
