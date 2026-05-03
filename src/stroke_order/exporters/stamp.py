@@ -1415,18 +1415,28 @@ def _placements_for_preset(
         # --- Top arc (公司名沿上半弧) ---
         # 沿 top half-ellipse curve，centered at (cx, _top_curve_cy)，axes
         # (a, curve_h)。char 落在 outer 與 inner stadium curve 中點 ring band。
+        # 12m-7 r19: arc text 圓弧 path（a=b=R_outer）→ 曲率 = inner sep
+        # arc 曲率（同 R）。User spec: 上/下弧文文字曲率與內框弧相同。
+        if _curve_h > 0:
+            _R_outer = (_half_w_outer * _half_w_outer
+                        + _curve_h * _curve_h) / (2.0 * _curve_h)
+        else:
+            _R_outer = float('inf')
+
         if has_arc_top:
             arc_n = len(oval_arc_top_chars)
-            arc_a_full = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
-            # 12m-7 r18: arc text apex 移至 ring band 中點（outer apex y=0
-            # 與 inner sep apex y=apex_offset 之間 midpoint）。
-            # Override cy_arc 不再用 _top_curve_cy。
+            arc_chord_half = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
             target_apex_y_top = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM / 2.0
-            cy_arc_top = max(_top_curve_cy, target_apex_y_top + 1.0)
-            arc_b_full = cy_arc_top - target_apex_y_top
-            arc_span_deg = 130.0
-            arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
-                arc_span_deg)
+            # span derived from chord_half on circle of radius R_outer
+            if _R_outer < float('inf') and arc_chord_half < _R_outer:
+                arc_span_deg = math.degrees(
+                    2.0 * math.asin(arc_chord_half / _R_outer))
+            else:
+                arc_span_deg = 130.0
+            arc_a_full = _R_outer
+            arc_b_full = _R_outer
+            cy_arc_top = target_apex_y_top + _R_outer
+            arc_len_approx = _R_outer * math.radians(arc_span_deg)
             arc_w = min(arc_len_approx / arc_n * 0.92, char_size_mm)
             ring_band_h = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM
             arc_h = min(ring_band_h * 0.55, arc_w * 1.6, char_size_mm)
@@ -1446,17 +1456,19 @@ def _placements_for_preset(
         # --- Bottom arc (地址沿下半弧) ---
         if has_arc_bot:
             arc_n = len(oval_arc_bottom_chars)
-            arc_a_full = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
-            # 12m-7 r18: arc text apex 移至 ring band 中點（outer apex
-            # y=height 與 inner sep apex y=height-apex_offset 之間 midpoint，
-            # 對稱 top arc）
+            arc_chord_half = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
+            # 12m-7 r19: 對稱 top arc — 圓弧 path（同 R = R_outer）
             target_apex_y_top = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM / 2.0
             target_apex_y_bot = height_mm - target_apex_y_top
-            cy_arc_bot = min(_bot_curve_cy, target_apex_y_bot - 1.0)
-            arc_b_full = target_apex_y_bot - cy_arc_bot
-            arc_span_deg = 130.0
-            arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
-                arc_span_deg)
+            if _R_outer < float('inf') and arc_chord_half < _R_outer:
+                arc_span_deg = math.degrees(
+                    2.0 * math.asin(arc_chord_half / _R_outer))
+            else:
+                arc_span_deg = 130.0
+            arc_a_full = _R_outer
+            arc_b_full = _R_outer
+            cy_arc_bot = target_apex_y_bot - _R_outer
+            arc_len_approx = _R_outer * math.radians(arc_span_deg)
             arc_w = min(arc_len_approx / arc_n * 0.92, char_size_mm)
             ring_band_h = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM
             arc_h = min(ring_band_h * 0.55, arc_w * 1.6, char_size_mm)
@@ -1818,17 +1830,22 @@ def render_stamp_svg(
     oval_arc_bottom_chars = (
         _load_chars(oval_arc_bottom) if oval_arc_bottom else []
     )
-    # Phase 12m-7 r3: tax_invoice 中央 2 (slot_1) auto-prepend「負責人：」
-    # 對齊 ED2/ED4 reference (e.g. 「負責人：王大同」). 偵測 user 已含
-    # 「負責人」字串 → 不重複前綴。
-    _body_lines_for_render = list(oval_body_lines)
-    if (preset == "tax_invoice"
-            and len(_body_lines_for_render) >= 2
-            and _body_lines_for_render[1]
-            and "負責人" not in _body_lines_for_render[1]):
-        _body_lines_for_render[1] = "負責人：" + _body_lines_for_render[1]
-    oval_body_lines_chars = [_load_chars(line)
-                             for line in _body_lines_for_render]
+    # Phase 12m-7 r19: tax_invoice 中央 2 (slot_1) auto-prepend「負責人」
+    # + 1 空白 cell separator（取代 r3 的「負責人：」冒號）。User spec：
+    # 預設「負責人」與填報文字之間 = 1 cell 空格。Blank Character (strokes=[])
+    # 佔 1 cell 但 render 時 0 strokes → visual gap。
+    oval_body_lines_chars = []
+    for _idx, _line in enumerate(oval_body_lines):
+        _line_str = _line if _line else ""
+        if (preset == "tax_invoice" and _idx == 1
+                and _line_str and "負責人" not in _line_str):
+            _prefix_chars = _load_chars("負責人")
+            _blank = Character(char=" ", unicode_hex="0020",
+                               strokes=[], data_source="blank")
+            oval_body_lines_chars.append(
+                _prefix_chars + [_blank] + _load_chars(_line_str))
+        else:
+            oval_body_lines_chars.append(_load_chars(_line_str))
     # Phase 12m-6: tax_invoice 固定「統一編號」標題
     oval_label_chars = (_load_chars("統一編號")
                         if preset == "tax_invoice" else [])
@@ -2179,15 +2196,19 @@ def render_stamp_gcode(
     oval_arc_bottom_chars = (
         _load_chars(oval_arc_bottom) if oval_arc_bottom else []
     )
-    # Phase 12m-7 r3: tax_invoice slot_1 auto-prepend「負責人：」
-    _body_lines_for_render = list(oval_body_lines)
-    if (preset == "tax_invoice"
-            and len(_body_lines_for_render) >= 2
-            and _body_lines_for_render[1]
-            and "負責人" not in _body_lines_for_render[1]):
-        _body_lines_for_render[1] = "負責人：" + _body_lines_for_render[1]
-    oval_body_lines_chars = [_load_chars(line)
-                             for line in _body_lines_for_render]
+    # Phase 12m-7 r19: tax_invoice slot_1 auto-prepend「負責人」+ blank cell
+    oval_body_lines_chars = []
+    for _idx, _line in enumerate(oval_body_lines):
+        _line_str = _line if _line else ""
+        if (preset == "tax_invoice" and _idx == 1
+                and _line_str and "負責人" not in _line_str):
+            _prefix_chars = _load_chars("負責人")
+            _blank = Character(char=" ", unicode_hex="0020",
+                               strokes=[], data_source="blank")
+            oval_body_lines_chars.append(
+                _prefix_chars + [_blank] + _load_chars(_line_str))
+        else:
+            oval_body_lines_chars.append(_load_chars(_line_str))
     # Phase 12m-6: tax_invoice 固定「統一編號」標題
     oval_label_chars = (_load_chars("統一編號")
                         if preset == "tax_invoice" else [])
