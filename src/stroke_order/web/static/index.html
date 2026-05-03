@@ -1176,6 +1176,17 @@
           <input id="st-oval-show-inner" type="checkbox" checked> 顯示內框
         </label>
       </div>
+      <!-- 12m-7 r29: 圓戳章專用 — 內框向量圖（auto-fit 內框 ellipse） -->
+      <div id="st-round-inner-deco-row" style="display:none;align-items:center;gap:6px;">
+        <label style="min-width:64px;">內框圖</label>
+        <input id="st-round-inner-deco-file" type="file"
+               accept=".svg,image/svg+xml" style="font-size:12px;">
+        <button type="button" id="st-round-inner-deco-clear"
+                style="font-size:11px;padding:2px 6px;">清除</button>
+        <span id="st-round-inner-deco-status" style="font-size:11px;color:var(--muted);">
+          自動置中：全空填滿；中央 1 ▶ 下方放大；中央 3 ▶ 上方放大；中央 2 必須空白
+        </span>
+      </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <label style="min-width:64px;">裝飾</label>
         <select id="st-oval-decoration" style="font-size:14px;padding:2px 6px;">
@@ -4547,6 +4558,9 @@ async function patchDownload(format) {
 // ============================================================
 const STAMP = {
   decorations: [],   // [{svg_content, x_mm, y_mm, w_mm, h_mm}, ...]
+  // 12m-7 r29: 圓戳章內框向量圖（user 上傳的 SVG 文字內容；產生預覽時
+  // 自動計算 bbox 後 push 到 decorations array 一起送 backend）
+  innerDecoSvg: null,
 };
 
 function stampInit() {
@@ -4585,6 +4599,36 @@ function stampInit() {
   const ovalShowInner = $("st-oval-show-inner");
   if (ovalShowInner) {
     ovalShowInner.addEventListener("change", stampOvalShowInnerSync);
+  }
+  // 12m-7 r29: 圓戳章內框向量圖上傳 + 清除
+  const innerDecoFile = $("st-round-inner-deco-file");
+  if (innerDecoFile) {
+    innerDecoFile.addEventListener("change", async (e) => {
+      const f = e.target.files[0];
+      if (!f) {
+        STAMP.innerDecoSvg = null;
+        $("st-round-inner-deco-status").textContent =
+          "自動置中：全空填滿；中央 1 ▶ 下方放大；中央 3 ▶ 上方放大；中央 2 必須空白";
+        return;
+      }
+      try {
+        STAMP.innerDecoSvg = await f.text();
+        $("st-round-inner-deco-status").textContent =
+          `已載入 ${f.name}（${(f.size / 1024).toFixed(1)} KB）`;
+      } catch (err) {
+        STAMP.innerDecoSvg = null;
+        alert("讀取 SVG 檔失敗：" + err.message);
+      }
+    });
+  }
+  const innerDecoClear = $("st-round-inner-deco-clear");
+  if (innerDecoClear) {
+    innerDecoClear.addEventListener("click", () => {
+      STAMP.innerDecoSvg = null;
+      if (innerDecoFile) innerDecoFile.value = "";
+      $("st-round-inner-deco-status").textContent =
+        "自動置中：全空填滿；中央 1 ▶ 下方放大；中央 3 ▶ 上方放大；中央 2 必須空白";
+    });
   }
   // 12m-1 patch r6: 姓名章專用排列（2 字 / 5 字 layout）— preset ∈
   // {square_name, round_name} 時顯示，跟 oval-fields pattern 對齊。
@@ -4709,6 +4753,9 @@ function stampUpdateOvalFieldsUI() {
   const showBold = isOval || isTaxInvoice;
   if (bold1Label) bold1Label.style.display = showBold ? "" : "none";
   if (bold2Label) bold2Label.style.display = showBold ? "" : "none";
+  // 12m-7 r29: 圓戳章專用內框向量圖上傳 row
+  const innerDecoRow = $("st-round-inner-deco-row");
+  if (innerDecoRow) innerDecoRow.style.display = isRound ? "flex" : "none";
   // Sync 內外狀態：oval-show-inner ↔ st-double-border
   const innerCb = $("st-oval-show-inner");
   const dbCb = $("st-double-border");
@@ -5033,6 +5080,81 @@ function stampRefreshDecoList() {
     }));
 }
 
+// 12m-7 r29: 圓戳章內框向量圖 — auto-fit bbox in inner ellipse based on
+// which body slots (中央 1/2/3) are filled. 中央 2 必須空白才能放置；
+// 全空 → 填滿；只 1 → 下方放大；只 3 → 上方放大；1+3 → 中間。
+function stampMaybeAddInnerDeco(decoArr) {
+  const $ = id => document.getElementById(id);
+  const $$ = id => document.getElementById(id);
+  if (!STAMP.innerDecoSvg) return decoArr;
+  const preset = $("st-preset")?.value;
+  if (preset !== "round") return decoArr;  // 僅 round preset 啟用
+  const slot1 = ($("st-oval-body-1")?.value || "").trim();
+  const slot2 = ($("st-oval-body-2")?.value || "").trim();
+  const slot3 = ($("st-oval-body-3")?.value || "").trim();
+  if (slot2) {
+    alert("「中央 2」有內容時無法放置內框向量圖，請先清空中央 2");
+    throw new Error("inner deco blocked: 中央 2 has content");
+  }
+  const w = parseFloat($("st-w")?.value) || 24;
+  const h = parseFloat($("st-h")?.value) || 24;
+  const padding = parseFloat($("st-pad")?.value) || 0.8;
+  // 圓戳章 inner ellipse geometry (matches backend r25)
+  const cx = w / 2, cy = h / 2;
+  const halfA = w / 2, halfB = h / 2;
+  const dOffset = 0.30 * Math.min(halfA, halfB);
+  const innerA = halfA - dOffset;
+  const innerB = halfB - dOffset;
+  const innerH = h - 2 * padding;
+  const innerTop = cy - innerB;
+  const innerBot = cy + innerB;
+  const margin = 0.6;  // safety margin from inner ellipse boundary
+  // STADIUM_BODY_SLOTS y_ratio / max_h_ratio (matches backend r25)
+  const slot0Y = cy + (-0.02) * innerH;
+  const slot0H = 0.12 * innerH;
+  const slot2Y = cy + (+0.18) * innerH;
+  const slot2H = 0.06 * innerH;
+  const has0 = !!slot1, has2 = !!slot3;  // slot_0 ↔ 中央1, slot_2 ↔ 中央3
+  let yTop, yBot;
+  if (!has0 && !has2) {
+    yTop = innerTop + margin;
+    yBot = innerBot - margin;
+  } else if (has0 && !has2) {
+    yTop = slot0Y + slot0H / 2 + margin;
+    yBot = innerBot - margin;
+  } else if (has2 && !has0) {
+    yTop = innerTop + margin;
+    yBot = slot2Y - slot2H / 2 - margin;
+  } else {
+    yTop = slot0Y + slot0H / 2 + margin;
+    yBot = slot2Y - slot2H / 2 - margin;
+  }
+  if (yBot <= yTop) return decoArr;  // 無空間
+  const imgCy = (yTop + yBot) / 2;
+  const imgDy = Math.abs(imgCy - cy);
+  // 解二次方程式：square corner (cx+s, imgCy+|imgDy|+s) 必須在 ellipse 內
+  // (s/innerA)² + ((imgDy+s)/innerB)² = 1 → 解 s
+  const A = 1 / (innerA * innerA) + 1 / (innerB * innerB);
+  const B = 2 * imgDy / (innerB * innerB);
+  const C = (imgDy * imgDy) / (innerB * innerB) - 1;
+  const disc = B * B - 4 * A * C;
+  if (disc < 0) return decoArr;
+  const s = (-B + Math.sqrt(disc)) / (2 * A);
+  if (s <= 0) return decoArr;
+  const sizeByEllipse = s * 2;
+  const sizeByHeight = yBot - yTop;
+  const size = Math.min(sizeByEllipse, sizeByHeight);
+  if (size < 1) return decoArr;
+  decoArr.push({
+    svg_content: STAMP.innerDecoSvg,
+    x_mm: cx - size / 2,
+    y_mm: imgCy - size / 2,
+    w_mm: size,
+    h_mm: size,
+  });
+  return decoArr;
+}
+
 function stampBuildBody(format) {
   const $ = id => document.getElementById(id).value;
   const $$ = id => document.getElementById(id);
@@ -5091,7 +5213,7 @@ function stampBuildBody(format) {
     border_padding_mm: parseFloat($("st-pad")),
     laser_power: parseInt($("st-power")),
     feed: parseFloat($("st-feed")),
-    decorations: STAMP.decorations,
+    decorations: stampMaybeAddInnerDeco(STAMP.decorations.slice()),
     format,
     engrave_mode: engraveMode,
     line_pitch_mm: linePitch,
