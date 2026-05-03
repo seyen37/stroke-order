@@ -1211,7 +1211,7 @@
         <label style="min-width:64px;">下弧文</label>
         <input id="st-oval-arc-bottom" type="text"
                placeholder="地址 / 分店名稱" maxlength="60"
-               value="測試市測試區測試路1段2巷3弄4號5樓之ㄧ"
+               value="測試市測試區測試路1段2巷3弄4號5樓之一"
                style="flex:1;font-size:14px;">
       </div>
       <!-- 12m-7: tax_invoice (統一發票章「電視章」) 專用 — 上方標題 + 縣市
@@ -4803,8 +4803,9 @@ function stampUpdateOvalFieldsUI() {
     // 套用 tax_invoice 預設文字（只在欄位空 / 是 oval default 時填）
     const ovalDefaults = new Set([
       "測試文件股份有限公司", "收發章", "電話:02-2234567",
-      "測試市測試區測試路1段2巷3弄4號5樓之ㄧ",
-      "試題市試題區測試路1段2巷3弄4號之ㄧ56號7樓",  // legacy 舊預設保留以正確偵測
+      "測試市測試區測試路1段2巷3弄4號5樓之一",
+      "測試市測試區測試路1段2巷3弄4號5樓之ㄧ",  // legacy（zhuyin ㄧ）
+      "試題市試題區測試路1段2巷3弄4號之ㄧ56號7樓",  // legacy 舊預設
       "",
     ]);
     if (inpArcTop && ovalDefaults.has(inpArcTop.value))
