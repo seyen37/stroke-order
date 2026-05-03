@@ -5012,10 +5012,17 @@ function stampRefreshDecoList() {
 function stampBuildBody(format) {
   const $ = id => document.getElementById(id).value;
   const $$ = id => document.getElementById(id);
-  // 3 字姓名章 auto-fill：3 字輸入 + checkbox 勾選 → 補一個字湊成 4 字
-  // 用既有 square_name preset 的 2×2 layout（台灣個人章傳統樣式）
+  // 3 字姓名章 auto-fill：3 字輸入 + checkbox 勾選 → 補一個字湊成 4 字。
+  // 用既有 square_name preset 的 2×2 layout（台灣個人章傳統樣式）。
+  // 12m-7 r24: 嚴格 gate by preset === "square_name"。其他 preset（圓戳章
+  // round、橢圓章 oval、tax_invoice 等）不適用此規則。原本只 hide UI row
+  // 但 JS logic 仍會 trigger（checkbox default checked），造成 user 在
+  // 圓戳章輸 3 字時被加「印」，layout 跑錯。
   let text = $("st-text");
-  if (text.length === 3 && $$("st-auto-fill")?.checked) {
+  const stPreset = $("st-preset");
+  if (stPreset === "square_name"
+      && text.length === 3
+      && $$("st-auto-fill")?.checked) {
     const fillChar = ($("st-auto-fill-char") || "印").trim().slice(0, 1) || "印";
     text = text + fillChar;
   }
