@@ -99,8 +99,15 @@ def test_linear_align_left_places_chars_near_edge_start(loader):
     assert positions_left != positions_right
 
 
-def test_linear_align_spread_endpoints(loader):
-    """Spread with 2 chars must put them at edge's first and last slots."""
+def test_linear_align_spread_cell_centered(loader):
+    """Phase 5b r3: linear + spread = cell-centered（首尾各留半 gap），
+    取代原本「endpoints-included」分布。
+
+    chars at fractions ``(i + 0.5) / n_chars`` of edge length → 兩字位於 25%
+    跟 75%，距離 = 0.5 × edge_length。Square shape (size=200, radius=100) 邊長
+    100√2 ≈ 141.4mm → 兩字距離應 ≈ 70.7mm（不再是 endpoints 的 ~141mm）。
+    """
+    import math as _m
     shape = make_shape("square", 100, 100, 200)
     placed, _ = compute_linear(
         ["永一", "", "", ""],  # only edge 0 has text
@@ -108,9 +115,15 @@ def test_linear_align_spread_endpoints(loader):
         auto_cycle=False, align="spread",
     )
     assert len(placed) == 2
-    # Distance between the 2 chars should be near edge length (175mm-ish)
-    d = abs(placed[0][1] - placed[1][1]) + abs(placed[0][2] - placed[1][2])
-    assert d > 80  # endpoints far apart, not adjacent cells
+    # 兩字距離應 ≈ 0.5 × edge_length（cell-centered）
+    edge_len = 100 * (2 ** 0.5)   # square inscribed in radius-100 circle
+    d = _m.hypot(placed[0][1] - placed[1][1], placed[0][2] - placed[1][2])
+    assert abs(d - 0.5 * edge_len) < 2.0, (
+        f"expected ≈{0.5 * edge_len:.1f}mm (cell-centered), got {d:.1f}mm")
+    # 首字應距邊起點 edge_len * 0.25 → 不貼邊 (距離 > char_size_mm 是 sanity check)
+    vert0 = shape.vertices[0]
+    d0 = _m.hypot(placed[0][1] - vert0[0], placed[0][2] - vert0[1])
+    assert d0 > 15, f"first char too close to edge start: {d0:.1f}mm"
 
 
 def test_linear_align_center_vs_left_differs(loader):
