@@ -1538,6 +1538,14 @@ def _placements_for_preset(
                     return
                 m = len(line_chars)
                 slot_max_h = max_h_ratio * inner_h
+                # 12m-7 r20: 偵測 blank_half cells（separator placeholder
+                # with 0.5 cell width）— 用於「負責人」prefix 與用戶文字
+                # 之間的細空格 separator。
+                is_blank_half = [
+                    getattr(c, 'data_source', '') == 'blank_half'
+                    for c in line_chars
+                ]
+                n_blank_half = sum(is_blank_half)
                 if tight:
                     # Tight pack: char size driven by slot_max_h, NOT cell_w
                     ch_sz = min(slot_max_h, char_size_mm)
@@ -1546,25 +1554,36 @@ def _placements_for_preset(
                     # Centre row horizontally; ensure not exceeding body_usable_w
                     total_w = spacing * m
                     if total_w > body_usable_w:
-                        # Fallback: shrink to fit usable_w
                         spacing = body_usable_w / m
                         ch_sz = min(spacing * 0.90, slot_max_h, char_size_mm)
                     x0 = cx - (spacing * m) / 2.0 + spacing / 2.0
-                else:
-                    # Body slot: cell-based (full usable_w)
-                    cell_w = body_usable_w / m
-                    # 12m-7 r15: FILL_W 0.90 → 0.78（chars 縮小，user spec B）
-                    FILL_W = 0.78
-                    ch_sz = min(cell_w * FILL_W, slot_max_h, char_size_mm)
-                    ch_sz = max(ch_sz, 2.5) if ch_sz > 0 else ch_sz
-                    spacing = cell_w
-                    x0 = cx - body_usable_w / 2.0 + cell_w / 2.0
+                    y = cy + y_ratio * inner_h
+                    for i, ch in enumerate(line_chars):
+                        placements.append(
+                            (ch, x0 + i * spacing, y, 0.0, ch_sz, ch_sz,
+                             bold, True)
+                        )
+                    return
+                # Body slot: cell-based (full usable_w). 12m-7 r20: 支援
+                # 非等寬 cell — blank_half = 0.5 standard cell width。
+                total_units = (m - n_blank_half) + 0.5 * n_blank_half
+                if total_units <= 0:
+                    return
+                cell_w = body_usable_w / total_units
+                # 12m-7 r15: FILL_W 0.90 → 0.78（chars 縮小，user spec B）
+                FILL_W = 0.78
+                ch_sz = min(cell_w * FILL_W, slot_max_h, char_size_mm)
+                ch_sz = max(ch_sz, 2.5) if ch_sz > 0 else ch_sz
+                x_left = cx - body_usable_w / 2.0
                 y = cy + y_ratio * inner_h
+                x_cur = x_left
                 for i, ch in enumerate(line_chars):
+                    cw = cell_w * (0.5 if is_blank_half[i] else 1.0)
                     placements.append(
-                        (ch, x0 + i * spacing, y, 0.0, ch_sz, ch_sz,
+                        (ch, x_cur + cw / 2.0, y, 0.0, ch_sz, ch_sz,
                          bold, True)
                     )
+                    x_cur += cw
 
             # 上方標題 (optional, tight)
             if has_top_title:
@@ -1841,7 +1860,7 @@ def render_stamp_svg(
                 and _line_str and "負責人" not in _line_str):
             _prefix_chars = _load_chars("負責人")
             _blank = Character(char=" ", unicode_hex="0020",
-                               strokes=[], data_source="blank")
+                               strokes=[], data_source="blank_half")
             oval_body_lines_chars.append(
                 _prefix_chars + [_blank] + _load_chars(_line_str))
         else:
@@ -2204,7 +2223,7 @@ def render_stamp_gcode(
                 and _line_str and "負責人" not in _line_str):
             _prefix_chars = _load_chars("負責人")
             _blank = Character(char=" ", unicode_hex="0020",
-                               strokes=[], data_source="blank")
+                               strokes=[], data_source="blank_half")
             oval_body_lines_chars.append(
                 _prefix_chars + [_blank] + _load_chars(_line_str))
         else:
