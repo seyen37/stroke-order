@@ -5,6 +5,9 @@
   <title>stroke-order · 中文字 → 寫字機器人軌跡</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3/dist/hanzi-writer.min.js"></script>
+  <!-- Phase 5b r27: 曼陀羅 .mandala.md 匯出/匯入支援 (純前端) -->
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.20.4/dist/index.js"></script>
   <style>
     :root {
       --bg: #fafafa;
@@ -2183,6 +2186,38 @@
             margin-left:6px;flex:1;min-width:200px;">
         選擇 preset 一鍵套用所有設定（中心字 / 字環 / 主 mandala / extras）
       </span>
+    </div>
+    <!-- Phase 5b r27: 曼陀羅檔案（local 匯出/匯入，不上傳伺服器） -->
+    <div class="row" style="background:#f0f7ff;border-left:3px solid #46a;
+         padding:6px 10px;border-radius:3px;align-items:center;gap:8px;flex-wrap:wrap;">
+      <b style="color:#235;font-size:13px;">📁 曼陀羅檔案</b>
+      <label style="font-size:11px;">標題</label>
+      <input id="md-title" type="text" maxlength="40" value=""
+             placeholder="如：我的曼陀羅—九字真言（選填，做檔名 + 文獻記錄用）"
+             style="flex:1;min-width:200px;font-size:12px;">
+      <button id="md-export-btn" type="button"
+              style="padding:4px 12px;font-size:12px;border:1px solid #46a;
+                     border-radius:4px;background:#fff;color:#235;cursor:pointer;"
+              title="把當前所有設定下載成 .mandala.md 檔（純本機，不上傳）">
+        📥 匯出 .mandala.md
+      </button>
+      <button id="md-import-btn" type="button"
+              style="padding:4px 12px;font-size:12px;border:1px solid #46a;
+                     border-radius:4px;background:#fff;color:#235;cursor:pointer;"
+              title="匯入 .mandala.md 或內嵌 metadata 的 .svg 檔">
+        📤 匯入
+      </button>
+      <input id="md-import-file" type="file"
+             accept=".md,.mandala.md,.svg,text/markdown,image/svg+xml"
+             style="display:none;">
+    </div>
+    <div class="row" style="background:#f0f7ff;border-left:3px solid #46a;
+         padding:6px 10px;border-radius:3px;align-items:flex-start;gap:8px;">
+      <label style="font-size:11px;padding-top:4px;min-width:60px;">設計意圖</label>
+      <textarea id="md-design-note" rows="2" maxlength="500"
+                placeholder="（選填）寫下你想表達的、靈感來源、配色心境⋯⋯。AI 解讀此檔時會看到。"
+                style="flex:1;font-size:12px;font-family:inherit;
+                       resize:vertical;min-height:36px;"></textarea>
     </div>
     <div class="row">
       <label>中心字</label>
@@ -4799,6 +4834,429 @@ document.getElementById("wa-render").onclick = renderWordart;
 // ============================================================
 // Mandala (曼陀羅) mode — Phase 5b r4
 // ============================================================
+
+// ===== Phase 5b r27: 曼陀羅檔案匯出/匯入（純前端，不上伺服器） =====
+// schema = stroke-order-mandala-v1（與 stroke-order-psd-v1 命名對齊）
+// 兩 tier:
+//   1. .mandala.md  : YAML frontmatter (機器解析) + auto prose body (AI/人類)
+//   2. SVG <metadata><mandala-config> : SVG 內嵌 JSON，1 檔即視覺 + 設定
+const MD_SCHEMA = "stroke-order-mandala-v1";
+window._mandalaSessionMeta = window._mandalaSessionMeta || null;
+
+const MD_MIGRATIONS = {
+  "stroke-order-mandala-v1": (data) => data,  // identity
+  // 未來 v2 從此加：
+  // "stroke-order-mandala-v2": (data) => { ...migrate from v1... },
+};
+
+function _mandalaGenerateUuid() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function _mandalaTitleToPinyin(title) {
+  if (!title) return "";
+  // pinyin-pro 全域：window.pinyinPro
+  if (typeof window.pinyinPro !== "undefined" && window.pinyinPro.pinyin) {
+    try {
+      const p = window.pinyinPro.pinyin(title, {
+        toneType: "none", separator: "-", nonZh: "consecutive",
+      });
+      return p.toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+    } catch (e) { console.warn("pinyin convert failed:", e); }
+  }
+  // Fallback：純 ASCII 過濾
+  return (title || "").toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-").replace(/^-|-$/g, "");
+}
+
+function _mandalaCurrentMetadata() {
+  const title = (document.getElementById("md-title")?.value || "").trim();
+  const designNote = (document.getElementById("md-design-note")?.value || "").trim();
+  const now = new Date().toISOString();
+  if (!window._mandalaSessionMeta) {
+    window._mandalaSessionMeta = {
+      id: _mandalaGenerateUuid(),
+      created_at: now,
+    };
+  }
+  return {
+    id: window._mandalaSessionMeta.id,
+    title: title,
+    title_pinyin: _mandalaTitleToPinyin(title),
+    design_note: designNote,
+    author: "",  // r28 上 gallery 時填寫
+    created_at: window._mandalaSessionMeta.created_at,
+    modified_at: now,
+  };
+}
+
+// ---- State builder：UI inputs → state object ----
+function mandalaBuildState() {
+  const g = id => document.getElementById(id)?.value;
+  const checked = id => document.getElementById(id)?.checked;
+  const centerType = (document.querySelector('input[name="md-center-type"]:checked') || {}).value || "char";
+  const nFoldVal = (g("md-n-fold") || "").trim();
+  const layers = [];
+  document.querySelectorAll("#md-rings-container .md-ring-section").forEach(section => {
+    const ringIdx = parseInt(section.dataset.ring, 10) || 0;
+    section.querySelectorAll(".md-layer-row").forEach(row => {
+      const style = row.querySelector(".md-layer-style").value;
+      const layer = {
+        ring: ringIdx,
+        style: style,
+        n_fold: parseInt(row.querySelector(".md-layer-n").value, 10) || 18,
+        r_mm: parseFloat(row.querySelector(".md-layer-r-mm").value) || 0,
+        color: row.querySelector(".md-layer-color")?.value || "#000000",
+        visible: row.querySelector(".md-layer-visible")?.checked !== false,
+      };
+      // polymorphic params 從 len/width inputs
+      _mandalaApplyStyleSpecificParams(layer, style,
+        parseFloat(row.querySelector(".md-layer-len").value),
+        parseFloat(row.querySelector(".md-layer-width").value));
+      layers.push(layer);
+    });
+  });
+  return {
+    schema: MD_SCHEMA,
+    canvas: {
+      size_mm: parseFloat(g("md-size")) || 140,
+      page_width_mm: parseFloat(g("md-pw")) || 210,
+      page_height_mm: parseFloat(g("md-ph")) || 297,
+    },
+    center: {
+      type: centerType,
+      text: g("md-center-text") || "",
+      size_mm: parseFloat(g("md-center-size")) || 24,
+      line_color: g("md-char-color") || "#000000",
+      icon_style: g("md-icon-style") || "lotus_petal",
+      icon_n: parseInt(g("md-icon-n"), 10) || 8,
+      icon_size_mm: parseFloat(g("md-icon-size")) || 12,
+    },
+    ring: {
+      text: g("md-ring-text") || "",
+      size_mm: parseFloat(g("md-ring-size")) || 10,
+      spacing: parseFloat(g("md-char-spacing")) || 2.0,
+      orientation: g("md-orient") || "bottom_to_center",
+      auto_shrink: !!checked("md-auto-shrink"),
+      shrink_safety_margin: parseFloat(g("md-shrink-margin")) || 0.85,
+      protect_chars: !!checked("md-protect-chars"),
+      protect_radius_factor: parseFloat(g("md-protect-radius")) || 0.55,
+      line_color: g("md-char-color") || "#000000",
+    },
+    mandala: {
+      style: g("md-style-primitive") || "interlocking_arcs",
+      composition_scheme: g("md-comp-scheme") || "vesica",
+      n_fold: nFoldVal === "" ? null : parseInt(nFoldVal, 10),
+      show: !!checked("md-show-mandala"),
+      overlap_ratio: parseFloat(g("md-overlap")) || 1.25,
+      lotus_length_ratio: parseFloat(g("md-lotus-len")) || 1.25,
+      lotus_width_ratio: parseFloat(g("md-lotus-width")) || 0.6,
+      rays_length_ratio: parseFloat(g("md-rays-len")) || 1.25,
+      inscribed_padding_factor: parseFloat(g("md-inscribed-pad")) || 0.7,
+      r_ring_ratio: parseFloat(g("md-r-ring")) || 0.45,
+      r_band_ratio: parseFloat(g("md-r-band")) || 0.78,
+      stroke_width: parseFloat(g("md-stroke")) || 0.6,
+      line_color: g("md-mandala-color") || "#000000",
+    },
+    extra_layers: layers,
+    style: {
+      font: g("md-style") || "kaishu",
+      cns_outline_mode: g("md-cns-mode") || "skip",
+      source: g("md-source") || "auto",
+    },
+  };
+}
+
+// ---- Auto prose body：從 state 渲染人類/AI 可讀摘要 ----
+function _mandalaRenderProseBody(state) {
+  const lines = [];
+  const m = state.metadata || {};
+  const title = m.title || "未命名曼陀羅";
+  lines.push(`# ${title}`);
+  lines.push("");
+  lines.push(`> 由 stroke-order ${state.generator?.version || ""} 匯出。`);
+  lines.push("");
+  lines.push("## 視覺概觀（自動生成，下次匯出會被覆蓋）");
+  lines.push("");
+  const c = state.canvas || {};
+  lines.push(`- 畫布：${c.size_mm} mm 直徑 / 頁面 ${c.page_width_mm}×${c.page_height_mm} mm`);
+  const ce = state.center || {};
+  if (ce.type === "char") {
+    lines.push(`- 中心字：「${ce.text}」（${ce.size_mm} mm，${ce.line_color}）`);
+  } else if (ce.type === "icon") {
+    lines.push(`- 中心圖：${ce.icon_style}（N=${ce.icon_n}，${ce.icon_size_mm} mm）`);
+  } else {
+    lines.push(`- 中心：空`);
+  }
+  const r = state.ring || {};
+  if (r.text) {
+    lines.push(`- 字環：「${r.text}」共 ${r.text.length} 字（${r.size_mm} mm，${r.orientation}）`);
+  }
+  const md = state.mandala || {};
+  lines.push(`- 主 mandala：${md.style}，scheme = ${md.composition_scheme}，N = ${md.n_fold ?? "auto"}，色 ${md.line_color}`);
+  if (state.extra_layers?.length) {
+    lines.push(`- 裝飾層共 ${state.extra_layers.length} 層：`);
+    for (const layer of state.extra_layers) {
+      const v = layer.visible === false ? " (隱藏)" : "";
+      lines.push(`  - 環 ${layer.ring}：${layer.style} N=${layer.n_fold} r=${layer.r_mm}mm 色 ${layer.color}${v}`);
+    }
+  }
+  lines.push("");
+  lines.push("## 設計意圖");
+  lines.push("");
+  lines.push(m.design_note || "（無）");
+  lines.push("");
+  return lines.join("\n");
+}
+
+// ---- Serialize：state → MD 字串（frontmatter manual 保留拼音註解 + body） ----
+function serializeMandalaMd(state) {
+  state.generator = state.generator || { app: "stroke-order", version: "0.14.106" };
+  const m = state.metadata;
+  // metadata 區段用 manual template 保留中文/拼音 inline 註解
+  const escY = (s) => jsyaml.dump(s == null ? "" : s, { lineWidth: -1 }).trim();
+  const head = [
+    `schema: ${state.schema}`,
+    `exported_at: ${m.modified_at}`,
+    `generator:`,
+    `  app: stroke-order`,
+    `  version: "${state.generator.version}"`,
+    ``,
+    `metadata:`,
+    `  # 中文標題 + 拼音對照（拼音用於檔名 slug，import 時系統讀中文 title）`,
+    `  title: ${escY(m.title)}     # 拼音: ${m.title_pinyin || "(空)"}`,
+    `  title_pinyin: ${escY(m.title_pinyin)}`,
+    `  design_note: ${escY(m.design_note)}`,
+    `  author: ${escY(m.author)}     # r28 gallery 上傳時填寫`,
+    `  id: ${m.id}`,
+    `  created_at: ${m.created_at}`,
+    `  modified_at: ${m.modified_at}`,
+    ``,
+  ].join("\n");
+  // 其餘 sections 用 js-yaml.dump 自動序列化
+  const rest = {
+    canvas: state.canvas,
+    center: state.center,
+    ring: state.ring,
+    mandala: state.mandala,
+    extra_layers: state.extra_layers,
+    style: state.style,
+  };
+  const restYaml = jsyaml.dump(rest, { indent: 2, lineWidth: -1, noRefs: true });
+  return `---\n${head}${restYaml}---\n\n${_mandalaRenderProseBody(state)}\n`;
+}
+
+// ---- Parse：MD 字串 → state（含 schema validation + migration） ----
+function parseMandalaMd(text) {
+  const m = text.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
+  if (!m) throw new Error("檔案缺少 YAML frontmatter（--- ... --- 區塊）");
+  let parsed;
+  try { parsed = jsyaml.load(m[1]); }
+  catch (e) { throw new Error("YAML 解析失敗：" + (e.message || e)); }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Frontmatter 不是有效 YAML 物件");
+  }
+  return _mandalaMigrateState(parsed);
+}
+
+function _mandalaMigrateState(state) {
+  const sch = state.schema;
+  const migrator = MD_MIGRATIONS[sch];
+  if (!migrator) {
+    throw new Error(`不支援的 schema：${sch || "(空)"}（已知：${Object.keys(MD_MIGRATIONS).join(", ")}）`);
+  }
+  return migrator(state);
+}
+
+// ---- Tier 2: SVG metadata 嵌入/萃取 ----
+function _mandalaInjectSvgMetadata(svgStr, state) {
+  const json = JSON.stringify(state);
+  // CDATA 防護：JSON 中真出現 ]]> (極罕) 時 escape
+  const cdataSafe = json.replace(/]]>/g, "]]]]><![CDATA[>");
+  const block = `<metadata><mandala-config xmlns="https://stroke-order.local/mandala">` +
+                `<![CDATA[${cdataSafe}]]></mandala-config></metadata>`;
+  // 在第一個 <svg ...> 開標籤後注入
+  return svgStr.replace(/<svg([^>]*)>/, `<svg$1>${block}`);
+}
+
+function _mandalaExtractSvgMetadata(svgStr) {
+  const m = svgStr.match(
+    /<mandala-config[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/mandala-config>/);
+  if (!m) return null;
+  let json = m[1].replace(/\]\]\]\]><!\[CDATA\[>/g, "]]>");
+  let parsed;
+  try { parsed = JSON.parse(json); }
+  catch (e) { throw new Error("SVG metadata JSON 解析失敗：" + e.message); }
+  return _mandalaMigrateState(parsed);
+}
+
+// ---- Apply state → UI inputs ----
+function applyMandalaState(state) {
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && v != null) el.value = String(v);
+  };
+  const setCheck = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && typeof v === "boolean") el.checked = v;
+  };
+  const setColor = (id, hex) => {
+    const el = document.getElementById(id);
+    if (el && hex) {
+      el.value = hex;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  };
+  const m = state.metadata || {};
+  setVal("md-title", m.title);
+  setVal("md-design-note", m.design_note);
+  // 保留 import 來的 id + created_at（後續 export 重用）
+  if (m.id && m.created_at) {
+    window._mandalaSessionMeta = { id: m.id, created_at: m.created_at };
+  }
+  const c = state.canvas || {};
+  setVal("md-size", c.size_mm);
+  setVal("md-pw", c.page_width_mm);
+  setVal("md-ph", c.page_height_mm);
+  const ce = state.center || {};
+  if (ce.type) {
+    document.querySelectorAll('input[name="md-center-type"]').forEach(r => {
+      r.checked = (r.value === ce.type);
+    });
+  }
+  setVal("md-center-text", ce.text);
+  setVal("md-center-size", ce.size_mm);
+  setVal("md-icon-style", ce.icon_style);
+  setVal("md-icon-n", ce.icon_n);
+  setVal("md-icon-size", ce.icon_size_mm);
+  setColor("md-char-color", ce.line_color);
+  const r = state.ring || {};
+  setVal("md-ring-text", r.text);
+  setVal("md-ring-size", r.size_mm);
+  setVal("md-char-spacing", r.spacing);
+  setVal("md-orient", r.orientation);
+  setCheck("md-auto-shrink", r.auto_shrink);
+  setVal("md-shrink-margin", r.shrink_safety_margin);
+  setCheck("md-protect-chars", r.protect_chars);
+  setVal("md-protect-radius", r.protect_radius_factor);
+  const md = state.mandala || {};
+  setVal("md-style-primitive", md.style);
+  setVal("md-comp-scheme", md.composition_scheme);
+  setVal("md-n-fold", md.n_fold == null ? "" : md.n_fold);
+  setCheck("md-show-mandala", md.show);
+  setVal("md-overlap", md.overlap_ratio);
+  setVal("md-lotus-len", md.lotus_length_ratio);
+  setVal("md-lotus-width", md.lotus_width_ratio);
+  setVal("md-rays-len", md.rays_length_ratio);
+  setVal("md-inscribed-pad", md.inscribed_padding_factor);
+  setVal("md-r-ring", md.r_ring_ratio);
+  setVal("md-r-band", md.r_band_ratio);
+  setVal("md-stroke", md.stroke_width);
+  setColor("md-mandala-color", md.line_color);
+  // extra_layers — 全清空後 ring 分組重建
+  mandalaClearAllLayers();
+  const layers = state.extra_layers || [];
+  const ringMap = {};
+  for (const layer of layers) {
+    const ringIdx = Math.max(0, Math.min(MD_RING_MAX - 1,
+      parseInt(layer.ring, 10) || 0));
+    if (!ringMap[ringIdx]) ringMap[ringIdx] = [];
+    ringMap[ringIdx].push(layer);
+  }
+  if (!ringMap[0]) ringMap[0] = [];
+  Object.keys(ringMap).map(k => parseInt(k, 10)).sort((a, b) => a - b)
+    .forEach(ringIdx => mandalaAddRing(ringIdx, ringMap[ringIdx]));
+  const s = state.style || {};
+  setVal("md-style", s.font);
+  setVal("md-cns-mode", s.cns_outline_mode);
+  setVal("md-source", s.source);
+  // 觸發 sync handler 更新 conditional UI
+  ["md-style-primitive", "md-comp-scheme", "md-protect-chars"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  const cr = document.querySelector('input[name="md-center-type"]:checked');
+  if (cr) cr.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+// ---- Filename slug：拼音 + .mandala.md ----
+function _mandalaSlugifyFilename(state) {
+  const m = state.metadata || {};
+  const slug = m.title_pinyin || _mandalaTitleToPinyin(m.title) || "";
+  if (slug) return `${slug}.mandala.md`;
+  const idShort = (m.id || "").slice(0, 8);
+  return `mandala-${idShort || "untitled"}.mandala.md`;
+}
+
+// ---- Export 按鈕 ----
+document.getElementById("md-export-btn")?.addEventListener("click", () => {
+  try {
+    if (typeof jsyaml === "undefined") {
+      throw new Error("js-yaml 函式庫未載入（CDN 失敗？）");
+    }
+    const state = mandalaBuildState();
+    state.metadata = _mandalaCurrentMetadata();
+    const md = serializeMandalaMd(state);
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = _mandalaSlugifyFilename(state);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch (e) {
+    alert("匯出失敗：" + (e.message || e));
+    console.error(e);
+  }
+});
+
+// ---- Import 按鈕 + file input ----
+document.getElementById("md-import-btn")?.addEventListener("click", () => {
+  document.getElementById("md-import-file")?.click();
+});
+document.getElementById("md-import-file")?.addEventListener("change", async (ev) => {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  try {
+    if (typeof jsyaml === "undefined") {
+      throw new Error("js-yaml 函式庫未載入（CDN 失敗？）");
+    }
+    const text = await file.text();
+    let state;
+    if (text.trimStart().startsWith("<svg") || file.name.endsWith(".svg")) {
+      state = _mandalaExtractSvgMetadata(text);
+      if (!state) throw new Error("SVG 內未找到 mandala-config metadata");
+    } else {
+      state = parseMandalaMd(text);
+    }
+    applyMandalaState(state);
+    // 自動 render preview
+    if (typeof renderMandala === "function") renderMandala();
+    const t = state.metadata?.title || "(未命名)";
+    console.log(`✓ 匯入成功：${t}`);
+  } catch (e) {
+    alert("匯入失敗：" + (e.message || e));
+    console.error(e);
+  } finally {
+    ev.target.value = "";  // 允許重複匯入同檔
+  }
+});
+
+// ===== r27 module END =====
+
 function mandalaBuildParams() {
   const g = id => document.getElementById(id).value;
   const $$ = id => document.getElementById(id);
@@ -4900,7 +5358,20 @@ async function mandalaDownload(format) {
   try {
     const r = await fetch(`${API_BASE}/api/mandala?` + params);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const blob = await r.blob();
+    let blob = await r.blob();
+    // r27 Tier 2: SVG 下載時注入 mandala-config metadata
+    if (format === "svg") {
+      try {
+        const svgText = await blob.text();
+        const state = mandalaBuildState();
+        state.metadata = _mandalaCurrentMetadata();
+        state.generator = { app: "stroke-order", version: "0.14.106" };
+        const enriched = _mandalaInjectSvgMetadata(svgText, state);
+        blob = new Blob([enriched], { type: "image/svg+xml;charset=utf-8" });
+      } catch (e) {
+        console.warn("SVG metadata 注入失敗，下載原 SVG：", e);
+      }
+    }
     const url = URL.createObjectURL(blob);
     // 副檔名
     const extMap = {svg: "svg", png: "png",
