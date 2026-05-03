@@ -1417,53 +1417,16 @@ def _placements_for_preset(
         # (a, curve_h)。char 落在 outer 與 inner stadium curve 中點 ring band。
         if has_arc_top:
             arc_n = len(oval_arc_top_chars)
-            # ring band 中點半徑
-            # 12m-7 r16: arc_a 由 sep_inner_a-1.5 設定（inset from sep
-            # chord_half for outer-cross safety）
             arc_a_full = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
-            # 12m-7 r17: arc_b 60/40 — 從 r16 的 78/22 退回，給 char_top
-            # 在 edge 留 outer cross 安全 margin（char_h 變大後需 buffer）
-            arc_b_full = _curve_h * 0.6 + _inner_b_curve * 0.4
-            # Char size：受 ring band width 限制（<= ring_band × 0.85），
-            # 並 capped by char_size_mm。Span 160° 留少量 shoulder margin。
-            arc_span_deg = 130.0   # 12m-7 r3: 160→130 留更多左右 buffer
+            # 12m-7 r18: arc text apex 移至 ring band 中點（outer apex y=0
+            # 與 inner sep apex y=apex_offset 之間 midpoint）。
+            # Override cy_arc 不再用 _top_curve_cy。
+            target_apex_y_top = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM / 2.0
+            cy_arc_top = max(_top_curve_cy, target_apex_y_top + 1.0)
+            arc_b_full = cy_arc_top - target_apex_y_top
+            arc_span_deg = 130.0
             arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
                 arc_span_deg)
-            # 12m-7 r17: 分離 arc_w (cell-bound) 跟 arc_h (ring-band-bound)
-            # 讓字「填滿」ring band 不只是 cell width 限制。
-            # arc_w = cell width 限制（avoid 字重疊）
-            # arc_h = ring band height × 0.55（fill 多數 ring band）
-            # cap aspect 1.6 避免過於拉長
-            arc_w = min(arc_len_approx / arc_n * 0.92, char_size_mm)
-            ring_band_h = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM
-            arc_h = min(ring_band_h * 0.55, arc_w * 1.6, char_size_mm)
-            arc_w = max(arc_w, 1.5)   # min legibility
-            arc_h = max(arc_h, 1.8)
-            positions = _oval_arc_positions(
-                arc_n,
-                inner_w=2 * arc_a_full, inner_h=2 * arc_b_full,
-                cx=cx, cy=_top_curve_cy, top=True, char_size=0,
-                span_deg=arc_span_deg, padding_ratio=0.0,
-            )
-            # r17: 用 (arc_w, arc_h) 而不是 (arc_sz, arc_sz)
-            for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
-                placements.append(
-                    (ch, x, y, rot, arc_w, arc_h, False, True)
-                )
-
-        # --- Bottom arc (地址沿下半弧) ---
-        if has_arc_bot:
-            arc_n = len(oval_arc_bottom_chars)
-            # 12m-7 r16: arc_a 由 sep_inner_a-1.5 設定（inset from sep
-            # chord_half for outer-cross safety）
-            arc_a_full = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
-            # 12m-7 r17: arc_b 60/40 — 從 r16 的 78/22 退回，給 char_top
-            # 在 edge 留 outer cross 安全 margin（char_h 變大後需 buffer）
-            arc_b_full = _curve_h * 0.6 + _inner_b_curve * 0.4
-            arc_span_deg = 130.0   # 12m-7 r3: 160→130 留更多左右 buffer
-            arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
-                arc_span_deg)
-            # 12m-7 r17: 同 top arc — 分離 arc_w / arc_h
             arc_w = min(arc_len_approx / arc_n * 0.92, char_size_mm)
             ring_band_h = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM
             arc_h = min(ring_band_h * 0.55, arc_w * 1.6, char_size_mm)
@@ -1472,7 +1435,37 @@ def _placements_for_preset(
             positions = _oval_arc_positions(
                 arc_n,
                 inner_w=2 * arc_a_full, inner_h=2 * arc_b_full,
-                cx=cx, cy=_bot_curve_cy, top=False, char_size=0,
+                cx=cx, cy=cy_arc_top, top=True, char_size=0,
+                span_deg=arc_span_deg, padding_ratio=0.0,
+            )
+            for ch, (x, y, rot) in zip(oval_arc_top_chars, positions):
+                placements.append(
+                    (ch, x, y, rot, arc_w, arc_h, False, True)
+                )
+
+        # --- Bottom arc (地址沿下半弧) ---
+        if has_arc_bot:
+            arc_n = len(oval_arc_bottom_chars)
+            arc_a_full = max(_sep_inner_a - 1.5, _half_w_outer * 0.4)
+            # 12m-7 r18: arc text apex 移至 ring band 中點（outer apex
+            # y=height 與 inner sep apex y=height-apex_offset 之間 midpoint，
+            # 對稱 top arc）
+            target_apex_y_top = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM / 2.0
+            target_apex_y_bot = height_mm - target_apex_y_top
+            cy_arc_bot = min(_bot_curve_cy, target_apex_y_bot - 1.0)
+            arc_b_full = target_apex_y_bot - cy_arc_bot
+            arc_span_deg = 130.0
+            arc_len_approx = (arc_a_full + arc_b_full) / 2.0 * math.radians(
+                arc_span_deg)
+            arc_w = min(arc_len_approx / arc_n * 0.92, char_size_mm)
+            ring_band_h = TAX_INVOICE_INNER_SEP_APEX_OFFSET_MM
+            arc_h = min(ring_band_h * 0.55, arc_w * 1.6, char_size_mm)
+            arc_w = max(arc_w, 1.5)
+            arc_h = max(arc_h, 1.8)
+            positions = _oval_arc_positions(
+                arc_n,
+                inner_w=2 * arc_a_full, inner_h=2 * arc_b_full,
+                cx=cx, cy=cy_arc_bot, top=False, char_size=0,
                 span_deg=arc_span_deg, padding_ratio=0.0,
             )
             for ch, (x, y, rot) in zip(oval_arc_bottom_chars, positions):
