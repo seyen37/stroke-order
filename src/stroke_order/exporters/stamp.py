@@ -1116,6 +1116,11 @@ def _placements_for_preset(
     # 文字時，slot 位置/高度需根據 case 重設。dict 形如:
     #   {"slot_0": [y_ratio, max_h_ratio], "slot_1": [...], "slot_2": [...]}
     body_slot_overrides: dict = None,
+    # Phase 12m-7 r39: 職名章 (rectangle_title) 結構化欄位 — 2-column layout
+    rect_left_line1_chars: list[Character] = None,
+    rect_left_line2_chars: list[Character] = None,
+    rect_right_chars: list[Character] = None,
+    rect_left_2rows: bool = False,
 ) -> list[tuple]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
@@ -1159,7 +1164,14 @@ def _placements_for_preset(
         or (preset == "tax_invoice" and oval_location_chars
             and len(oval_location_chars) > 0)
     )
-    if n == 0 and not _has_oval_structured:
+    # 12m-7 r39: 職名章 (rectangle_title) 結構化欄位：左欄職稱 + 右欄姓名，
+    # 可在 text 為空時靠 rect_left_line1 / rect_right 提供字 → 同樣不能 early-return。
+    _has_rect_structured = preset == "rectangle_title" and (
+        (rect_left_line1_chars and len(rect_left_line1_chars) > 0)
+        or (rect_left_line2_chars and len(rect_left_line2_chars) > 0)
+        or (rect_right_chars and len(rect_right_chars) > 0)
+    )
+    if n == 0 and not _has_oval_structured and not _has_rect_structured:
         return []
 
     placements: list[
@@ -1772,20 +1784,76 @@ def _placements_for_preset(
                         _add(c, x0 + i * spacing, y_off, 0.0, char_size_mm)
 
     elif preset == "rectangle_title":
-        half = (n + 1) // 2
-        top_row = chars[:half]
-        bot_row = chars[half:]
-        for row_chars, y_off in [
-            (top_row, cy - inner_h * 0.25),
-            (bot_row, cy + inner_h * 0.25),
-        ]:
-            m = len(row_chars)
-            if m == 0:
-                continue
-            spacing = inner_w / m
-            x0 = cx - inner_w / 2 + spacing / 2
-            for i, c in enumerate(row_chars):
-                _add(c, x0 + i * spacing, y_off, 0.0, char_size_mm)
+        # 12m-7 r39: 2-column layout. 左欄 12mm（職稱，1 或 2 行）+
+        # 右欄 14mm（姓名，1 行）+ side padding 共 28mm。字體 auto-fit
+        # 填滿欄位。當結構化欄位 (rect_left_line1_chars 等) 提供時用 2-col
+        # layout；否則 fallback 至 legacy 「split chars by half top/bot」。
+        _has_rect_struct = bool(
+            (rect_left_line1_chars and len(rect_left_line1_chars) > 0)
+            or (rect_right_chars and len(rect_right_chars) > 0)
+        )
+        if _has_rect_struct:
+            inner_top = inset
+            inner_bot = height_mm - inset
+            # 12m-7 r39b: 欄位寬度自動依「左欄 1 行 / 2 行」調整。
+            # 1 行（職稱單行）→ 左 10 + 右 16：左欄字少給右欄姓名多空間。
+            # 2 行（職稱雙行）→ 左 12 + 右 14：雙行職稱字較密，左欄需多一點寬度。
+            if rect_left_2rows and rect_left_line2_chars:
+                LEFT_W = 12.0
+                RIGHT_W = 14.0
+            else:
+                LEFT_W = 10.0
+                RIGHT_W = 16.0
+            side_pad = max((width_mm - LEFT_W - RIGHT_W) / 2.0, inset)
+            left_x_start = side_pad
+            left_x_end = side_pad + LEFT_W
+            right_x_start = left_x_end
+            right_x_end = right_x_start + RIGHT_W
+            FILL_W, FILL_H = 0.95, 0.85
+
+            def _rect_row(row_chars, x_start, x_end, y_top_, y_bot_):
+                mm_ = len(row_chars)
+                if mm_ == 0:
+                    return
+                col_w = x_end - x_start
+                col_h = y_bot_ - y_top_
+                cell_w = col_w / mm_
+                ch_sz = min(cell_w * FILL_W, col_h * FILL_H, char_size_mm)
+                ch_sz = max(ch_sz, 1.5)
+                x0 = x_start + cell_w / 2.0
+                y_ctr = (y_top_ + y_bot_) / 2.0
+                for i, ch in enumerate(row_chars):
+                    _add(ch, x0 + i * cell_w, y_ctr, 0.0, ch_sz)
+
+            # 左欄
+            if rect_left_2rows and rect_left_line2_chars:
+                mid_y = (inner_top + inner_bot) / 2.0
+                _rect_row(list(rect_left_line1_chars or []),
+                          left_x_start, left_x_end, inner_top, mid_y)
+                _rect_row(list(rect_left_line2_chars or []),
+                          left_x_start, left_x_end, mid_y, inner_bot)
+            else:
+                _rect_row(list(rect_left_line1_chars or []),
+                          left_x_start, left_x_end, inner_top, inner_bot)
+            # 右欄（永遠 1 行）
+            _rect_row(list(rect_right_chars or []),
+                      right_x_start, right_x_end, inner_top, inner_bot)
+        else:
+            # Legacy: split chars by half (top/bot rows)
+            half = (n + 1) // 2
+            top_row = chars[:half]
+            bot_row = chars[half:]
+            for row_chars, y_off in [
+                (top_row, cy - inner_h * 0.25),
+                (bot_row, cy + inner_h * 0.25),
+            ]:
+                m = len(row_chars)
+                if m == 0:
+                    continue
+                spacing = inner_w / m
+                x0 = cx - inner_w / 2 + spacing / 2
+                for i, c in enumerate(row_chars):
+                    _add(c, x0 + i * spacing, y_off, 0.0, char_size_mm)
 
     # Phase 12g: 每字位移微調（char_offsets）+ bounds clamp。
     # char_offsets[i] = (dx, dy) mm，套用後字 outline bbox 不能超出 inner box
@@ -1862,6 +1930,11 @@ def render_stamp_svg(
     round_continuous_arc: bool = False,
     # Phase 12m-7 r31: 動態 body slot 位置/高度覆寫
     body_slot_overrides: dict = None,
+    # Phase 12m-7 r39: 職名章 (rectangle_title) 結構化欄位
+    rect_left_line1: str = "",
+    rect_left_line2: str = "",
+    rect_right: str = "",
+    rect_left_2rows: bool = False,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -1945,6 +2018,10 @@ def render_stamp_svg(
         oval_location_position=oval_location_position,
         round_continuous_arc=round_continuous_arc,
         body_slot_overrides=body_slot_overrides,
+        rect_left_line1_chars=_load_chars(rect_left_line1) if rect_left_line1 else [],
+        rect_left_line2_chars=_load_chars(rect_left_line2) if rect_left_line2 else [],
+        rect_right_chars=_load_chars(rect_right) if rect_right else [],
+        rect_left_2rows=bool(rect_left_2rows),
     )
 
     # Build border path d-strings (used by both modes).
@@ -2253,6 +2330,11 @@ def render_stamp_gcode(
     round_continuous_arc: bool = False,
     # Phase 12m-7 r31: 動態 body slot overrides
     body_slot_overrides: dict = None,
+    # Phase 12m-7 r39: 職名章 (rectangle_title) 結構化欄位
+    rect_left_line1: str = "",
+    rect_left_line2: str = "",
+    rect_right: str = "",
+    rect_left_2rows: bool = False,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -2326,6 +2408,10 @@ def render_stamp_gcode(
         oval_location_position=oval_location_position,
         round_continuous_arc=round_continuous_arc,
         body_slot_overrides=body_slot_overrides,
+        rect_left_line1_chars=_load_chars(rect_left_line1) if rect_left_line1 else [],
+        rect_left_line2_chars=_load_chars(rect_left_line2) if rect_left_line2 else [],
+        rect_right_chars=_load_chars(rect_right) if rect_right else [],
+        rect_left_2rows=bool(rect_left_2rows),
     )
 
     out: list[str] = [
