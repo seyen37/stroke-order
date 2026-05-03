@@ -1501,26 +1501,27 @@ def _placements_for_preset(
             body_usable_w = min(TAX_INVOICE_BODY_USABLE_W_MM,
                                 width_mm * 0.90)
 
-            # 12m-7 r4: slot Y + 高度重新校準，避免 title/location 碰
-            # 上下 inner separator 弧。經 math 驗證 (45×30 stamp，inner
-            # arc 在 y=4.5-10.8 / 19.2-25.5)：
-            #   - title at y=8.18, max_h=0.07 → char top=7.18 > arc 5.63
-            #     @x=cx+10 ✓
-            #   - location at y=24.09, max_h=0.07 → char bot=25.09 < arc
-            #     25.35 @x=cx+4 ✓
-            # 12m-7 r15: slot Y compressed (smaller chars 後 row 更近)
-            # title/label 移近 slot_0；slot_1/2/location 也壓縮
+            # 12m-7 r4/r15/r21: slot Y + 高度校準，避免 title/location
+            # 碰上下 inner separator 弧。
+            # tuple = (y_ratio, max_h_ratio, tight, spacing_mul)
+            # r21: title 抬高 (-0.20→-0.22) + 字大 0.07→0.085 + 字距 1.30
+            # （45×40 7 chars: x0=10.57, char top y=10.55 vs inner_sep at
+            # x=10.57 y=7.73, gap=2.82mm ✓; title bot 13.61 vs label top
+            # 14.06, gap 0.45 ✓）。label 不動 — title 抬高後自然產生間距。
+            # location 字小 0.06→0.045 避免碰下弧（char bot y=30.53 vs
+            # inner sep bot apex y=34, gap=3.47mm）
             STADIUM_BODY_SLOTS = {
-                "top_title":  (-0.20, 0.07, True),
-                "label":      (-0.13, 0.07, True),
-                "slot_0":     (-0.02, 0.12, False),
-                "slot_1":     (+0.10, 0.06, False),
-                "slot_2":     (+0.18, 0.06, False),
-                "location":   (+0.27, 0.06, True),
+                "top_title":  (-0.22, 0.085, True,  1.30),
+                "label":      (-0.13, 0.07,  True,  1.15),
+                "slot_0":     (-0.02, 0.12,  False, 1.15),
+                "slot_1":     (+0.10, 0.06,  False, 1.15),
+                "slot_2":     (+0.18, 0.06,  False, 1.15),
+                "location":   (+0.27, 0.045, True,  1.15),
             }
 
             def _stadium_body_row(line_chars, y_ratio, max_h_ratio,
-                                  bold=False, tight=False):
+                                  bold=False, tight=False,
+                                  spacing_mul=1.15):
                 """Place horizontal row of chars at given slot.
                 12m-7 r2: 8-tuple with capped_stretch=True (8th elem) →
                 render uses _char_capped_stretch_svg, prevents 「一」 etc.
@@ -1550,7 +1551,8 @@ def _placements_for_preset(
                     # Tight pack: char size driven by slot_max_h, NOT cell_w
                     ch_sz = min(slot_max_h, char_size_mm)
                     ch_sz = max(ch_sz, 2.5)
-                    spacing = ch_sz * 1.15
+                    # 12m-7 r21: spacing_mul 由 caller 傳入（title 用 1.30 加大字距）
+                    spacing = ch_sz * spacing_mul
                     # Centre row horizontally; ensure not exceeding body_usable_w
                     total_w = spacing * m
                     if total_w > body_usable_w:
@@ -1587,13 +1589,14 @@ def _placements_for_preset(
 
             # 上方標題 (optional, tight)
             if has_top_title:
-                y_r, h_r, tight = STADIUM_BODY_SLOTS["top_title"]
-                _stadium_body_row(oval_top_title_chars, y_r, h_r, tight=tight)
+                y_r, h_r, tight, sp_mul = STADIUM_BODY_SLOTS["top_title"]
+                _stadium_body_row(oval_top_title_chars, y_r, h_r,
+                                  tight=tight, spacing_mul=sp_mul)
             # 統一編號 label (fixed when oval_label_chars provided, tight)
             if oval_label_chars:
-                y_r, h_r, tight = STADIUM_BODY_SLOTS["label"]
+                y_r, h_r, tight, sp_mul = STADIUM_BODY_SLOTS["label"]
                 _stadium_body_row(list(oval_label_chars), y_r, h_r,
-                                  tight=tight)
+                                  tight=tight, spacing_mul=sp_mul)
             # Body slots (中央 1/2/3, fill cells)
             # 12m-7 r3: 中央 2 (slot_1) 自動加「負責人：」前綴對齊 ED2/ED4
             # reference visual。若 user 已在 slot_1 加「負責人」字串，不重複。
@@ -1606,14 +1609,16 @@ def _placements_for_preset(
                 for i, line in enumerate(oval_body_lines_chars[:3]):
                     if not line:
                         continue
-                    y_r, h_r, tight = STADIUM_BODY_SLOTS[slot_keys[i]]
+                    y_r, h_r, tight, sp_mul = STADIUM_BODY_SLOTS[
+                        slot_keys[i]]
                     bold = (bold_flags[i] if i < len(bold_flags) else False)
-                    _stadium_body_row(line, y_r, h_r, bold=bold, tight=tight)
+                    _stadium_body_row(line, y_r, h_r, bold=bold,
+                                      tight=tight, spacing_mul=sp_mul)
             # 縣市 (optional, position=bottom, tight)
             if has_location and oval_location_position == "bottom":
-                y_r, h_r, tight = STADIUM_BODY_SLOTS["location"]
+                y_r, h_r, tight, sp_mul = STADIUM_BODY_SLOTS["location"]
                 _stadium_body_row(list(oval_location_chars), y_r, h_r,
-                                  tight=tight)
+                                  tight=tight, spacing_mul=sp_mul)
             # 縣市 (position=left) — 直立排列於章面最左邊，取代左側梅花
             # 位置：左側 stadium curve & inner curve 中點 (x=ring_band_mid_x)，
             # y 從中心向上下擴散，每字一格。
@@ -1956,7 +1961,7 @@ def render_stamp_svg(
             body_usable_w_calc = min(TAX_INVOICE_BODY_USABLE_W_MM,
                                      stamp_width_mm * 0.90)
             inner_h_calc = stamp_height_mm - 2 * border_padding_mm
-            # 12m-7 r15: 同步 STADIUM_BODY_SLOTS 新值
+            # 12m-7 r15: 同步 STADIUM_BODY_SLOTS（r21: label 不動仍 -0.13）
             slot_0_y = cy_mid + (-0.02) * inner_h_calc
             label_y = cy_mid + (-0.13) * inner_h_calc
             slot_1_y = cy_mid + (+0.10) * inner_h_calc
