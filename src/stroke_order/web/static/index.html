@@ -5149,45 +5149,46 @@ function stampComputeRoundInnerLayout() {
   };
   let bbox = null;
   const overrides = {};
-  // 12m-7 r36: 全部使用 explicit gap allocation — 每個 case 的 r_start/r_end
-  // 都已預留 SAFETY (4% top/bot 給 inner ellipse boundary) + gap region
-  // (2-3% 之間給相鄰 element 不碰觸)。FILL_RATIO=0.92 + imgMargin=0 給最大
-  // 字體與最大圖。
+  // 12m-7 r37: 進一步減少空白 — 全空 image 推到 0.02..0.98（最大化）；
+  // 1+2/2+3 中央 2 (slot_1) 加大、中央 1/3 (slot_0/slot_2) 略小且更靠
+  // border；只 2 text+image 都靠 border。
   if (!has1 && !has2 && !has3) {
-    // 全空 → image 92% (0.04..0.96)
-    bbox = imgBbox(0.04, 0.96);
+    // 全空 → image 96% (0.02..0.98) 推到極限
+    bbox = imgBbox(0.02, 0.98);
   } else if (has1 && !has2 && !has3) {
-    // 只 1 → slot_0 30% + gap 3% + image 59%
+    // 只 1 → slot_0 30% + gap 3% + image 59%（r36 維持）
     overrides.slot_0 = slotOverride(0.04, 0.34);
     bbox = imgBbox(0.37, 0.96);
   } else if (has1 && has2 && !has3) {
-    // 1+2 → slot_0 28% + gap 2% + slot_1 28% + gap 3% + image 31%
-    overrides.slot_0 = slotOverride(0.04, 0.32);
-    overrides.slot_1 = slotOverride(0.34, 0.62);
-    bbox = imgBbox(0.65, 0.96);
+    // 1+2 (r37): slot_0 27% (略小, 靠 top) + gap 2% + slot_1 33% (大, 中) +
+    // gap 3% + image 29% (靠 bot)
+    overrides.slot_0 = slotOverride(0.03, 0.30);
+    overrides.slot_1 = slotOverride(0.32, 0.65);
+    bbox = imgBbox(0.68, 0.97);
   } else if (has1 && !has2 && has3) {
-    // 1+3 → slot_0 26% + gap 3% + image 34% + gap 3% + slot_2 26%
+    // 1+3 → slot_0 + image + slot_2（r36 維持）
     overrides.slot_0 = slotOverride(0.04, 0.30);
     overrides.slot_2 = slotOverride(0.70, 0.96);
     bbox = imgBbox(0.33, 0.67);
   } else if (!has1 && has2 && !has3) {
-    // 只 2 → 用戶選 image 上方/下方。各 44-45% + gap 3%
+    // 只 2 (r37): text 跟 image 各 45-46% 推到 border（gap 3% 中間）
     const sel = $("st-round-inner-deco-only2-pos");
     const pos = (sel?.value === "up") ? "up" : "down";
     if (pos === "up") {
-      bbox = imgBbox(0.04, 0.48);
-      overrides.slot_1 = slotOverride(0.51, 0.96);
+      bbox = imgBbox(0.03, 0.49);
+      overrides.slot_1 = slotOverride(0.52, 0.97);
     } else {
-      overrides.slot_1 = slotOverride(0.04, 0.48);
-      bbox = imgBbox(0.51, 0.96);
+      overrides.slot_1 = slotOverride(0.03, 0.48);
+      bbox = imgBbox(0.51, 0.97);
     }
   } else if (!has1 && has2 && has3) {
-    // 2+3 → image 27% + gap 3% + slot_1 28% + gap 2% + slot_2 28%
-    bbox = imgBbox(0.04, 0.31);
-    overrides.slot_1 = slotOverride(0.34, 0.62);
-    overrides.slot_2 = slotOverride(0.64, 0.92);
+    // 2+3 (r37): image 29% (靠 top) + gap 3% + slot_1 33% (大, 中) +
+    // gap 2% + slot_2 27% (略小, 靠 bot)
+    bbox = imgBbox(0.03, 0.32);
+    overrides.slot_1 = slotOverride(0.35, 0.68);
+    overrides.slot_2 = slotOverride(0.70, 0.97);
   } else if (!has1 && !has2 && has3) {
-    // 只 3 → image 61% + gap 3% + slot_2 28%
+    // 只 3 → image 61% + gap 3% + slot_2 28%（r36 維持）
     bbox = imgBbox(0.04, 0.65);
     overrides.slot_2 = slotOverride(0.68, 0.96);
   }
