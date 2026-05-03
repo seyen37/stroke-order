@@ -5132,25 +5132,22 @@ function stampMaybeAddInnerDeco(decoArr) {
   if (yBot <= yTop) return decoArr;  // 無空間
   const imgCy = (yTop + yBot) / 2;
   const imgDy = Math.abs(imgCy - cy);
-  // 解二次方程式：square corner (cx+s, imgCy+|imgDy|+s) 必須在 ellipse 內
-  // (s/innerA)² + ((imgDy+s)/innerB)² = 1 → 解 s
-  const A = 1 / (innerA * innerA) + 1 / (innerB * innerB);
-  const B = 2 * imgDy / (innerB * innerB);
-  const C = (imgDy * imgDy) / (innerB * innerB) - 1;
-  const disc = B * B - 4 * A * C;
-  if (disc < 0) return decoArr;
-  const s = (-B + Math.sqrt(disc)) / (2 * A);
-  if (s <= 0) return decoArr;
-  const sizeByEllipse = s * 2;
+  // 12m-7 r30: 圓形 bbox — inscribed circle in ellipse。對 round (a==b=R)：
+  // circle radius r = R - |imgDy|（圓心離 ellipse center 越遠 r 越小）。
+  // 也受 avail_h 限制（垂直方向不超出 slot 邊界）。
+  const rByEllipse = Math.min(innerA, innerB - imgDy);  // (round: == R - |dy|)
+  if (rByEllipse <= 0) return decoArr;
   const sizeByHeight = yBot - yTop;
-  const size = Math.min(sizeByEllipse, sizeByHeight);
+  const r = Math.min(rByEllipse, sizeByHeight / 2);
+  const size = r * 2;
   if (size < 1) return decoArr;
   decoArr.push({
     svg_content: STAMP.innerDecoSvg,
-    x_mm: cx - size / 2,
-    y_mm: imgCy - size / 2,
+    x_mm: cx - r,
+    y_mm: imgCy - r,
     w_mm: size,
     h_mm: size,
+    clip_circle: true,   // 12m-7 r30: 視覺裁切成正圓形
   });
   return decoArr;
 }

@@ -96,6 +96,8 @@ class PatchDecorationSpec(BaseModel):
     y_mm: float
     w_mm: float
     h_mm: float
+    # 12m-7 r30: 圓戳章內框圖用，True = clip 成 inscribed circle
+    clip_circle: bool = False
 
 
 class PatchPostRequest(BaseModel):
@@ -2606,7 +2608,8 @@ def create_app() -> FastAPI:
 
         decorations = [
             SvgDecoration(svg_content=d.svg_content, x_mm=d.x_mm, y_mm=d.y_mm,
-                          w_mm=d.w_mm, h_mm=d.h_mm)
+                          w_mm=d.w_mm, h_mm=d.h_mm,
+                          clip_circle=bool(getattr(d, "clip_circle", False)))
             for d in req.decorations
         ]
 

@@ -103,12 +103,16 @@ class SvgDecoration:
     ``svg_content`` is a fragment (or full <svg>) of paths to embed.
     Coordinates are interpreted in its source viewBox; we transform-
     fit it into the (x_mm, y_mm, w_mm, h_mm) box on the patch.
+
+    12m-7 r30: ``clip_circle`` 為 True 時將 deco 內容裁切成正圓形
+    （inscribed circle of bbox），用於圓戳章內框圖視覺上整體呈正圓。
     """
     svg_content: str
     x_mm: float
     y_mm: float
     w_mm: float
     h_mm: float
+    clip_circle: bool = False
 
 
 # Loader signature shared with the wordart pipeline.
@@ -391,15 +395,33 @@ def _decoration_svg(d: SvgDecoration) -> str:
     The decoration's source viewBox is honoured; we wrap with an outer
     ``<svg>`` so the inner draws scale into the requested mm box.
     Output is a fragment (one ``<svg>`` element).
+
+    12m-7 r30: ``clip_circle=True`` 會 wrap 整段 in clipPath，把可視
+    區域裁成 inscribed circle of bbox（半徑 = min(w, h)/2，圓心於
+    bbox 中央）。用於圓戳章內框圖視覺上呈正圓。
     """
     # Trust the caller's SVG content; only escape if obviously bare path data.
     body = d.svg_content.strip()
     if not body.startswith("<"):
         return ""
-    return (
+    inner_svg = (
         f'<svg x="{d.x_mm:.3f}" y="{d.y_mm:.3f}" '
-        f'width="{d.w_mm:.3f}" height="{d.h_mm:.3f}" preserveAspectRatio="xMidYMid meet">'
+        f'width="{d.w_mm:.3f}" height="{d.h_mm:.3f}" '
+        f'preserveAspectRatio="xMidYMid meet">'
         f'{body}</svg>'
+    )
+    if not d.clip_circle:
+        return inner_svg
+    # Wrap with clipPath（unique id 用 hash 避免 collision；加 deco_ 前綴）
+    cid = f"deco_clip_{abs(hash((d.x_mm, d.y_mm, d.w_mm, d.h_mm))) % 10**8}"
+    cx = d.x_mm + d.w_mm / 2.0
+    cy = d.y_mm + d.h_mm / 2.0
+    r = min(d.w_mm, d.h_mm) / 2.0
+    return (
+        f'<defs><clipPath id="{cid}">'
+        f'<circle cx="{cx:.3f}" cy="{cy:.3f}" r="{r:.3f}"/>'
+        f'</clipPath></defs>'
+        f'<g clip-path="url(#{cid})">{inner_svg}</g>'
     )
 
 
