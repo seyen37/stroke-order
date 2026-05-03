@@ -171,6 +171,8 @@
       抄經模式 <span style="color:var(--muted);font-size:12px;">(A4 橫式描紅 SVG)</span></label>
     <label><input type="radio" name="mode" value="wordart">
       文字雲模式 <span style="color:var(--muted);font-size:12px;">(外框繞字/填滿)</span></label>
+    <label><input type="radio" name="mode" value="mandala">
+      曼陀羅模式 <span style="color:var(--muted);font-size:12px;">(中心字+字環+半圓交織)</span></label>
   </div>
   <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
     <button id="ud-open" type="button"
@@ -1249,6 +1251,43 @@
       </div>
     </div>
 
+    <!-- 12m-7 r39: 職名章 (rectangle_title) 結構化欄位 — 2-column layout -->
+    <div id="st-rect-fields" class="row" style="display:none;flex-direction:column;
+         background:#f0f7ff;border-left:3px solid #4a90c2;padding:6px 10px;
+         border-radius:3px;margin:4px 0;gap:6px;">
+      <div style="font-weight:600;color:#2a5a8a;font-size:13px;">
+        職名章欄位 <span style="color:var(--muted);font-weight:normal;font-size:11px;
+        margin-left:6px;">職稱 1 行：左 10 + 右 16 ／ 職稱 2 行：左 12 + 右 14（mm，自動切換）／ 橫書 左→右</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:80px;">職稱（左欄）</label>
+        <input id="st-rect-left-line1" type="text"
+               placeholder="如：經理 / 業務副理"
+               maxlength="20"
+               value="經理"
+               style="flex:1;font-size:14px;">
+        <label style="font-size:11px;color:var(--muted);">
+          <input id="st-rect-left-2rows" type="checkbox"> 分 2 行
+        </label>
+      </div>
+      <div id="st-rect-left-line2-row" style="display:none;align-items:center;gap:6px;">
+        <label style="min-width:80px;">職稱第 2 行</label>
+        <input id="st-rect-left-line2" type="text"
+               placeholder="第 2 行（勾選分 2 行才顯示）"
+               maxlength="20"
+               value="特助"
+               style="flex:1;font-size:14px;">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="min-width:80px;">姓名（右欄）</label>
+        <input id="st-rect-right" type="text"
+               placeholder="如：王大同"
+               maxlength="10"
+               value="王大同"
+               style="flex:1;font-size:14px;">
+      </div>
+    </div>
+
     <!-- 12b-2 小尺寸警示 / 12b-3 字數推薦尺寸（兩者整合在一個 hint 區塊） -->
     <div id="st-size-hint" class="row" style="display:none;background:#fff8e6;
          border-left:3px solid #e0a020;padding:6px 10px;border-radius:3px;
@@ -1752,20 +1791,14 @@
       <label>外框形狀</label>
       <select id="wa-shape">
         <optgroup label="基本形">
-          <option value="circle" selected>圓形</option>
+          <option value="circle">圓形</option>
           <option value="ellipse">橢圓</option>
-          <option value="polygon">多邊形 (自訂 N 邊)</option>
+          <option value="polygon" selected>多邊形 (自訂 N 邊)</option>
         </optgroup>
-        <optgroup label="規則多邊形">
-          <option value="triangle">三角形 (3 邊)</option>
-          <option value="square">四角形 (4 邊)</option>
-          <option value="pentagon">五角形 (5 邊)</option>
-          <option value="hexagon">六角形 (6 邊)</option>
-          <option value="heptagon">七角形 (7 邊)</option>
-          <option value="octagon">八角形 (8 邊)</option>
-          <option value="nonagon">九角形 (9 邊)</option>
-          <option value="decagon">十角形 (10 邊)</option>
-        </optgroup>
+        <!-- Phase 5b r1: 「規則多邊形」optgroup 已整併到「多邊形 (自訂 N 邊)」 +
+             邊數 N input。triangle/square/pentagon/.../decagon shorthand 後端
+             仍支援（_SHAPE_KINDS 跟 make_shape shorthand mapping 都還在），
+             但 UI 不再列出 — 一律走 polygon + sides=N path。 -->
         <optgroup label="造型 (Phase 5ah)">
           <option value="star">★ 星形 (N 角星)</option>
           <option value="heart">♥ 心形</option>
@@ -1850,8 +1883,41 @@
     <!-- Per-edge fields (appears when layout=linear on polygon) -->
     <div id="wa-edges-row" style="display:none;">
       <div style="padding:8px 10px;background:#fafafa;border-radius:4px;margin:4px 0;">
-        <b style="color:var(--muted);font-size:12px;">每邊文字（linear 模式專用）</b>
+        <b style="color:var(--muted);font-size:12px;">
+          每邊文字（linear 模式專用）<span id="wa-sides-count-hint"
+            style="margin-left:8px;color:var(--muted);font-weight:normal;">
+            目前 <b id="wa-sides-count">3</b> 邊（3 邊 = 三角形、4 邊 = 四角形…，N=20 上限）
+          </span>
+        </b>
+        <!-- 隱藏 input（waCurrentSides 從這裡讀；UI 走「邊3 下方 +/−」按鈕） -->
+        <input id="wa-sides-n" type="hidden" value="3">
         <div id="wa-edge-inputs"></div>
+        <!-- Phase 5b r1: 邊 N 下一行用「+」「−」按鈕增減邊數（取代規則多邊形 optgroup）
+             Phase 5b r2: 加「複製邊 1 到其他邊」broadcast 按鈕（每邊也會有 inline「↓ 複製到下一個邊」by JS） -->
+        <div class="row" style="margin:6px 0 8px;align-items:center;gap:6px;flex-wrap:wrap;">
+          <button id="wa-sides-inc" type="button"
+                  title="增加一邊（最多 20）"
+                  style="padding:4px 14px;font-size:14px;line-height:1;
+                         border:1px dashed #69a;border-radius:4px;
+                         background:#f0f6ff;color:#234;cursor:pointer;">
+            ＋ 增加一邊
+          </button>
+          <button id="wa-sides-dec" type="button"
+                  title="減少一邊（最少 3）"
+                  style="padding:4px 14px;font-size:14px;line-height:1;
+                         border:1px solid var(--border);border-radius:4px;
+                         background:#fff;cursor:pointer;">
+            − 減少一邊
+          </button>
+          <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+          <button id="wa-edge-broadcast" type="button"
+                  title="把邊 1 的文字複製到邊 2、邊 3 ⋯ 全部其他邊（覆蓋現有內容）"
+                  style="padding:4px 14px;font-size:13px;line-height:1;
+                         border:1px solid #c9a;border-radius:4px;
+                         background:#faf5ff;color:#523;cursor:pointer;">
+            📋 邊 1 → 全部其他邊
+          </button>
+        </div>
         <div class="row" style="margin-top:8px;">
           <label>起始邊</label>
           <input id="wa-edge-start" type="number" value="0" min="0" max="30" style="width:70px;">
@@ -2093,6 +2159,359 @@
                 border-radius:4px;padding:10px;min-height:300px;
                 overflow:auto;text-align:center;">
       (按「產生文字雲」以顯示)
+    </div>
+  </section>
+</main>
+
+<!-- ============================================================
+     曼陀羅模式 (mandala) — Phase 5b r4
+     Case B: 中心字 + 字環 N 字 + 外圍半圓交織 mandala band
+     ============================================================ -->
+<main id="mandala-view" style="display:none;">
+  <section class="card" style="grid-column: 1 / -1;">
+    <h2>曼陀羅設定</h2>
+    <!-- Phase 5b r12: 主題 preset — 一鍵套全部設定 -->
+    <div class="row" style="background:linear-gradient(90deg,#fff7e0,#fff);
+         border-left:3px solid #c93;padding:8px 10px;border-radius:3px;
+         align-items:center;gap:8px;flex-wrap:wrap;">
+      <b style="color:#742;font-size:13px;">🎨 主題 preset</b>
+      <select id="md-preset" style="margin-left:6px;font-size:13px;">
+        <option value="" selected>— 自訂 —</option>
+        <!-- 由 JS 從 /api/mandala/presets 動態填充 -->
+      </select>
+      <span id="md-preset-desc" style="color:var(--muted);font-size:11px;
+            margin-left:6px;flex:1;min-width:200px;">
+        選擇 preset 一鍵套用所有設定（中心字 / 字環 / 主 mandala / extras）
+      </span>
+    </div>
+    <div class="row">
+      <label>中心字</label>
+      <input id="md-center-text" type="text" value="咒" maxlength="2"
+             placeholder="如：咒 / 佛 / 心" style="width:80px;font-size:18px;">
+      <label style="margin-left:12px;">字環文字</label>
+      <input id="md-ring-text" type="text" value="臨兵鬥者皆陣列在前" maxlength="40"
+             placeholder="九字真言預設" style="flex:1;min-width:240px;font-size:14px;">
+    </div>
+    <!-- Phase 5b r15: 中心類型 (Case A/B/C 切換) -->
+    <div class="row" style="background:#f5f5fa;border-left:3px solid #969;
+         padding:6px 10px;border-radius:3px;align-items:center;gap:10px;flex-wrap:wrap;">
+      <b style="color:#525;font-size:12px;">中心類型</b>
+      <label style="font-size:12px;">
+        <input type="radio" name="md-center-type" value="char" checked> 字
+      </label>
+      <label style="font-size:12px;">
+        <input type="radio" name="md-center-type" value="icon"> icon (小 mandala)
+      </label>
+      <label style="font-size:12px;">
+        <input type="radio" name="md-center-type" value="empty"> 空
+      </label>
+      <span style="color:var(--muted);font-size:11px;">
+        Case B 字+環 (默認) / Case A 字+無環 / Case C icon+環
+      </span>
+    </div>
+    <!-- Icon 子控制（只在 center_type=icon 時顯示） -->
+    <div class="row" id="md-icon-controls" style="display:none;">
+      <label style="font-size:11px;">icon 樣式</label>
+      <select id="md-icon-style" style="font-size:12px;">
+        <optgroup label="核心基礎元素">
+          <option value="dots">圓點</option>
+          <option value="interlocking_arcs">圓圈 (rosette)</option>
+          <option value="radial_rays">直線 / 輻射光線</option>
+          <option value="wave">波浪</option>
+          <option value="zigzag">鋸齒</option>
+        </optgroup>
+        <optgroup label="幾何符號元素">
+          <option value="triangles">三角形</option>
+          <option value="squares">方形</option>
+          <option value="crosses">十字架</option>
+        </optgroup>
+        <optgroup label="自然與生命元素">
+          <option value="lotus_petal" selected>花瓣 (蓮花)</option>
+          <option value="leaves">葉片</option>
+          <option value="spiral">螺旋</option>
+          <option value="stars">星星 / 太陽</option>
+          <option value="eyes">眼睛</option>
+        </optgroup>
+        <optgroup label="裝飾與填充細節">
+          <option value="teardrops">淚滴</option>
+          <option value="hearts">心形</option>
+          <option value="clouds">雲朵紋</option>
+          <option value="lattice">網格</option>
+        </optgroup>
+      </select>
+      <label style="margin-left:8px;font-size:11px;">N</label>
+      <input id="md-icon-n" type="number" value="8" min="2" max="24" step="1"
+             style="width:55px;">
+      <label style="margin-left:8px;font-size:11px;">大小 (mm)</label>
+      <input id="md-icon-size" type="number" value="14" min="2" max="80" step="0.5"
+             style="width:65px;">
+    </div>
+    <div class="row">
+      <label>對稱軸數 N</label>
+      <input id="md-n-fold" type="number" value="" min="2" max="24" step="1"
+             placeholder="留空＝字環長度" style="width:90px;">
+      <span style="margin-left:6px;color:var(--muted);font-size:11px;">
+        (預設取字環字數；可獨立設定 mandala 對稱軸)
+      </span>
+    </div>
+    <div class="row">
+      <label>整體尺寸 (mm)</label>
+      <input id="md-size" type="number" value="140" min="20" max="400" step="5"
+             style="width:80px;">
+      <label style="margin-left:12px;">中心字大小</label>
+      <input id="md-center-size" type="number" value="24" min="3" max="80" step="0.5"
+             style="width:70px;">
+      <label style="margin-left:12px;">字環字大小</label>
+      <input id="md-ring-size" type="number" value="10" min="3" max="40" step="0.5"
+             style="width:70px;">
+      <label style="margin-left:12px;" title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型">字型風格</label>
+      <select id="md-style">
+        <option value="kaishu" selected>楷書（原版，預設）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
+      </select>
+    </div>
+    <div class="row" style="background:#faf5ff;border-left:3px solid #9a7;
+         padding:6px 10px;border-radius:3px;align-items:center;flex-wrap:wrap;gap:6px;">
+      <b style="font-size:12px;color:#523;">幾何細節</b>
+      <label style="margin-left:16px;">Mandala 樣式</label>
+      <select id="md-style-primitive">
+        <option value="interlocking_arcs" selected>半圓交織 (rosette)</option>
+        <option value="lotus_petal">蓮花瓣 (lotus petal)</option>
+        <option value="radial_rays">輻射光線 (radial rays / 法輪)</option>
+      </select>
+      <!-- Phase 5b r26: 主 mandala 線條顏色 -->
+      <label style="margin-left:12px;font-size:11px;">線色</label>
+      <select id="md-mandala-color-preset" data-target="md-mandala-color"
+              class="md-color-preset" style="font-size:11px;"></select>
+      <input id="md-mandala-color" type="color" value="#000000"
+             style="width:32px;height:24px;padding:0;border:1px solid #ccc;
+                    border-radius:3px;vertical-align:middle;">
+      <!-- Phase 5b r21: 主 mandala 隱藏 toggle (mirror of show_mandala) -->
+      <label style="margin-left:12px;font-size:11px;color:#a52;"
+             title="隱藏主 mandala 線條（保留字環跟 extras）。跟下方「顯示 mandala」雙向同步。">
+        <input type="checkbox" id="md-hide-main"> 🚫 隱藏主線條
+      </label>
+    </div>
+    <!-- Phase 5b r8: 字佈局 (composition_scheme) — 字在 mandala 線條圍出的內部空間 -->
+    <div class="row" style="background:#f0fff4;border-left:3px solid #494;
+         padding:6px 10px;border-radius:3px;align-items:center;flex-wrap:wrap;gap:8px;">
+      <b style="font-size:12px;color:#252;">字佈局</b>
+      <select id="md-comp-scheme" style="margin-left:6px;">
+        <option value="vesica" selected>vesica（字在圓交集 ✓ 推薦）</option>
+        <option value="inscribed">inscribed（字在圓內，每字 1 圓）</option>
+        <option value="freeform">freeform（字環半徑自由，r4-r7 行為）</option>
+      </select>
+      <label style="margin-left:8px;font-size:11px;"
+             title="中心字外緣到字環內緣距離（字身長度為單位）。1 = 緊湊；N+1 = 最遠（mandala 線條展開空間最大）">字距</label>
+      <input id="md-char-spacing" type="number" value="2" min="0.5" max="20" step="0.5"
+             style="width:65px;">
+      <span style="color:var(--muted);font-size:11px;">× 字身（建議 1 ~ N+1）</span>
+      <label style="margin-left:12px;font-size:11px;"
+             title="自動縮小字環字大小，避免 bbox 碰觸到 mandala 線（vesica/inscribed mode 才生效）">
+        <input type="checkbox" id="md-auto-shrink" checked> 🔍 自動縮字避免碰線
+      </label>
+      <input id="md-shrink-margin" type="number" value="0.85" min="0.5" max="1.0" step="0.05"
+             style="width:65px;" title="margin 越小越保守（更多 clearance）">
+      <!-- Phase 5b r26: 字布局線條顏色（中心字 + 字環） -->
+      <label style="margin-left:12px;font-size:11px;"
+             title="中心字 + 字環的字筆畫 fill/stroke 顏色">字色</label>
+      <select id="md-char-color-preset" data-target="md-char-color"
+              class="md-color-preset" style="font-size:11px;"></select>
+      <input id="md-char-color" type="color" value="#000000"
+             style="width:32px;height:24px;padding:0;border:1px solid #ccc;
+                    border-radius:3px;vertical-align:middle;">
+    </div>
+    <!-- inscribed 專用：圓半徑 padding -->
+    <div class="row" id="md-inscribed-row" style="display:none;">
+      <label title="圓半徑 / char_size_ring。0.5=內切、0.7=外接圓略小（默認）、>0.7=圓比字大">圓 padding 比</label>
+      <input id="md-inscribed-pad" type="number" value="0.7" min="0.4" max="1.5" step="0.05"
+             style="width:75px;">
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        (inscribed 專用：圓半徑 = char_size × 此值；建議 0.65 ~ 0.85)
+      </span>
+    </div>
+    <div class="row">
+      <label>字環半徑比</label>
+      <input id="md-r-ring" type="number" value="0.45" min="0.1" max="0.9" step="0.05"
+             style="width:80px;">
+      <label style="margin-left:12px;">Mandala 半徑比</label>
+      <input id="md-r-band" type="number" value="0.78" min="0.1" max="0.95" step="0.02"
+             style="width:80px;">
+      <label style="margin-left:12px;">線寬 (mm)</label>
+      <input id="md-stroke" type="number" value="0.6" min="0.1" max="5" step="0.1"
+             style="width:70px;">
+    </div>
+    <!-- 半圓交織專用參數 -->
+    <div class="row" id="md-arcs-row">
+      <label title="1.0 = 相鄰圓相切；> 1.0 = overlap 形成 rosette。建議 1.2-1.5。">花瓣 overlap</label>
+      <input id="md-overlap" type="number" value="1.25" min="0.5" max="2.0" step="0.05"
+             style="width:80px;">
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        (半圓交織專用：相鄰圓 overlap 比)
+      </span>
+    </div>
+    <!-- 蓮花瓣專用參數 -->
+    <div class="row" id="md-lotus-row" style="display:none;">
+      <label title="瓣徑向長度比，跟 arcs overlap 同尺度">瓣長度比</label>
+      <input id="md-lotus-len" type="number" value="1.25" min="0.3" max="2.5" step="0.05"
+             style="width:80px;">
+      <label style="margin-left:12px;" title="瓣角度寬比 (1.0=整個 sector, 0.6=瘦)">瓣寬度比</label>
+      <input id="md-lotus-width" type="number" value="0.6" min="0.2" max="1.0" step="0.05"
+             style="width:80px;">
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        (蓮花瓣專用：瓣徑向長度 / 角度寬度)
+      </span>
+    </div>
+    <!-- 輻射光線專用參數 -->
+    <div class="row" id="md-rays-row" style="display:none;">
+      <label title="光線徑向長度比，跟 arcs / lotus 同尺度">光線長度比</label>
+      <input id="md-rays-len" type="number" value="1.25" min="0.3" max="2.5" step="0.05"
+             style="width:80px;">
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        (輻射光線專用：N 條徑向直線；經典法輪輪輻)
+      </span>
+    </div>
+
+    <!-- Phase 5b r25: 環為組織單位（10mm 環，最多 11 環 0-10）-->
+    <div class="row" style="background:#fff8e8;border-left:3px solid #c93;
+         padding:6px 10px;border-radius:3px;align-items:center;gap:8px;flex-wrap:wrap;">
+      <b style="color:#742;font-size:13px;">🌸 裝飾層</b>
+      <span id="md-extras-count" style="color:var(--muted);font-size:11px;">(0 環 / 0 層)</span>
+      <button id="md-add-ring" type="button"
+              style="padding:4px 12px;font-size:12px;border:1px dashed #c93;
+                     border-radius:4px;background:#fffbf0;color:#742;cursor:pointer;">
+        ＋ 增加環
+      </button>
+      <span style="color:var(--muted);font-size:11px;flex:1;min-width:200px;">
+        (環 = 10mm 同心環區。每環內可加多個裝飾層；半徑以 mm 為單位)
+      </span>
+    </div>
+    <!-- Phase 5b r26: ring 0 唯一存在時顯示警示（鼓勵先加環再加裝飾層） -->
+    <div id="md-ring0-warning" class="row" style="display:none;
+         background:#fff7e0;border-left:3px solid #d99800;border-radius:3px;
+         padding:5px 10px;align-items:center;gap:6px;color:#7a5500;font-size:11px;">
+      <span>⚠️</span>
+      <span style="flex:1;">
+        0 環半徑非常小（0–10 mm），裝飾層幾乎重疊在中心點，難以辨識
+        且容易跟中心字撞。建議先按「＋ 增加環」、在較外層（≥ 20 mm）加裝飾層。
+      </span>
+    </div>
+    <div id="md-rings-container"></div>
+    <div class="row">
+      <label>字朝向</label>
+      <select id="md-orient">
+        <option value="bottom_to_center" selected>字底朝內 (印章風)</option>
+        <option value="top_to_center">字頂朝內</option>
+        <option value="upright">直立 (不旋轉)</option>
+        <option value="tangent">沿切線</option>
+      </select>
+      <label style="margin-left:12px;"
+             title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
+      <select id="md-cns-mode">
+        <option value="skip" selected>跳過</option>
+        <option value="trace">描輪廓</option>
+        <option value="skeleton">骨架化</option>
+      </select>
+    </div>
+    <div class="row" style="background:#f5fafa;border-left:3px solid #6aa;
+         padding:6px 10px;border-radius:3px;">
+      <label title="顯示中心字 + 字環文字">
+        <input type="checkbox" id="md-show-chars" checked> 顯示中文字
+      </label>
+      <label style="margin-left:16px;" title="顯示外圍半圓交織 mandala">
+        <input type="checkbox" id="md-show-mandala" checked> 顯示 mandala
+      </label>
+      <label style="margin-left:16px;color:var(--muted);font-size:11px;"
+             title="畫出 r_total / r_ring / r_band 三條輔助同心圓（debug 用）">
+        <input type="checkbox" id="md-show-outline"> 顯示輔助圓 (debug)
+      </label>
+    </div>
+    <!-- 5b r5: 字保護 halo — 防止 mandala 線切過字 -->
+    <div class="row" style="background:#fff8f0;border-left:3px solid #d97;
+         padding:6px 10px;border-radius:3px;">
+      <label title="白色 halo 擋在 mandala 線跟字之間，避免線穿過字 glyph 負空間">
+        <input type="checkbox" id="md-protect-chars" checked> 🛡️ 保護中文字（halo 擋線）
+      </label>
+      <label style="margin-left:16px;font-size:11px;color:var(--muted);"
+             title="halo 半徑 = char_size × 此因子。0.5 內切（最緊）／ 0.55 緊貼字身（預設）／ 0.65 涵蓋大部分 bbox ／ 0.7 完整外接圓 ／ > 0.7 過大、mandala 會被掏空">
+        halo 半徑比
+        <input id="md-protect-radius" type="number" value="0.55"
+               min="0.3" max="1.0" step="0.05" style="width:65px;">
+        × 字大小
+      </label>
+    </div>
+    <div class="row">
+      <label>資料源</label>
+      <select id="md-source">
+        <option value="auto" selected>auto</option>
+        <option value="g0v">g0v</option>
+        <option value="mmh">mmh</option>
+        <option value="tw">tw</option><option value="cn">cn</option><option value="jp">jp</option>
+      </select>
+      <label style="margin-left:12px;">紙張 W×H (mm)</label>
+      <input id="md-pw" type="number" value="210" min="50" max="600" step="5" style="width:70px;">
+      <span>×</span>
+      <input id="md-ph" type="number" value="210" min="50" max="600" step="5" style="width:70px;">
+    </div>
+    <div class="row">
+      <button id="md-render" class="primary">產生曼陀羅</button>
+      <span id="md-status" style="color:var(--muted);font-size:12px;margin-left:12px;"></span>
+    </div>
+    <!-- Phase 5b r18: 多格式下載 — SVG/PNG/PDF + 透明背景 -->
+    <div class="row" id="md-download-row" style="display:none;
+         background:#f0f7ff;border-left:3px solid #69a;padding:6px 10px;
+         border-radius:3px;align-items:center;gap:8px;flex-wrap:wrap;">
+      <b style="color:#234;font-size:12px;">⤓ 下載：</b>
+      <button id="md-dl-svg" type="button" class="md-dl-btn"
+              style="padding:4px 12px;font-size:12px;cursor:pointer;
+                     border:1px solid var(--border);border-radius:4px;background:#fff;">
+        SVG <span style="color:var(--muted);font-size:10px;">向量</span>
+      </button>
+      <span style="margin-left:6px;font-size:11px;color:var(--muted);">
+        PNG 解析度
+        <select id="md-png-size" style="font-size:11px;margin:0 4px;">
+          <option value="1024">中 (1024)</option>
+          <option value="2400" selected>大 (2400)</option>
+          <option value="4096">超大 (4096)</option>
+        </select>
+      </span>
+      <button id="md-dl-png" type="button" class="md-dl-btn"
+              style="padding:4px 12px;font-size:12px;cursor:pointer;
+                     border:1px solid var(--border);border-radius:4px;background:#fff;">
+        PNG
+      </button>
+      <button id="md-dl-png-trans" type="button" class="md-dl-btn"
+              style="padding:4px 12px;font-size:12px;cursor:pointer;
+                     border:1px solid var(--border);border-radius:4px;background:#fff;">
+        PNG <span style="color:var(--muted);font-size:10px;">透明背景</span>
+      </button>
+      <button id="md-dl-pdf" type="button" class="md-dl-btn"
+              style="padding:4px 12px;font-size:12px;cursor:pointer;
+                     border:1px solid var(--border);border-radius:4px;background:#fff;">
+        PDF <span style="color:var(--muted);font-size:10px;">列印</span>
+      </button>
+      <button id="md-dl-gcode" type="button" class="md-dl-btn"
+              style="padding:4px 12px;font-size:12px;cursor:pointer;
+                     border:1px dashed #494;border-radius:4px;background:#f0fff4;
+                     color:#252;"
+              title="輸出 G-code (寫字機 / 雷射 / CNC 軌跡)。不含字 outline，純 mandala 線條 + extras。Y 軸翻轉適合機器座標。">
+        G-code <span style="color:var(--muted);font-size:10px;">機器軌跡</span>
+      </button>
+      <span id="md-dl-status" style="color:var(--muted);font-size:11px;
+            margin-left:8px;"></span>
+    </div>
+  </section>
+
+  <section class="card" style="grid-column: 1 / -1;">
+    <h2>曼陀羅預覽</h2>
+    <div id="md-preview"
+         style="background:white;border:1px dashed var(--border);
+                border-radius:4px;padding:10px;min-height:300px;
+                overflow:auto;text-align:center;">
+      (按「產生曼陀羅」以顯示)
     </div>
   </section>
 </main>
@@ -2450,6 +2869,7 @@ const views = {
   stamp:      document.getElementById("stamp-view"),     // Phase 5ay
   sutra:      document.getElementById("sutra-view"),     // Phase 5az
   wordart:    document.getElementById("wordart-view"),
+  mandala:    document.getElementById("mandala-view"),  // Phase 5b r4
 };
 document.querySelectorAll('input[name="mode"]').forEach(r =>
   r.addEventListener("change", () => {
@@ -4001,15 +4421,27 @@ document.getElementById("dd-render").onclick = renderDoodle;
 // WordArt (文字雲) mode
 // ============================================================
 
+// Phase 5b r1: 「規則多邊形」optgroup 整併進「多邊形 (自訂 N 邊)」。
+// shape="polygon" 時 sides 從 #wa-sides-n input 讀；舊的 shorthand value
+// (triangle/square/...) 後端仍支援，前端只當 backward-compat fallback
+// 應對舊 query string / persisted state。
 const POLYGON_SIDES = {triangle:3, square:4, pentagon:5, hexagon:6,
                        heptagon:7, octagon:8, nonagon:9, decagon:10};
 
 function waIsPolygon() {
-  return POLYGON_SIDES[document.getElementById("wa-shape").value] !== undefined;
+  const s = document.getElementById("wa-shape").value;
+  return s === "polygon" || POLYGON_SIDES[s] !== undefined;
 }
 
 function waCurrentSides() {
   const s = document.getElementById("wa-shape").value;
+  if (s === "polygon") {
+    const el = document.getElementById("wa-sides-n");
+    let n = el ? parseInt(el.value, 10) : 3;
+    if (!Number.isFinite(n) || n < 3) n = 3;
+    if (n > 20) n = 20;
+    return n;
+  }
   return POLYGON_SIDES[s] || 0;
 }
 
@@ -4018,21 +4450,60 @@ function waRebuildEdgeInputs() {
   const sides = waCurrentSides();
   const layout = document.getElementById("wa-layout").value;
   const isLinear = layout === "linear";
-  // Only rebuild edge inputs when in linear mode with polygon
-  if (isLinear && sides > 0) {
-    const existing = container.querySelectorAll("input[data-edge]");
-    const currentVals = [...existing].map(el => el.value);
-    container.innerHTML = "";
-    for (let i = 0; i < sides; i++) {
-      const row = document.createElement("div");
-      row.style.margin = "4px 0";
-      row.innerHTML =
-        `<label style="min-width:80px;display:inline-block;">邊 ${i+1}</label>` +
-        `<input type="text" data-edge="${i}" value="${currentVals[i] || ''}" `
-        + `placeholder="這邊的文字" style="width:260px;">`;
-      container.appendChild(row);
+  if (!(isLinear && sides > 0)) return;
+  // 保留現有 input 文字（rebuild 不該丟資料）
+  const existing = container.querySelectorAll("input[data-edge]");
+  const currentVals = [...existing].map(el => el.value);
+  container.innerHTML = "";
+  // Phase 5b r2: 每邊一行 = label + input + (非最後一邊) 「↓ 複製到下一個邊」按鈕。
+  // 用 DOM API 而非 innerHTML 字串拼接，避免 user 輸入含 quote / `<` 時破版面。
+  for (let i = 0; i < sides; i++) {
+    const row = document.createElement("div");
+    row.style.cssText =
+      "margin:4px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;";
+
+    const lbl = document.createElement("label");
+    lbl.textContent = `邊 ${i + 1}`;
+    lbl.style.minWidth = "60px";
+    row.appendChild(lbl);
+
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.dataset.edge = String(i);
+    inp.value = currentVals[i] || "";
+    inp.placeholder = "這邊的文字";
+    inp.style.cssText = "flex:1;min-width:200px;max-width:300px;";
+    row.appendChild(inp);
+
+    // 最後一邊沒有「下一個」可複製，省略按鈕
+    if (i < sides - 1) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = `↓ 複製到下一個邊`;
+      btn.title = `複製邊 ${i + 1} 文字到邊 ${i + 2}（覆蓋）`;
+      btn.style.cssText =
+        "padding:3px 10px;font-size:11px;line-height:1;cursor:pointer;" +
+        "border:1px solid var(--border);border-radius:3px;" +
+        "background:#fcfcfc;color:#456;";
+      btn.addEventListener("click", () => {
+        const src = container.querySelector(`input[data-edge="${i}"]`);
+        const dst = container.querySelector(`input[data-edge="${i + 1}"]`);
+        if (src && dst) dst.value = src.value;
+      });
+      row.appendChild(btn);
     }
+
+    container.appendChild(row);
   }
+}
+
+// Phase 5b r2: broadcast 邊 1 文字到所有其他邊
+function waBroadcastEdge1() {
+  const inputs = document.querySelectorAll(
+    "#wa-edge-inputs input[data-edge]");
+  if (inputs.length < 2) return;
+  const v = inputs[0].value;
+  for (let i = 1; i < inputs.length; i++) inputs[i].value = v;
 }
 
 function waUpdatePanels() {
@@ -4089,6 +4560,8 @@ function waUpdatePanels() {
     rows.cloud.style.display = "";   // reuse min/max
   }
   waRebuildEdgeInputs();
+  // Phase 5b r1: 同步邊數 counter（hidden input → visible label + button states）
+  if (typeof waSyncSidesCounter === "function") waSyncSidesCounter();
 }
 
 function waBuildParams(forCapacity = false) {
@@ -4289,7 +4762,860 @@ for (const id of ["wa-shape", "wa-size", "wa-aspect", "wa-charsize",
 document.getElementById("wa-shape").addEventListener("change", waUpdatePanels);
 document.getElementById("wa-layout").addEventListener("change", waUpdatePanels);
 
+// Phase 5b r1: polygon 邊數 N 控制（+/− 按鈕；N 存在 hidden input）
+function waSyncSidesCounter() {
+  const el = document.getElementById("wa-sides-n");
+  const lbl = document.getElementById("wa-sides-count");
+  if (el && lbl) lbl.textContent = String(el.value || "3");
+  // 邊數到上下限時 disable 對應按鈕，給視覺回饋
+  const inc = document.getElementById("wa-sides-inc");
+  const dec = document.getElementById("wa-sides-dec");
+  const n = parseInt(el?.value || "3", 10);
+  if (inc) inc.disabled = (n >= 20);
+  if (dec) dec.disabled = (n <= 3);
+  if (inc) inc.style.opacity = inc.disabled ? "0.4" : "1";
+  if (dec) dec.style.opacity = dec.disabled ? "0.4" : "1";
+}
+function waBumpSides(delta) {
+  const el = document.getElementById("wa-sides-n");
+  if (!el) return;
+  let n = parseInt(el.value, 10);
+  if (!Number.isFinite(n)) n = 3;
+  n = Math.max(3, Math.min(20, n + delta));
+  el.value = String(n);
+  waSyncSidesCounter();
+  waUpdatePanels();
+  scheduleWaCapacity();
+}
+document.getElementById("wa-sides-inc")?.addEventListener("click",
+  () => waBumpSides(+1));
+document.getElementById("wa-sides-dec")?.addEventListener("click",
+  () => waBumpSides(-1));
+document.getElementById("wa-edge-broadcast")?.addEventListener("click",
+  waBroadcastEdge1);
+
 document.getElementById("wa-render").onclick = renderWordart;
+
+// ============================================================
+// Mandala (曼陀羅) mode — Phase 5b r4
+// ============================================================
+function mandalaBuildParams() {
+  const g = id => document.getElementById(id).value;
+  const $$ = id => document.getElementById(id);
+  const params = new URLSearchParams({
+    center_text: g("md-center-text") || "咒",
+    ring_text: g("md-ring-text") || "臨兵鬥者皆陣列在前",
+    size_mm: g("md-size"),
+    page_width_mm: g("md-pw"),
+    page_height_mm: g("md-ph"),
+    char_size_center_mm: g("md-center-size"),
+    char_size_ring_mm: g("md-ring-size"),
+    r_ring_ratio: g("md-r-ring"),
+    r_band_ratio: g("md-r-band"),
+    overlap_ratio: g("md-overlap"),
+    stroke_width: g("md-stroke"),
+    orientation: g("md-orient"),
+    style: g("md-style"),
+    cns_outline_mode: g("md-cns-mode"),
+    source: g("md-source"),
+    show_chars: $$("md-show-chars").checked ? "true" : "false",
+    show_mandala: $$("md-show-mandala").checked ? "true" : "false",
+    show_outline: $$("md-show-outline").checked ? "true" : "false",
+    protect_chars: $$("md-protect-chars").checked ? "true" : "false",
+    protect_radius_factor: g("md-protect-radius"),
+    mandala_style: g("md-style-primitive"),
+    lotus_length_ratio: g("md-lotus-len"),
+    lotus_width_ratio: g("md-lotus-width"),
+    rays_length_ratio: g("md-rays-len"),
+    composition_scheme: g("md-comp-scheme"),
+    char_spacing: g("md-char-spacing"),
+    inscribed_padding_factor: g("md-inscribed-pad"),
+    auto_shrink_chars: $$("md-auto-shrink").checked ? "true" : "false",
+    shrink_safety_margin: g("md-shrink-margin"),
+    extra_layers_json: mandalaBuildExtraLayersJson(),
+    center_type: (document.querySelector('input[name="md-center-type"]:checked') || {}).value || "char",
+    center_icon_style: g("md-icon-style"),
+    center_icon_n: g("md-icon-n"),
+    center_icon_size_mm: g("md-icon-size"),
+    // 5b r26: 線條顏色（normalize 成 6-digit hex；default black）
+    mandala_line_color: g("md-mandala-color") || "#000000",
+    char_line_color: g("md-char-color") || "#000000",
+  });
+  // n_fold 留空 → 後端自動取字環長度（不要傳空字串給 int validator）
+  const nfold = g("md-n-fold").trim();
+  if (nfold !== "") params.set("n_fold", nfold);
+  return params;
+}
+
+async function renderMandala() {
+  const statusEl = document.getElementById("md-status");
+  const previewEl = document.getElementById("md-preview");
+  const dlRow = document.getElementById("md-download-row");
+  statusEl.textContent = "產生中…";
+  if (dlRow) dlRow.style.display = "none";
+  const params = mandalaBuildParams();
+  try {
+    const r = await fetch(`${API_BASE}/api/mandala?` + params);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({detail: r.statusText}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const svg = await r.text();
+    previewEl.innerHTML = svg;
+    const inner = previewEl.querySelector("svg");
+    if (inner) { inner.style.maxWidth = "100%"; inner.style.height = "auto"; }
+    const placed = r.headers.get("x-mandala-placed") || "?";
+    const missing = r.headers.get("x-mandala-missing") || "0";
+    const n = r.headers.get("x-mandala-n-fold") || "?";
+    let msg = `已放置 ${placed} 字 · N=${n}-fold mandala`;
+    if (parseInt(missing, 10) > 0) msg += ` · ⚠ 缺 ${missing} 個無筆跡字`;
+    // Phase 5b r9: 自動縮字提示
+    if (r.headers.get("x-mandala-char-shrunk") === "1") {
+      const orig = r.headers.get("x-mandala-char-size-original-mm") || "?";
+      const eff = r.headers.get("x-mandala-char-size-effective-mm") || "?";
+      msg += ` · 🔍 字 ${orig} → ${eff} mm（自動縮小避免碰線）`;
+    }
+    statusEl.textContent = msg;
+    // 5b r18: 顯示多格式下載 row
+    if (dlRow) dlRow.style.display = "flex";
+  } catch (e) {
+    statusEl.textContent = "";
+    previewEl.innerHTML =
+      `<span style="color:var(--accent);">錯誤：${e.message}</span>`;
+  }
+}
+document.getElementById("md-render").onclick = renderMandala;
+
+// Phase 5b r18: 多格式下載（SVG / PNG / PNG透明 / PDF）
+async function mandalaDownload(format) {
+  const dlStatus = document.getElementById("md-dl-status");
+  if (dlStatus) dlStatus.textContent = "產生 " + format + " 中…";
+  const params = mandalaBuildParams();
+  params.set("format", format);
+  if (format === "png" || format === "png_transparent") {
+    const sizeSel = document.getElementById("md-png-size");
+    if (sizeSel) params.set("png_size_px", sizeSel.value);
+  }
+  params.set("download", "true");
+  try {
+    const r = await fetch(`${API_BASE}/api/mandala?` + params);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    // 副檔名
+    const extMap = {svg: "svg", png: "png",
+                    png_transparent: "png", pdf: "pdf",
+                    gcode: "gcode"};
+    const ext = extMap[format] || "svg";
+    const tag = (format === "png_transparent") ? "-transparent" : "";
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mandala${tag}-${Date.now()}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (dlStatus) dlStatus.textContent = `✓ ${format} 已下載`;
+  } catch (e) {
+    if (dlStatus) dlStatus.textContent = "❌ 失敗：" + e.message;
+  }
+}
+document.getElementById("md-dl-svg")?.addEventListener("click",
+  () => mandalaDownload("svg"));
+document.getElementById("md-dl-png")?.addEventListener("click",
+  () => mandalaDownload("png"));
+document.getElementById("md-dl-png-trans")?.addEventListener("click",
+  () => mandalaDownload("png_transparent"));
+document.getElementById("md-dl-pdf")?.addEventListener("click",
+  () => mandalaDownload("pdf"));
+document.getElementById("md-dl-gcode")?.addEventListener("click",
+  () => mandalaDownload("gcode"));
+
+// Phase 5b r12: Preset 主題 — 一鍵套全部設定
+let MANDALA_PRESETS = [];   // populated from /api/mandala/presets
+
+async function mandalaLoadPresets() {
+  const sel = document.getElementById("md-preset");
+  const desc = document.getElementById("md-preset-desc");
+  if (!sel) return;
+  try {
+    const r = await fetch(`${API_BASE}/api/mandala/presets`);
+    if (!r.ok) return;
+    const d = await r.json();
+    MANDALA_PRESETS = d.presets || [];
+    // Populate dropdown
+    for (const p of MANDALA_PRESETS) {
+      const opt = document.createElement("option");
+      opt.value = p.key;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    }
+  } catch (e) {
+    if (desc) desc.textContent = "(preset 載入失敗：" + e.message + ")";
+  }
+}
+
+function _setIfExists(id, value) {
+  const el = document.getElementById(id);
+  if (el == null || value == null) return;
+  if (el.type === "checkbox") {
+    el.checked = !!value;
+  } else {
+    el.value = String(value);
+  }
+}
+
+// r25 取代 r14：preset 套用時依每 layer 的 r_mm（或 r_ratio×r_total）分組到對應 ring，
+// 透過 mandalaAddRing(ringIdx, layerCfgs) 一次建立 ring + 內部 layers。
+
+function mandalaApplyPreset(key) {
+  const desc = document.getElementById("md-preset-desc");
+  if (!key) {
+    if (desc) desc.textContent =
+      "選擇 preset 一鍵套用所有設定（中心字 / 字環 / 主 mandala / extras）";
+    return;
+  }
+  const preset = MANDALA_PRESETS.find(p => p.key === key);
+  if (!preset) return;
+  if (desc) desc.textContent = preset.description || "";
+  const cfg = preset.config || {};
+
+  // 1. 文字
+  _setIfExists("md-center-text", cfg.center_text);
+  _setIfExists("md-ring-text", cfg.ring_text);
+
+  // 5b r26: 全域線條顏色（preset 可指定，否則 default 黑）— 雙控制 sync 透過 _mandalaWireColorControl 內部處理，這裡直接給值並觸發 input event
+  function _setColor(pickerId, presetId, hex) {
+    const picker = document.getElementById(pickerId);
+    if (picker && hex) {
+      picker.value = hex;
+      // 觸發 input event 讓 preset select sync
+      picker.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+  _setColor("md-mandala-color", "md-mandala-color-preset",
+    cfg.mandala_line_color || "#000000");
+  _setColor("md-char-color", "md-char-color-preset",
+    cfg.char_line_color || "#000000");
+
+  // 2. 主 mandala
+  _setIfExists("md-style-primitive", cfg.mandala_style);
+  _setIfExists("md-comp-scheme", cfg.composition_scheme);
+  _setIfExists("md-char-spacing", cfg.char_spacing);
+  if (cfg.overlap_ratio != null)
+    _setIfExists("md-overlap", cfg.overlap_ratio);
+  if (cfg.lotus_length_ratio != null)
+    _setIfExists("md-lotus-len", cfg.lotus_length_ratio);
+  if (cfg.lotus_width_ratio != null)
+    _setIfExists("md-lotus-width", cfg.lotus_width_ratio);
+  if (cfg.rays_length_ratio != null)
+    _setIfExists("md-rays-len", cfg.rays_length_ratio);
+  if (cfg.inscribed_padding_factor != null)
+    _setIfExists("md-inscribed-pad", cfg.inscribed_padding_factor);
+
+  // 3. auto-shrink
+  if (cfg.auto_shrink_chars != null)
+    _setIfExists("md-auto-shrink", cfg.auto_shrink_chars);
+
+  // 4. r25: 動態 layers — 清空所有 ring；依 preset extra_layers r_mm 分組到對應 ring
+  //    若 preset 用舊 r_ratio，先換算成 r_mm = r_ratio × r_total（依當前 size）
+  mandalaClearAllLayers();
+  const r_total_est = _mandalaCurrentRTotalMm();
+  const layers = cfg.extra_layers || [];
+  const ringMap = {};  // ringIdx -> [layerCfg]
+  for (const layer of layers) {
+    const r_mm = (layer.r_mm != null)
+      ? Number(layer.r_mm)
+      : (Number(layer.r_ratio) || 0.5) * r_total_est;
+    const ringIdx = Math.max(0,
+      Math.min(MD_RING_MAX - 1, Math.floor(r_mm / MD_RING_WIDTH_MM)));
+    const layerCfg = Object.assign({}, layer, { r_mm: r_mm });
+    if (!ringMap[ringIdx]) ringMap[ringIdx] = [];
+    ringMap[ringIdx].push(layerCfg);
+  }
+  // 確保 0 環一定存在（即便 preset 沒給）
+  if (!ringMap[0]) ringMap[0] = [];
+  Object.keys(ringMap)
+    .map(k => parseInt(k, 10))
+    .sort((a, b) => a - b)
+    .forEach(ringIdx => mandalaAddRing(ringIdx, ringMap[ringIdx]));
+
+  // 5. r15: 中心類型（preset 可指定 char/icon/empty + icon 子配置）
+  if (cfg.center_type) {
+    document.querySelectorAll('input[name="md-center-type"]').forEach(r => {
+      r.checked = (r.value === cfg.center_type);
+    });
+    if (cfg.center_type === "icon") {
+      if (cfg.center_icon_style != null)
+        _setIfExists("md-icon-style", cfg.center_icon_style);
+      if (cfg.center_icon_n != null)
+        _setIfExists("md-icon-n", cfg.center_icon_n);
+      if (cfg.center_icon_size_mm != null)
+        _setIfExists("md-icon-size", cfg.center_icon_size_mm);
+    }
+  } else {
+    // preset 沒指定 → 默認 char (backward compat)
+    document.querySelectorAll('input[name="md-center-type"]').forEach(r => {
+      r.checked = (r.value === "char");
+    });
+  }
+
+  // 6. 觸發 sync handler，更新 row visibility / halo / center type
+  ["md-style-primitive", "md-comp-scheme", "md-protect-chars"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.dispatchEvent(new Event("change", {bubbles: true}));
+  });
+  // center-type radios 觸發 change → 更新 icon controls 顯隱
+  const centerRadio = document.querySelector('input[name="md-center-type"]:checked');
+  if (centerRadio) centerRadio.dispatchEvent(new Event("change", {bubbles: true}));
+}
+
+document.getElementById("md-preset")?.addEventListener("change", (e) => {
+  mandalaApplyPreset(e.target.value);
+});
+mandalaLoadPresets();   // init: fetch 並填 dropdown
+
+// Phase 5b r25: 動態裝飾層 — ring-based UI（11 環 0-10，每環 10mm，每環內最多 10 layer）
+// 結構：md-rings-container > .md-ring-section[data-ring=N] > .md-ring-layers > .md-layer-row
+// 全域層編號 = ringIdx × 10 + localIdx (1-based)；半徑用 r_mm（mm）為主。
+//
+// 「len」input 是 polymorphic key — 依 style 對應到不同的 backend param：
+//   arcs    → overlap_ratio
+//   lotus   → lotus_length_ratio  (+ width input → lotus_width_ratio)
+//   rays    → rays_length_ratio
+//   dots    → dot_radius_mm
+//   triangles → length_ratio (+ width → width_ratio, default pointing 由 r_ratio 推)
+//   wave    → amplitude_ratio
+//   zigzag  → tooth_height_ratio
+//   spiral  → length_ratio (+ width → spin_turns)
+
+// 5b r25: ring-based 結構（11 環 0-10，每環 10mm 寬，每環內最多 10 layers）
+// 全域層編號 = ringIdx × 10 + local_idx_in_ring (1-based)
+const MD_RING_MAX = 11;          // ring index 0..10（共 11 環）
+const MD_RING_WIDTH_MM = 10;     // 每環徑向寬度 mm
+const MD_LAYERS_PER_RING = 10;   // 每環內最多 10 layer（避免 numbering 跨環衝突）
+// Phase 5b r23: dropdown 重組為 4 群組（user spec 新分類），17 elements
+const MD_STYLE_GROUPS = [
+  ["核心基礎元素", [
+    ["dots", "圓點"],
+    ["interlocking_arcs", "圓圈 (rosette)"],
+    ["radial_rays", "直線 / 輻射光線"],
+    ["wave", "波浪"],
+    ["zigzag", "鋸齒"],
+  ]],
+  ["幾何符號元素", [
+    ["triangles", "三角形"],
+    ["squares", "方形"],
+    ["crosses", "十字架"],
+  ]],
+  ["自然與生命元素", [
+    ["lotus_petal", "花瓣 (蓮花)"],
+    ["leaves", "葉片"],
+    ["spiral", "螺旋"],
+    ["stars", "星星 / 太陽"],
+    ["eyes", "眼睛"],
+  ]],
+  ["裝飾與填充細節", [
+    ["teardrops", "淚滴"],
+    ["hearts", "心形"],
+    ["clouds", "雲朵紋"],
+    ["lattice", "網格"],
+  ]],
+];
+
+// Backward-compat flat list（給其他舊 selector 用，build_optgroup_html 不需要）
+const MD_STYLE_OPTIONS = MD_STYLE_GROUPS.flatMap(([_g, items]) => items);
+
+function _mandalaBuildOptgroupHtml(selectedValue) {
+  return MD_STYLE_GROUPS.map(([groupLabel, items]) => {
+    const opts = items.map(([v, label]) => {
+      const sel = (v === selectedValue) ? " selected" : "";
+      return `<option value="${v}"${sel}>${label}</option>`;
+    }).join("");
+    return `<optgroup label="${groupLabel}">${opts}</optgroup>`;
+  }).join("");
+}
+
+function _mandalaApplyStyleSpecificParams(layer, style, len, width) {
+  if (style === "lotus_petal") {
+    layer.lotus_length_ratio = len || 0.6;
+    layer.lotus_width_ratio = width || 0.5;
+  } else if (style === "radial_rays") {
+    layer.rays_length_ratio = len || 0.8;
+  } else if (style === "dots") {
+    layer.dot_radius_mm = len || 1.0;
+  } else if (style === "triangles") {
+    layer.length_ratio = len || 0.5;
+    layer.width_ratio = width || 0.5;
+    layer.pointing = (layer.r_ratio >= 0.7) ? "outward" : "inward";
+  } else if (style === "wave") {
+    layer.amplitude_ratio = len || 0.04;
+  } else if (style === "zigzag") {
+    layer.tooth_height_ratio = len || 0.04;
+  } else if (style === "spiral") {
+    layer.length_ratio = len || 1.25;
+    layer.spin_turns = (width != null && width > 0) ? width : 0.5;
+    layer.direction = "cw";
+  } else if (style === "squares") {
+    layer.length_ratio = len || 1.0;
+    layer.rotation_alignment = (layer.r_ratio >= 0.7) ? "diamond" : "radial";
+  } else if (style === "hearts") {
+    layer.length_ratio = len || 1.0;
+    layer.pointing = (layer.r_ratio >= 0.7) ? "outward" : "inward";
+  } else if (style === "teardrops") {
+    layer.length_ratio = len || 1.25;
+    layer.pointing = (layer.r_ratio >= 0.7) ? "outward" : "inward";
+  } else if (style === "leaves") {
+    layer.length_ratio = len || 1.4;
+    layer.width_ratio = width || 0.5;
+    layer.with_vein = true;
+  } else if (style === "clouds") {
+    layer.length_ratio = len || 1.0;
+    layer.lobe_radius_ratio = (width != null && width > 0) ? width : 0.45;
+    layer.pointing = (layer.r_ratio >= 0.7) ? "outward" : "inward";
+  } else if (style === "crosses") {
+    layer.length_ratio = len || 0.8;
+    layer.aspect_ratio = (width != null && width > 0) ? width : 1.0;
+  } else if (style === "stars") {
+    layer.length_ratio = len || 0.8;
+    // width input 對應 star_points (整數，範圍 3-12)；> 1.5 視為點數，否則 default 5
+    if (width != null && width >= 3 && width <= 12) {
+      layer.star_points = Math.round(width);
+    } else {
+      layer.star_points = 5;
+    }
+  } else if (style === "eyes") {
+    layer.length_ratio = len || 1.0;
+    layer.pupil_ratio = (width != null && width > 0) ? width : 0.3;
+  } else if (style === "lattice") {
+    layer.length_ratio = len || 0.9;
+  } else {
+    layer.overlap_ratio = len || 1.25;
+  }
+}
+
+// 5b r25: 估算當前 r_total（mm）— 用於 r_ratio↔r_mm 轉換 + 給 style helper 推 pointing
+function _mandalaCurrentRTotalMm() {
+  const sizeEl = document.getElementById("md-size");
+  const sizeMm = sizeEl ? parseFloat(sizeEl.value) : 140;
+  return Math.max((isNaN(sizeMm) ? 140 : sizeMm) / 2.0, 1.0);
+}
+
+// 5b r26: 曼陀羅常用色盤（11 色，預設黑色）
+const MD_COLOR_PRESETS = [
+  ["#000000", "黑"],
+  ["#c0392b", "紅"],
+  ["#e67e22", "橘"],
+  ["#d4af37", "金"],
+  ["#f1c40f", "黃"],
+  ["#27ae60", "綠"],
+  ["#16a085", "青"],
+  ["#2980b9", "藍"],
+  ["#8e44ad", "紫"],
+  ["#e91e63", "粉"],
+  ["#8b4513", "棕"],
+];
+
+// 5b r26: 共用 helper — 把 color preset <select> 填入 options + 雙向 sync
+//   `selectEl` 帶 data-target="<picker_id>" 屬性指向對應 <input type="color">
+//   selectEl change → picker.value = selected
+//   picker change → selectEl 切到 「自訂」(空 value)
+// 同步: 套 attribute selected 到 hex match 的 option（雙控制初值一致）
+function _mandalaWireColorControl(selectEl, pickerEl, initHex) {
+  if (!selectEl || !pickerEl) return;
+  // 建 option list（avoid 重複建：只在尚未填過時）
+  if (selectEl.options.length === 0) {
+    for (const [hex, label] of MD_COLOR_PRESETS) {
+      const opt = document.createElement("option");
+      opt.value = hex;
+      opt.textContent = label;
+      selectEl.appendChild(opt);
+    }
+    const customOpt = document.createElement("option");
+    customOpt.value = "";
+    customOpt.textContent = "自訂…";
+    selectEl.appendChild(customOpt);
+  }
+  const setValueBoth = (hex) => {
+    pickerEl.value = hex;
+    // 找 preset 中 match 的 option，否則切到 「自訂」
+    const matched = MD_COLOR_PRESETS.find(([h]) => h.toLowerCase() === hex.toLowerCase());
+    selectEl.value = matched ? matched[0] : "";
+  };
+  setValueBoth(initHex || "#000000");
+  selectEl.addEventListener("change", () => {
+    if (selectEl.value === "") {
+      // 「自訂…」 → 觸發 native picker
+      pickerEl.click();
+    } else {
+      pickerEl.value = selectEl.value;
+    }
+  });
+  pickerEl.addEventListener("input", () => {
+    const hex = pickerEl.value;
+    const matched = MD_COLOR_PRESETS.find(([h]) => h.toLowerCase() === hex.toLowerCase());
+    selectEl.value = matched ? matched[0] : "";
+  });
+}
+
+// init 主 mandala + 字布局 color controls
+(function _mandalaInitGlobalColors() {
+  _mandalaWireColorControl(
+    document.getElementById("md-mandala-color-preset"),
+    document.getElementById("md-mandala-color"),
+    "#000000",
+  );
+  _mandalaWireColorControl(
+    document.getElementById("md-char-color-preset"),
+    document.getElementById("md-char-color"),
+    "#000000",
+  );
+})();
+
+// 5b r25: 更新 badge "(N 環 / M 層)" + 控制「+ 增加環」上限
+// 5b r26: ring 0 唯一存在時顯示警示
+function mandalaUpdateExtrasCount() {
+  const container = document.getElementById("md-rings-container");
+  const ringSections = container ? container.querySelectorAll(".md-ring-section") : [];
+  const ringCount = ringSections.length;
+  const layerCount = container ? container.querySelectorAll(".md-layer-row").length : 0;
+  const badge = document.getElementById("md-extras-count");
+  if (badge) badge.textContent = `(${ringCount} 環 / ${layerCount} 層)`;
+  const addRingBtn = document.getElementById("md-add-ring");
+  if (addRingBtn) {
+    addRingBtn.disabled = (ringCount >= MD_RING_MAX);
+    addRingBtn.style.opacity = (ringCount >= MD_RING_MAX) ? "0.5" : "1";
+  }
+  // 5b r26: 警示僅在「ring 數 = 1 且只有 ring 0」時顯示
+  const warn = document.getElementById("md-ring0-warning");
+  if (warn) {
+    const onlyRing0 = (ringCount === 1)
+      && (ringSections[0].dataset.ring === "0");
+    warn.style.display = onlyRing0 ? "" : "none";
+  }
+}
+
+// 5b r25: 全域 renumber — 第 X 層 = ringIdx × 10 + localIdx (1-based)
+function mandalaRenumber() {
+  const container = document.getElementById("md-rings-container");
+  if (!container) return;
+  container.querySelectorAll(".md-ring-section").forEach(section => {
+    const ringIdx = parseInt(section.dataset.ring, 10) || 0;
+    section.querySelectorAll(".md-layer-row").forEach((row, localIdx) => {
+      const idxEl = row.querySelector(".md-layer-idx");
+      if (idxEl) idxEl.textContent = String(ringIdx * 10 + localIdx + 1);
+    });
+  });
+  mandalaUpdateExtrasCount();
+}
+
+// 5b r25: 加 layer row 到指定 ring section
+function mandalaAddLayerToRing(section, cfg) {
+  if (!section) return null;
+  const layersDiv = section.querySelector(".md-ring-layers");
+  if (!layersDiv) return null;
+  if (layersDiv.querySelectorAll(".md-layer-row").length >= MD_LAYERS_PER_RING) return null;
+  cfg = cfg || {};
+  const ringIdx = parseInt(section.dataset.ring, 10) || 0;
+
+  const style = cfg.style || "lotus_petal";
+  const n = cfg.n_fold || 18;
+  // r_mm 預設 = ring 內邊（ringIdx × 10 mm）
+  const r_mm_default = ringIdx * MD_RING_WIDTH_MM;
+  const r_mm = (cfg.r_mm != null) ? cfg.r_mm : r_mm_default;
+
+  // polymorphic len/width 從 layer 推回 input 顯示值
+  let len = 0.6, width = 0.5;
+  if (style === "lotus_petal") {
+    len = cfg.lotus_length_ratio || 0.6;
+    width = cfg.lotus_width_ratio || 0.5;
+  } else if (style === "radial_rays") {
+    len = cfg.rays_length_ratio || 0.8;
+  } else if (style === "dots") {
+    len = cfg.dot_radius_mm || 1.0;
+  } else if (style === "triangles") {
+    len = cfg.length_ratio || 0.5;
+    width = cfg.width_ratio || 0.5;
+  } else if (style === "wave") {
+    len = cfg.amplitude_ratio || 0.04;
+  } else if (style === "zigzag") {
+    len = cfg.tooth_height_ratio || 0.04;
+  } else if (style === "spiral") {
+    len = cfg.length_ratio || 1.25;
+    width = cfg.spin_turns || 0.5;
+  } else {
+    len = cfg.overlap_ratio || 1.25;
+  }
+
+  // 5b r26: layer 顏色（preset + custom 雙控制），預設黑
+  const color = (typeof cfg.color === "string" && cfg.color) ? cfg.color : "#000000";
+
+  const row = document.createElement("div");
+  row.className = "row md-layer-row";
+  row.style.cssText =
+    "background:#f8f8fc;border-left:3px solid #999;padding:5px 10px;" +
+    "border-radius:3px;align-items:center;gap:6px;flex-wrap:wrap;margin:3px 0 3px 16px;";
+  const optsHtml = _mandalaBuildOptgroupHtml(style);
+  const visible = (cfg.visible !== false);
+  row.innerHTML =
+    `<span style="font-size:11px;color:var(--muted);min-width:50px;">第 <b class="md-layer-idx"></b> 層</span>` +
+    `<label style="font-size:11px;" title="勾消即隱藏此層線條（保留設定）">` +
+    `<input class="md-layer-visible" type="checkbox"${visible ? " checked" : ""}> 顯示</label>` +
+    `<select class="md-layer-style" style="font-size:12px;">${optsHtml}</select>` +
+    `<label style="font-size:11px;">N</label>` +
+    `<input class="md-layer-n" type="number" value="${n}" min="2" max="60" step="1" style="width:55px;">` +
+    `<label style="font-size:11px;" title="該層中心半徑，以 mm 為單位">半徑(mm)</label>` +
+    `<input class="md-layer-r-mm" type="number" value="${r_mm}" min="0" max="200" step="1" style="width:70px;">` +
+    // 5b r26: 顏色 preset + custom（會在 row.appendChild 後 wire 起來）
+    `<label style="font-size:11px;" title="該層線條 fill/stroke 顏色">色</label>` +
+    `<select class="md-layer-color-preset md-color-preset" style="font-size:11px;"></select>` +
+    `<input class="md-layer-color" type="color" value="${color}"
+       style="width:28px;height:22px;padding:0;border:1px solid #ccc;border-radius:3px;">` +
+    `<label style="font-size:11px;" title="主參數（瓣長/光線長/dot 半徑/三角長/振幅/齒高/螺旋長）">主</label>` +
+    `<input class="md-layer-len" type="number" value="${len}" min="0.04" max="2.5" step="0.05" style="width:65px;">` +
+    `<label style="font-size:11px;" title="次參數（瓣寬/三角寬/螺旋圈數，僅部分 style 用）">次</label>` +
+    `<input class="md-layer-width" type="number" value="${width}" min="0.1" max="3.0" step="0.05" style="width:60px;">` +
+    `<button class="md-layer-delete" type="button" title="刪除此層"
+       style="margin-left:auto;padding:2px 8px;font-size:14px;line-height:1;
+              border:1px solid #c66;border-radius:3px;background:#fff;
+              color:#c33;cursor:pointer;">×</button>`;
+
+  row.querySelector(".md-layer-delete").addEventListener("click", () => {
+    row.remove();
+    mandalaRenumber();
+  });
+  const visCb = row.querySelector(".md-layer-visible");
+  const syncRowOpacity = () => {
+    row.style.opacity = visCb.checked ? "1" : "0.45";
+  };
+  visCb.addEventListener("change", syncRowOpacity);
+  syncRowOpacity();
+
+  // 5b r26: wire color preset + picker（preset 填 options + 雙向 sync）
+  _mandalaWireColorControl(
+    row.querySelector(".md-layer-color-preset"),
+    row.querySelector(".md-layer-color"),
+    color,
+  );
+
+  layersDiv.appendChild(row);
+  mandalaRenumber();
+  return row;
+}
+
+// 5b r25: 加 ring section（ringIdx 不傳 → 自動分配下一個未用 idx）
+function mandalaAddRing(ringIdx, layerCfgs) {
+  const container = document.getElementById("md-rings-container");
+  if (!container) return null;
+  if (container.querySelectorAll(".md-ring-section").length >= MD_RING_MAX) return null;
+
+  // 自動 idx：找最大 + 1
+  if (ringIdx == null) {
+    let maxIdx = -1;
+    container.querySelectorAll(".md-ring-section").forEach(s => {
+      const idx = parseInt(s.dataset.ring, 10);
+      if (!isNaN(idx) && idx > maxIdx) maxIdx = idx;
+    });
+    ringIdx = maxIdx + 1;
+  }
+  ringIdx = Math.max(0, Math.min(MD_RING_MAX - 1, parseInt(ringIdx, 10)));
+  // 避 dup
+  if (container.querySelector(`.md-ring-section[data-ring="${ringIdx}"]`)) return null;
+
+  const innerMm = ringIdx * MD_RING_WIDTH_MM;
+  const outerMm = (ringIdx + 1) * MD_RING_WIDTH_MM;
+  const isBaseRing = (ringIdx === 0);
+  const section = document.createElement("div");
+  section.className = "md-ring-section";
+  section.dataset.ring = String(ringIdx);
+  section.style.cssText =
+    "background:#fafafa;border:1px solid #ccc;border-radius:3px;" +
+    "padding:6px 8px;margin:4px 0;";
+  section.innerHTML =
+    `<div class="row md-ring-header" style="align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">` +
+      `<b style="color:#742;font-size:12px;">第 ${ringIdx} 環</b>` +
+      `<span style="color:var(--muted);font-size:11px;">(${innerMm} - ${outerMm} mm)</span>` +
+      `<button class="md-add-layer-to-ring" type="button"
+         style="padding:2px 8px;font-size:11px;border:1px dashed #999;
+                border-radius:3px;background:#fff;cursor:pointer;color:#444;">＋ 增加裝飾層</button>` +
+      (isBaseRing ? "" :
+        `<button class="md-ring-delete" type="button" title="刪除此環（含內部所有裝飾層）"
+           style="margin-left:auto;padding:2px 8px;font-size:11px;
+                  border:1px solid #c66;border-radius:3px;background:#fff;
+                  color:#c33;cursor:pointer;">× 刪除環</button>`) +
+    `</div>` +
+    `<div class="md-ring-layers"></div>`;
+
+  section.querySelector(".md-add-layer-to-ring").addEventListener("click", () => {
+    mandalaAddLayerToRing(section);
+  });
+  if (!isBaseRing) {
+    section.querySelector(".md-ring-delete").addEventListener("click", () => {
+      section.remove();
+      mandalaRenumber();
+    });
+  }
+
+  // 依 ring index 排序插入
+  const existing = Array.from(container.querySelectorAll(".md-ring-section"));
+  let inserted = false;
+  for (const s of existing) {
+    const sIdx = parseInt(s.dataset.ring, 10);
+    if (sIdx > ringIdx) {
+      container.insertBefore(section, s);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) container.appendChild(section);
+
+  // 加入 layer 配置
+  const cfgs = layerCfgs || [];
+  for (const cfg of cfgs) {
+    mandalaAddLayerToRing(section, cfg);
+  }
+  mandalaRenumber();
+  return section;
+}
+
+function mandalaClearAllLayers() {
+  const container = document.getElementById("md-rings-container");
+  if (container) container.innerHTML = "";
+  mandalaUpdateExtrasCount();
+}
+
+// 5b r25/r26: 輸出 layers JSON — r_mm 為主（後端優先），r_ratio 給 helper 推 pointing 用，
+// color 帶入後端套用 stroke/fill。
+function mandalaBuildExtraLayersJson() {
+  const container = document.getElementById("md-rings-container");
+  const layers = [];
+  const r_total_est = _mandalaCurrentRTotalMm();
+  if (container) {
+    container.querySelectorAll(".md-layer-row").forEach(row => {
+      const style = row.querySelector(".md-layer-style").value;
+      const visCb = row.querySelector(".md-layer-visible");
+      const r_mm = parseFloat(row.querySelector(".md-layer-r-mm").value);
+      const r_mm_safe = isNaN(r_mm) ? 0 : Math.max(r_mm, 0);
+      const colorEl = row.querySelector(".md-layer-color");
+      const color = colorEl && colorEl.value ? colorEl.value : "#000000";
+      const layer = {
+        style: style,
+        n_fold: parseInt(row.querySelector(".md-layer-n").value, 10) || 18,
+        r_mm: r_mm_safe,
+        r_ratio: r_mm_safe / r_total_est,
+        visible: visCb ? visCb.checked : true,
+        color: color,
+      };
+      _mandalaApplyStyleSpecificParams(layer, style,
+        parseFloat(row.querySelector(".md-layer-len").value),
+        parseFloat(row.querySelector(".md-layer-width").value));
+      layers.push(layer);
+    });
+  }
+  return JSON.stringify(layers);
+}
+
+// 5b r25: 「+ 增加環」按鈕 — 自動分配下一個 ring idx，新環帶 1 個 default layer
+document.getElementById("md-add-ring")?.addEventListener("click", () => {
+  mandalaAddRing(null, [{}]);
+});
+
+// 5b r25: 初始化 — 確保 0 環存在 + 1 個 default layer
+(function _mandalaInitRings() {
+  const container = document.getElementById("md-rings-container");
+  if (container && container.children.length === 0) {
+    mandalaAddRing(0, [{}]);
+  }
+})();
+mandalaUpdateExtrasCount();
+
+// Phase 5b r21: 「🚫 隱藏主線條」checkbox 跟 md-show-mandala 雙向同步
+function _mandalaSyncMainHide() {
+  const hideCb = document.getElementById("md-hide-main");
+  const showCb = document.getElementById("md-show-mandala");
+  if (!hideCb || !showCb) return;
+  // hide=true ↔ show=false
+  hideCb.addEventListener("change", () => {
+    showCb.checked = !hideCb.checked;
+  });
+  showCb.addEventListener("change", () => {
+    hideCb.checked = !showCb.checked;
+  });
+  // init: 同步初始 state
+  hideCb.checked = !showCb.checked;
+}
+_mandalaSyncMainHide();
+
+// Phase 5b r15: 中心類型 radio → show/hide icon controls + 中心字 input
+function mandalaSyncCenterType() {
+  const checked = document.querySelector('input[name="md-center-type"]:checked');
+  const type = checked ? checked.value : "char";
+  const iconRow = document.getElementById("md-icon-controls");
+  const centerTextInput = document.getElementById("md-center-text");
+  if (iconRow) iconRow.style.display = (type === "icon") ? "" : "none";
+  if (centerTextInput) {
+    centerTextInput.disabled = (type !== "char");
+    centerTextInput.style.opacity = (type === "char") ? "1" : "0.5";
+  }
+}
+document.querySelectorAll('input[name="md-center-type"]').forEach(r =>
+  r.addEventListener("change", mandalaSyncCenterType));
+mandalaSyncCenterType();  // init
+
+// Phase 5b r6: Mandala 樣式切換 → show/hide 該樣式的專用參數 row
+function mandalaSyncStyleRows() {
+  const sel = document.getElementById("md-style-primitive");
+  if (!sel) return;
+  const style = sel.value;
+  const arcsRow = document.getElementById("md-arcs-row");
+  const lotusRow = document.getElementById("md-lotus-row");
+  const raysRow = document.getElementById("md-rays-row");
+  if (arcsRow) arcsRow.style.display = (style === "interlocking_arcs") ? "" : "none";
+  if (lotusRow) lotusRow.style.display = (style === "lotus_petal") ? "" : "none";
+  if (raysRow) raysRow.style.display = (style === "radial_rays") ? "" : "none";
+}
+document.getElementById("md-style-primitive")?.addEventListener("change",
+  mandalaSyncStyleRows);
+mandalaSyncStyleRows();  // init: 套用一次 default state
+
+// Phase 5b r8: composition_scheme 切換 → show/hide r_ring_ratio / char_spacing /
+// inscribed_padding rows，並 auto-toggle halo (vesica/inscribed 預設關)
+function mandalaSyncSchemeRows() {
+  const sel = document.getElementById("md-comp-scheme");
+  if (!sel) return;
+  const scheme = sel.value;
+  // r_ring_ratio 只在 freeform 顯示（vesica/inscribed 用 char_spacing 推算）
+  const rRingInput = document.getElementById("md-r-ring");
+  if (rRingInput) {
+    const lbl = rRingInput.previousElementSibling;
+    rRingInput.style.display = (scheme === "freeform") ? "" : "none";
+    if (lbl && lbl.tagName === "LABEL") {
+      lbl.style.display = (scheme === "freeform") ? "" : "none";
+    }
+  }
+  // inscribed-only padding row
+  const inscribedRow = document.getElementById("md-inscribed-row");
+  if (inscribedRow) inscribedRow.style.display = (scheme === "inscribed") ? "" : "none";
+  // char_spacing 只在 vesica/inscribed 有意義（freeform 顯示但 backend 忽略）
+  const cs = document.getElementById("md-char-spacing");
+  if (cs) {
+    cs.disabled = (scheme === "freeform");
+    cs.style.opacity = (scheme === "freeform") ? "0.5" : "1";
+  }
+  // Auto halo default: vesica/inscribed 字本來就在線內空間，halo 不需要
+  // 但保留 user 設定，只在 scheme change 時建議性切（不強制）
+  const protectCb = document.getElementById("md-protect-chars");
+  if (protectCb && !protectCb.dataset.userTouched) {
+    protectCb.checked = (scheme === "freeform");
+  }
+}
+document.getElementById("md-comp-scheme")?.addEventListener("change",
+  mandalaSyncSchemeRows);
+// 一旦 user 手動勾過 halo，就不再自動切
+document.getElementById("md-protect-chars")?.addEventListener("change", (e) => {
+  e.target.dataset.userTouched = "1";
+});
+mandalaSyncSchemeRows();  // init
 
 // Enable/disable the align dropdown based on auto_cycle state
 function waUpdateAlignState() {
@@ -4603,6 +5929,17 @@ function stampInit() {
   // 12m-1: oval 結構化欄位 — preset=oval 時顯示 5 欄 + 隱藏單一 text
   $("st-preset").addEventListener("change", stampUpdateOvalFieldsUI);
   stampUpdateOvalFieldsUI();
+  // 12m-7 r39: 職名章 (rectangle_title) 左欄 1/2 行 toggle
+  const rectLeft2Rows = $("st-rect-left-2rows");
+  const rectLeftLine2Row = $("st-rect-left-line2-row");
+  if (rectLeft2Rows && rectLeftLine2Row) {
+    const syncRectLeft2Rows = () => {
+      rectLeftLine2Row.style.display = rectLeft2Rows.checked
+        ? "flex" : "none";
+    };
+    rectLeft2Rows.addEventListener("change", syncRectLeft2Rows);
+    syncRectLeft2Rows();
+  }
   // 12m-1 patch r17: oval-show-inner ↔ double-border 雙向同步
   const ovalShowInner = $("st-oval-show-inner");
   if (ovalShowInner) {
@@ -4687,7 +6024,7 @@ function stampApplyPresetDefaults() {
     round:            [24, 24, 8,  true],   // 12m-7 r25: 圓戳章預設雙框（內圓+外圓 ring band）
     oval:             [50, 35, 9,  true],   // 12m-1 patch r2: 1.43:1 比例（業界常見），預設雙框
     tax_invoice:      [45, 40, 8,  true],   // 12m-7 r7: 統一發票章「電視章」改 45×40 (4.5×4.0 cm) 給更多 vertical 空間（plum 跟 char 同寬時不擠）
-    rectangle_title:  [50, 18, 12, false],
+    rectangle_title:  [28, 8,  6, false],   // 12m-7 r39: 職名章預設 28×8
   };
   const d = defaults[$("st-preset").value];
   if (!d) return;
@@ -4766,6 +6103,12 @@ function stampUpdateOvalFieldsUI() {
   // 12m-7 r29: 圓戳章專用內框向量圖上傳 row
   const innerDecoRow = $("st-round-inner-deco-row");
   if (innerDecoRow) innerDecoRow.style.display = isRound ? "flex" : "none";
+  // 12m-7 r39: 職名章 (rectangle_title) 結構化欄位
+  const isRect = (v === "rectangle_title");
+  const rectFields = $("st-rect-fields");
+  if (rectFields) rectFields.style.display = isRect ? "flex" : "none";
+  // 職名章 mode 時也要 hide 單一 text 欄（用 rect-fields 取代）
+  if (isRect && textRow) textRow.style.display = "none";
   // Sync 內外狀態：oval-show-inner ↔ st-double-border
   const innerCb = $("st-oval-show-inner");
   const dbCb = $("st-double-border");
@@ -5311,6 +6654,11 @@ function stampBuildBody(format) {
     ),
     // 12m-7 r26: 圓戳章單圓周模式
     round_continuous_arc: $$("st-round-continuous-arc")?.checked || false,
+    // 12m-7 r39: 職名章 (rectangle_title) 2-column 結構化欄位
+    rect_left_line1: ($("st-rect-left-line1") || "").trim(),
+    rect_left_line2: ($("st-rect-left-line2") || "").trim(),
+    rect_right: ($("st-rect-right") || "").trim(),
+    rect_left_2rows: $$("st-rect-left-2rows")?.checked || false,
   };
 }
 

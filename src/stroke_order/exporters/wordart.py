@@ -387,6 +387,32 @@ def edge_positions(
     return out
 
 
+def _spread_positions_on_edge(
+    edge_start: tuple[float, float],
+    edge_end: tuple[float, float],
+    n_chars: int,
+) -> list[tuple[float, float]]:
+    """Phase 5b r3: 沿邊均勻分布 n_chars 個位置，**邊首尾各留半個 inter-char gap**。
+
+    與 ``_pick_slot_indices(spread)`` 從 ``edge_positions`` 預製 slot grid 中挑
+    index（會產生不均勻 gap 當 chars < slots）不同，這裡直接以 n_chars 為基準
+    重算位置：char j 位於邊長分數 ``(j + 0.5) / n_chars`` 處。
+
+    視覺結果：邊內字距相同；邊首尾各 ``edge_length / (2 * n_chars)`` padding，
+    讓多邊形邊與邊交接處左右兩字保留半 gap，不相黏。
+    """
+    if n_chars <= 0:
+        return []
+    ax, ay = edge_start
+    bx, by = edge_end
+    dx, dy = bx - ax, by - ay
+    out: list[tuple[float, float]] = []
+    for i in range(n_chars):
+        t = (i + 0.5) / n_chars
+        out.append((ax + dx * t, ay + dy * t))
+    return out
+
+
 def compute_linear(
     texts_per_edge: list[str],
     shape: Polygon,
@@ -473,11 +499,24 @@ def compute_linear(
                 placed.append((chars[j], x, y, size, rot))
         else:
             # auto_cycle off and chars < slots → apply alignment
-            indices = _pick_slot_indices(len(chars), len(slots), align)
-            for j, slot_idx in enumerate(indices):
-                x, y, ang = slots[slot_idx]
-                rot = _rotation_for(orient, ang)
-                placed.append((chars[j], x, y, size, rot))
+            if align == "spread":
+                # Phase 5b r3: spread = 「字之間 gap 一致 + 邊首尾各留半 gap」
+                # cell-centered 分布。原本 _pick_slot_indices(spread) 會在 chars
+                # < slots 時產生不均勻 gap（某 slot 跳過 → 該位置 gap 加倍），
+                # 且首尾貼邊 → 多邊形角落字相黏。改成直接以 n_chars 為基準重算
+                # 位置：char j 位於邊長分數 (j + 0.5) / n_chars。outward angle
+                # 沿用上方 corner-flip 後的 slots[0][2]（邊上所有點同 normal）。
+                _, _, ang0 = slots[0]
+                positions = _spread_positions_on_edge(a, b, len(chars))
+                rot0 = _rotation_for(orient, ang0)
+                for j, (x, y) in enumerate(positions):
+                    placed.append((chars[j], x, y, size, rot0))
+            else:
+                indices = _pick_slot_indices(len(chars), len(slots), align)
+                for j, slot_idx in enumerate(indices):
+                    x, y, ang = slots[slot_idx]
+                    rot = _rotation_for(orient, ang)
+                    placed.append((chars[j], x, y, size, rot))
     return placed, missing
 
 
@@ -846,7 +885,7 @@ def capacity(layout: Layout, shape: Shape, char_size_mm: float) -> dict:
 
 
 def _place_char_svg(c: Character, x: float, y: float, size_mm: float,
-                    rot: float) -> str:
+                    rot: float, color: str = "#222") -> str:
     """Place a character on the wordart canvas.
 
     Phase 5aj: strokes with either an empty ``outline`` (punctuation,
@@ -854,6 +893,9 @@ def _place_char_svg(c: Character, x: float, y: float, size_mm: float,
     applied) render as stroked polylines so the visual contribution of
     the style filter actually shows. Remaining strokes render as
     outline-filled paths (original g0v/MMH look).
+
+    Phase 5b r26: ``color`` 控制字筆畫的 fill (outline strokes) +
+    stroke (track strokes) 顏色，預設 ``#222`` 維持向後相容。
     """
     from .svg import _track_points_str
     half = size_mm / 2
@@ -870,11 +912,11 @@ def _place_char_svg(c: Character, x: float, y: float, size_mm: float,
             outline_strokes.append(s)
     parts = [f'<g transform="{transform}">']
     if outline_strokes:
-        parts.append('<g fill="#222">' +
+        parts.append(f'<g fill="{color}">' +
                      "".join(f'<path d="{_outline_path_d(s)}"/>'
                              for s in outline_strokes) + "</g>")
     if track_strokes:
-        parts.append('<g fill="none" stroke="#222" stroke-linecap="round" '
+        parts.append(f'<g fill="none" stroke="{color}" stroke-linecap="round" '
                      'stroke-linejoin="round">')
         for s in track_strokes:
             w = s.pen_size if s.pen_size is not None else 40.0

@@ -170,6 +170,11 @@ class StampPostRequest(BaseModel):
     # frontend 計算 case-specific slot y/height 後傳入。dict 鍵：
     # "slot_0", "slot_1", "slot_2"。值 = [y_ratio, max_h_ratio]
     body_slot_overrides: dict = {}
+    # 12m-7 r39: 職名章 (rectangle_title) 2-column 欄位
+    rect_left_line1: str = ""
+    rect_left_line2: str = ""
+    rect_right: str = ""
+    rect_left_2rows: bool = False
 
 
 class SutraPostRequest(BaseModel):
@@ -1855,6 +1860,227 @@ def create_app() -> FastAPI:
         return Response(content=svg, media_type="image/svg+xml",
                         headers=headers)
 
+    # ------ 曼陀羅模式 (mandala) — Phase 5b r4 ------------------------
+    # Case B: 中心 1 字 + 字環 N 字 + 外圍半圓交織 mandala band
+    # 預設: center "咒" + ring 「臨兵鬥者皆陣列在前」(九字真言, N=9)
+
+    @app.get("/api/mandala")
+    async def mandala(
+        center_text: str = Query("咒", max_length=10),
+        ring_text: str = Query("臨兵鬥者皆陣列在前", max_length=200),
+        n_fold: Optional[int] = Query(
+            None, ge=2, le=24,
+            description="Mandala 對稱軸數；空 → 自動取字環長度"),
+        size_mm: float = Query(140.0, ge=20, le=400),
+        page_width_mm: float = Query(210.0, ge=50, le=600),
+        page_height_mm: float = Query(297.0, ge=50, le=600),
+        char_size_center_mm: float = Query(24.0, gt=2, le=80),
+        char_size_ring_mm: float = Query(10.0, gt=2, le=40),
+        r_ring_ratio: float = Query(0.45, ge=0.1, le=0.9),
+        r_band_ratio: float = Query(0.78, ge=0.1, le=0.95),
+        overlap_ratio: float = Query(1.25, ge=0.5, le=2.0),
+        stroke_width: float = Query(0.6, ge=0.1, le=5.0),
+        orientation: str = Query(
+            "bottom_to_center",
+            pattern="^(bottom_to_center|top_to_center|upright|tangent)$"),
+        show_chars: bool = Query(True),
+        show_mandala: bool = Query(True),
+        show_outline: bool = Query(False, description="畫輔助同心圓 (debug)"),
+        protect_chars: bool = Query(
+            True, description="字保護 halo 防止 mandala 線切過字"),
+        protect_radius_factor: float = Query(
+            0.55, ge=0.1, le=1.0,
+            description="halo 半徑 / char_size_mm (0.5 內切、0.55 緊貼、0.7 外接)"),
+        mandala_style: str = Query(
+            "interlocking_arcs",
+            pattern="^(interlocking_arcs|lotus_petal|radial_rays)$",
+            description="Mandala primitive 樣式"),
+        lotus_length_ratio: float = Query(1.25, ge=0.3, le=2.5),
+        lotus_width_ratio: float = Query(0.6, ge=0.2, le=1.0),
+        rays_length_ratio: float = Query(1.25, ge=0.3, le=2.5),
+        # Phase 5b r8: composition_scheme — 字佈局原則
+        composition_scheme: str = Query(
+            "vesica",
+            pattern="^(freeform|vesica|inscribed)$",
+            description="字佈局：freeform / vesica（字在圓交集）/ inscribed（字在圓內）"),
+        char_spacing: float = Query(
+            2.0, ge=0.5, le=20.0,
+            description="中心字外緣到字環內緣距離（單位=字身長度），1~N+1 合理"),
+        inscribed_padding_factor: float = Query(
+            0.7, ge=0.4, le=1.5,
+            description="inscribed mode: 圓半徑 / char_size_ring (0.7=外接圓略小)"),
+        # Phase 5b r9: 自動縮小字體避免碰觸 mandala 線
+        auto_shrink_chars: bool = Query(
+            True,
+            description="自動縮小字環字大小避免碰觸 mandala 線（vesica/inscribed mode）"),
+        shrink_safety_margin: float = Query(
+            0.85, ge=0.5, le=1.0,
+            description="auto_shrink margin：字 bbox / clearance 比例 (越小越保守)"),
+        # Phase 5b r10: 額外裝飾層（純視覺，不跟字環互動）
+        extra_layers_json: str = Query(
+            "[]", max_length=2000,
+            description='JSON array of {style, n_fold, r_ratio, ...} layer dicts'),
+        # Phase 5b r15: 中心類型 (Case A/B/C)
+        center_type: str = Query(
+            "char", pattern="^(char|icon|empty)$",
+            description="中心類型：char=字（B 默認）/ icon=小 mandala (C) / empty=空 (A)"),
+        center_icon_style: str = Query(
+            "lotus_petal",
+            pattern=("^(interlocking_arcs|lotus_petal|radial_rays|dots|"
+                     "triangles|wave|zigzag|spiral|squares|hearts|"
+                     "teardrops|leaves|clouds|crosses|stars|eyes|lattice)$")),
+        center_icon_n: int = Query(8, ge=2, le=24),
+        center_icon_size_mm: float = Query(12.0, ge=2.0, le=80.0),
+        # Phase 5b r18: 下載格式
+        format: str = Query(
+            "svg", pattern="^(svg|png|png_transparent|pdf|gcode)$",
+            description="輸出格式：svg / png / png_transparent / pdf / gcode（機器軌跡）"),
+        png_size_px: int = Query(
+            2400, ge=256, le=8192,
+            description="PNG 解析度（像素）。1024=中、2400=大、4096=超大"),
+        # Phase 5b r19: G-code 參數
+        gcode_feed_rate: float = Query(1000.0, ge=10, le=10000),
+        gcode_pen_up_z: float = Query(2.0, ge=0, le=20),
+        gcode_pen_down_z: float = Query(-1.0, ge=-20, le=0),
+        gcode_flip_y: bool = Query(True),
+        # Phase 5b r26: 線條顏色（hex #rrggbb；G-code 按色分組以利寫字機換筆）
+        mandala_line_color: str = Query(
+            "#000000", pattern=r"^#[0-9a-fA-F]{6}$",
+            description="主 mandala 線條 fill/stroke 顏色 (#rrggbb)"),
+        char_line_color: str = Query(
+            "#000000", pattern=r"^#[0-9a-fA-F]{6}$",
+            description="中心字 + 字環的字筆畫 fill/stroke 顏色 (#rrggbb)"),
+        source: str = Query("auto"),
+        hook_policy: str = Query("animation"),
+        style: str = Query("kaishu", pattern=_STYLE_PATTERN),
+        cns_outline_mode: str = Query("skip", pattern=_CNS_MODE_PATTERN),
+        download: bool = Query(False),
+    ):
+        import json
+        from ..exporters.mandala import render_mandala_svg
+
+        # 5b r10: parse extra_layers_json (容錯 — 壞 JSON 視為空 list)
+        try:
+            extra_layers_parsed = json.loads(extra_layers_json or "[]")
+            if not isinstance(extra_layers_parsed, list):
+                extra_layers_parsed = []
+        except (ValueError, TypeError):
+            extra_layers_parsed = []
+
+        def loader(ch: str):
+            try:
+                c, _r, _ = _load(ch, source, hook_policy)
+                c = _upgrade_to_sung(c, style)
+                c = _upgrade_to_seal(c, style)
+                c = _upgrade_to_lishu(c, style)
+                if style != "kaishu":
+                    c = _apply_style(c, style)
+                if cns_outline_mode != "skip":
+                    c = _apply_cns_mode(c, cns_outline_mode)
+                return c
+            except HTTPException:
+                return None
+            except Exception:
+                return None
+
+        # 5b r18: 透明 PNG 不畫白色背景（其餘格式維持 white bg）
+        include_bg = (format != "png_transparent")
+        svg, info = render_mandala_svg(
+            center_text, ring_text, loader,
+            size_mm=size_mm,
+            page_width_mm=page_width_mm,
+            page_height_mm=page_height_mm,
+            n_fold=n_fold,
+            show_chars=show_chars,
+            show_mandala=show_mandala,
+            char_size_center_mm=char_size_center_mm,
+            char_size_ring_mm=char_size_ring_mm,
+            r_ring_ratio=r_ring_ratio,
+            r_band_ratio=r_band_ratio,
+            overlap_ratio=overlap_ratio,
+            stroke_width=stroke_width,
+            orient=orientation,  # type: ignore[arg-type]
+            show_outline=show_outline,
+            protect_chars=protect_chars,
+            protect_radius_factor=protect_radius_factor,
+            mandala_style=mandala_style,
+            lotus_length_ratio=lotus_length_ratio,
+            lotus_width_ratio=lotus_width_ratio,
+            rays_length_ratio=rays_length_ratio,
+            composition_scheme=composition_scheme,
+            char_spacing=char_spacing,
+            inscribed_padding_factor=inscribed_padding_factor,
+            auto_shrink_chars=auto_shrink_chars,
+            shrink_safety_margin=shrink_safety_margin,
+            extra_layers=extra_layers_parsed,
+            center_type=center_type,
+            center_icon_style=center_icon_style,
+            center_icon_n=center_icon_n,
+            center_icon_size_mm=center_icon_size_mm,
+            include_background=include_bg,
+            mandala_line_color=mandala_line_color,
+            char_line_color=char_line_color,
+        )
+        headers = {
+            "X-Mandala-Placed": str(info["placed_count"]),
+            "X-Mandala-Missing": str(info["missing_count"]),
+            "X-Mandala-N-Fold": str(info["n_fold"]),
+            "X-Mandala-Ring-Count": str(info["ring_chars_count"]),
+            "X-Mandala-Scheme": str(info.get("composition_scheme", "")),
+            "X-Mandala-R-Ring-Mm": str(info.get("r_ring_mm", "")),
+            "X-Mandala-R-Band-Mm": str(info.get("r_band_mm", "")),
+            "X-Mandala-Char-Size-Original-Mm": str(
+                info.get("char_size_ring_original_mm", "")),
+            "X-Mandala-Char-Size-Effective-Mm": str(
+                info.get("char_size_ring_effective_mm", "")),
+            "X-Mandala-Char-Shrunk": "1" if info.get("char_shrunk") else "0",
+            "X-Mandala-Extra-Layers": str(info.get("extra_layers_count", 0)),
+            "X-Mandala-Center-Type": str(info.get("center_type", "char")),
+        }
+        # Phase 5b r18/r19: 依 format 轉換並回傳對應 content-type
+        if format == "png" or format == "png_transparent":
+            import cairosvg
+            png_bytes = cairosvg.svg2png(
+                bytestring=svg.encode("utf-8"),
+                output_width=png_size_px,
+                output_height=png_size_px,
+            )
+            ext, mime = "png", "image/png"
+            content = png_bytes
+        elif format == "pdf":
+            import cairosvg
+            pdf_bytes = cairosvg.svg2pdf(bytestring=svg.encode("utf-8"))
+            ext, mime = "pdf", "application/pdf"
+            content = pdf_bytes
+        elif format == "gcode":
+            from ..exporters.mandala import render_mandala_gcode
+            gcode_text = render_mandala_gcode(
+                svg,
+                feed_rate_mm_per_min=gcode_feed_rate,
+                pen_up_z=gcode_pen_up_z,
+                pen_down_z=gcode_pen_down_z,
+                flip_y=gcode_flip_y,
+            )
+            ext, mime = "gcode", "text/plain"
+            content = gcode_text
+        else:
+            ext, mime = "svg", "image/svg+xml"
+            content = svg
+
+        if download:
+            base = f"mandala-{info['n_fold']}"
+            if format == "png_transparent":
+                base += "-transparent"
+            headers["Content-Disposition"] = _content_disposition(base, ext)
+        return Response(content=content, media_type=mime, headers=headers)
+
+    # ------ 曼陀羅 preset 主題（5b r12） ----------------------------
+    @app.get("/api/mandala/presets")
+    async def mandala_presets():
+        """List all mandala presets。前端用 dropdown change 套設定到 inputs。"""
+        from ..exporters.mandala import list_mandala_presets
+        return {"presets": list_mandala_presets()}
+
     # ------ 塗鴉模式 (doodle) ------------------------------------------
 
     @app.post("/api/doodle")
@@ -2673,6 +2899,11 @@ def create_app() -> FastAPI:
             round_continuous_arc=bool(req.round_continuous_arc),
             # 12m-7 r31: body slot overrides
             body_slot_overrides=dict(req.body_slot_overrides or {}),
+            # 12m-7 r39: 職名章 2-column 欄位
+            rect_left_line1=req.rect_left_line1 or "",
+            rect_left_line2=req.rect_left_line2 or "",
+            rect_right=req.rect_right or "",
+            rect_left_2rows=bool(req.rect_left_2rows),
         )
 
         if req.format == "svg":
