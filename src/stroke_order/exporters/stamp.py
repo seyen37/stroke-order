@@ -1112,6 +1112,10 @@ def _placements_for_preset(
     oval_location_position: str = "bottom",
     # Phase 12m-7 r26: 圓戳章 (round) 單圓周模式
     round_continuous_arc: bool = False,
+    # Phase 12m-7 r31: 動態 body slot overrides — 圓戳章內框圖搭配 body
+    # 文字時，slot 位置/高度需根據 case 重設。dict 形如:
+    #   {"slot_0": [y_ratio, max_h_ratio], "slot_1": [...], "slot_2": [...]}
+    body_slot_overrides: dict = None,
 ) -> list[tuple]:
     """Return ``[(char, cx_mm, cy_mm, rotation_deg, w_mm, h_mm), ...]``.
 
@@ -1505,6 +1509,19 @@ def _placements_for_preset(
                 "slot_2":     (+0.18, 0.06,  False, 1.15),
                 "location":   (+0.27, 0.045, True,  1.15),
             }
+            # 12m-7 r31: caller 可動態覆寫 slot y_ratio + max_h_ratio
+            # （tight + spacing_mul 保留原值）。用於圓戳章內框圖搭配 body
+            # 時動態調整 slot 位置/高度。
+            if body_slot_overrides:
+                for _slot_key, _override in body_slot_overrides.items():
+                    if (_slot_key in STADIUM_BODY_SLOTS
+                            and _override
+                            and len(_override) >= 2):
+                        _old = STADIUM_BODY_SLOTS[_slot_key]
+                        STADIUM_BODY_SLOTS[_slot_key] = (
+                            float(_override[0]), float(_override[1]),
+                            _old[2], _old[3],
+                        )
 
             def _stadium_body_row(line_chars, y_ratio, max_h_ratio,
                                   bold=False, tight=False,
@@ -1843,6 +1860,8 @@ def render_stamp_svg(
     # Phase 12m-7 r26: 圓戳章 (round) 單圓周模式 — 上弧文 wrap 300°，
     # 取消左右梅花，只保留底部梅花。僅 round preset 啟用時生效。
     round_continuous_arc: bool = False,
+    # Phase 12m-7 r31: 動態 body slot 位置/高度覆寫
+    body_slot_overrides: dict = None,
 ) -> str:
     """Render a single stamp as one-layer SVG (laser-engrave-friendly).
 
@@ -1925,6 +1944,7 @@ def render_stamp_svg(
         oval_location_chars=oval_location_chars,
         oval_location_position=oval_location_position,
         round_continuous_arc=round_continuous_arc,
+        body_slot_overrides=body_slot_overrides,
     )
 
     # Build border path d-strings (used by both modes).
@@ -2231,6 +2251,8 @@ def render_stamp_gcode(
     oval_location_position: str = "bottom",
     # Phase 12m-7 r26: 圓戳章 (round) 單圓周模式
     round_continuous_arc: bool = False,
+    # Phase 12m-7 r31: 動態 body slot overrides
+    body_slot_overrides: dict = None,
 ) -> str:
     """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
     by default; override ``laser_on`` / ``laser_off`` for diode-laser
@@ -2303,6 +2325,7 @@ def render_stamp_gcode(
         oval_location_chars=oval_location_chars,
         oval_location_position=oval_location_position,
         round_continuous_arc=round_continuous_arc,
+        body_slot_overrides=body_slot_overrides,
     )
 
     out: list[str] = [

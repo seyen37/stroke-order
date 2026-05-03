@@ -166,6 +166,10 @@ class StampPostRequest(BaseModel):
     oval_location_position: str = "bottom"
     # 12m-7 r26: 圓戳章單圓周模式 — 上弧文 wrap 300° + 單一梅花在底部
     round_continuous_arc: bool = False
+    # 12m-7 r31: 動態 body slot overrides — 圓戳章內框圖搭配 body 文字時，
+    # frontend 計算 case-specific slot y/height 後傳入。dict 鍵：
+    # "slot_0", "slot_1", "slot_2"。值 = [y_ratio, max_h_ratio]
+    body_slot_overrides: dict = {}
 
 
 class SutraPostRequest(BaseModel):
@@ -2667,6 +2671,8 @@ def create_app() -> FastAPI:
             oval_location_position=req.oval_location_position or "bottom",
             # 12m-7 r26: 圓戳章單圓周模式
             round_continuous_arc=bool(req.round_continuous_arc),
+            # 12m-7 r31: body slot overrides
+            body_slot_overrides=dict(req.body_slot_overrides or {}),
         )
 
         if req.format == "svg":
