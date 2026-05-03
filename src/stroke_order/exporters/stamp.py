@@ -513,8 +513,8 @@ def _oval_arc_char_size(
     user-supplied ``char_size_mm`` upper bound).
 
     12m-1 patch r14: ``ring_band_width`` (= outer_b − inner_b) caps char
-    size so chars don't span both outer and inner ellipse edges. Need
-    char_size ≤ ring_band_width − 2 × safety (1mm typical).
+    size so chars don't span both outer and inner ellipse edges.
+    12m-7 r27: 收緊 1.0 → 1.4mm，含 0.6mm stroke + 0.4mm 各側 safety margin。
     """
     if n <= 0:
         return char_size_cap
@@ -525,7 +525,7 @@ def _oval_arc_char_size(
     per_char = arc_len_approx / max(n, 1)
     candidates = [char_size_cap, per_char * fill_ratio]
     if ring_band_width > 0:
-        candidates.append(max(ring_band_width - 1.0, 0.5))
+        candidates.append(max(ring_band_width - 1.4, 0.5))
     return min(candidates)
 
 
@@ -1656,11 +1656,14 @@ def _placements_for_preset(
                     arc_n = len(oval_arc_top_chars)
                     # Ring band midpoint as radius
                     ring_radius = (_half_a_outer + _inner_a) / 2.0
-                    # Char size: ring band width 0.85 主限、char_size_mm 上限
-                    # 弧長除以字數 × 0.85 fill ratio 為 spacing 限制
+                    # 12m-7 r27: char size cap 收緊避免碰觸內外框
+                    # ring_band_width - 1.4mm（含 stroke 0.6mm + 0.4mm 各側
+                    # safety margin）。保證 char visual extent (含 stroke)
+                    # 不碰 inner/outer 框線。
                     arc_len_300 = ring_radius * math.radians(300.0)
                     arc_sz_by_spacing = arc_len_300 / max(arc_n, 1) * 0.85
-                    arc_sz = min(_d_offset * 0.85, char_size_mm,
+                    ring_band_cap = max(_d_offset - 1.4, 0.5)
+                    arc_sz = min(ring_band_cap, char_size_mm,
                                  arc_sz_by_spacing)
                     arc_sz = max(arc_sz, 2.0)
                     # span 300° start 120° (7 點鐘); _arc_text_positions
