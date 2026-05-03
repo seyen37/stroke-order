@@ -5119,14 +5119,18 @@ function stampComputeRoundInnerLayout() {
   const margin = 0.6;
   // 12m-7 r33: 在 inner ellipse top/bot 邊緣的 slot 自動加 SAFETY margin，
   // 避免 char 邊界碰觸內框弧線（特別是底部 slot_2 / 頂部 slot_0）
-  const SAFETY = 0.04;  // ≈ 0.04 * 16.8mm = 0.67mm margin @ 24mm round
+  // 12m-7 r35: fill ratio 0.92 → 0.85 給 char 在 slot 內留更多 padding，
+  // 確保相鄰 text rows 之間的 char-char gap 至少 ~0.7mm（避免字體碰觸）。
+  // 字體略小 ~7% 但所有 case 視覺安全距離達標。
+  const SAFETY = 0.04;
+  const FILL_RATIO = 0.85;
   const slotOverride = (rStart, rEnd) => {
     const rs = rStart < 0.01 ? SAFETY : rStart;
     const re = rEnd > 0.99 ? (1 - SAFETY) : rEnd;
     const yTop = cy - innerB + rs * innerV;
     const yBot = cy - innerB + re * innerV;
     const yCtr = (yTop + yBot) / 2;
-    const maxH = (yBot - yTop) * 0.92;
+    const maxH = (yBot - yTop) * FILL_RATIO;
     return [(yCtr - cy) / innerHRatioDenom, maxH / innerHRatioDenom];
   };
   // 12m-7 r34: imgBbox 加大 internal margin (0.6 → 1.0mm) 給 image-text
