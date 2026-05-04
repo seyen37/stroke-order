@@ -3749,13 +3749,18 @@ def create_app() -> FastAPI:
     ):
         user = _require_user(psd_session)
         content = await file.read()
-        # Phase 5b r28c: mandala upload 構造 char_loader 給 thumbnail 用。
-        # 用 server default style/source/cns_mode；MD upload state 內 style.font
-        # 等若跟 default 不同，thumbnail 字體可能微差（known limitation — 若要
-        # 完全精確可從 state.style 取出傳入，但需先 parse YAML 兩次）。
-        upload_loader = None
+        # Phase 5b r28d: 用 state-aware loader factory，loader 跟 user 在
+        # mandala 模式看到的字體一致（讀 state.style.font / source /
+        # cns_outline_mode）。State 缺欄位 fall back 到 server default。
+        upload_loader_factory = None
         if kind == "mandala":
-            upload_loader = build_mandala_char_loader()
+            def upload_loader_factory(state):
+                s = (state.get("style") or {}) if isinstance(state, dict) else {}
+                return build_mandala_char_loader(
+                    style=str(s.get("font", "kaishu")),
+                    source=str(s.get("source", "auto")),
+                    cns_outline_mode=str(s.get("cns_outline_mode", "skip")),
+                )
         try:
             record = gallery_service.create_upload(
                 user_id=user["id"],
@@ -3764,7 +3769,7 @@ def create_app() -> FastAPI:
                 title=title,
                 comment=comment,
                 kind=kind,
-                char_loader=upload_loader,
+                char_loader_factory=upload_loader_factory,
             )
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)

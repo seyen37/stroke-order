@@ -425,6 +425,7 @@ def create_upload(
     *, user_id: int, content_bytes: bytes, filename: Optional[str],
     title: str, comment: str, kind: str = KIND_PSD,
     char_loader=None,
+    char_loader_factory=None,
 ) -> dict:
     """Validate + persist an uploaded payload. Returns the new
     upload's full record dict.
@@ -434,9 +435,15 @@ def create_upload(
     - ``"mandala"`` → MD frontmatter / SVG 內嵌 metadata,
       ``stroke-order-mandala-v1``，副檔名依內容 .md / .svg
 
-    Phase 5b r28c: ``char_loader`` 為 mandala MD upload 生成 thumbnail 用的
-    DI；可選（None 時 MD upload 跳過 thumbnail，SVG upload 不受影響）。
-    API 層應傳入由 ``build_mandala_char_loader()`` 構造的 loader。
+    Phase 5b r28c: ``char_loader`` (CharLoader) 為 mandala MD upload 生成
+    thumbnail 用的 DI；靜態（不依 state）。
+
+    Phase 5b r28d: ``char_loader_factory`` (callable[state] → CharLoader) 接受
+    state 動態構造 loader — 從 state.style.font / source / cns_outline_mode
+    建出對應的 loader，使 thumbnail 字體 / 字源跟 user 的 mandala 看到的一致。
+
+    優先：``char_loader_factory(state)`` > ``char_loader``（None → MD
+    upload skip thumbnail，保 r28b 向後相容）。
 
     Raises:
         InvalidUpload    — schema / size / format / 不認識的 kind
@@ -485,11 +492,25 @@ def create_upload(
     _user_uploads_dir(user_id)         # ensure parent exists
     abs_path.write_bytes(content_bytes)
 
-    # Phase 5b r28b/r28c: 生成 thumbnail（mandala+svg 直接轉；mandala+md 需
-    # char_loader，無則跳過）；失敗不擋上傳
+    # Phase 5b r28b/r28c/r28d: 生成 thumbnail
+    # - mandala+svg：cairosvg 直接轉，不需 loader
+    # - mandala+md：先 factory(state) 拿 state-aware loader（r28d），否則用
+    #   靜態 char_loader（r28c），都無則 skip
+    # - 失敗 graceful 不擋上傳
+    loader_for_thumbnail = char_loader
+    if char_loader_factory is not None:
+        try:
+            loader_for_thumbnail = char_loader_factory(state)
+        except Exception as e:
+            import logging
+            logging.warning(
+                "char_loader_factory failed (state.style maybe malformed): "
+                "%s — fall back to static char_loader", e,
+            )
+            # loader_for_thumbnail 維持 char_loader（fall back）
     _maybe_generate_thumbnail(
         content_bytes, kind=kind, source_format=ext, abs_path=abs_path,
-        char_loader=char_loader,
+        char_loader=loader_for_thumbnail,
     )
 
     safe_filename = (filename or "").strip()[:200] or f"upload.{ext}"

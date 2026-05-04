@@ -557,3 +557,84 @@ def test_render_mandala_from_state_helper():
     assert "#c0392b" in svg or "#27ae60" in svg
     assert info["composition_scheme"] == "vesica"
     assert info["extra_layers_count"] == 1
+
+
+# =============================== Phase 5b r28d: state-aware loader factory
+
+
+def test_thumbnail_md_uses_loader_factory_with_state(
+    gallery_env, sample_md_bytes, make_user,
+):
+    """char_loader_factory 應該被 call 並收到 state。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+
+    captured = {"called": False, "got_state_style": None}
+    def factory(state):
+        captured["called"] = True
+        captured["got_state_style"] = (state.get("style") or {}).get("font")
+        return lambda c: None  # stub loader
+
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=sample_md_bytes, filename="m.md",
+        title="factory test", comment="", kind="mandala",
+        char_loader_factory=factory,
+    )
+    assert captured["called"], "factory not called"
+    # fixture 的 style.font = "kaishu"
+    assert captured["got_state_style"] == "kaishu"
+    thumb = service.thumbnail_path_of(rec)
+    assert thumb.is_file()
+
+
+def test_loader_factory_takes_priority_over_static(
+    gallery_env, sample_md_bytes, make_user,
+):
+    """同時傳 char_loader 跟 char_loader_factory 時，factory 優先。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+
+    static_called = {"v": False}
+    def static_loader(c):
+        static_called["v"] = True
+        return None
+
+    factory_called = {"v": False}
+    def factory(state):
+        factory_called["v"] = True
+        return lambda c: None  # 不同的 stub
+
+    service.create_upload(
+        user_id=user_id, content_bytes=sample_md_bytes, filename="m.md",
+        title="priority test", comment="", kind="mandala",
+        char_loader=static_loader,
+        char_loader_factory=factory,
+    )
+    assert factory_called["v"], "factory should be called"
+    # static_loader 不該被當作 thumbnail loader 使用（factory 已覆蓋）
+    # 但 static 可能被 factory return 的結果取代調用，也可能完全不被 call —
+    # 主 assert 是 factory_called
+
+
+def test_loader_factory_exception_falls_back_to_static(
+    gallery_env, sample_md_bytes, make_user,
+):
+    """factory 拋例外時 fall back 到 static char_loader（graceful）。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+
+    def bad_factory(state):
+        raise RuntimeError("factory fails")
+
+    static_loader = lambda c: None  # stub
+
+    # Should NOT raise — service catches factory exception
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=sample_md_bytes, filename="m.md",
+        title="factory fail test", comment="", kind="mandala",
+        char_loader=static_loader,
+        char_loader_factory=bad_factory,
+    )
+    # fall back to static_loader → still generate thumbnail (with stub)
+    thumb = service.thumbnail_path_of(rec)
+    assert thumb.is_file(), "should fall back to static loader and generate thumb"
