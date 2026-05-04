@@ -318,15 +318,7 @@ def thumbnail_path_of(upload: dict) -> Path:
 
 def _generate_svg_thumbnail(svg_bytes: bytes,
                              *, size_px: int = THUMBNAIL_SIZE_PX) -> bytes:
-    """SVG → PNG（縮圖）。
-
-    僅給 source_format == "svg" 的 mandala upload 使用 — SVG 已內含完整渲染
-    （字 + mandala primitives + extras），cairosvg 直接轉 PNG 即可。
-
-    MD upload 跳過 thumbnail（沒 char loader 不易渲染字環，視覺品質差）。
-    使用者若要 mandala 上傳有 thumbnail，請從 mandala 模式按鈕上傳（會自動
-    走 SVG path），或自行 export SVG 後手動上傳。
-    """
+    """SVG → PNG（縮圖）。cairosvg 直接轉，不需 char loader。"""
     import cairosvg
     return cairosvg.svg2png(
         bytestring=svg_bytes,
@@ -335,29 +327,69 @@ def _generate_svg_thumbnail(svg_bytes: bytes,
     )
 
 
-def _maybe_generate_thumbnail(content_bytes: bytes, *, kind: str,
-                               source_format: str, abs_path: Path) -> bool:
-    """根據 kind / source_format 決定是否生成 thumbnail，存到 abs_path 旁邊。
+def _generate_md_thumbnail(state: dict, *, char_loader,
+                           size_px: int = THUMBNAIL_SIZE_PX) -> bytes:
+    """MD state → render → cairosvg PNG 縮圖。
 
-    Returns True if thumbnail written, False if skipped.
+    Phase 5b r28c: 需 ``char_loader`` (CharLoader) DI — 由 API 層構造，
+    含 style / source / cns_mode pipeline。本 module 不知道 loader 細節。
+
+    缺字時 render_mandala_svg 跳過該字（auto-shrink 補償），thumbnail 仍
+    生成（部分字可能缺）。
+    """
+    from ..exporters.mandala import render_mandala_from_state
+    import cairosvg
+    svg_str, _info = render_mandala_from_state(state, char_loader)
+    return cairosvg.svg2png(
+        bytestring=svg_str.encode("utf-8"),
+        output_width=size_px,
+        output_height=size_px,
+    )
+
+
+def _maybe_generate_thumbnail(
+    content_bytes: bytes, *, kind: str, source_format: str,
+    abs_path: Path, char_loader=None,
+) -> bool:
+    """根據 kind / source_format 生成 thumbnail（如可能），存到 abs_path 旁邊。
+
+    Returns True if thumbnail written, False if skipped or failed.
 
     失敗時回 False（不 raise）— thumbnail 缺漏不該擋上傳完成。
+
+    Phase 5b r28c: ``char_loader`` 為可選 DI；若 None，MD path 跳過
+    thumbnail（保 r28b 行為向後相容）。
     """
     if kind != KIND_MANDALA:
         return False  # PSD 沒 thumbnail 概念
-    if source_format != "svg":
-        return False  # MD path 跳過（見 _generate_svg_thumbnail docstring）
+
+    import logging
     try:
-        png_bytes = _generate_svg_thumbnail(content_bytes)
+        if source_format == "svg":
+            png_bytes = _generate_svg_thumbnail(content_bytes)
+        elif source_format == "md":
+            if char_loader is None:
+                # 沒 loader 時跳過 — 跟 r28b 行為一致
+                return False
+            # parse MD state → render with loader → PNG
+            state, _ = parse_and_validate_mandala(content_bytes)
+            png_bytes = _generate_md_thumbnail(
+                state, char_loader=char_loader)
+        else:
+            return False  # 未知 source_format
     except Exception as e:
-        # cairosvg 解析失敗 / 系統缺 cairo lib 等 — 記 log 跳過
-        import logging
         logging.warning(
-            "thumbnail generation failed for %s: %s", abs_path, e,
+            "thumbnail generation failed for %s (source=%s): %s",
+            abs_path, source_format, e,
         )
         return False
+
     thumb_path = abs_path.with_suffix(THUMBNAIL_SUFFIX)
-    thumb_path.write_bytes(png_bytes)
+    try:
+        thumb_path.write_bytes(png_bytes)
+    except Exception as e:
+        logging.warning("thumbnail write failed for %s: %s", thumb_path, e)
+        return False
     return True
 
 
@@ -392,6 +424,7 @@ _ONE_DAY = _td(hours=24)
 def create_upload(
     *, user_id: int, content_bytes: bytes, filename: Optional[str],
     title: str, comment: str, kind: str = KIND_PSD,
+    char_loader=None,
 ) -> dict:
     """Validate + persist an uploaded payload. Returns the new
     upload's full record dict.
@@ -400,6 +433,10 @@ def create_upload(
     - ``"psd"`` → JSON, ``stroke-order-psd-v1``，副檔名 .json
     - ``"mandala"`` → MD frontmatter / SVG 內嵌 metadata,
       ``stroke-order-mandala-v1``，副檔名依內容 .md / .svg
+
+    Phase 5b r28c: ``char_loader`` 為 mandala MD upload 生成 thumbnail 用的
+    DI；可選（None 時 MD upload 跳過 thumbnail，SVG upload 不受影響）。
+    API 層應傳入由 ``build_mandala_char_loader()`` 構造的 loader。
 
     Raises:
         InvalidUpload    — schema / size / format / 不認識的 kind
@@ -448,9 +485,11 @@ def create_upload(
     _user_uploads_dir(user_id)         # ensure parent exists
     abs_path.write_bytes(content_bytes)
 
-    # Phase 5b r28b: 生成 thumbnail（mandala+svg 才有；失敗不擋上傳）
+    # Phase 5b r28b/r28c: 生成 thumbnail（mandala+svg 直接轉；mandala+md 需
+    # char_loader，無則跳過）；失敗不擋上傳
     _maybe_generate_thumbnail(
         content_bytes, kind=kind, source_format=ext, abs_path=abs_path,
+        char_loader=char_loader,
     )
 
     safe_filename = (filename or "").strip()[:200] or f"upload.{ext}"

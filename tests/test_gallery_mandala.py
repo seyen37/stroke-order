@@ -459,3 +459,101 @@ def test_thumbnail_deleted_on_upload_delete(gallery_env, make_user):
     assert thumb.is_file()
     service.delete_upload(upload_id=rec["id"], user_id=user_id)
     assert not thumb.is_file(), "thumbnail not cleaned up on delete"
+
+
+# =============================== Phase 5b r28c: MD thumbnail
+
+
+def test_thumbnail_generated_for_mandala_md_with_loader(
+    gallery_env, sample_md_bytes, make_user,
+):
+    """MD upload 帶 char_loader → 生成 thumbnail（即使 stub loader 缺字）。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+    # Stub loader 永遠回 None（缺字 — render 會 skip 但不爆）
+    stub_loader = lambda c: None
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=sample_md_bytes, filename="m.md",
+        title="md thumb", comment="", kind="mandala",
+        char_loader=stub_loader,
+    )
+    thumb = service.thumbnail_path_of(rec)
+    assert thumb.is_file(), \
+        f"MD upload with loader should generate thumbnail: {thumb}"
+    head = thumb.read_bytes()[:8]
+    assert head == b"\x89PNG\r\n\x1a\n"
+    assert thumb.stat().st_size > 1024
+
+
+def test_thumbnail_md_without_loader_skipped(
+    gallery_env, sample_md_bytes, make_user,
+):
+    """MD upload 沒帶 loader → 跳過 thumbnail（保 r28b 行為）。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=sample_md_bytes, filename="m.md",
+        title="md no loader", comment="", kind="mandala",
+        # 不傳 char_loader（預設 None）
+    )
+    thumb = service.thumbnail_path_of(rec)
+    assert not thumb.is_file()
+
+
+def test_thumbnail_md_loader_exception_graceful(
+    gallery_env, sample_md_bytes, make_user,
+):
+    """MD upload 的 loader 拋例外 → 不擋 upload，thumbnail 跳過（graceful）。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+
+    def bad_loader(ch):
+        raise RuntimeError("loader 模擬 fail")
+
+    # Upload 仍應成功（thumbnail 失敗 graceful）
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=sample_md_bytes, filename="m.md",
+        title="bad loader", comment="", kind="mandala",
+        char_loader=bad_loader,
+    )
+    assert rec["id"]  # upload 還是進 DB
+    thumb = service.thumbnail_path_of(rec)
+    # render 內每個字 try/except — 缺字仍能 render，thumbnail 應生成
+    # 但若 render_mandala_from_state 整個爆（非每字爆），thumbnail 不存在
+    # 兩種狀況都接受：upload 成功 + 不擋
+    # 主要 assert 是 upload 不爆
+
+
+def test_render_mandala_from_state_helper():
+    """exporters.mandala.render_mandala_from_state — state schema → SVG。"""
+    from stroke_order.exporters.mandala import render_mandala_from_state
+    state = {
+        "schema": "stroke-order-mandala-v1",
+        "canvas": {"size_mm": 100, "page_width_mm": 150, "page_height_mm": 150},
+        "center": {"type": "empty", "text": "", "size_mm": 24, "line_color": "#000"},
+        "ring": {"text": "", "size_mm": 10, "spacing": 2.0,
+                 "orientation": "bottom_to_center",
+                 "auto_shrink": True, "shrink_safety_margin": 0.85,
+                 "protect_chars": True, "protect_radius_factor": 0.55,
+                 "line_color": "#000"},
+        "mandala": {"style": "interlocking_arcs",
+                    "composition_scheme": "vesica",
+                    "n_fold": 6, "show": True,
+                    "overlap_ratio": 1.25,
+                    "lotus_length_ratio": 1.25, "lotus_width_ratio": 0.6,
+                    "rays_length_ratio": 1.25,
+                    "inscribed_padding_factor": 0.7,
+                    "r_ring_ratio": 0.45, "r_band_ratio": 0.78,
+                    "stroke_width": 0.6, "line_color": "#c0392b"},
+        "extra_layers": [
+            {"ring": 2, "style": "dots", "n_fold": 12, "r_mm": 25,
+             "color": "#27ae60", "visible": True, "dot_radius_mm": 1.0},
+        ],
+        "style": {"font": "kaishu"},
+    }
+    svg, info = render_mandala_from_state(state, lambda c: None)
+    assert "<svg" in svg
+    # 應含 mandala primitives 跟 extra layer 的色
+    assert "#c0392b" in svg or "#27ae60" in svg
+    assert info["composition_scheme"] == "vesica"
+    assert info["extra_layers_count"] == 1

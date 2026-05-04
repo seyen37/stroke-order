@@ -553,6 +553,38 @@ def _build_sutra_outline_loader(
     return _loader
 
 
+# Phase 5b r28c: 共用 mandala char loader builder
+# /api/mandala endpoint 跟 gallery upload thumbnail 都用這個構造 loader，
+# 確保 server-side 渲染 mandala 字環時的 source / style / cns_mode pipeline 一致。
+def build_mandala_char_loader(
+    *, style: str = "kaishu", source: str = "auto",
+    hook_policy: str = "animation", cns_outline_mode: str = "skip",
+):
+    """Return a CharLoader for mandala rendering.
+
+    跟 /api/mandala endpoint 內 inline loader 邏輯一致：load → upgrade
+    sung/seal/lishu → apply style filter → apply CNS outline mode。
+    所有失敗路徑（HTTPException / 其他例外）回 None — 對應 mandala 模式的
+    「missing chars 跳過 + auto-shrink 逃」邏輯。
+    """
+    def _loader(ch: str):
+        try:
+            c, _r, _ = _load(ch, source, hook_policy)
+            c = _upgrade_to_sung(c, style)
+            c = _upgrade_to_seal(c, style)
+            c = _upgrade_to_lishu(c, style)
+            if style != "kaishu":
+                c = _apply_style(c, style)
+            if cns_outline_mode != "skip":
+                c = _apply_cns_mode(c, cns_outline_mode)
+            return c
+        except HTTPException:
+            return None
+        except Exception:
+            return None
+    return _loader
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="stroke-order",
@@ -1967,21 +1999,11 @@ def create_app() -> FastAPI:
         except (ValueError, TypeError):
             extra_layers_parsed = []
 
-        def loader(ch: str):
-            try:
-                c, _r, _ = _load(ch, source, hook_policy)
-                c = _upgrade_to_sung(c, style)
-                c = _upgrade_to_seal(c, style)
-                c = _upgrade_to_lishu(c, style)
-                if style != "kaishu":
-                    c = _apply_style(c, style)
-                if cns_outline_mode != "skip":
-                    c = _apply_cns_mode(c, cns_outline_mode)
-                return c
-            except HTTPException:
-                return None
-            except Exception:
-                return None
+        # r28c: 用共用 builder（跟 gallery upload thumbnail 同 pipeline）
+        loader = build_mandala_char_loader(
+            style=style, source=source,
+            hook_policy=hook_policy, cns_outline_mode=cns_outline_mode,
+        )
 
         # 5b r18: 透明 PNG 不畫白色背景（其餘格式維持 white bg）
         include_bg = (format != "png_transparent")
@@ -3727,6 +3749,13 @@ def create_app() -> FastAPI:
     ):
         user = _require_user(psd_session)
         content = await file.read()
+        # Phase 5b r28c: mandala upload 構造 char_loader 給 thumbnail 用。
+        # 用 server default style/source/cns_mode；MD upload state 內 style.font
+        # 等若跟 default 不同，thumbnail 字體可能微差（known limitation — 若要
+        # 完全精確可從 state.style 取出傳入，但需先 parse YAML 兩次）。
+        upload_loader = None
+        if kind == "mandala":
+            upload_loader = build_mandala_char_loader()
         try:
             record = gallery_service.create_upload(
                 user_id=user["id"],
@@ -3735,6 +3764,7 @@ def create_app() -> FastAPI:
                 title=title,
                 comment=comment,
                 kind=kind,
+                char_loader=upload_loader,
             )
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)

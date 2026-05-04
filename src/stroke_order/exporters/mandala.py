@@ -1509,6 +1509,80 @@ def render_mandala_svg(
 # ---------------------------------------------------------------------------
 
 
+# Phase 5b r28c: state schema → render_mandala_svg 映射
+# 給 gallery upload thumbnail / 未來 server-side preview / API 統一使用
+def render_mandala_from_state(
+    state: dict, char_loader: CharLoader,
+) -> tuple[str, dict]:
+    """Render `.mandala.md` schema state → SVG。
+
+    state 是 stroke-order-mandala-v1 frontmatter 解析後的 dict（schema +
+    canvas + center + ring + mandala + extra_layers + style）。本函式把每個
+    section 的欄位 map 到 ``render_mandala_svg`` 的 kwargs，回 (svg, info)。
+
+    ``char_loader`` 由 caller 提供（API 層構造、含 style / source / cns_mode
+    pipeline）。本層不知道 loader 細節，純 DI。
+
+    Defensive：state 缺 section / 欄位用 default，不爆。
+    """
+    canvas = state.get("canvas") or {}
+    center = state.get("center") or {}
+    ring = state.get("ring") or {}
+    mandala = state.get("mandala") or {}
+    extras = state.get("extra_layers") or []
+
+    # n_fold: state 中可能是 None（自動取字環長度），保 None 給 render_mandala_svg
+    n_fold = mandala.get("n_fold")
+    if n_fold is not None:
+        try:
+            n_fold = int(n_fold)
+        except (ValueError, TypeError):
+            n_fold = None
+
+    return render_mandala_svg(
+        center_text=str(center.get("text", "")),
+        ring_text=str(ring.get("text", "")),
+        char_loader=char_loader,
+        size_mm=float(canvas.get("size_mm", 140)),
+        page_width_mm=float(canvas.get("page_width_mm", 210)),
+        page_height_mm=float(canvas.get("page_height_mm", 297)),
+        n_fold=n_fold,
+        show_chars=True,
+        show_mandala=bool(mandala.get("show", True)),
+        char_size_center_mm=float(center.get("size_mm", 24)),
+        char_size_ring_mm=float(ring.get("size_mm", 10)),
+        r_ring_ratio=float(mandala.get("r_ring_ratio", 0.45)),
+        r_band_ratio=float(mandala.get("r_band_ratio", 0.78)),
+        overlap_ratio=float(mandala.get("overlap_ratio", 1.25)),
+        stroke_width=float(mandala.get("stroke_width", 0.6)),
+        orient=str(ring.get("orientation", "bottom_to_center")),
+        show_outline=False,
+        protect_chars=bool(ring.get("protect_chars", True)),
+        protect_radius_factor=float(ring.get("protect_radius_factor", 0.55)),
+        mandala_style=str(mandala.get("style", "interlocking_arcs")),
+        lotus_length_ratio=float(mandala.get("lotus_length_ratio", 1.25)),
+        lotus_width_ratio=float(mandala.get("lotus_width_ratio", 0.6)),
+        rays_length_ratio=float(mandala.get("rays_length_ratio", 1.25)),
+        composition_scheme=str(mandala.get("composition_scheme", "vesica")),
+        char_spacing=float(ring.get("spacing", 2.0)),
+        inscribed_padding_factor=float(
+            mandala.get("inscribed_padding_factor", 0.7)),
+        auto_shrink_chars=bool(ring.get("auto_shrink", True)),
+        shrink_safety_margin=float(ring.get("shrink_safety_margin", 0.85)),
+        extra_layers=extras,
+        center_type=str(center.get("type", "char")),
+        center_icon_style=str(center.get("icon_style", "lotus_petal")),
+        center_icon_n=int(center.get("icon_n", 8)),
+        center_icon_size_mm=float(center.get("icon_size_mm", 12.0)),
+        include_background=True,
+        mandala_line_color=str(mandala.get("line_color", "#000000")),
+        # state 中 center.line_color 跟 ring.line_color 一致時用同一個；
+        # 若不同（schema v1 沒明確規定），優先用 ring（字環是視覺主體）
+        char_line_color=str(
+            ring.get("line_color", center.get("line_color", "#000000"))),
+    )
+
+
 MANDALA_PRESETS: dict[str, dict] = {
     "kuji_in": {
         "name": "九字真言",
@@ -2015,6 +2089,7 @@ __all__ = [
     "max_safe_char_size_ring",
     "render_extra_layer_svg",
     "render_mandala_svg",
+    "render_mandala_from_state",
     "MANDALA_PRESETS",
     "get_mandala_preset",
     "list_mandala_presets",
