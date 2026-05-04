@@ -441,7 +441,38 @@ async function _fetchUserProfile(userId) {
   return r.json();
 }
 
-// r29d: render profile banner above list
+// r29e: render top-uploads strip 內嵌 banner（最受歡迎前 N 件）
+function _renderProfileTopStrip(topUploads) {
+  if (!topUploads || topUploads.length === 0) return '';
+  const items = topUploads.map((it, idx) => {
+    const medal = ['🥇', '🥈', '🥉'][idx] || '⭐';
+    const kind = it.kind || 'psd';
+    // 只 mandala 有 thumbnail；其他 kind 用文字 placeholder
+    const thumbHtml = (kind === 'mandala')
+      ? `<img src="/api/gallery/uploads/${it.id}/thumbnail"
+              alt="${_escape(it.title)}"
+              loading="lazy"
+              onerror="this.style.display='none'">`
+      : `<span class="gl-profile-top-noimg">${_escape((it.title || '').slice(0, 2) || '?')}</span>`;
+    const titleAttr = `${it.title} · ❤️ ${it.like_count}`;
+    return `
+      <a href="#" class="gl-profile-top-thumb"
+         data-action="goto-upload" data-upload-id="${it.id}"
+         title="${_escape(titleAttr)}">
+        <span class="gl-profile-top-medal">${medal}</span>
+        ${thumbHtml}
+        <span class="gl-profile-top-likes">❤️ ${it.like_count}</span>
+      </a>`;
+  }).join('');
+  return `
+    <div class="gl-profile-top">
+      <div class="gl-profile-top-label">🏆 最受歡迎</div>
+      <div class="gl-profile-top-strip">${items}</div>
+    </div>`;
+}
+
+
+// r29d: render profile banner above list (r29e: + top-uploads strip)
 function renderProfileBanner() {
   let banner = $('gl-profile-banner');
   if (!state.userFilter || !state.profile) {
@@ -450,6 +481,7 @@ function renderProfileBanner() {
   }
   const u = state.profile.user;
   const s = state.profile.stats;
+  const top = state.profile.top_uploads || [];
   const author = u.display_name || _emailHandle(u.email);
   const memberSince = _formatRelativeTime(s.member_since);
   const bioHtml = u.bio
@@ -478,6 +510,7 @@ function renderProfileBanner() {
         <span>·</span>
         <span>加入 ${_escape(memberSince)}</span>
       </div>
+      ${_renderProfileTopStrip(top)}
     </div>
   `;
   banner.querySelector('[data-action="profile-back"]').addEventListener('click', () => {
@@ -485,6 +518,19 @@ function renderProfileBanner() {
     state.profile = null;
     state.page = 1;
     refresh();
+  });
+  // r29e: top-strip click → scroll 到對應 card 並高亮 2 秒
+  banner.querySelectorAll('[data-action="goto-upload"]').forEach(link => {
+    link.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      const uid = Number(link.dataset.uploadId);
+      const card = document.querySelector(`.gl-card[data-id="${uid}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.classList.add('gl-card--highlight');
+        setTimeout(() => card.classList.remove('gl-card--highlight'), 2000);
+      }
+    });
   });
 }
 

@@ -174,3 +174,117 @@ def test_api_get_user_profile_404(gallery_env):
     client = TestClient(create_app())
     r = client.get("/api/gallery/users/99999")
     assert r.status_code == 404
+
+
+# ============================================================ r29e: top_uploads
+
+def test_top_uploads_returns_top_3_by_likes(
+    gallery_env, make_user, make_upload,
+):
+    """Top 3 by like_count DESC（最常見 case）。"""
+    from stroke_order.gallery import service
+    u = make_user(display_name="Alice")
+    a = make_upload(user_id=u, title="A低")
+    b = make_upload(user_id=u, title="B高")
+    c = make_upload(user_id=u, title="C中")
+    make_upload(user_id=u, title="D零")  # 0 likes，會被擠出 top 3
+    # likes: B=10, C=5, A=2, D=0 → top 3 = [B, C, A]
+    for _ in range(10):
+        service.toggle_like(user_id=make_user(), upload_id=b)
+    for _ in range(5):
+        service.toggle_like(user_id=make_user(), upload_id=c)
+    for _ in range(2):
+        service.toggle_like(user_id=make_user(), upload_id=a)
+
+    p = service.get_user_profile(u)
+    top = p["top_uploads"]
+    assert len(top) == 3
+    titles = [t["title"] for t in top]
+    assert titles == ["B高", "C中", "A低"]
+    likes = [t["like_count"] for t in top]
+    assert likes == [10, 5, 2]
+    # 欄位 shape：精簡 4 欄
+    assert set(top[0].keys()) == {"id", "title", "kind", "like_count"}
+
+
+def test_top_uploads_tie_break_created_at_then_id(
+    gallery_env, make_user, make_upload,
+):
+    """同 likes（皆 0）→ created_at DESC（新者勝）→ id DESC（同時間時新 id 勝）。"""
+    from stroke_order.gallery.db import db_connection
+    from stroke_order.gallery import service
+    u = make_user()
+    # 三筆 created_at 不同：x 最新，y 中間，z 最舊
+    with db_connection() as conn:
+        for title, ts in [
+            ("z舊", "2026-04-01T00:00:00+00:00"),
+            ("y中", "2026-04-15T00:00:00+00:00"),
+            ("x新", "2026-05-01T00:00:00+00:00"),
+        ]:
+            conn.execute(
+                "INSERT INTO uploads "
+                "(user_id, title, file_path, file_size, file_hash, kind, "
+                " created_at) VALUES (?, ?, ?, ?, ?, 'psd', ?)",
+                (u, title, f"{u}/{title}.json", 100, title, ts),
+            )
+
+    p = service.get_user_profile(u)
+    titles = [t["title"] for t in p["top_uploads"]]
+    # 0 likes 全平 → created_at DESC：x新 > y中 > z舊
+    assert titles == ["x新", "y中", "z舊"]
+
+
+def test_top_uploads_empty_for_zero_uploads(gallery_env, make_user):
+    """新註冊 user 沒任何 upload → top_uploads = []。"""
+    from stroke_order.gallery import service
+    u = make_user()
+    p = service.get_user_profile(u)
+    assert p["top_uploads"] == []
+
+
+def test_top_uploads_excludes_hidden(
+    gallery_env, make_user, make_upload,
+):
+    """hidden=1 的 upload 不該進 top_uploads（即使 like 多）。"""
+    from stroke_order.gallery.db import db_connection
+    from stroke_order.gallery import service
+    u = make_user()
+    visible_id = make_upload(user_id=u, title="可見")
+    hidden_id = make_upload(user_id=u, title="隱藏")
+    # hidden 標 hidden=1，再給超多 likes
+    with db_connection() as conn:
+        conn.execute("UPDATE uploads SET hidden = 1 WHERE id = ?",
+                     (hidden_id,))
+    for _ in range(20):
+        service.toggle_like(user_id=make_user(), upload_id=hidden_id)
+    # visible 給 1 like
+    service.toggle_like(user_id=make_user(), upload_id=visible_id)
+
+    p = service.get_user_profile(u)
+    titles = [t["title"] for t in p["top_uploads"]]
+    assert titles == ["可見"]
+    assert all(t["title"] != "隱藏" for t in p["top_uploads"])
+
+
+def test_api_profile_includes_top_uploads(
+    gallery_env, make_user, make_upload,
+):
+    """API 層也要返 top_uploads（同 endpoint，不開新 endpoint）。"""
+    from fastapi.testclient import TestClient
+    from stroke_order.web.server import create_app
+    from stroke_order.gallery import service
+    u = make_user(display_name="Alice")
+    a = make_upload(user_id=u, title="X")
+    for _ in range(3):
+        service.toggle_like(user_id=make_user(), upload_id=a)
+
+    client = TestClient(create_app())
+    r = client.get(f"/api/gallery/users/{u}")
+    assert r.status_code == 200
+    data = r.json()
+    assert "top_uploads" in data
+    assert len(data["top_uploads"]) == 1
+    assert data["top_uploads"][0]["title"] == "X"
+    assert data["top_uploads"][0]["like_count"] == 3
+    assert data["top_uploads"][0]["kind"] == "psd"
+    assert "id" in data["top_uploads"][0]

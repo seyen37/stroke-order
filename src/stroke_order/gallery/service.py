@@ -737,8 +737,11 @@ def absolute_path_of(upload: dict) -> Path:
 
 # ----------------------------------------------------------- profile (r29d)
 
+PROFILE_TOP_UPLOADS_LIMIT = 3
+
+
 def get_user_profile(user_id: int) -> dict:
-    """Public profile + stats for a user.
+    """Public profile + stats + top uploads for a user.
 
     Returns:
         {
@@ -747,7 +750,11 @@ def get_user_profile(user_id: int) -> dict:
                 "total_uploads": int,
                 "total_likes_received": int,  # sum of likes on user's uploads
                 "member_since": str (ISO),
-            }
+            },
+            "top_uploads": [
+                {id, title, kind, like_count},  # 最多 PROFILE_TOP_UPLOADS_LIMIT 筆
+                ...
+            ]  # r29e: like_count DESC, created_at DESC, id DESC tie-break
         }
 
     Raises NotFound 若 user 不存在。
@@ -770,6 +777,17 @@ def get_user_profile(user_id: int) -> dict:
             "WHERE u.user_id = ? AND u.hidden = 0",
             (user_id,),
         ).fetchone()
+        # r29e: top N 受歡迎作品（精簡欄位，僅 banner strip 用）
+        top_rows = conn.execute(
+            "SELECT u.id, u.title, u.kind, "
+            "  (SELECT count(*) FROM likes l WHERE l.upload_id = u.id) "
+            "    AS like_count "
+            "FROM uploads u "
+            "WHERE u.user_id = ? AND u.hidden = 0 "
+            "ORDER BY like_count DESC, u.created_at DESC, u.id DESC "
+            "LIMIT ?",
+            (user_id, PROFILE_TOP_UPLOADS_LIMIT),
+        ).fetchall()
     return {
         "user": {
             "id": int(u["id"]),
@@ -783,6 +801,15 @@ def get_user_profile(user_id: int) -> dict:
             "total_likes_received": int(stats_row["like_count"] or 0),
             "member_since": u["created_at"],
         },
+        "top_uploads": [
+            {
+                "id": int(r["id"]),
+                "title": r["title"],
+                "kind": r["kind"],
+                "like_count": int(r["like_count"] or 0),
+            }
+            for r in top_rows
+        ],
     }
 
 
