@@ -3729,6 +3729,54 @@ def create_app() -> FastAPI:
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)
 
+    # ----- avatar (Phase 5b r29j) --------------------------------------
+
+    @app.post("/api/gallery/me/avatar")
+    async def gallery_me_avatar_upload(
+        file: UploadFile = File(...),
+        psd_session: Optional[str] = Cookie(default=None),
+    ):
+        """Upload / replace own avatar (PNG / JPEG，max 2MB raw)。"""
+        user = _require_user(psd_session)
+        # FastAPI UploadFile.read() async；type 從 content_type
+        file_bytes = await file.read()
+        try:
+            updated = gallery_service.update_avatar(
+                user_id=user["id"],
+                file_bytes=file_bytes,
+                content_type=file.content_type or "",
+            )
+        except gallery_service.GalleryError as e:
+            _gallery_error_to_http(e)
+        return {"user": updated}
+
+    @app.delete("/api/gallery/me/avatar")
+    async def gallery_me_avatar_delete(
+        psd_session: Optional[str] = Cookie(default=None),
+    ):
+        """Remove own avatar — fall back to initials display。"""
+        user = _require_user(psd_session)
+        try:
+            updated = gallery_service.clear_avatar(user_id=user["id"])
+        except gallery_service.GalleryError as e:
+            _gallery_error_to_http(e)
+        return {"user": updated}
+
+    @app.get("/api/gallery/users/{user_id}/avatar")
+    async def gallery_user_avatar_get(user_id: int):
+        """Serve avatar PNG file. 404 if user has no avatar uploaded.
+
+        Cache header `max-age=86400` 但 client 用 ?v=<nonce> URL 強制
+        revalidate（nonce 換了就 URL 換 → 新 fetch）。
+        """
+        target = gallery_service._avatar_path_on_disk(user_id)
+        if not target.exists():
+            raise HTTPException(404, detail="無 avatar")
+        return FileResponse(
+            target, media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400, immutable"},
+        )
+
     # ----- uploads -----------------------------------------------------
 
     @app.get("/api/gallery/uploads")

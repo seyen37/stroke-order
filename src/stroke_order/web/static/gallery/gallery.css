@@ -640,6 +640,69 @@ button:focus-visible {
 .gl-upload-preview b { color: var(--gl-info-fg); }
 .gl-upload-preview .pill { font-family: ui-monospace, monospace; }
 
+/* ----- r29j: avatar (img / initials fallback) ----------------------- */
+.gl-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  vertical-align: middle;
+  user-select: none;
+  font-weight: 600;
+  color: #fff;
+  background: var(--gl-line, #ddd);
+  text-transform: uppercase;
+  line-height: 1;
+}
+.gl-avatar--img {
+  object-fit: cover;
+}
+.gl-avatar--initials {
+  /* 字級由 inline style 給（隨 size 算） */
+  font-family: -apple-system, "Segoe UI", "PingFang TC",
+               "Microsoft JhengHei", sans-serif;
+}
+/* banner avatar slot: 64x64 大頭像 */
+.gl-profile-avatar-wrap {
+  flex: none;
+  margin-right: 12px;
+}
+/* card author link: avatar + 名字 inline */
+.gl-card-author-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gl-card-author-name { vertical-align: middle; }
+/* user button (header) avatar 對齊 label */
+#gl-user-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gl-user-label-name { vertical-align: middle; }
+/* profile dialog avatar upload row */
+.gl-profile-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--gl-line, #ddd);
+}
+.gl-profile-avatar-preview {
+  flex: none;
+  width: 80px;
+  height: 80px;
+}
+.gl-profile-avatar-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* ----- footer ------------------------------------------------------- */
 .gl-footer {
   text-align: center;

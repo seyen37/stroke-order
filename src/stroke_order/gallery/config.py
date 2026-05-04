@@ -47,6 +47,11 @@ def uploads_dir() -> Path:
     return gallery_dir() / "uploads"
 
 
+def avatars_dir() -> Path:
+    """Phase 5b r29j: 頭像存放目錄（每 user 一張 256x256 PNG）。"""
+    return gallery_dir() / "avatars"
+
+
 def base_url() -> str:
     return os.environ.get("STROKE_ORDER_BASE_URL",
                           "http://127.0.0.1:8000").rstrip("/")

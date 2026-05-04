@@ -27,7 +27,7 @@ from pathlib import Path
 from textwrap import shorten
 from typing import Optional
 
-from .config import uploads_dir
+from .config import avatars_dir, uploads_dir
 from .db import db_connection
 
 
@@ -570,6 +570,7 @@ def get_upload(upload_id: int) -> dict:
             "SELECT u.*, "
             "  usr.email         AS uploader_email, "
             "  usr.display_name  AS uploader_display_name, "
+            "  usr.avatar_path   AS uploader_avatar_path, "
             "  (SELECT count(*) FROM likes l WHERE l.upload_id = u.id) "
             "    AS like_count "
             "FROM uploads u "
@@ -708,6 +709,7 @@ def list_uploads(
             f"SELECT u.*, "
             f"  usr.email        AS uploader_email, "
             f"  usr.display_name AS uploader_display_name, "
+            f"  usr.avatar_path  AS uploader_avatar_path, "
             f"  (SELECT count(*) FROM likes l WHERE l.upload_id = u.id) "
             f"    AS like_count, "
             f"  EXISTS(SELECT 1 FROM likes l WHERE l.user_id = ? "
@@ -761,7 +763,7 @@ def get_user_profile(user_id: int) -> dict:
     """
     with db_connection() as conn:
         u = conn.execute(
-            "SELECT id, email, display_name, bio, created_at "
+            "SELECT id, email, display_name, bio, created_at, avatar_path "
             "FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
@@ -788,6 +790,7 @@ def get_user_profile(user_id: int) -> dict:
             "LIMIT ?",
             (user_id, PROFILE_TOP_UPLOADS_LIMIT),
         ).fetchall()
+    user_dict = _user_dict_with_avatar(u)
     return {
         "user": {
             "id": int(u["id"]),
@@ -795,6 +798,7 @@ def get_user_profile(user_id: int) -> dict:
             "display_name": u["display_name"],
             "bio": u["bio"],
             "created_at": u["created_at"],
+            "avatar_url": user_dict["avatar_url"],
         },
         "stats": {
             "total_uploads": int(stats_row["upload_count"] or 0),
@@ -977,13 +981,157 @@ def update_profile(
             )
         row = conn.execute(
             "SELECT id, email, display_name, bio, created_at, "
-            "       last_login_at "
+            "       last_login_at, avatar_path "
             "FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
     if row is None:
         raise NotFound(f"user {user_id} 不存在")
-    return dict(row)
+    return _user_dict_with_avatar(row)
+
+
+# ----------------------------------------------------------- avatar (r29j)
+
+AVATAR_MAX_SIZE_BYTES = 2 * 1024 * 1024  # 2 MB raw upload
+AVATAR_RESIZE_PX = 256
+ALLOWED_AVATAR_TYPES = ("image/png", "image/jpeg", "image/jpg")
+
+
+def _avatar_path_on_disk(user_id: int) -> Path:
+    """檔在 gallery_dir/avatars/<user_id>.png（固定路徑覆寫）。
+
+    DB 的 avatar_path 欄位存 nonce（不是這檔的 path），單純做 cache-bust
+    版本標識用。NULL 表示無 avatar。
+    """
+    return avatars_dir() / f"{user_id}.png"
+
+
+def _user_dict_with_avatar(row) -> dict:
+    """Convert user row → dict + derive ``avatar_url``。
+
+    avatar_url = ``/api/gallery/users/{id}/avatar?v=<nonce>`` 含版本以強制
+    瀏覽器在更新 avatar 後重抓；NULL avatar_path 時 avatar_url=None。
+    """
+    d = dict(row)
+    nonce = d.get("avatar_path")
+    if nonce:
+        d["avatar_url"] = f"/api/gallery/users/{d['id']}/avatar?v={nonce}"
+    else:
+        d["avatar_url"] = None
+    # avatar_path 是內部 nonce，不外洩到 API response（避免混淆 frontend）
+    d.pop("avatar_path", None)
+    return d
+
+
+def update_avatar(*, user_id: int, file_bytes: bytes,
+                  content_type: str) -> dict:
+    """驗證 + Pillow resize 256x256 + 寫入 disk + 更新 DB。
+
+    Args:
+        user_id: 目標 user
+        file_bytes: 上傳原始 binary
+        content_type: HTTP content-type（限 PNG / JPEG）
+
+    Raises:
+        InvalidUpload: 格式 / 大小 / 解析失敗
+        NotFound: user 不存在
+
+    Returns:
+        Updated user dict with avatar_url。
+    """
+    # 延遲 import — 避免 cli / scripts 引到非必要 dep
+    import io
+    from PIL import Image, UnidentifiedImageError
+
+    ct = (content_type or "").lower().split(";")[0].strip()
+    if ct not in ALLOWED_AVATAR_TYPES:
+        raise InvalidUpload(
+            f"avatar 格式須為 PNG 或 JPEG（收到 {content_type!r}）"
+        )
+    if len(file_bytes) > AVATAR_MAX_SIZE_BYTES:
+        mb = AVATAR_MAX_SIZE_BYTES // 1024 // 1024
+        raise InvalidUpload(f"avatar 大小超過上限 {mb} MB")
+    if len(file_bytes) == 0:
+        raise InvalidUpload("avatar 檔案為空")
+
+    try:
+        # 第一次 open + verify（消耗 stream，不能 reuse）
+        Image.open(io.BytesIO(file_bytes)).verify()
+        # 重 open 進行實際 decode + resize
+        img = Image.open(io.BytesIO(file_bytes))
+        if img.mode != "RGB":
+            # PNG with alpha → 平面 white background composite
+            if img.mode in ("RGBA", "LA"):
+                bg = Image.new("RGB", img.size, (255, 255, 255))
+                bg.paste(img, mask=img.split()[-1])
+                img = bg
+            else:
+                img = img.convert("RGB")
+        # Square crop center → resize 256x256
+        w, h = img.size
+        side = min(w, h)
+        left = (w - side) // 2
+        top = (h - side) // 2
+        img = img.crop((left, top, left + side, top + side))
+        img = img.resize(
+            (AVATAR_RESIZE_PX, AVATAR_RESIZE_PX),
+            Image.Resampling.LANCZOS,
+        )
+    except UnidentifiedImageError:
+        raise InvalidUpload("avatar 不是合法 image 檔")
+    except Exception as e:
+        raise InvalidUpload(f"avatar 解析失敗：{e}")
+
+    # Ensure dir + write file（覆寫舊 avatar）
+    avatars_dir().mkdir(parents=True, exist_ok=True)
+    target = _avatar_path_on_disk(user_id)
+    img.save(target, format="PNG", optimize=True)
+
+    # DB 寫 nonce 做 cache-bust
+    nonce = secrets.token_hex(8)
+    with db_connection() as conn:
+        conn.execute(
+            "UPDATE users SET avatar_path = ? WHERE id = ?",
+            (nonce, user_id),
+        )
+        row = conn.execute(
+            "SELECT id, email, display_name, bio, created_at, "
+            "       last_login_at, avatar_path "
+            "FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    if row is None:
+        # rollback file（保 DB 一致）
+        try:
+            target.unlink()
+        except OSError:
+            pass
+        raise NotFound(f"user {user_id} 不存在")
+    return _user_dict_with_avatar(row)
+
+
+def clear_avatar(*, user_id: int) -> dict:
+    """移除 avatar（file + DB nonce）。Idempotent — 沒檔也不爆。"""
+    target = _avatar_path_on_disk(user_id)
+    if target.exists():
+        try:
+            target.unlink()
+        except OSError:
+            pass  # best-effort，缺檔不該擋 DB clear
+    with db_connection() as conn:
+        conn.execute(
+            "UPDATE users SET avatar_path = NULL WHERE id = ?",
+            (user_id,),
+        )
+        row = conn.execute(
+            "SELECT id, email, display_name, bio, created_at, "
+            "       last_login_at, avatar_path "
+            "FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+    if row is None:
+        raise NotFound(f"user {user_id} 不存在")
+    return _user_dict_with_avatar(row)
 
 
 # ----------------------------------------------------------- helpers
@@ -1021,4 +1169,13 @@ def _row_to_dict(row) -> dict:
     # r29b: bookmarked_by_me 同樣 cast
     if "bookmarked_by_me" in d:
         d["bookmarked_by_me"] = bool(d["bookmarked_by_me"])
+    # r29j: uploader_avatar_path → uploader_avatar_url（cache-busted）
+    nonce = d.pop("uploader_avatar_path", None)
+    uploader_id = d.get("user_id")
+    if nonce and uploader_id is not None:
+        d["uploader_avatar_url"] = (
+            f"/api/gallery/users/{uploader_id}/avatar?v={nonce}"
+        )
+    else:
+        d["uploader_avatar_url"] = None
     return d

@@ -107,6 +107,9 @@ export async function logout() {
 
 // ----------------------------------------------------------- profile
 
+// r29j: 緩存當前 user — avatar 上傳後 _renderAvatarPreview 用
+let _profileDialogUser = null;
+
 export function showProfileDialog(user) {
   const dlg    = $('gl-profile-dialog');
   const status = $('gl-profile-status');
@@ -114,11 +117,44 @@ export function showProfileDialog(user) {
   status.textContent = '';
   status.classList.remove('ok', 'error', 'info');
 
+  _profileDialogUser = user;
   $('gl-profile-display-name').value = user?.display_name || '';
   $('gl-profile-bio').value          = user?.bio || '';
   $('gl-profile-submit').disabled = false;
+  // r29j: render avatar preview + 顯/隱「移除」按鈕
+  _renderAvatarPreview(user);
   if (typeof dlg.showModal === 'function') dlg.showModal();
   else dlg.setAttribute('open', '');
+}
+
+// r29j: avatar preview helpers
+function _renderAvatarPreview(user) {
+  import('./avatar.mjs').then(({ avatarHtml }) => {
+    const preview = $('gl-profile-avatar-preview');
+    if (preview) preview.innerHTML = avatarHtml(user, 80);
+    const clearBtn = $('gl-profile-avatar-clear');
+    if (clearBtn) clearBtn.hidden = !user?.avatar_url;
+  });
+}
+
+async function _uploadAvatar(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await fetch('/api/gallery/me/avatar', {
+    method: 'POST', body: fd, credentials: 'same-origin',
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+  return data.user;
+}
+
+async function _deleteAvatar() {
+  const r = await fetch('/api/gallery/me/avatar', {
+    method: 'DELETE', credentials: 'same-origin',
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+  return data.user;
 }
 
 export function hideProfileDialog() {
@@ -195,4 +231,60 @@ export function attachAuthHandlers(ctx) {
   document.querySelector(
     '[data-action="profile-cancel"]',
   ).addEventListener('click', () => hideProfileDialog());
+
+  // r29j: avatar 上傳 — file input change → POST → 即時 re-render preview
+  const avatarInput = $('gl-profile-avatar-input');
+  if (avatarInput) {
+    avatarInput.addEventListener('change', async (ev) => {
+      const file = ev.target.files?.[0];
+      if (!file) return;
+      const status = $('gl-profile-status');
+      status.hidden = false;
+      status.classList.remove('ok', 'error');
+      status.classList.add('info');
+      status.textContent = '上傳頭像中…';
+      try {
+        const updated = await _uploadAvatar(file);
+        _profileDialogUser = updated;
+        _renderAvatarPreview(updated);
+        status.classList.remove('info');
+        status.classList.add('ok');
+        status.textContent = '✓ 頭像已更新';
+        // 同步通知 caller refresh（讓 banner / cards 換頭像）
+        ctx.refresh && ctx.refresh();
+      } catch (e) {
+        status.classList.remove('info');
+        status.classList.add('error');
+        status.textContent = '頭像上傳失敗：' + (e.message || e);
+      } finally {
+        // 重設 input 才能再選同檔（onchange 不會觸發同檔）
+        avatarInput.value = '';
+      }
+    });
+  }
+
+  // r29j: 移除頭像（DELETE /me/avatar）
+  const avatarClearBtn = $('gl-profile-avatar-clear');
+  if (avatarClearBtn) {
+    avatarClearBtn.addEventListener('click', async () => {
+      const status = $('gl-profile-status');
+      status.hidden = false;
+      status.classList.remove('ok', 'error');
+      status.classList.add('info');
+      status.textContent = '移除中…';
+      try {
+        const updated = await _deleteAvatar();
+        _profileDialogUser = updated;
+        _renderAvatarPreview(updated);
+        status.classList.remove('info');
+        status.classList.add('ok');
+        status.textContent = '✓ 已移除頭像';
+        ctx.refresh && ctx.refresh();
+      } catch (e) {
+        status.classList.remove('info');
+        status.classList.add('error');
+        status.textContent = '移除失敗：' + (e.message || e);
+      }
+    });
+  }
 }

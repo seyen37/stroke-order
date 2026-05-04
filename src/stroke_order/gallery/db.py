@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS users (
     email           TEXT UNIQUE NOT NULL,
     display_name    TEXT,
     bio             TEXT,
+    -- Phase 5b r29j: 頭像檔路徑（NULL = 用 initials fallback）
+    -- 實際檔存 gallery_dir/avatars/<user_id>.png（256x256 PNG）
+    avatar_path     TEXT,
     created_at      TEXT NOT NULL,
     last_login_at   TEXT
 );
@@ -135,17 +138,32 @@ def _migrate_uploads_kind_columns(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE uploads ADD COLUMN summary_json TEXT")
 
 
+def _migrate_users_avatar(conn: sqlite3.Connection) -> None:
+    """Phase 5b r29j: 加 ``avatar_path`` 給 users（existing DB 升版）。
+
+    新建 DB 透過 SCHEMA 已含；existing DB（pre-r29j 部署）需 ALTER TABLE
+    補上。NULL 表示無 avatar，frontend 走 initials fallback。
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+    if "avatar_path" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN avatar_path TEXT")
+
+
 def _ensure_schema(path_str: str) -> None:
     if path_str in _schema_initialised:
         return
     # Make the parent directories before opening the DB file.
     gallery_dir().mkdir(parents=True, exist_ok=True)
     uploads_dir().mkdir(parents=True, exist_ok=True)
+    # Phase 5b r29j: 頭像目錄（每 user 一張 256x256 PNG）
+    (gallery_dir() / "avatars").mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path_str)
     try:
         conn.executescript(SCHEMA)
         # r28 migration: existing DB 補 column（idempotent）
         _migrate_uploads_kind_columns(conn)
+        # r29j migration: existing DB 補 avatar_path（idempotent）
+        _migrate_users_avatar(conn)
         conn.commit()
     finally:
         conn.close()

@@ -19,6 +19,8 @@ import { showUploadDialog, attachUploaderHandlers } from './uploader.js';
 import { stateToHash, parseHash } from './hash.mjs';
 // r29h: toast notification (替換散點 alert)
 import { showToast } from './toast.mjs';
+// r29j: avatar render helper（img / initials fallback）
+import { avatarHtml } from './avatar.mjs';
 
 const $ = id => document.getElementById(id);
 
@@ -85,7 +87,11 @@ function renderHeader() {
   if (state.me) {
     $('gl-login-btn').hidden = true;
     $('gl-user-menu').hidden = false;
-    $('gl-user-label').textContent = _displayName(state.me);
+    // r29j: 名字旁加 24x24 avatar（gl-user-label 用 innerHTML，
+    // 因為 avatarHtml 自己 escape 過）
+    $('gl-user-label').innerHTML =
+      avatarHtml(state.me, 24) +
+      `<span class="gl-user-label-name">${_escape(_displayName(state.me))}</span>`;
   } else {
     $('gl-login-btn').hidden = false;
     $('gl-user-menu').hidden = true;
@@ -379,10 +385,19 @@ function _card(item) {
   const author = item.uploader_display_name
               || _emailHandle(item.uploader_email);
   const kind   = item.kind || 'psd';
+  // r29j: 把 uploader 視為 user-shape 給 avatarHtml 用
+  const uploaderUser = {
+    id: item.user_id,
+    email: item.uploader_email,
+    display_name: item.uploader_display_name,
+    avatar_url: item.uploader_avatar_url || null,
+  };
   // r29d: uploader name 變 link → 切到 user filter view
+  // r29j: 加 24x24 avatar 在 link 內
   const authorHtml =
     `<a href="#" data-action="filter-user" data-user-id="${item.user_id}"
-        class="gl-card-author-link">${_escape(author)}</a>`;
+        class="gl-card-author-link">${avatarHtml(uploaderUser, 24)}` +
+    `<span class="gl-card-author-name">${_escape(author)}</span></a>`;
   // r29g: deep-link target → 加 class 顯眼放大 + flash
   const isDeepLink = state.deepLinkUpload
                   && state.deepLinkUpload.id === item.id;
@@ -643,8 +658,9 @@ function renderProfileBanner() {
     <button class="gl-btn gl-profile-back" data-action="profile-back" type="button">
       ← 返回全部
     </button>
+    <div class="gl-profile-avatar-wrap">${avatarHtml(u, 64)}</div>
     <div class="gl-profile-info">
-      <div class="gl-profile-name">👤 ${_escape(author)}${editBtnHtml}</div>
+      <div class="gl-profile-name">${_escape(author)}${editBtnHtml}</div>
       ${bioHtml}
       <div class="gl-profile-stats">
         <span><b>${s.total_uploads}</b> 個作品</span>

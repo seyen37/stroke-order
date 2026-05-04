@@ -176,6 +176,25 @@
       您的「公開名稱」會出現在卡片上。留空時，會顯示 email 帳號名（@ 之前的部分）。
     </p>
 
+    <!-- r29j: avatar 上傳區（看自己 profile 才有意義，dialog 永遠是看自己） -->
+    <div class="gl-profile-avatar-row">
+      <div class="gl-profile-avatar-preview" id="gl-profile-avatar-preview">
+        <!-- 由 JS render（avatarHtml(state.me, 80)） -->
+      </div>
+      <div class="gl-profile-avatar-controls">
+        <label class="gl-btn" for="gl-profile-avatar-input">
+          🖼️ 上傳頭像
+        </label>
+        <input id="gl-profile-avatar-input" type="file"
+               accept="image/png,image/jpeg" hidden>
+        <button type="button" class="gl-btn"
+                id="gl-profile-avatar-clear" hidden>移除</button>
+        <div class="gl-hint" style="margin-top:4px">
+          PNG / JPEG，≤ 2 MB，自動裁成 256×256
+        </div>
+      </div>
+    </div>
+
     <label>
       公開名稱
       <input id="gl-profile-display-name" type="text" maxlength="50"

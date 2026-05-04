@@ -204,18 +204,26 @@ def create_session(user_id: int) -> str:
 
 def get_session_user(session_token: Optional[str]) -> Optional[dict]:
     """Resolve session_token → user record (id, email, display_name,
-    bio, created_at) or None if invalid/expired."""
+    bio, created_at, avatar_url) or None if invalid/expired.
+
+    Phase 5b r29j: 多帶 avatar_url（None 若無 avatar；否則 cache-busted URL）。
+    """
     if not session_token:
         return None
     now = _utcnow_iso()
     with db_connection() as conn:
         row = conn.execute(
-            "SELECT u.id, u.email, u.display_name, u.bio, u.created_at "
+            "SELECT u.id, u.email, u.display_name, u.bio, u.created_at, "
+            "       u.avatar_path "
             "FROM sessions s JOIN users u ON u.id = s.user_id "
             "WHERE s.session_token = ? AND s.expires_at > ?",
             (session_token, now),
         ).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        # delayed import 避免 service ↔ auth 環依賴
+        from .service import _user_dict_with_avatar
+        return _user_dict_with_avatar(row)
 
 
 def invalidate_session(session_token: Optional[str]) -> None:
