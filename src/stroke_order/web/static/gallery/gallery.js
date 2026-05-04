@@ -17,6 +17,8 @@ import {
 import { showUploadDialog, attachUploaderHandlers } from './uploader.js';
 // r29f: URL hash <-> state pure helpers (testable from Node)
 import { stateToHash, parseHash } from './hash.mjs';
+// r29h: toast notification (替換散點 alert)
+import { showToast } from './toast.mjs';
 
 const $ = id => document.getElementById(id);
 
@@ -154,7 +156,7 @@ function renderList() {
         }
         await refresh();
       } catch (e) {
-        alert('刪除失敗：' + (e.message || e));
+        showToast('刪除失敗：' + (e.message || e), 'error');
       }
     });
   });
@@ -201,7 +203,7 @@ function renderList() {
           it.like_count = data.like_count;
         }
       } catch (e) {
-        alert('操作失敗：' + (e.message || e));
+        showToast('讚操作失敗：' + (e.message || e), 'error');
       }
     });
   });
@@ -264,7 +266,7 @@ function renderList() {
           await refresh();
         }
       } catch (e) {
-        alert('操作失敗：' + (e.message || e));
+        showToast('收藏操作失敗：' + (e.message || e), 'error');
       }
     });
   });
@@ -518,10 +520,15 @@ async function refresh() {
         renderList();
       }, 4000);
     } else {
-      // 上傳已不存在 / 隱藏 — silently 不 prepend，hash 仍保留以便調試
-      console.warn(
-        '[r29g] deep-link upload not found:', state.deepLinkUploadId);
+      // r29h: 上傳已不存在 / 隱藏 → toast 友善提示（取代 r29g 的 console.warn）
+      showToast(
+        `分享的作品 #${state.deepLinkUploadId} 已不存在或已被隱藏`,
+        'warning',
+      );
       state.deepLinkUpload = null;
+      // 清掉 hash 中的 upload key — 避免 user reload 又看到同樣 toast
+      state.deepLinkUploadId = null;
+      _writeHash();
     }
   }
   if (listData._error) {

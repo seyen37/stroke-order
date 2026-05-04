@@ -635,3 +635,73 @@ button:focus-visible {
   color: var(--gl-muted);
   font-size: 11px;
 }
+
+/* ----- r29h: toast notification ------------------------------------- */
+.gl-toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  pointer-events: none;
+  /* 容器本身不接收事件，只有內部 .gl-toast 接 */
+}
+.gl-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 240px;
+  max-width: 480px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  animation: gl-toast-slide-in 0.22s ease-out;
+  border: 1px solid transparent;
+}
+.gl-toast.is-leaving {
+  animation: gl-toast-fade-out 0.2s ease-in forwards;
+}
+.gl-toast--info {
+  background: #e8f0ff;
+  color: #1d3a7a;
+  border-color: #c5d8ff;
+}
+.gl-toast--warning {
+  background: #fff7d9;
+  color: #6b4d00;
+  border-color: #f0d97a;
+}
+.gl-toast--error {
+  background: #ffe5e5;
+  color: #8b1a1a;
+  border-color: #f0a5a5;
+}
+.gl-toast-msg {
+  flex: 1;
+  word-break: break-word;
+}
+.gl-toast-close {
+  flex: none;
+  background: transparent;
+  border: none;
+  color: currentColor;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  opacity: 0.65;
+}
+.gl-toast-close:hover { opacity: 1; }
+
+@keyframes gl-toast-slide-in {
+  from { transform: translateY(-12px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+@keyframes gl-toast-fade-out {
+  from { transform: translateY(0);     opacity: 1; }
+  to   { transform: translateY(-8px);  opacity: 0; }
+}
