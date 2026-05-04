@@ -179,6 +179,51 @@ button:focus-visible {
   cursor: pointer;
 }
 
+/* Phase 5b r29d: profile banner + clickable author link */
+.gl-profile-banner {
+  background: linear-gradient(90deg, #fff7e0, #fff);
+  border: 1px solid var(--gl-line, #ddd);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin: 10px 16px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.gl-profile-back {
+  flex: none;
+  font-size: 12px;
+}
+.gl-profile-info { flex: 1; min-width: 0; }
+.gl-profile-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gl-fg, #222);
+  margin-bottom: 4px;
+}
+.gl-profile-bio {
+  font-size: 13px;
+  color: var(--gl-muted);
+  margin: 4px 0;
+  white-space: pre-wrap;
+}
+.gl-profile-stats {
+  font-size: 12px;
+  color: var(--gl-muted);
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gl-card-author-link {
+  color: var(--gl-muted);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--gl-line, #ddd);
+}
+.gl-card-author-link:hover {
+  color: var(--gl-accent, #46a);
+  border-bottom-color: var(--gl-accent, #46a);
+}
+
 /* Phase 5b r29c: search input — show in toolbar */
 #gl-search {
   padding: 4px 8px;

@@ -3719,6 +3719,16 @@ def create_app() -> FastAPI:
             _gallery_error_to_http(e)
         return {"user": updated}
 
+    # ----- public profile (Phase 5b r29d) ------------------------------
+
+    @app.get("/api/gallery/users/{user_id}")
+    async def gallery_user_profile(user_id: int):
+        """Public user profile + stats（任何人都可看，不需登入）。"""
+        try:
+            return gallery_service.get_user_profile(user_id)
+        except gallery_service.GalleryError as e:
+            _gallery_error_to_http(e)
+
     # ----- uploads -----------------------------------------------------
 
     @app.get("/api/gallery/uploads")
@@ -3745,6 +3755,10 @@ def create_app() -> FastAPI:
             None, max_length=100,
             description="search query：比對 title / comment / uploader email / display_name",
         ),
+        # Phase 5b r29d: user_id filter (profile page — 只列指定 user 的 uploads)
+        user_id: Optional[int] = Query(
+            None, ge=1, description="只列指定 user 的 uploads（profile filter）",
+        ),
         # Phase 5b r29: 從 cookie 拿 user，list 內每 item 加 liked_by_me
         psd_session: Optional[str] = Cookie(default=None),
     ):
@@ -3762,6 +3776,7 @@ def create_app() -> FastAPI:
                 sort=sort,
                 bookmarked_by=bookmarked_by,
                 q=q,
+                user_id=user_id,
             )
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)

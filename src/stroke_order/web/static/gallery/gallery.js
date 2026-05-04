@@ -32,6 +32,10 @@ const state = {
   bookmarkedOnly: false,
   // Phase 5b r29c: search query（空字串 → 不送 ?q=）
   q: '',
+  // Phase 5b r29d: user filter (profile page) — null = 全部，否則 user_id
+  userFilter: null,
+  // Phase 5b r29d: 當前 profile data（userFilter set 時 fetch /users/{id}）
+  profile: null,
 };
 
 // ============================================================ helpers
@@ -183,6 +187,25 @@ function renderList() {
       } catch (e) {
         alert('操作失敗：' + (e.message || e));
       }
+    });
+  });
+
+  // r29d: Wire uploader-name links (filter to user)
+  root.querySelectorAll('[data-action="filter-user"]').forEach(link => {
+    link.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      const uid = parseInt(ev.currentTarget.dataset.userId, 10);
+      if (!Number.isInteger(uid)) return;
+      if (state.userFilter === uid) return;
+      state.userFilter = uid;
+      state.page = 1;
+      // 清掉其他 filter 跟 search（profile view 視為獨立）
+      state.kindFilter = '';
+      state.bookmarkedOnly = false;
+      state.q = '';
+      const searchInput = $('gl-search');
+      if (searchInput) searchInput.value = '';
+      await refresh();
     });
   });
 
@@ -338,12 +361,16 @@ function _card(item) {
   const author = item.uploader_display_name
               || _emailHandle(item.uploader_email);
   const kind   = item.kind || 'psd';
+  // r29d: uploader name 變 link → 切到 user filter view
+  const authorHtml =
+    `<a href="#" data-action="filter-user" data-user-id="${item.user_id}"
+        class="gl-card-author-link">${_escape(author)}</a>`;
   return `
     <article class="gl-card" data-id="${item.id}" data-kind="${_escape(kind)}">
       ${_kindThumbnail(item)}
       <div class="gl-card-header">
         <div class="gl-card-title">${_escape(item.title)}${_kindBadge(kind)}</div>
-        <div class="gl-card-author">${_escape(author)}</div>
+        <div class="gl-card-author">${authorHtml}</div>
       </div>
       <div class="gl-card-meta">${_kindMeta(item)}</div>
       <div class="gl-card-styles">${_kindStyles(item)}</div>
@@ -370,13 +397,21 @@ function _card(item) {
 // ============================================================ data fetch
 
 async function refresh() {
-  // Both fetches in parallel — they're independent
-  const [meData, listData] = await Promise.all([
+  // r29d: 若 userFilter set，多 fetch 一個 profile request
+  const fetches = [
     fetchMe().catch(() => ({logged_in: false})),
     _fetchUploads().catch(err => ({_error: err})),
-  ]);
+  ];
+  if (state.userFilter) {
+    fetches.push(_fetchUserProfile(state.userFilter).catch(() => null));
+  }
+  const results = await Promise.all(fetches);
+  const meData = results[0];
+  const listData = results[1];
+  const profileData = results.length > 2 ? results[2] : null;
 
   state.me = meData.logged_in ? meData.user : null;
+  state.profile = profileData;
   if (listData._error) {
     $('gl-list-error').hidden = false;
     $('gl-list-error').textContent =
@@ -390,7 +425,67 @@ async function refresh() {
 
   renderHeader();
   renderStats();
+  renderProfileBanner();
   renderList();
+}
+
+// r29d: fetch profile JSON
+async function _fetchUserProfile(userId) {
+  const r = await fetch(`/api/gallery/users/${userId}`, {
+    credentials: 'same-origin',
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
+// r29d: render profile banner above list
+function renderProfileBanner() {
+  let banner = $('gl-profile-banner');
+  if (!state.userFilter || !state.profile) {
+    if (banner) banner.hidden = true;
+    return;
+  }
+  const u = state.profile.user;
+  const s = state.profile.stats;
+  const author = u.display_name || _emailHandle(u.email);
+  const memberSince = _formatRelativeTime(s.member_since);
+  const bioHtml = u.bio
+    ? `<div class="gl-profile-bio">${_escape(u.bio)}</div>`
+    : '';
+  if (!banner) {
+    // 動態建 banner element（避免修改 gallery.html）
+    banner = document.createElement('section');
+    banner.id = 'gl-profile-banner';
+    banner.className = 'gl-profile-banner';
+    const main = document.querySelector('.gl-main');
+    if (main) main.parentNode.insertBefore(banner, main);
+  }
+  banner.hidden = false;
+  banner.innerHTML = `
+    <button class="gl-btn gl-profile-back" data-action="profile-back" type="button">
+      ← 返回全部
+    </button>
+    <div class="gl-profile-info">
+      <div class="gl-profile-name">👤 ${_escape(author)}</div>
+      ${bioHtml}
+      <div class="gl-profile-stats">
+        <span><b>${s.total_uploads}</b> 個作品</span>
+        <span>·</span>
+        <span><b>${s.total_likes_received}</b> 個讚收到</span>
+        <span>·</span>
+        <span>加入 ${_escape(memberSince)}</span>
+      </div>
+    </div>
+  `;
+  banner.querySelector('[data-action="profile-back"]').addEventListener('click', () => {
+    state.userFilter = null;
+    state.profile = null;
+    state.page = 1;
+    refresh();
+  });
 }
 
 async function _fetchUploads() {
@@ -406,6 +501,8 @@ async function _fetchUploads() {
   if (state.bookmarkedOnly) params.set('bookmarked', 'true');
   // r29c: search query
   if (state.q) params.set('q', state.q);
+  // r29d: user_id filter (profile)
+  if (state.userFilter) params.set('user_id', state.userFilter);
   const r = await fetch(`/api/gallery/uploads?${params}`, {
     credentials: 'same-origin',
   });

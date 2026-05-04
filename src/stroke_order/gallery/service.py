@@ -599,6 +599,7 @@ def list_uploads(
     sort: str = SORT_NEWEST,
     bookmarked_by: Optional[int] = None,
     q: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> dict:
     """Paginated upload list. Returns:
         { items: [...], total, page, size }
@@ -616,6 +617,9 @@ def list_uploads(
       每 like 抵 5 天 recency boost，自然 surface 最近 + 受歡迎的內容
     - ``q``：search query，比對 title / comment / uploader email / display_name
       （SQLite LIKE ``%q%``，max_length=100；空字串視同 None）
+
+    Phase 5b r29d:
+    - ``user_id``：只列指定 user 的 uploads（profile page filter）
     """
     page = max(1, int(page))
     size = max(1, min(MAX_PAGE_SIZE, int(size)))
@@ -632,6 +636,10 @@ def list_uploads(
             )
         where_parts.append("u.kind = ?")
         params.append(kind)
+    # r29d: user_id filter（profile page — 只列該 user 的 uploads）
+    if user_id is not None:
+        where_parts.append("u.user_id = ?")
+        params.append(user_id)
     # r29b: bookmarked_by filter（「我的收藏」）— 只列該 user bookmark 的 uploads
     if bookmarked_by is not None:
         where_parts.append(
@@ -725,6 +733,57 @@ def list_uploads(
 def absolute_path_of(upload: dict) -> Path:
     """Resolve an upload record's relative ``file_path`` to absolute."""
     return uploads_dir() / upload["file_path"]
+
+
+# ----------------------------------------------------------- profile (r29d)
+
+def get_user_profile(user_id: int) -> dict:
+    """Public profile + stats for a user.
+
+    Returns:
+        {
+            "user": {id, email, display_name, bio, created_at},
+            "stats": {
+                "total_uploads": int,
+                "total_likes_received": int,  # sum of likes on user's uploads
+                "member_since": str (ISO),
+            }
+        }
+
+    Raises NotFound 若 user 不存在。
+    """
+    with db_connection() as conn:
+        u = conn.execute(
+            "SELECT id, email, display_name, bio, created_at "
+            "FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        if u is None:
+            raise NotFound(f"user {user_id} 不存在")
+        # 統計（一次 query 同時拿 upload count + like sum，避免 N+1）
+        stats_row = conn.execute(
+            "SELECT "
+            "  COUNT(DISTINCT u.id) AS upload_count, "
+            "  COUNT(l.user_id) AS like_count "
+            "FROM uploads u "
+            "LEFT JOIN likes l ON l.upload_id = u.id "
+            "WHERE u.user_id = ? AND u.hidden = 0",
+            (user_id,),
+        ).fetchone()
+    return {
+        "user": {
+            "id": int(u["id"]),
+            "email": u["email"],
+            "display_name": u["display_name"],
+            "bio": u["bio"],
+            "created_at": u["created_at"],
+        },
+        "stats": {
+            "total_uploads": int(stats_row["upload_count"] or 0),
+            "total_likes_received": int(stats_row["like_count"] or 0),
+            "member_since": u["created_at"],
+        },
+    }
 
 
 # ----------------------------------------------------------- likes (r29)
