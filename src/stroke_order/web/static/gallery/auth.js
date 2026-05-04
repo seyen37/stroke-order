@@ -232,34 +232,70 @@ export function attachAuthHandlers(ctx) {
     '[data-action="profile-cancel"]',
   ).addEventListener('click', () => hideProfileDialog());
 
-  // r29j: avatar 上傳 — file input change → POST → 即時 re-render preview
+  // r29j/r29k: avatar 上傳 — 統一 path 給 file input + drag-drop 共用
   const avatarInput = $('gl-profile-avatar-input');
+  const avatarPreview = $('gl-profile-avatar-preview');
+
+  // r29k: 共用 select-and-upload path — 統一 client validation + UI flow
+  async function _handleSelectedFile(file) {
+    const status = $('gl-profile-status');
+    if (!file) return;
+    // r29k: client-side validation — instant feedback 不浪費 round-trip
+    const { validateAvatarFile } = await import('./avatar.mjs');
+    const result = validateAvatarFile(file);
+    if (!result.ok) {
+      status.hidden = false;
+      status.classList.remove('ok', 'info');
+      status.classList.add('error');
+      status.textContent = result.error;
+      return;
+    }
+    status.hidden = false;
+    status.classList.remove('ok', 'error');
+    status.classList.add('info');
+    status.textContent = '上傳頭像中…';
+    try {
+      const updated = await _uploadAvatar(file);
+      _profileDialogUser = updated;
+      _renderAvatarPreview(updated);
+      status.classList.remove('info');
+      status.classList.add('ok');
+      status.textContent = '✓ 頭像已更新';
+      ctx.refresh && ctx.refresh();
+    } catch (e) {
+      status.classList.remove('info');
+      status.classList.add('error');
+      status.textContent = '頭像上傳失敗：' + (e.message || e);
+    }
+  }
+
   if (avatarInput) {
     avatarInput.addEventListener('change', async (ev) => {
       const file = ev.target.files?.[0];
-      if (!file) return;
-      const status = $('gl-profile-status');
-      status.hidden = false;
-      status.classList.remove('ok', 'error');
-      status.classList.add('info');
-      status.textContent = '上傳頭像中…';
       try {
-        const updated = await _uploadAvatar(file);
-        _profileDialogUser = updated;
-        _renderAvatarPreview(updated);
-        status.classList.remove('info');
-        status.classList.add('ok');
-        status.textContent = '✓ 頭像已更新';
-        // 同步通知 caller refresh（讓 banner / cards 換頭像）
-        ctx.refresh && ctx.refresh();
-      } catch (e) {
-        status.classList.remove('info');
-        status.classList.add('error');
-        status.textContent = '頭像上傳失敗：' + (e.message || e);
+        await _handleSelectedFile(file);
       } finally {
         // 重設 input 才能再選同檔（onchange 不會觸發同檔）
         avatarInput.value = '';
       }
+    });
+  }
+
+  // r29k: drag-drop on preview area — 跟 file input 共用 _handleSelectedFile
+  if (avatarPreview) {
+    avatarPreview.addEventListener('dragover', (ev) => {
+      ev.preventDefault();   // 必要 — 否則 drop 不會觸發
+      ev.dataTransfer.dropEffect = 'copy';
+      avatarPreview.classList.add('is-dragover');
+    });
+    avatarPreview.addEventListener('dragleave', () => {
+      avatarPreview.classList.remove('is-dragover');
+    });
+    avatarPreview.addEventListener('drop', async (ev) => {
+      ev.preventDefault();
+      avatarPreview.classList.remove('is-dragover');
+      const file = ev.dataTransfer?.files?.[0];
+      await _handleSelectedFile(file);
     });
   }
 

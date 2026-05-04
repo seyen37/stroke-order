@@ -22,6 +22,39 @@ const PALETTE = [
   '#7e57c2', '#26a69a', '#d4af37', '#e53935',
 ];
 
+// r29k: client-side validation — mirror server 規則（service.py r29j）
+const ALLOWED_AVATAR_TYPES = ['image/png', 'image/jpeg'];
+export const AVATAR_MAX_SIZE_BYTES = 2 * 1024 * 1024;  // 2 MB
+
+/**
+ * Validate a File-like object before uploading. Mirrors server-side
+ * checks so user gets instant feedback instead of waiting for HTTP 422.
+ *
+ * @param {File|{type, size}} file — File API File 或同 shape mock（給 Node test）
+ * @returns {{ ok: boolean, error?: string }}
+ */
+export function validateAvatarFile(file) {
+  if (!file) {
+    return { ok: false, error: '請選擇要上傳的檔案' };
+  }
+  const type = String(file.type || '').toLowerCase().split(';')[0].trim();
+  if (!ALLOWED_AVATAR_TYPES.includes(type)) {
+    return {
+      ok: false,
+      error: `頭像格式須為 PNG 或 JPEG（收到 ${file.type || '未知'}）`,
+    };
+  }
+  const size = Number(file.size);
+  if (!Number.isFinite(size) || size <= 0) {
+    return { ok: false, error: '頭像檔案為空' };
+  }
+  if (size > AVATAR_MAX_SIZE_BYTES) {
+    const mb = AVATAR_MAX_SIZE_BYTES / 1024 / 1024;
+    return { ok: false, error: `頭像大小超過上限 ${mb} MB` };
+  }
+  return { ok: true };
+}
+
 /**
  * Pure: pick initials char + palette color from user record.
  * No DOM access — testable from Node.

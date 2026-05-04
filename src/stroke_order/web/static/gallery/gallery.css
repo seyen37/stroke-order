@@ -696,6 +696,30 @@ button:focus-visible {
   flex: none;
   width: 80px;
   height: 80px;
+  position: relative;
+  border-radius: 50%;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+/* r29k: drag-drop visual feedback */
+.gl-profile-avatar-preview.is-dragover {
+  box-shadow: 0 0 0 3px var(--gl-accent, #46a),
+              0 0 12px rgba(70, 102, 170, 0.35);
+  transform: scale(1.05);
+}
+.gl-profile-avatar-preview.is-dragover::after {
+  content: '✚ 放開上傳';
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gl-accent, #46a);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  font-weight: 600;
 }
 .gl-profile-avatar-controls {
   display: flex;
