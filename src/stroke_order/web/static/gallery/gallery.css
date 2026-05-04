@@ -169,6 +169,25 @@ button:focus-visible {
 .gl-card-kind-psd     { background: #fff4d4; color: #6c5300; }
 .gl-card-kind-mandala { background: #ffeae0; color: #832500; }
 
+/* Phase 5b r28b: mandala thumbnail in gallery card */
+.gl-card-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--gl-bg, #fafafa);
+  border: 1px solid var(--gl-line, #ddd);
+  border-radius: 3px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gl-card-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
 /* ----- main / list -------------------------------------------------- */
 .gl-main {
   padding: 16px;

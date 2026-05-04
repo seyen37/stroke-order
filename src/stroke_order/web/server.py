@@ -3786,6 +3786,26 @@ def create_app() -> FastAPI:
             filename=nice_name,
         )
 
+    # Phase 5b r28b: thumbnail endpoint（mandala+svg upload 才有；其他回 404）
+    @app.get("/api/gallery/uploads/{upload_id}/thumbnail")
+    async def gallery_uploads_thumbnail(upload_id: int):
+        try:
+            upload = gallery_service.get_upload(upload_id)
+        except gallery_service.GalleryError as e:
+            _gallery_error_to_http(e)
+        if upload.get("hidden"):
+            raise HTTPException(403, detail="這份檔案目前隱藏中")
+        thumb_path = gallery_service.thumbnail_path_of(upload)
+        if not thumb_path.is_file():
+            # PSD 永遠沒 thumbnail；mandala+md 也沒 — 都 404 給 frontend
+            # 用 onerror 隱藏 img tag
+            raise HTTPException(404, detail="thumbnail 不存在")
+        return FileResponse(
+            thumb_path,
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=86400"},
+        )
+
     @app.delete("/api/gallery/uploads/{upload_id}")
     async def gallery_uploads_delete(
         upload_id: int,

@@ -318,3 +318,144 @@ def test_get_upload_returns_summary_dict(
     assert fetched["summary"]["layer_count"] == 2
     # raw summary_json 字串也可在 record 中（應該被 parse 過）
     # 不 assert raw — 行為合約只保證 summary 欄是 dict
+
+
+# =============================== Phase 5b r28b: thumbnail
+
+
+def _build_minimal_mandala_svg() -> bytes:
+    """Build a minimal SVG with embedded <mandala-config> metadata for tests."""
+    import json
+    state = {
+        "schema": "stroke-order-mandala-v1",
+        "metadata": {
+            "id": "test-id", "title": "test", "title_pinyin": "test",
+            "design_note": "", "author": "",
+            "created_at": "2026-05-04T00:00:00Z",
+            "modified_at": "2026-05-04T00:00:00Z",
+        },
+        "canvas": {"size_mm": 100, "page_width_mm": 150, "page_height_mm": 150},
+        "center": {"type": "empty", "text": "", "size_mm": 24, "line_color": "#000"},
+        "ring": {
+            "text": "", "size_mm": 10, "spacing": 2.0,
+            "orientation": "bottom_to_center",
+            "auto_shrink": True, "shrink_safety_margin": 0.85,
+            "protect_chars": True, "protect_radius_factor": 0.55,
+            "line_color": "#000",
+        },
+        "mandala": {
+            "style": "interlocking_arcs",
+            "composition_scheme": "vesica",
+            "n_fold": 6, "show": True,
+        },
+        "extra_layers": [],
+        "style": {"font": "kaishu"},
+    }
+    state_json = json.dumps(state, ensure_ascii=False)
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" '
+        'viewBox="0 0 150 150" width="150" height="150">'
+        f'<metadata><mandala-config xmlns="local">'
+        f'<![CDATA[{state_json}]]></mandala-config></metadata>'
+        '<circle cx="75" cy="75" r="40" fill="none" '
+        'stroke="#c0392b" stroke-width="0.6"/>'
+        '</svg>'
+    ).encode("utf-8")
+
+
+def test_thumbnail_generated_for_mandala_svg(gallery_env, make_user):
+    """SVG mandala upload → thumbnail .png 存在 + 是有效 PNG。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+    svg_bytes = _build_minimal_mandala_svg()
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=svg_bytes, filename="t.svg",
+        title="thumb test", comment="", kind="mandala",
+    )
+    thumb = service.thumbnail_path_of(rec)
+    assert thumb.is_file(), f"thumbnail not generated: {thumb}"
+    head = thumb.read_bytes()[:8]
+    assert head == b"\x89PNG\r\n\x1a\n", f"not a PNG: {head}"
+    # Sanity: > 1KB（有實際內容）
+    assert thumb.stat().st_size > 1024
+
+
+def test_thumbnail_skipped_for_mandala_md(gallery_env, sample_md_bytes, make_user):
+    """MD path 不生 thumbnail（沒 char loader）。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=sample_md_bytes, filename="t.md",
+        title="md no thumb", comment="", kind="mandala",
+    )
+    thumb = service.thumbnail_path_of(rec)
+    assert not thumb.is_file(), \
+        f"thumbnail should be skipped for MD path but exists: {thumb}"
+
+
+def test_thumbnail_skipped_for_psd(gallery_env, make_user):
+    """PSD upload 不生 thumbnail（不是 mandala kind）。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+    # 直接 INSERT 假 PSD（懶得跑完整 PSD validator）
+    from stroke_order.gallery.db import db_connection
+    import secrets
+    nonce = secrets.token_hex(8)
+    fake_psd = b'{"schema":"stroke-order-psd-v1","traces":[{"char":"x","style":"k","points":[]}]}'
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=fake_psd, filename="x.json",
+        title="psd test", comment="", kind="psd",
+    )
+    thumb = service.thumbnail_path_of(rec)
+    assert not thumb.is_file(), \
+        f"thumbnail should not exist for PSD: {thumb}"
+
+
+def test_thumbnail_endpoint_serves_png(gallery_env, make_user, monkeypatch):
+    """API GET /uploads/{id}/thumbnail 回 PNG bytes + correct content-type。"""
+    from fastapi.testclient import TestClient
+    from stroke_order.web.server import create_app
+    from stroke_order.gallery import service
+    user_id = make_user()
+    svg_bytes = _build_minimal_mandala_svg()
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=svg_bytes, filename="t.svg",
+        title="endpoint test", comment="", kind="mandala",
+    )
+    client = TestClient(create_app())
+    r = client.get(f"/api/gallery/uploads/{rec['id']}/thumbnail")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/png"
+    assert r.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_thumbnail_endpoint_404_for_md_upload(
+    gallery_env, sample_md_bytes, make_user,
+):
+    """MD upload 沒 thumbnail → endpoint 回 404。"""
+    from fastapi.testclient import TestClient
+    from stroke_order.web.server import create_app
+    from stroke_order.gallery import service
+    user_id = make_user()
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=sample_md_bytes, filename="t.md",
+        title="md endpoint test", comment="", kind="mandala",
+    )
+    client = TestClient(create_app())
+    r = client.get(f"/api/gallery/uploads/{rec['id']}/thumbnail")
+    assert r.status_code == 404
+
+
+def test_thumbnail_deleted_on_upload_delete(gallery_env, make_user):
+    """delete_upload 也會清掉 thumbnail。"""
+    from stroke_order.gallery import service
+    user_id = make_user()
+    svg_bytes = _build_minimal_mandala_svg()
+    rec = service.create_upload(
+        user_id=user_id, content_bytes=svg_bytes, filename="t.svg",
+        title="delete test", comment="", kind="mandala",
+    )
+    thumb = service.thumbnail_path_of(rec)
+    assert thumb.is_file()
+    service.delete_upload(upload_id=rec["id"], user_id=user_id)
+    assert not thumb.is_file(), "thumbnail not cleaned up on delete"

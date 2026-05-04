@@ -186,6 +186,19 @@ function _downloadLabel(kind) {
   return kind === 'mandala' ? '↓ 下載 (.md / .svg)' : '↓ 下載 JSON';
 }
 
+function _kindThumbnail(item) {
+  // r28b: mandala kind 才嘗試載 thumbnail；onerror 隱藏自己（mandala+md upload 沒
+  // thumbnail 時 endpoint 回 404，img 自動被隱藏）。PSD 跳過。
+  const kind = item.kind || 'psd';
+  if (kind !== 'mandala') return '';
+  return `<div class="gl-card-thumb">
+    <img src="/api/gallery/uploads/${item.id}/thumbnail"
+         alt="${_escape(item.title)} 縮圖"
+         loading="lazy"
+         onerror="this.parentElement.style.display='none'">
+  </div>`;
+}
+
 function _card(item) {
   const isOwn  = state.me && state.me.id === item.user_id;
   const author = item.uploader_display_name
@@ -193,6 +206,7 @@ function _card(item) {
   const kind   = item.kind || 'psd';
   return `
     <article class="gl-card" data-id="${item.id}" data-kind="${_escape(kind)}">
+      ${_kindThumbnail(item)}
       <div class="gl-card-header">
         <div class="gl-card-title">${_escape(item.title)}${_kindBadge(kind)}</div>
         <div class="gl-card-author">${_escape(author)}</div>

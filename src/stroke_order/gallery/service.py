@@ -300,6 +300,67 @@ SUMMARIZERS = {
 }
 
 
+# ------------------- Phase 5b r28b: thumbnail generation ------------------
+
+# Gallery card 用的縮圖尺寸（PNG 像素，正方形）
+THUMBNAIL_SIZE_PX = 256
+THUMBNAIL_SUFFIX  = ".thumb.png"
+
+
+def thumbnail_path_of(upload: dict) -> Path:
+    """從 upload record 推算 thumbnail 絕對路徑（同層 .thumb.png）。
+
+    file_path = "<user_id>/<nonce>.svg" → thumbnail = "<user_id>/<nonce>.thumb.png"
+    """
+    fp = uploads_dir() / upload["file_path"]
+    return fp.with_suffix(THUMBNAIL_SUFFIX)
+
+
+def _generate_svg_thumbnail(svg_bytes: bytes,
+                             *, size_px: int = THUMBNAIL_SIZE_PX) -> bytes:
+    """SVG → PNG（縮圖）。
+
+    僅給 source_format == "svg" 的 mandala upload 使用 — SVG 已內含完整渲染
+    （字 + mandala primitives + extras），cairosvg 直接轉 PNG 即可。
+
+    MD upload 跳過 thumbnail（沒 char loader 不易渲染字環，視覺品質差）。
+    使用者若要 mandala 上傳有 thumbnail，請從 mandala 模式按鈕上傳（會自動
+    走 SVG path），或自行 export SVG 後手動上傳。
+    """
+    import cairosvg
+    return cairosvg.svg2png(
+        bytestring=svg_bytes,
+        output_width=size_px,
+        output_height=size_px,
+    )
+
+
+def _maybe_generate_thumbnail(content_bytes: bytes, *, kind: str,
+                               source_format: str, abs_path: Path) -> bool:
+    """根據 kind / source_format 決定是否生成 thumbnail，存到 abs_path 旁邊。
+
+    Returns True if thumbnail written, False if skipped.
+
+    失敗時回 False（不 raise）— thumbnail 缺漏不該擋上傳完成。
+    """
+    if kind != KIND_MANDALA:
+        return False  # PSD 沒 thumbnail 概念
+    if source_format != "svg":
+        return False  # MD path 跳過（見 _generate_svg_thumbnail docstring）
+    try:
+        png_bytes = _generate_svg_thumbnail(content_bytes)
+    except Exception as e:
+        # cairosvg 解析失敗 / 系統缺 cairo lib 等 — 記 log 跳過
+        import logging
+        logging.warning(
+            "thumbnail generation failed for %s: %s", abs_path, e,
+        )
+        return False
+    thumb_path = abs_path.with_suffix(THUMBNAIL_SUFFIX)
+    thumb_path.write_bytes(png_bytes)
+    return True
+
+
 def file_hash_sha256(content_bytes: bytes) -> str:
     """Hex digest used to dedup uploads + (Phase 5h) for the
     cross-user duplicate-detection heuristic."""
@@ -386,6 +447,11 @@ def create_upload(
     abs_path = uploads_dir() / rel_path
     _user_uploads_dir(user_id)         # ensure parent exists
     abs_path.write_bytes(content_bytes)
+
+    # Phase 5b r28b: 生成 thumbnail（mandala+svg 才有；失敗不擋上傳）
+    _maybe_generate_thumbnail(
+        content_bytes, kind=kind, source_format=ext, abs_path=abs_path,
+    )
 
     safe_filename = (filename or "").strip()[:200] or f"upload.{ext}"
 
@@ -524,6 +590,11 @@ def delete_upload(*, upload_id: int, user_id: int) -> None:
         conn.execute("DELETE FROM uploads WHERE id = ?", (upload_id,))
     try:
         abs_path.unlink()
+    except FileNotFoundError:
+        pass
+    # r28b: 連 thumbnail 也清掉（如有）
+    try:
+        thumbnail_path_of(upload).unlink()
     except FileNotFoundError:
         pass
 

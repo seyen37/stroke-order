@@ -5268,12 +5268,14 @@ document.getElementById("md-import-file")?.addEventListener("change", async (ev)
 // 把當前 mandala state 序列化成 .mandala.md 後 POST 到 /api/gallery/uploads。
 // 共享 r27 的 mandalaBuildState + serializeMandalaMd（單一真相來源）。
 // 需登入：未登入時顯示提示請 user 先到 /gallery 登入再回。
+// 5b r28b: 上傳走 SVG path（伺服器自動生成 thumbnail）
+// 流程：fetch /api/mandala?format=svg → 注入 metadata → blob → POST kind=mandala
+// 比 r28a MD path 慢約 100-300ms（多一個 SVG render request），但換來
+// gallery card 有完整視覺縮圖。
+// CDN 失敗時 fallback 到 MD path（舊行為）。
 document.getElementById("md-gallery-upload-btn")?.addEventListener("click",
   async () => {
-    if (typeof jsyaml === "undefined") {
-      alert("js-yaml 函式庫未載入（CDN 失敗？）");
-      return;
-    }
+    const hasYaml = (typeof jsyaml !== "undefined");
     const titleEl = document.getElementById("md-title");
     const title = (titleEl?.value || "").trim();
     if (!title) {
@@ -5287,28 +5289,65 @@ document.getElementById("md-gallery-upload-btn")?.addEventListener("click",
       `上傳到公眾分享庫嗎？\n\n` +
       `標題：${title}\n` +
       `設計意圖：${designNote || "（無）"}\n\n` +
+      `Gallery 會顯示縮圖預覽（內嵌完整 mandala 設定，可拖回此頁繼續編輯）。\n` +
       `所有上傳皆公開可下載；只有您本人能刪除。\n` +
       `（若尚未登入，會跳到 /gallery 登入頁）`,
     );
     if (!ok) return;
 
-    let mdText;
+    // 1. 拼 mandala state + metadata（id / created_at 持久化）
+    let state;
     try {
-      const state = mandalaBuildState();
+      state = mandalaBuildState();
       state.metadata = _mandalaCurrentMetadata();
-      mdText = serializeMandalaMd(state);
+      state.generator = { app: "stroke-order", version: "0.14.108" };
     } catch (e) {
-      alert("序列化 mandala 設定失敗：" + (e.message || e));
+      alert("組裝 mandala 設定失敗：" + (e.message || e));
       console.error(e);
       return;
     }
-    const slug = _mandalaSlugifyFilename({ metadata: _mandalaCurrentMetadata() });
-    const blob = new Blob([mdText], { type: "text/markdown;charset=utf-8" });
+    const slugBase = _mandalaSlugifyFilename(state).replace(/\.mandala\.md$/, "");
+
+    // 2. 走 SVG path：fetch render 後 SVG → JS 注入 metadata
+    let blob, filename, fdKind;
+    try {
+      const params = mandalaBuildParams();
+      params.set("format", "svg");
+      const r = await fetch(`${API_BASE}/api/mandala?` + params);
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${r.status}`);
+      }
+      const svgText = await r.text();
+      // 注入 metadata（同 mandalaDownload 的 svg path 邏輯）
+      const enrichedSvg = _mandalaInjectSvgMetadata(svgText, state);
+      blob = new Blob([enrichedSvg], { type: "image/svg+xml;charset=utf-8" });
+      filename = `${slugBase}.svg`;
+      fdKind = "mandala";
+    } catch (e) {
+      // SVG path 失敗 → fallback 到 MD path（無 thumbnail 但可用）
+      console.warn("SVG path 失敗，fallback MD path:", e);
+      if (!hasYaml) {
+        alert("SVG render 失敗、且 js-yaml 也未載入；無法上傳。請檢查網路。");
+        return;
+      }
+      try {
+        const mdText = serializeMandalaMd(state);
+        blob = new Blob([mdText], { type: "text/markdown;charset=utf-8" });
+        filename = `${slugBase}.mandala.md`;
+        fdKind = "mandala";
+      } catch (e2) {
+        alert("MD 序列化也失敗：" + (e2.message || e2));
+        return;
+      }
+    }
+
+    // 3. POST 到 /api/gallery/uploads
     const fd = new FormData();
-    fd.append("file", blob, slug);
+    fd.append("file", blob, filename);
     fd.append("title", title);
     fd.append("comment", designNote);
-    fd.append("kind", "mandala");
+    fd.append("kind", fdKind);
     try {
       const r = await fetch("/api/gallery/uploads", {
         method: "POST",
@@ -5334,7 +5373,7 @@ document.getElementById("md-gallery-upload-btn")?.addEventListener("click",
       console.error(e);
     }
   });
-// ===== r28 upload-to-gallery END =====
+// ===== r28 / r28b upload-to-gallery END =====
 
 function mandalaBuildParams() {
   const g = id => document.getElementById(id).value;
