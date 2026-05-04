@@ -301,6 +301,39 @@ button:focus-visible {
   0%   { background-color: #fff8c4; }
   100% { background-color: transparent; }
 }
+/* r29g: deep-link target card — 顯眼放大 + 4s flash + accent border */
+.gl-card--deeplink {
+  outline: 3px solid var(--gl-accent, #46a);
+  outline-offset: 3px;
+  transform: scale(1.02);
+  box-shadow: 0 4px 18px rgba(70, 102, 170, 0.25);
+  animation: gl-card-deeplink-flash 4s ease;
+  position: relative;
+  z-index: 1;
+}
+.gl-card--deeplink::before {
+  content: '🔗 分享連結指向';
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  background: var(--gl-accent, #46a);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+  z-index: 2;
+}
+.gl-card--deeplink .gl-card-thumb img {
+  /* deep-link 強調縮圖稍大（mandala kind 才有 thumb） */
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+@keyframes gl-card-deeplink-flash {
+  0%   { background-color: #fff3a8; }
+  60%  { background-color: #fffae0; }
+  100% { background-color: transparent; }
+}
 
 /* Phase 5b r29c: search input — show in toolbar */
 #gl-search {

@@ -2,18 +2,20 @@
 // gallery/hash.mjs — Phase 5b r29f: URL hash <-> state pure helpers.
 //
 // Hash schema (URLSearchParams style):
-//   #user=42&sort=likes&q=曼陀羅&kind=mandala
+//   #user=42&sort=likes&q=曼陀羅&kind=mandala&upload=123
 //
 // Encoded keys (whitelist — bookmarkedOnly / page intentionally excluded):
-//   user        → state.userFilter (positive integer)
-//   sort        → state.sort       ('newest' | 'likes' | 'hot')
-//   q           → state.q          (string, max 100 chars — server enforces)
-//   kind        → state.kindFilter ('psd' | 'mandala')
+//   user        → state.userFilter     (positive integer)
+//   sort        → state.sort           ('newest' | 'likes' | 'hot')
+//   q           → state.q              (string, max 100 chars — server enforces)
+//   kind        → state.kindFilter     ('psd' | 'mandala')
+//   upload      → state.deepLinkUploadId  (r29g: positive integer，
+//                  prepend + 4s flash highlight，4 秒後 state 自清但 hash 留)
 //
 // Excluded:
 //   bookmarkedOnly → 私人 view，不該分享
 //   page           → ephemeral，分享連結帶 page=3 體驗差
-//   me / items / total / profile → derived data
+//   me / items / total / profile / deepLinkUpload (full obj) → derived data
 //
 // Pure functions: no DOM access, no mutation of inputs. Importable from
 // both browser (gallery.js) and Node (tests/test_hash_route.mjs).
@@ -44,6 +46,10 @@ export function stateToHash(s) {
   if (s && s.kindFilter && ALLOWED_KINDS.includes(s.kindFilter)) {
     params.set('kind', s.kindFilter);
   }
+  // r29g: deep-link 單張 upload — 用 deepLinkUploadId（state shape 對應 id 欄位）
+  if (s && Number.isInteger(s.deepLinkUploadId) && s.deepLinkUploadId > 0) {
+    params.set('upload', String(s.deepLinkUploadId));
+  }
   const str = params.toString();
   return str ? '#' + str : '';
 }
@@ -65,6 +71,7 @@ export function parseHash(hash) {
     sort: 'newest',
     q: '',
     kindFilter: '',
+    deepLinkUploadId: null,
   };
   const raw = String(hash || '').replace(/^#/, '');
   if (!raw) return out;
@@ -92,6 +99,12 @@ export function parseHash(hash) {
   // kind → whitelist
   const kind = params.get('kind');
   if (kind && ALLOWED_KINDS.includes(kind)) out.kindFilter = kind;
+  // r29g: upload (deep-link target) → positive integer only
+  const upload = params.get('upload');
+  if (upload !== null) {
+    const n = Number(upload);
+    if (Number.isInteger(n) && n > 0) out.deepLinkUploadId = n;
+  }
   return out;
 }
 

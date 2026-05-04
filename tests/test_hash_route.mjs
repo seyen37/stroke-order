@@ -22,6 +22,7 @@ function defState(overrides = {}) {
     sort: 'newest',
     q: '',
     kindFilter: '',
+    deepLinkUploadId: null,  // r29g
     bookmarkedOnly: false,  // 應被 stateToHash 忽略
     page: 1,                 // 應被 stateToHash 忽略
     me: { id: 1 },           // 應被 stateToHash 忽略
@@ -100,12 +101,14 @@ test('parseHash: empty → all defaults', () => {
 test('parseHash: #user=42 → userFilter=42', () => {
   assert.deepEqual(parseHash('#user=42'), {
     userFilter: 42, sort: 'newest', q: '', kindFilter: '',
+    deepLinkUploadId: null,
   });
 });
 
 test('parseHash: 不帶 leading # 也吃', () => {
   assert.deepEqual(parseHash('user=42'), {
     userFilter: 42, sort: 'newest', q: '', kindFilter: '',
+    deepLinkUploadId: null,
   });
 });
 
@@ -116,9 +119,10 @@ test('parseHash: 中文 q decode', () => {
 });
 
 test('parseHash: 全欄位組合', () => {
-  const p = parseHash('#user=42&sort=likes&q=abc&kind=mandala');
+  const p = parseHash('#user=42&sort=likes&q=abc&kind=mandala&upload=99');
   assert.deepEqual(p, {
     userFilter: 42, sort: 'likes', q: 'abc', kindFilter: 'mandala',
+    deepLinkUploadId: 99,
   });
 });
 
@@ -147,6 +151,7 @@ test('parseHash: 未知 key 忽略', () => {
   const p = parseHash('#user=42&unknown=xyz&evil=hax');
   assert.deepEqual(p, {
     userFilter: 42, sort: 'newest', q: '', kindFilter: '',
+    deepLinkUploadId: null,
   });
 });
 
@@ -162,6 +167,7 @@ test('round-trip: state → hash → state → 同 state', () => {
   // 比對只保留可往返欄位
   assert.deepEqual(recovered, {
     userFilter: 7, sort: 'hot', q: '搜尋詞', kindFilter: 'mandala',
+    deepLinkUploadId: null,
   });
 });
 
@@ -180,4 +186,55 @@ test('round-trip: special chars (& = #) 安全', () => {
   const hash = stateToHash(original);
   const recovered = parseHash(hash);
   assert.equal(recovered.q, tricky);
+});
+
+
+// ============================================================ r29g: upload key
+
+test('stateToHash: deepLinkUploadId=99 → #upload=99', () => {
+  assert.equal(
+    stateToHash(defState({ deepLinkUploadId: 99 })),
+    '#upload=99',
+  );
+});
+
+test('stateToHash: deepLinkUploadId 跟 user/sort 並存', () => {
+  // 順序：user, sort, q, kind, upload — 等同 set 順序
+  const got = stateToHash(defState({
+    userFilter: 5, sort: 'likes', deepLinkUploadId: 99,
+  }));
+  assert.equal(got, '#user=5&sort=likes&upload=99');
+});
+
+test('stateToHash: deepLinkUploadId=0 / 負數 / 字串 不寫', () => {
+  assert.equal(stateToHash(defState({ deepLinkUploadId: 0 })),     '');
+  assert.equal(stateToHash(defState({ deepLinkUploadId: -1 })),    '');
+  assert.equal(stateToHash(defState({ deepLinkUploadId: 1.5 })),   '');
+  assert.equal(stateToHash(defState({ deepLinkUploadId: 'abc' })), '');
+});
+
+test('parseHash: #upload=123 → deepLinkUploadId=123', () => {
+  const p = parseHash('#upload=123');
+  assert.equal(p.deepLinkUploadId, 123);
+  assert.equal(p.userFilter, null);
+  assert.equal(p.sort, 'newest');
+});
+
+test('parseHash: 惡意 upload=<script> → null', () => {
+  assert.equal(parseHash('#upload=<script>').deepLinkUploadId, null);
+  assert.equal(parseHash('#upload=-1').deepLinkUploadId, null);
+  assert.equal(parseHash('#upload=0').deepLinkUploadId, null);
+  assert.equal(parseHash('#upload=1.5').deepLinkUploadId, null);
+});
+
+test('round-trip r29g: state with upload → hash → state', () => {
+  const original = defState({
+    userFilter: 7, sort: 'hot', q: '搜尋', kindFilter: 'mandala',
+    deepLinkUploadId: 999,
+  });
+  const recovered = parseHash(stateToHash(original));
+  assert.deepEqual(recovered, {
+    userFilter: 7, sort: 'hot', q: '搜尋', kindFilter: 'mandala',
+    deepLinkUploadId: 999,
+  });
 });

@@ -38,6 +38,9 @@ const state = {
   userFilter: null,
   // Phase 5b r29d: 當前 profile data（userFilter set 時 fetch /users/{id}）
   profile: null,
+  // Phase 5b r29g: deep-link 單張 upload — id 寫進 hash, full obj 用於 prepend
+  deepLinkUploadId: null,
+  deepLinkUpload: null,
 };
 
 // ============================================================ helpers
@@ -122,6 +125,17 @@ function renderList() {
 
   const cards = state.items.map(_card).join('');
   root.innerHTML = cards;
+
+  // r29g: scroll deep-link card into view（render 完才 scroll）
+  if (state.deepLinkUpload) {
+    const dlCard = root.querySelector('.gl-card--deeplink');
+    if (dlCard) {
+      // 用 rAF 避免 layout race
+      requestAnimationFrame(() => {
+        dlCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+  }
 
   // Wire delete buttons (own items only)
   root.querySelectorAll('[data-action="delete"]').forEach(btn => {
@@ -367,8 +381,12 @@ function _card(item) {
   const authorHtml =
     `<a href="#" data-action="filter-user" data-user-id="${item.user_id}"
         class="gl-card-author-link">${_escape(author)}</a>`;
+  // r29g: deep-link target → 加 class 顯眼放大 + flash
+  const isDeepLink = state.deepLinkUpload
+                  && state.deepLinkUpload.id === item.id;
+  const dlClass = isDeepLink ? ' gl-card--deeplink' : '';
   return `
-    <article class="gl-card" data-id="${item.id}" data-kind="${_escape(kind)}">
+    <article class="gl-card${dlClass}" data-id="${item.id}" data-kind="${_escape(kind)}">
       ${_kindThumbnail(item)}
       <div class="gl-card-header">
         <div class="gl-card-title">${_escape(item.title)}${_kindBadge(kind)}</div>
@@ -423,13 +441,25 @@ function _writeHash() {
 }
 
 function _applyHashPatchToState(patch) {
-  state.userFilter = patch.userFilter;
-  state.sort = patch.sort;
-  state.q = patch.q;
-  state.kindFilter = patch.kindFilter;
+  // r29g: 若 hash 帶 upload deep-link → 強制清 sort / kind / user / q 到 default
+  // 確保 list 乾淨，prepend 那張必然在最頂
+  if (patch.deepLinkUploadId) {
+    state.userFilter = null;
+    state.sort = 'newest';
+    state.q = '';
+    state.kindFilter = '';
+    state.bookmarkedOnly = false;
+    state.profile = null;
+  } else {
+    state.userFilter = patch.userFilter;
+    state.sort = patch.sort;
+    state.q = patch.q;
+    state.kindFilter = patch.kindFilter;
+    if (patch.userFilter === null) state.profile = null;
+  }
   // bookmarkedOnly / page 不從 hash 還原 — 翻頁從 1 起，bookmarked 是私人 view
   state.page = 1;
-  if (patch.userFilter === null) state.profile = null;
+  state.deepLinkUploadId = patch.deepLinkUploadId;
 }
 
 function _syncUiFromState() {
@@ -463,13 +493,37 @@ async function refresh() {
   if (state.userFilter) {
     fetches.push(_fetchUserProfile(state.userFilter).catch(() => null));
   }
+  // r29g: 若 deep-link upload 還沒 fetch 過，並行 fetch upload detail
+  const dlFetchIdx = (state.deepLinkUploadId
+                      && (!state.deepLinkUpload
+                          || state.deepLinkUpload.id !== state.deepLinkUploadId))
+    ? fetches.push(_fetchUploadDetail(state.deepLinkUploadId).catch(() => null)) - 1
+    : -1;
   const results = await Promise.all(fetches);
   const meData = results[0];
   const listData = results[1];
-  const profileData = results.length > 2 ? results[2] : null;
+  const profileData = state.userFilter ? results[2] : null;
 
   state.me = meData.logged_in ? meData.user : null;
   state.profile = profileData;
+  if (dlFetchIdx >= 0) {
+    const dl = results[dlFetchIdx];
+    if (dl) {
+      state.deepLinkUpload = dl;
+      // r29g: 4 秒後清 highlight（hash 留 — reload 仍重 trigger）
+      setTimeout(() => {
+        state.deepLinkUpload = null;
+        state.deepLinkUploadId = null;
+        _writeHash();
+        renderList();
+      }, 4000);
+    } else {
+      // 上傳已不存在 / 隱藏 — silently 不 prepend，hash 仍保留以便調試
+      console.warn(
+        '[r29g] deep-link upload not found:', state.deepLinkUploadId);
+      state.deepLinkUpload = null;
+    }
+  }
   if (listData._error) {
     $('gl-list-error').hidden = false;
     $('gl-list-error').textContent =
@@ -481,10 +535,26 @@ async function refresh() {
     state.total = listData.total || 0;
   }
 
+  // r29g: prepend deep-link upload + dedup
+  if (state.deepLinkUpload) {
+    const dlId = state.deepLinkUpload.id;
+    state.items = state.items.filter(it => it.id !== dlId);
+    state.items.unshift(state.deepLinkUpload);
+  }
+
   renderHeader();
   renderStats();
   renderProfileBanner();
   renderList();
+}
+
+// r29g: fetch single upload detail (既有 endpoint，無 backend change)
+async function _fetchUploadDetail(uploadId) {
+  const r = await fetch(`/api/gallery/uploads/${uploadId}`, {
+    credentials: 'same-origin',
+  });
+  if (!r.ok) return null;
+  return r.json();
 }
 
 // r29d: fetch profile JSON
