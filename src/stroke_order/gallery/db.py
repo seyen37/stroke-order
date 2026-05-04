@@ -81,6 +81,20 @@ CREATE INDEX IF NOT EXISTS sessions_user
     ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS sessions_expires
     ON sessions(expires_at);
+
+-- Phase 5b r29: 公眾分享庫 like 機制
+-- (user_id, upload_id) UNIQUE PK 自動 dedup（同 user × upload 只能 like 一次）
+-- ON DELETE CASCADE 給 user / upload 任一邊刪除時自動清 like row
+CREATE TABLE IF NOT EXISTS likes (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    upload_id  INTEGER NOT NULL REFERENCES uploads(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, upload_id)
+);
+
+-- 列表 / detail 查 like_count 用（COUNT WHERE upload_id = ?）
+CREATE INDEX IF NOT EXISTS likes_upload
+    ON likes(upload_id);
 """
 
 

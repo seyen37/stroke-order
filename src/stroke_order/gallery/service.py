@@ -561,12 +561,17 @@ def create_upload(
 
 def get_upload(upload_id: int) -> dict:
     """Single upload's full record (joined with uploader display info).
-    Raises NotFound."""
+    Raises NotFound.
+
+    Phase 5b r29: 同時返 like_count（來自 likes table aggregate）。
+    """
     with db_connection() as conn:
         row = conn.execute(
             "SELECT u.*, "
             "  usr.email         AS uploader_email, "
-            "  usr.display_name  AS uploader_display_name "
+            "  usr.display_name  AS uploader_display_name, "
+            "  (SELECT count(*) FROM likes l WHERE l.upload_id = u.id) "
+            "    AS like_count "
             "FROM uploads u "
             "JOIN users usr ON usr.id = u.user_id "
             "WHERE u.id = ?",
@@ -581,11 +586,14 @@ def list_uploads(
     *, page: int = 1, size: int = DEFAULT_PAGE_SIZE,
     include_hidden: bool = False,
     kind: Optional[str] = None,
+    viewer_user_id: Optional[int] = None,
 ) -> dict:
     """Paginated upload list, newest first. Returns:
         { items: [...], total, page, size }
 
     Phase 5b r28: ``kind`` filter（``"psd"`` / ``"mandala"`` / None=全部）。
+    Phase 5b r29: ``viewer_user_id`` 若提供，每個 item 加 ``liked_by_me`` 欄
+    （該 user 是否 like 過此 upload）；匿名 / 未登入 → 全 False。
     """
     page = max(1, int(page))
     size = max(1, min(MAX_PAGE_SIZE, int(size)))
@@ -604,6 +612,10 @@ def list_uploads(
         params.append(kind)
     where = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
 
+    # r29: viewer_user_id 若 None → 用 -1 placeholder（不存在的 user_id），
+    # EXISTS subquery 永遠 false → liked_by_me 全 0
+    viewer_id = viewer_user_id if viewer_user_id is not None else -1
+
     with db_connection() as conn:
         total = conn.execute(
             f"SELECT count(*) AS n FROM uploads u {where}",
@@ -612,13 +624,17 @@ def list_uploads(
         rows = conn.execute(
             f"SELECT u.*, "
             f"  usr.email        AS uploader_email, "
-            f"  usr.display_name AS uploader_display_name "
+            f"  usr.display_name AS uploader_display_name, "
+            f"  (SELECT count(*) FROM likes l WHERE l.upload_id = u.id) "
+            f"    AS like_count, "
+            f"  EXISTS(SELECT 1 FROM likes l WHERE l.user_id = ? "
+            f"    AND l.upload_id = u.id) AS liked_by_me "
             f"FROM uploads u "
             f"JOIN users usr ON usr.id = u.user_id "
             f"{where} "
             f"ORDER BY u.created_at DESC, u.id DESC "
             f"LIMIT ? OFFSET ?",
-            params + [size, offset],
+            [viewer_id] + params + [size, offset],
         ).fetchall()
 
     return {
@@ -632,6 +648,69 @@ def list_uploads(
 def absolute_path_of(upload: dict) -> Path:
     """Resolve an upload record's relative ``file_path`` to absolute."""
     return uploads_dir() / upload["file_path"]
+
+
+# ----------------------------------------------------------- likes (r29)
+
+def toggle_like(*, user_id: int, upload_id: int) -> dict:
+    """Toggle like for (user_id, upload_id)。
+
+    Atomically INSERT 若沒 like，否則 DELETE。Returns:
+        {"liked": bool, "like_count": int}
+
+    Raises NotFound 若 upload 不存在。
+    """
+    # Verify upload exists（會 raise NotFound）
+    get_upload(upload_id)
+    now = _utcnow_iso()
+    with db_connection() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM likes WHERE user_id = ? AND upload_id = ?",
+            (user_id, upload_id),
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO likes (user_id, upload_id, created_at) "
+                "VALUES (?, ?, ?)",
+                (user_id, upload_id, now),
+            )
+            liked = True
+        else:
+            conn.execute(
+                "DELETE FROM likes WHERE user_id = ? AND upload_id = ?",
+                (user_id, upload_id),
+            )
+            liked = False
+        count_row = conn.execute(
+            "SELECT count(*) AS n FROM likes WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+    return {"liked": liked, "like_count": int(count_row["n"])}
+
+
+def get_like_info(*, upload_id: int, user_id: Optional[int] = None) -> dict:
+    """查單一 upload 的 like 狀態。
+
+    Returns:
+        {"like_count": int, "liked_by_me": bool}
+        ``liked_by_me`` 在 ``user_id`` 為 None 時固定 False（匿名）。
+    """
+    with db_connection() as conn:
+        count_row = conn.execute(
+            "SELECT count(*) AS n FROM likes WHERE upload_id = ?",
+            (upload_id,),
+        ).fetchone()
+        liked_by_me = False
+        if user_id is not None:
+            r = conn.execute(
+                "SELECT 1 FROM likes WHERE user_id = ? AND upload_id = ?",
+                (user_id, upload_id),
+            ).fetchone()
+            liked_by_me = r is not None
+    return {
+        "like_count": int(count_row["n"]) if count_row else 0,
+        "liked_by_me": liked_by_me,
+    }
 
 
 # ----------------------------------------------------------- delete
@@ -728,4 +807,9 @@ def _row_to_dict(row) -> dict:
     # 確保 kind 欄位永遠有值（既有 row 經 migration 後 default 'psd'）
     if not d.get("kind"):
         d["kind"] = KIND_PSD
+    # r29: like_count 預設 0（既有 query 沒帶 like_count column 時不爆）
+    d["like_count"] = int(d.get("like_count") or 0)
+    # r29: liked_by_me bool（SQLite EXISTS 回 0/1，cast 成 bool）
+    if "liked_by_me" in d:
+        d["liked_by_me"] = bool(d["liked_by_me"])
     return d

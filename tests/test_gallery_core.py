@@ -52,7 +52,8 @@ def test_db_schema_creates_all_tables(gallery_env):
         ).fetchall()
     names = sorted(r["name"] for r in rows
                    if not r["name"].startswith("sqlite_"))
-    assert names == ["login_tokens", "sessions", "uploads", "users"]
+    # r29: 加 likes table
+    assert names == ["likes", "login_tokens", "sessions", "uploads", "users"]
 
 
 def test_db_unique_email_constraint(gallery_env):

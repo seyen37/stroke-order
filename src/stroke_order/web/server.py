@@ -3730,10 +3730,14 @@ def create_app() -> FastAPI:
             None, pattern="^(psd|mandala)$",
             description="upload 種類 filter；未傳列出全部",
         ),
+        # Phase 5b r29: 從 cookie 拿 user，list 內每 item 加 liked_by_me
+        psd_session: Optional[str] = Cookie(default=None),
     ):
+        viewer = _resolve_user(psd_session)
         try:
             return gallery_service.list_uploads(
                 page=page, size=size, kind=kind,
+                viewer_user_id=(viewer["id"] if viewer else None),
             )
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)
@@ -3776,11 +3780,23 @@ def create_app() -> FastAPI:
         return {"upload": record}
 
     @app.get("/api/gallery/uploads/{upload_id}")
-    async def gallery_uploads_get(upload_id: int):
+    async def gallery_uploads_get(
+        upload_id: int,
+        psd_session: Optional[str] = Cookie(default=None),
+    ):
         try:
-            return {"upload": gallery_service.get_upload(upload_id)}
+            upload = gallery_service.get_upload(upload_id)
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)
+        # r29: 若 user 登入，加 liked_by_me 給前端 button 狀態
+        user = _resolve_user(psd_session)
+        if user is not None:
+            info = gallery_service.get_like_info(
+                upload_id=upload_id, user_id=user["id"])
+            upload["liked_by_me"] = info["liked_by_me"]
+        else:
+            upload["liked_by_me"] = False
+        return {"upload": upload}
 
     @app.get("/api/gallery/uploads/{upload_id}/download")
     async def gallery_uploads_download(upload_id: int):
@@ -3820,6 +3836,21 @@ def create_app() -> FastAPI:
             media_type=media_type,
             filename=nice_name,
         )
+
+    # Phase 5b r29: like toggle endpoint（需登入）
+    @app.post("/api/gallery/uploads/{upload_id}/like")
+    async def gallery_uploads_like(
+        upload_id: int,
+        psd_session: Optional[str] = Cookie(default=None),
+    ):
+        user = _require_user(psd_session)
+        try:
+            result = gallery_service.toggle_like(
+                user_id=user["id"], upload_id=upload_id,
+            )
+        except gallery_service.GalleryError as e:
+            _gallery_error_to_http(e)
+        return result
 
     # Phase 5b r28b: thumbnail endpoint（mandala+svg upload 才有；其他回 404）
     @app.get("/api/gallery/uploads/{upload_id}/thumbnail")

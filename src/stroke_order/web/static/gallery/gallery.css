@@ -169,6 +169,30 @@ button:focus-visible {
 .gl-card-kind-psd     { background: #fff4d4; color: #6c5300; }
 .gl-card-kind-mandala { background: #ffeae0; color: #832500; }
 
+/* Phase 5b r29: like button on cards */
+.gl-btn-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gl-btn-like .gl-heart {
+  font-size: 14px;
+  line-height: 1;
+}
+.gl-btn-like .gl-like-count {
+  font-size: 12px;
+  color: var(--gl-muted);
+  font-variant-numeric: tabular-nums;
+}
+.gl-btn-like.is-liked .gl-like-count {
+  color: var(--gl-fg, #222);
+  font-weight: 600;
+}
+.gl-btn-like:hover .gl-heart {
+  transform: scale(1.15);
+  transition: transform 0.1s ease;
+}
+
 /* Phase 5b r28b: mandala thumbnail in gallery card */
 .gl-card-thumb {
   width: 100%;

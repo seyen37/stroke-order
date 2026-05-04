@@ -122,6 +122,53 @@ function renderList() {
     });
   });
 
+  // r29: Wire like buttons
+  root.querySelectorAll('[data-action="like"]').forEach(btn => {
+    btn.addEventListener('click', async (ev) => {
+      const id = parseInt(ev.currentTarget.dataset.id, 10);
+      if (!Number.isInteger(id)) return;
+      // 未登入 → 提示登入再操作
+      if (!state.me) {
+        if (confirm('需要登入才能讚。要前往登入嗎？')) {
+          showLoginDialog();
+        }
+        return;
+      }
+      try {
+        const r = await fetch(`/api/gallery/uploads/${id}/like`, {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          throw new Error(data.detail || `HTTP ${r.status}`);
+        }
+        const data = await r.json();
+        // Optimistic UI update — 不 refresh 整頁，省 API call
+        const card = ev.currentTarget.closest('.gl-card');
+        if (card) {
+          const heart = card.querySelector('.gl-heart');
+          const cnt = card.querySelector('.gl-like-count');
+          const button = card.querySelector('.gl-btn-like');
+          if (heart) heart.textContent = data.liked ? '❤️' : '🤍';
+          if (cnt) cnt.textContent = String(data.like_count);
+          if (button) {
+            button.classList.toggle('is-liked', data.liked);
+            button.title = data.liked ? '取消讚' : '讚';
+          }
+        }
+        // 同步 state.items 對應 item（不 refresh，下次 list 才會重 fetch）
+        const it = state.items.find(x => x.id === id);
+        if (it) {
+          it.liked_by_me = data.liked;
+          it.like_count = data.like_count;
+        }
+      } catch (e) {
+        alert('操作失敗：' + (e.message || e));
+      }
+    });
+  });
+
   // Pagination visibility
   const totalPages = Math.max(1, Math.ceil(state.total / state.size));
   $('gl-pagination').hidden = totalPages <= 1;
@@ -199,6 +246,20 @@ function _kindThumbnail(item) {
   </div>`;
 }
 
+// r29: like button
+function _likeButton(item) {
+  const liked = item.liked_by_me === true;
+  const count = item.like_count || 0;
+  const heart = liked ? '❤️' : '🤍';
+  const titleAttr = liked ? '取消讚' : '讚';
+  return `<button class="gl-btn gl-btn-like ${liked ? 'is-liked' : ''}"
+    data-action="like" data-id="${item.id}"
+    type="button" title="${titleAttr}">
+    <span class="gl-heart">${heart}</span>
+    <span class="gl-like-count">${count}</span>
+  </button>`;
+}
+
 function _card(item) {
   const isOwn  = state.me && state.me.id === item.user_id;
   const author = item.uploader_display_name
@@ -218,6 +279,7 @@ function _card(item) {
          : '' }
       <div class="gl-card-time">${_formatRelativeTime(item.created_at)}</div>
       <div class="gl-card-actions">
+        ${_likeButton(item)}
         <a href="/api/gallery/uploads/${item.id}/download"
            class="gl-btn" download>${_downloadLabel(kind)}</a>
         ${ isOwn
