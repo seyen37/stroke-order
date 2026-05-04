@@ -95,6 +95,20 @@ CREATE TABLE IF NOT EXISTS likes (
 -- 列表 / detail 查 like_count 用（COUNT WHERE upload_id = ?）
 CREATE INDEX IF NOT EXISTS likes_upload
     ON likes(upload_id);
+
+-- Phase 5b r29b: 私人 bookmark 收藏（mirror likes 結構）
+-- (user_id, upload_id) UNIQUE PK 自動 dedup
+-- ON DELETE CASCADE 給 user / upload 任一邊刪除時自動清 bookmark row
+CREATE TABLE IF NOT EXISTS bookmarks (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    upload_id  INTEGER NOT NULL REFERENCES uploads(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, upload_id)
+);
+
+-- 「我的收藏」list: 給 user 撈自己 bookmark 的 upload list 用
+CREATE INDEX IF NOT EXISTS bookmarks_user
+    ON bookmarks(user_id);
 """
 
 

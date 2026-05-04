@@ -63,7 +63,16 @@
             type="button" role="tab" aria-selected="false">抄經軌跡</button>
     <button class="gl-filter-tab" data-kind="mandala"
             type="button" role="tab" aria-selected="false">曼陀羅</button>
+    <!-- Phase 5b r29b: 我的收藏（登入後可見） -->
+    <button class="gl-filter-tab gl-filter-bookmark" id="gl-filter-bookmark"
+            data-bookmarked="true" type="button" role="tab"
+            aria-selected="false" hidden>📌 我的收藏</button>
   </div>
+  <!-- Phase 5b r29b: sort dropdown -->
+  <select id="gl-sort" class="gl-sort" aria-label="排序方式">
+    <option value="newest">📅 最新</option>
+    <option value="likes">❤️ 最多讚</option>
+  </select>
   <input id="gl-search" type="search" placeholder="搜尋標題 / 評論 / 作者…"
          autocomplete="off" hidden>
   <span class="gl-toolbar-spacer"></span>

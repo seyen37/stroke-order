@@ -3730,14 +3730,32 @@ def create_app() -> FastAPI:
             None, pattern="^(psd|mandala)$",
             description="upload 種類 filter；未傳列出全部",
         ),
+        # Phase 5b r29b: sort by newest (default) or likes
+        sort: str = Query(
+            "newest", pattern="^(newest|likes)$",
+            description="排序：newest (default) 按上傳時間 / likes 按 like 數",
+        ),
+        # Phase 5b r29b: 「我的收藏」filter — 只列當前 user 已 bookmark 的 upload
+        bookmarked: bool = Query(
+            False,
+            description="True 時只列當前 user 已 bookmark 的 upload（需登入）",
+        ),
         # Phase 5b r29: 從 cookie 拿 user，list 內每 item 加 liked_by_me
         psd_session: Optional[str] = Cookie(default=None),
     ):
         viewer = _resolve_user(psd_session)
+        # r29b: bookmarked=true 需登入（否則沒 user 也沒 filter 對象）
+        bookmarked_by = None
+        if bookmarked:
+            if viewer is None:
+                raise HTTPException(401, detail="?bookmarked=true 需先登入")
+            bookmarked_by = viewer["id"]
         try:
             return gallery_service.list_uploads(
                 page=page, size=size, kind=kind,
                 viewer_user_id=(viewer["id"] if viewer else None),
+                sort=sort,
+                bookmarked_by=bookmarked_by,
             )
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)
@@ -3788,14 +3806,17 @@ def create_app() -> FastAPI:
             upload = gallery_service.get_upload(upload_id)
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)
-        # r29: 若 user 登入，加 liked_by_me 給前端 button 狀態
+        # r29 / r29b: 若 user 登入，加 liked_by_me + bookmarked_by_me
         user = _resolve_user(psd_session)
         if user is not None:
             info = gallery_service.get_like_info(
                 upload_id=upload_id, user_id=user["id"])
             upload["liked_by_me"] = info["liked_by_me"]
+            upload["bookmarked_by_me"] = gallery_service.is_bookmarked_by(
+                upload_id=upload_id, user_id=user["id"])
         else:
             upload["liked_by_me"] = False
+            upload["bookmarked_by_me"] = False
         return {"upload": upload}
 
     @app.get("/api/gallery/uploads/{upload_id}/download")
@@ -3846,6 +3867,21 @@ def create_app() -> FastAPI:
         user = _require_user(psd_session)
         try:
             result = gallery_service.toggle_like(
+                user_id=user["id"], upload_id=upload_id,
+            )
+        except gallery_service.GalleryError as e:
+            _gallery_error_to_http(e)
+        return result
+
+    # Phase 5b r29b: bookmark toggle endpoint（需登入）
+    @app.post("/api/gallery/uploads/{upload_id}/bookmark")
+    async def gallery_uploads_bookmark(
+        upload_id: int,
+        psd_session: Optional[str] = Cookie(default=None),
+    ):
+        user = _require_user(psd_session)
+        try:
+            result = gallery_service.toggle_bookmark(
                 user_id=user["id"], upload_id=upload_id,
             )
         except gallery_service.GalleryError as e:

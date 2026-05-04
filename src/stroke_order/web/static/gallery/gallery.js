@@ -26,6 +26,10 @@ const state = {
   items: [],
   // Phase 5b r28: kind filter ('' = 全部, 'psd' / 'mandala')
   kindFilter: '',
+  // Phase 5b r29b: sort ('newest' / 'likes')
+  sort: 'newest',
+  // Phase 5b r29b: 「我的收藏」filter（true 時只列當前 user bookmark 的 upload）
+  bookmarkedOnly: false,
 };
 
 // ============================================================ helpers
@@ -73,6 +77,17 @@ function renderHeader() {
     $('gl-login-btn').hidden = false;
     $('gl-user-menu').hidden = true;
     $('gl-user-dropdown').hidden = true;
+  }
+  // r29b: 「我的收藏」filter tab — 只登入後可見
+  const bookmarkTab = $('gl-filter-bookmark');
+  if (bookmarkTab) {
+    bookmarkTab.hidden = !state.me;
+    // 登出後若還在 bookmarked filter view → 自動切回全部
+    if (!state.me && state.bookmarkedOnly) {
+      state.bookmarkedOnly = false;
+      state.kindFilter = '';
+      _syncFilterTabsActive();
+    }
   }
 }
 
@@ -162,6 +177,50 @@ function renderList() {
         if (it) {
           it.liked_by_me = data.liked;
           it.like_count = data.like_count;
+        }
+      } catch (e) {
+        alert('操作失敗：' + (e.message || e));
+      }
+    });
+  });
+
+  // r29b: Wire bookmark buttons
+  root.querySelectorAll('[data-action="bookmark"]').forEach(btn => {
+    btn.addEventListener('click', async (ev) => {
+      const id = parseInt(ev.currentTarget.dataset.id, 10);
+      if (!Number.isInteger(id)) return;
+      if (!state.me) {
+        if (confirm('需要登入才能收藏。要前往登入嗎？')) {
+          showLoginDialog();
+        }
+        return;
+      }
+      try {
+        const r = await fetch(`/api/gallery/uploads/${id}/bookmark`, {
+          method: 'POST',
+          credentials: 'same-origin',
+        });
+        if (!r.ok) {
+          const data = await r.json().catch(() => ({}));
+          throw new Error(data.detail || `HTTP ${r.status}`);
+        }
+        const data = await r.json();
+        // Optimistic UI
+        const card = ev.currentTarget.closest('.gl-card');
+        if (card) {
+          const icon = card.querySelector('.gl-bookmark-icon');
+          const button = card.querySelector('.gl-btn-bookmark');
+          if (icon) icon.textContent = data.bookmarked ? '📌' : '📍';
+          if (button) {
+            button.classList.toggle('is-bookmarked', data.bookmarked);
+            button.title = data.bookmarked ? '取消收藏' : '收藏';
+          }
+        }
+        const it = state.items.find(x => x.id === id);
+        if (it) it.bookmarked_by_me = data.bookmarked;
+        // 若當前在「我的收藏」filter 且這次取消收藏 → 該 card 應從列表消失
+        if (state.bookmarkedOnly && !data.bookmarked) {
+          await refresh();
         }
       } catch (e) {
         alert('操作失敗：' + (e.message || e));
@@ -260,6 +319,18 @@ function _likeButton(item) {
   </button>`;
 }
 
+// r29b: bookmark button (私人收藏)
+function _bookmarkButton(item) {
+  const bookmarked = item.bookmarked_by_me === true;
+  const icon = bookmarked ? '📌' : '📍';
+  const titleAttr = bookmarked ? '取消收藏' : '收藏';
+  return `<button class="gl-btn gl-btn-bookmark ${bookmarked ? 'is-bookmarked' : ''}"
+    data-action="bookmark" data-id="${item.id}"
+    type="button" title="${titleAttr}">
+    <span class="gl-bookmark-icon">${icon}</span>
+  </button>`;
+}
+
 function _card(item) {
   const isOwn  = state.me && state.me.id === item.user_id;
   const author = item.uploader_display_name
@@ -280,6 +351,7 @@ function _card(item) {
       <div class="gl-card-time">${_formatRelativeTime(item.created_at)}</div>
       <div class="gl-card-actions">
         ${_likeButton(item)}
+        ${_bookmarkButton(item)}
         <a href="/api/gallery/uploads/${item.id}/download"
            class="gl-btn" download>${_downloadLabel(kind)}</a>
         ${ isOwn
@@ -326,6 +398,10 @@ async function _fetchUploads() {
   });
   // r28: kind filter ('' = 全部，不送)
   if (state.kindFilter) params.set('kind', state.kindFilter);
+  // r29b: sort
+  if (state.sort && state.sort !== 'newest') params.set('sort', state.sort);
+  // r29b: bookmarked filter
+  if (state.bookmarkedOnly) params.set('bookmarked', 'true');
   const r = await fetch(`/api/gallery/uploads?${params}`, {
     credentials: 'same-origin',
   });
@@ -387,21 +463,53 @@ function _wireToolbar() {
     if (state.page < totalPages) { state.page++; refresh(); }
   });
 
-  // r28: kind filter tabs
+  // r28 / r29b: filter tabs (kind + bookmarked)
   document.querySelectorAll('.gl-filter-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      const kind = btn.dataset.kind || '';
-      if (state.kindFilter === kind) return;
-      state.kindFilter = kind;
+      const isBookmarked = btn.dataset.bookmarked === 'true';
+      // 切「我的收藏」
+      if (isBookmarked) {
+        // 未登入按 click（理論上不會，因為按鈕 hidden）→ 提示登入
+        if (!state.me) {
+          if (confirm('需要登入才能看「我的收藏」。要前往登入嗎？')) {
+            showLoginDialog();
+          }
+          return;
+        }
+        if (state.bookmarkedOnly && state.kindFilter === '') return;
+        state.bookmarkedOnly = true;
+        state.kindFilter = '';   // bookmarked 跟 kind 互斥（簡化）
+      } else {
+        const kind = btn.dataset.kind || '';
+        if (!state.bookmarkedOnly && state.kindFilter === kind) return;
+        state.bookmarkedOnly = false;
+        state.kindFilter = kind;
+      }
       state.page = 1;
-      // Update aria + active class
-      document.querySelectorAll('.gl-filter-tab').forEach(b => {
-        const active = (b.dataset.kind || '') === kind;
-        b.classList.toggle('is-active', active);
-        b.setAttribute('aria-selected', active ? 'true' : 'false');
-      });
+      _syncFilterTabsActive();
       refresh();
     });
+  });
+
+  // r29b: sort dropdown
+  $('gl-sort').addEventListener('change', (ev) => {
+    state.sort = ev.target.value;
+    state.page = 1;
+    refresh();
+  });
+}
+
+// r29b: sync 哪個 filter tab 當前 active
+function _syncFilterTabsActive() {
+  document.querySelectorAll('.gl-filter-tab').forEach(b => {
+    let active;
+    if (b.dataset.bookmarked === 'true') {
+      active = state.bookmarkedOnly === true;
+    } else {
+      active = !state.bookmarkedOnly && (b.dataset.kind || '') === state.kindFilter;
+    }
+    b.classList.toggle('is-active', active);
+    b.setAttribute('aria-selected', active ? 'true' : 'false');
   });
 }
 

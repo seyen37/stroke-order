@@ -582,18 +582,30 @@ def get_upload(upload_id: int) -> dict:
     return _row_to_dict(row)
 
 
+SORT_NEWEST = "newest"
+SORT_LIKES  = "likes"
+ALLOWED_SORTS = (SORT_NEWEST, SORT_LIKES)
+
+
 def list_uploads(
     *, page: int = 1, size: int = DEFAULT_PAGE_SIZE,
     include_hidden: bool = False,
     kind: Optional[str] = None,
     viewer_user_id: Optional[int] = None,
+    sort: str = SORT_NEWEST,
+    bookmarked_by: Optional[int] = None,
 ) -> dict:
-    """Paginated upload list, newest first. Returns:
+    """Paginated upload list. Returns:
         { items: [...], total, page, size }
 
     Phase 5b r28: ``kind`` filter（``"psd"`` / ``"mandala"`` / None=全部）。
-    Phase 5b r29: ``viewer_user_id`` 若提供，每個 item 加 ``liked_by_me`` 欄
-    （該 user 是否 like 過此 upload）；匿名 / 未登入 → 全 False。
+    Phase 5b r29: ``viewer_user_id`` 若提供，每個 item 加 ``liked_by_me``
+    + ``bookmarked_by_me`` 欄；匿名 / 未登入 → 全 False。
+    Phase 5b r29b:
+    - ``sort`` ∈ {``"newest"``, ``"likes"``}：default newest（created_at DESC），
+      ``"likes"`` 改 like_count DESC + created_at DESC tiebreak
+    - ``bookmarked_by`` 若提供（user_id），只列出該 user bookmark 過的 uploads
+      （給「我的收藏」filter tab 用）
     """
     page = max(1, int(page))
     size = max(1, min(MAX_PAGE_SIZE, int(size)))
@@ -610,17 +622,37 @@ def list_uploads(
             )
         where_parts.append("u.kind = ?")
         params.append(kind)
+    # r29b: bookmarked_by filter（「我的收藏」）— 只列該 user bookmark 的 uploads
+    if bookmarked_by is not None:
+        where_parts.append(
+            "EXISTS(SELECT 1 FROM bookmarks b "
+            "WHERE b.user_id = ? AND b.upload_id = u.id)",
+        )
+        params.append(bookmarked_by)
     where = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
 
     # r29: viewer_user_id 若 None → 用 -1 placeholder（不存在的 user_id），
-    # EXISTS subquery 永遠 false → liked_by_me 全 0
+    # EXISTS subquery 永遠 false → liked_by_me / bookmarked_by_me 全 0
     viewer_id = viewer_user_id if viewer_user_id is not None else -1
+
+    # r29b: sort 選項
+    if sort not in ALLOWED_SORTS:
+        raise InvalidUpload(
+            f"不支援的 sort: {sort!r}（已知：{', '.join(ALLOWED_SORTS)}）",
+        )
+    if sort == SORT_LIKES:
+        # like_count column 來自 SELECT，可直接用做 ORDER BY
+        order_by = "ORDER BY like_count DESC, u.created_at DESC, u.id DESC"
+    else:
+        order_by = "ORDER BY u.created_at DESC, u.id DESC"
 
     with db_connection() as conn:
         total = conn.execute(
             f"SELECT count(*) AS n FROM uploads u {where}",
             params,
         ).fetchone()["n"]
+        # SELECT params order: [viewer_id (liked), viewer_id (bookmarked)] +
+        # WHERE params + LIMIT/OFFSET
         rows = conn.execute(
             f"SELECT u.*, "
             f"  usr.email        AS uploader_email, "
@@ -628,13 +660,15 @@ def list_uploads(
             f"  (SELECT count(*) FROM likes l WHERE l.upload_id = u.id) "
             f"    AS like_count, "
             f"  EXISTS(SELECT 1 FROM likes l WHERE l.user_id = ? "
-            f"    AND l.upload_id = u.id) AS liked_by_me "
+            f"    AND l.upload_id = u.id) AS liked_by_me, "
+            f"  EXISTS(SELECT 1 FROM bookmarks b WHERE b.user_id = ? "
+            f"    AND b.upload_id = u.id) AS bookmarked_by_me "
             f"FROM uploads u "
             f"JOIN users usr ON usr.id = u.user_id "
             f"{where} "
-            f"ORDER BY u.created_at DESC, u.id DESC "
+            f"{order_by} "
             f"LIMIT ? OFFSET ?",
-            [viewer_id] + params + [size, offset],
+            [viewer_id, viewer_id] + params + [size, offset],
         ).fetchall()
 
     return {
@@ -711,6 +745,49 @@ def get_like_info(*, upload_id: int, user_id: Optional[int] = None) -> dict:
         "like_count": int(count_row["n"]) if count_row else 0,
         "liked_by_me": liked_by_me,
     }
+
+
+# ----------------------------------------------------------- bookmarks (r29b)
+
+def toggle_bookmark(*, user_id: int, upload_id: int) -> dict:
+    """Toggle bookmark for (user_id, upload_id)。
+
+    Bookmark 跟 like 不同：私人收藏，他人不可見計數。Returns:
+        {"bookmarked": bool}
+
+    Raises NotFound 若 upload 不存在。
+    """
+    get_upload(upload_id)  # raises NotFound
+    now = _utcnow_iso()
+    with db_connection() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM bookmarks WHERE user_id = ? AND upload_id = ?",
+            (user_id, upload_id),
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO bookmarks (user_id, upload_id, created_at) "
+                "VALUES (?, ?, ?)",
+                (user_id, upload_id, now),
+            )
+            bookmarked = True
+        else:
+            conn.execute(
+                "DELETE FROM bookmarks WHERE user_id = ? AND upload_id = ?",
+                (user_id, upload_id),
+            )
+            bookmarked = False
+    return {"bookmarked": bookmarked}
+
+
+def is_bookmarked_by(*, upload_id: int, user_id: int) -> bool:
+    """User 是否 bookmark 過此 upload。"""
+    with db_connection() as conn:
+        r = conn.execute(
+            "SELECT 1 FROM bookmarks WHERE user_id = ? AND upload_id = ?",
+            (user_id, upload_id),
+        ).fetchone()
+    return r is not None
 
 
 # ----------------------------------------------------------- delete
@@ -812,4 +889,7 @@ def _row_to_dict(row) -> dict:
     # r29: liked_by_me bool（SQLite EXISTS 回 0/1，cast 成 bool）
     if "liked_by_me" in d:
         d["liked_by_me"] = bool(d["liked_by_me"])
+    # r29b: bookmarked_by_me 同樣 cast
+    if "bookmarked_by_me" in d:
+        d["bookmarked_by_me"] = bool(d["bookmarked_by_me"])
     return d

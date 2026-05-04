@@ -169,6 +169,44 @@ button:focus-visible {
 .gl-card-kind-psd     { background: #fff4d4; color: #6c5300; }
 .gl-card-kind-mandala { background: #ffeae0; color: #832500; }
 
+/* Phase 5b r29b: sort dropdown */
+.gl-sort {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--gl-line, #ddd);
+  border-radius: 4px;
+  background: var(--gl-surface, #fff);
+  cursor: pointer;
+}
+
+/* Phase 5b r29b: bookmark filter tab — 視覺強調 */
+.gl-filter-tab.gl-filter-bookmark {
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--gl-line, #ddd);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Phase 5b r29b: bookmark button on cards */
+.gl-btn-bookmark {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.gl-btn-bookmark .gl-bookmark-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+.gl-btn-bookmark.is-bookmarked {
+  background: #fff8e8;
+  border-color: #d99800;
+}
+.gl-btn-bookmark:hover .gl-bookmark-icon {
+  transform: scale(1.15);
+  transition: transform 0.1s ease;
+}
+
 /* Phase 5b r29: like button on cards */
 .gl-btn-like {
   display: inline-flex;
