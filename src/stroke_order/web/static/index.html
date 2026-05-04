@@ -2210,6 +2210,13 @@
       <input id="md-import-file" type="file"
              accept=".md,.mandala.md,.svg,text/markdown,image/svg+xml"
              style="display:none;">
+      <!-- Phase 5b r28: 上傳到 Gallery（公眾分享庫） -->
+      <button id="md-gallery-upload-btn" type="button"
+              style="padding:4px 12px;font-size:12px;border:1px solid #832500;
+                     border-radius:4px;background:#fff;color:#832500;cursor:pointer;"
+              title="把目前的曼陀羅 (含中文 title + 設計意圖) 上傳到公眾分享庫">
+        ⬆️ 上傳到 Gallery
+      </button>
     </div>
     <div class="row" style="background:#f0f7ff;border-left:3px solid #46a;
          padding:6px 10px;border-radius:3px;align-items:flex-start;gap:8px;">
@@ -5256,6 +5263,78 @@ document.getElementById("md-import-file")?.addEventListener("change", async (ev)
 });
 
 // ===== r27 module END =====
+
+// ===== Phase 5b r28: 上傳到 Gallery（公眾分享庫） =====
+// 把當前 mandala state 序列化成 .mandala.md 後 POST 到 /api/gallery/uploads。
+// 共享 r27 的 mandalaBuildState + serializeMandalaMd（單一真相來源）。
+// 需登入：未登入時顯示提示請 user 先到 /gallery 登入再回。
+document.getElementById("md-gallery-upload-btn")?.addEventListener("click",
+  async () => {
+    if (typeof jsyaml === "undefined") {
+      alert("js-yaml 函式庫未載入（CDN 失敗？）");
+      return;
+    }
+    const titleEl = document.getElementById("md-title");
+    const title = (titleEl?.value || "").trim();
+    if (!title) {
+      alert("請先在「📁 曼陀羅檔案」區塊填上標題後再上傳。\n"
+          + "標題會顯示在公眾分享庫，做為作品名稱。");
+      titleEl?.focus();
+      return;
+    }
+    const designNote = (document.getElementById("md-design-note")?.value || "").trim();
+    const ok = confirm(
+      `上傳到公眾分享庫嗎？\n\n` +
+      `標題：${title}\n` +
+      `設計意圖：${designNote || "（無）"}\n\n` +
+      `所有上傳皆公開可下載；只有您本人能刪除。\n` +
+      `（若尚未登入，會跳到 /gallery 登入頁）`,
+    );
+    if (!ok) return;
+
+    let mdText;
+    try {
+      const state = mandalaBuildState();
+      state.metadata = _mandalaCurrentMetadata();
+      mdText = serializeMandalaMd(state);
+    } catch (e) {
+      alert("序列化 mandala 設定失敗：" + (e.message || e));
+      console.error(e);
+      return;
+    }
+    const slug = _mandalaSlugifyFilename({ metadata: _mandalaCurrentMetadata() });
+    const blob = new Blob([mdText], { type: "text/markdown;charset=utf-8" });
+    const fd = new FormData();
+    fd.append("file", blob, slug);
+    fd.append("title", title);
+    fd.append("comment", designNote);
+    fd.append("kind", "mandala");
+    try {
+      const r = await fetch("/api/gallery/uploads", {
+        method: "POST",
+        body: fd,
+        credentials: "same-origin",
+      });
+      if (r.status === 401 || r.status === 403) {
+        if (confirm("尚未登入 Gallery。要前往 /gallery 登入嗎？\n登入後請再回此頁重試上傳。")) {
+          window.open("/gallery", "_blank");
+        }
+        return;
+      }
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(data.detail || `HTTP ${r.status}`);
+      }
+      const id = data.upload?.id;
+      if (confirm(`✓ 上傳成功！(id = ${id})\n\n要前往 Gallery 看作品嗎？`)) {
+        window.open("/gallery", "_blank");
+      }
+    } catch (e) {
+      alert("上傳失敗：" + (e.message || e));
+      console.error(e);
+    }
+  });
+// ===== r28 upload-to-gallery END =====
 
 function mandalaBuildParams() {
   const g = id => document.getElementById(id).value;

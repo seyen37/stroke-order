@@ -3703,14 +3703,26 @@ def create_app() -> FastAPI:
     async def gallery_uploads_list(
         page: int = Query(1, ge=1),
         size: int = Query(20, ge=1, le=100),
+        # Phase 5b r28: 可選 kind filter (psd / mandala)；未傳 = 全部
+        kind: Optional[str] = Query(
+            None, pattern="^(psd|mandala)$",
+            description="upload 種類 filter；未傳列出全部",
+        ),
     ):
-        return gallery_service.list_uploads(page=page, size=size)
+        try:
+            return gallery_service.list_uploads(
+                page=page, size=size, kind=kind,
+            )
+        except gallery_service.GalleryError as e:
+            _gallery_error_to_http(e)
 
     @app.post("/api/gallery/uploads")
     async def gallery_uploads_create(
         file: UploadFile = File(...),
         title: str = Form(...),
         comment: str = Form(""),
+        # Phase 5b r28: kind 表單欄位；default 'psd' 給既有 PSD 上傳保留向後相容
+        kind: str = Form("psd"),
         psd_session: Optional[str] = Cookie(default=None),
     ):
         user = _require_user(psd_session)
@@ -3722,6 +3734,7 @@ def create_app() -> FastAPI:
                 filename=file.filename,
                 title=title,
                 comment=comment,
+                kind=kind,
             )
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)
@@ -3748,11 +3761,28 @@ def create_app() -> FastAPI:
                 500,
                 detail="檔案在伺服器上遺失（DB 紀錄存在但實體檔不見）",
             )
+        # Phase 5b r28: kind-aware filename + media_type
+        kind = upload.get("kind") or "psd"
+        ext_map = {"psd": ".json", "mandala": ".md"}  # mandala 多數是 md
+        # 真實副檔名從 file_path 抓（mandala 可能是 .svg）
+        real_ext = ""
+        try:
+            real_ext = "." + str(upload.get("file_path", "")).rsplit(".", 1)[-1]
+        except Exception:
+            real_ext = ext_map.get(kind, ".bin")
+        if real_ext not in (".json", ".md", ".svg"):
+            real_ext = ext_map.get(kind, ".bin")
+        media_map = {
+            ".json": "application/json",
+            ".md":   "text/markdown",
+            ".svg":  "image/svg+xml",
+        }
+        media_type = media_map.get(real_ext, "application/octet-stream")
         nice_name = (upload.get("filename") or
-                     f"psd_{upload_id}.json")
+                     f"{kind}_{upload_id}{real_ext}")
         return FileResponse(
             path,
-            media_type="application/json",
+            media_type=media_type,
             filename=nice_name,
         )
 

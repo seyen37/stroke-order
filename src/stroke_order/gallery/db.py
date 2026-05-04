@@ -33,6 +33,11 @@ CREATE TABLE IF NOT EXISTS uploads (
     file_path       TEXT NOT NULL,
     file_size       INTEGER NOT NULL,
     file_hash       TEXT NOT NULL,
+    -- Phase 5b r28: 多 upload 種類（psd / mandala / 未來其他）
+    kind            TEXT NOT NULL DEFAULT 'psd',
+    -- Phase 5b r28: kind-specific summary (JSON dict)，取代硬塞 trace_count
+    summary_json    TEXT,
+    -- Legacy PSD 專用（5d r5e 階段，保留向後相容；新 kind 改用 summary_json）
     trace_count     INTEGER NOT NULL DEFAULT 0,
     unique_chars    INTEGER NOT NULL DEFAULT 0,
     styles_used     TEXT,           -- JSON array, e.g. ["kaishu","lishu"]
@@ -48,6 +53,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS uploads_user_hash
 -- Cross-user listings: by created_at for the default 'newest' sort
 CREATE INDEX IF NOT EXISTS uploads_created_at
     ON uploads(created_at);
+
+-- Phase 5b r28: kind filter（gallery 列表 tabs）
+CREATE INDEX IF NOT EXISTS uploads_kind
+    ON uploads(kind);
 
 CREATE TABLE IF NOT EXISTS login_tokens (
     token_hash      TEXT PRIMARY KEY,    -- sha256(token), so leaking
@@ -80,6 +89,24 @@ CREATE INDEX IF NOT EXISTS sessions_expires
 _schema_initialised: set[str] = set()
 
 
+def _migrate_uploads_kind_columns(conn: sqlite3.Connection) -> None:
+    """Phase 5b r28: 加 `kind` + `summary_json` 給 uploads（existing DB 升版）。
+
+    新建 DB 透過 SCHEMA 已含這兩欄；existing DB（5d / 5g 部署）需 ALTER TABLE
+    補上。SQLite ALTER TABLE ADD COLUMN 不支援 IF NOT EXISTS，故先查
+    PRAGMA table_info 判斷。
+
+    既有 rows 會因 DEFAULT 'psd' 自動 backfill，無需 UPDATE。
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(uploads)")}
+    if "kind" not in cols:
+        conn.execute(
+            "ALTER TABLE uploads ADD COLUMN kind TEXT NOT NULL DEFAULT 'psd'"
+        )
+    if "summary_json" not in cols:
+        conn.execute("ALTER TABLE uploads ADD COLUMN summary_json TEXT")
+
+
 def _ensure_schema(path_str: str) -> None:
     if path_str in _schema_initialised:
         return
@@ -89,6 +116,8 @@ def _ensure_schema(path_str: str) -> None:
     conn = sqlite3.connect(path_str)
     try:
         conn.executescript(SCHEMA)
+        # r28 migration: existing DB 補 column（idempotent）
+        _migrate_uploads_kind_columns(conn)
         conn.commit()
     finally:
         conn.close()

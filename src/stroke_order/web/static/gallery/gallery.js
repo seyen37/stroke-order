@@ -24,6 +24,8 @@ const state = {
   size: 12,
   total: 0,
   items: [],
+  // Phase 5b r28: kind filter ('' = 全部, 'psd' / 'mandala')
+  kindFilter: '',
 };
 
 // ============================================================ helpers
@@ -128,32 +130,82 @@ function renderList() {
   $('gl-page-label').textContent = `${state.page} / ${totalPages}`;
 }
 
+function _kindBadge(kind) {
+  const labels = { psd: '抄經', mandala: '曼陀羅' };
+  const k = kind || 'psd';
+  return `<span class="gl-card-kind gl-card-kind-${_escape(k)}">${
+    _escape(labels[k] || k)
+  }</span>`;
+}
+
+function _kindMeta(item) {
+  // r28: kind-specific summary line（取代寫死的 trace_count / unique_chars）
+  const kind = item.kind || 'psd';
+  const summary = item.summary || {};
+  if (kind === 'mandala') {
+    const parts = [];
+    if (summary.layer_count != null) {
+      parts.push(`<span><b>${summary.layer_count}</b> 裝飾層</span>`);
+    }
+    if (summary.ring_count != null) {
+      parts.push(`<span>·</span><span><b>${summary.ring_count}</b> 環</span>`);
+    }
+    if (summary.center_text) {
+      parts.push(`<span>·</span><span>中心 <b>${_escape(summary.center_text)}</b></span>`);
+    }
+    return parts.join(' ');
+  }
+  // psd: legacy trace_count / unique_chars
+  return (
+    `<span><b>${item.trace_count}</b> 筆軌跡</span>` +
+    `<span>·</span>` +
+    `<span><b>${item.unique_chars}</b> 字</span>`
+  );
+}
+
+function _kindStyles(item) {
+  // psd: styles_used pills；mandala: mandala_style + composition_scheme pills
+  const kind = item.kind || 'psd';
+  if (kind === 'mandala') {
+    const s = item.summary || {};
+    const pills = [];
+    if (s.mandala_style) {
+      pills.push(`<span class="gl-pill">${_escape(s.mandala_style)}</span>`);
+    }
+    if (s.composition_scheme) {
+      pills.push(`<span class="gl-pill">${_escape(s.composition_scheme)}</span>`);
+    }
+    return pills.join(' ');
+  }
+  return (item.styles_used || []).map(s =>
+    `<span class="gl-pill">${_escape(s)}</span>`,
+  ).join('');
+}
+
+function _downloadLabel(kind) {
+  return kind === 'mandala' ? '↓ 下載 (.md / .svg)' : '↓ 下載 JSON';
+}
+
 function _card(item) {
   const isOwn  = state.me && state.me.id === item.user_id;
   const author = item.uploader_display_name
               || _emailHandle(item.uploader_email);
-  const styles = (item.styles_used || []).map(s =>
-    `<span class="gl-pill">${_escape(s)}</span>`,
-  ).join('');
+  const kind   = item.kind || 'psd';
   return `
-    <article class="gl-card" data-id="${item.id}">
+    <article class="gl-card" data-id="${item.id}" data-kind="${_escape(kind)}">
       <div class="gl-card-header">
-        <div class="gl-card-title">${_escape(item.title)}</div>
+        <div class="gl-card-title">${_escape(item.title)}${_kindBadge(kind)}</div>
         <div class="gl-card-author">${_escape(author)}</div>
       </div>
-      <div class="gl-card-meta">
-        <span><b>${item.trace_count}</b> 筆軌跡</span>
-        <span>·</span>
-        <span><b>${item.unique_chars}</b> 字</span>
-      </div>
-      <div class="gl-card-styles">${styles || ''}</div>
+      <div class="gl-card-meta">${_kindMeta(item)}</div>
+      <div class="gl-card-styles">${_kindStyles(item)}</div>
       ${ item.comment
          ? `<div class="gl-card-comment">${_escape(item.comment)}</div>`
          : '' }
       <div class="gl-card-time">${_formatRelativeTime(item.created_at)}</div>
       <div class="gl-card-actions">
         <a href="/api/gallery/uploads/${item.id}/download"
-           class="gl-btn" download>↓ 下載 JSON</a>
+           class="gl-btn" download>${_downloadLabel(kind)}</a>
         ${ isOwn
            ? `<button class="gl-btn gl-btn-danger"
                        data-action="delete" data-id="${item.id}"
@@ -196,6 +248,8 @@ async function _fetchUploads() {
     page: state.page,
     size: state.size,
   });
+  // r28: kind filter ('' = 全部，不送)
+  if (state.kindFilter) params.set('kind', state.kindFilter);
   const r = await fetch(`/api/gallery/uploads?${params}`, {
     credentials: 'same-origin',
   });
@@ -255,6 +309,23 @@ function _wireToolbar() {
   $('gl-page-next').addEventListener('click', () => {
     const totalPages = Math.max(1, Math.ceil(state.total / state.size));
     if (state.page < totalPages) { state.page++; refresh(); }
+  });
+
+  // r28: kind filter tabs
+  document.querySelectorAll('.gl-filter-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const kind = btn.dataset.kind || '';
+      if (state.kindFilter === kind) return;
+      state.kindFilter = kind;
+      state.page = 1;
+      // Update aria + active class
+      document.querySelectorAll('.gl-filter-tab').forEach(b => {
+        const active = (b.dataset.kind || '') === kind;
+        b.classList.toggle('is-active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      refresh();
+    });
   });
 }
 

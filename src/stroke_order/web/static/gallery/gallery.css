@@ -130,6 +130,45 @@ button:focus-visible {
   font-size: 12px;
 }
 
+/* Phase 5b r28: kind filter tabs */
+.gl-filter-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--gl-bg, #f5f5f5);
+  border-radius: 6px;
+  padding: 2px;
+}
+.gl-filter-tab {
+  padding: 4px 12px;
+  font-size: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--gl-muted);
+  transition: background 0.15s, color 0.15s;
+}
+.gl-filter-tab:hover { color: var(--gl-fg, #222); }
+.gl-filter-tab.is-active {
+  background: var(--gl-surface, #fff);
+  color: var(--gl-fg, #222);
+  border-color: var(--gl-line, #ddd);
+  font-weight: 600;
+}
+
+/* kind badge on cards */
+.gl-card-kind {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-left: 6px;
+  font-size: 10px;
+  border-radius: 3px;
+  vertical-align: middle;
+  font-weight: 600;
+}
+.gl-card-kind-psd     { background: #fff4d4; color: #6c5300; }
+.gl-card-kind-mandala { background: #ffeae0; color: #832500; }
+
 /* ----- main / list -------------------------------------------------- */
 .gl-main {
   padding: 16px;

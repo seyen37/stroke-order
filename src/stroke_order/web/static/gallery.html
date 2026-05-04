@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>公眾分享庫 — stroke-order</title>
   <link rel="stylesheet" href="/static/gallery/gallery.css">
+  <!-- Phase 5b r28: 接 mandala upload — 客戶端 .mandala.md frontmatter 解析 -->
+  <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
 </head>
 <body>
 
@@ -45,14 +47,23 @@
 <!-- 隱私 / 說明 banner（永遠可見） -->
 <div class="gl-banner gl-banner-info">
   <b>📤 公眾分享庫</b>
-  ：分享您在筆順練習頁累積的 PSD JSON 檔。所有上傳的檔案皆為公開可下載；只有您本人能刪除自己上傳的內容。
+  ：分享您匯出的抄經軌跡 (PSD) 或曼陀羅 (mandala) 檔案。所有上傳皆公開可下載；只有您本人能刪除自己的上傳。
 </div>
 
 <!-- main toolbar -->
 <section class="gl-toolbar">
   <button id="gl-upload-btn" class="gl-btn gl-btn-primary" type="button">
-    ↑ 上傳 PSD
+    ↑ 上傳檔案
   </button>
+  <!-- Phase 5b r28: kind filter tabs -->
+  <div class="gl-filter-tabs" role="tablist" aria-label="檔案種類">
+    <button class="gl-filter-tab is-active" data-kind=""
+            type="button" role="tab" aria-selected="true">全部</button>
+    <button class="gl-filter-tab" data-kind="psd"
+            type="button" role="tab" aria-selected="false">抄經軌跡</button>
+    <button class="gl-filter-tab" data-kind="mandala"
+            type="button" role="tab" aria-selected="false">曼陀羅</button>
+  </div>
   <input id="gl-search" type="search" placeholder="搜尋標題 / 評論 / 作者…"
          autocomplete="off" hidden>
   <span class="gl-toolbar-spacer"></span>
@@ -104,15 +115,20 @@
   <form class="gl-dialog-form" id="gl-upload-form">
     <h2>上傳 PSD</h2>
     <p class="gl-hint">
-      上傳您從 <a href="/handwriting" target="_blank">筆順練習</a> 匯出的
-      JSON 檔（schema = <code>stroke-order-psd-v1</code>）。
+      支援兩種上傳：<br>
+      • <a href="/handwriting" target="_blank">筆順練習</a> 匯出的
+        <code>.json</code>（schema = <code>stroke-order-psd-v1</code>）<br>
+      • <a href="/" target="_blank">曼陀羅模式</a> 匯出的
+        <code>.mandala.md</code> 或內嵌 metadata 的 <code>.svg</code>
+        （schema = <code>stroke-order-mandala-v1</code>）<br>
       檔案上限 10 MB，每日最多 20 次上傳。
     </p>
 
     <label>
       檔案 <span class="gl-req">*</span>
       <input id="gl-upload-file" type="file"
-             accept=".json,application/json" required>
+             accept=".json,.md,.mandala.md,.svg,application/json,text/markdown,image/svg+xml"
+             required>
     </label>
 
     <div id="gl-upload-preview" class="gl-upload-preview" hidden></div>
