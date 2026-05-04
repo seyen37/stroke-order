@@ -15,6 +15,8 @@ import {
   attachAuthHandlers,
 } from './auth.js';
 import { showUploadDialog, attachUploaderHandlers } from './uploader.js';
+// r29f: URL hash <-> state pure helpers (testable from Node)
+import { stateToHash, parseHash } from './hash.mjs';
 
 const $ = id => document.getElementById(id);
 
@@ -394,9 +396,65 @@ function _card(item) {
 }
 
 
+// ============================================================ hash route (r29f)
+
+// 自家 hash 寫入時 skip own hashchange（避免 loop）
+let _writingHash = false;
+
+function _writeHash() {
+  const target = stateToHash(state);
+  const current = window.location.hash;
+  if (current === target) return;
+  // 空 target 仍視為「清掉」— 用 replaceState 不留下 trailing '#'
+  _writingHash = true;
+  try {
+    if (target === '') {
+      // 清 hash：用 replaceState 留乾淨 URL（hashchange 不觸發）
+      const cleanUrl = window.location.pathname + window.location.search;
+      history.replaceState(null, '', cleanUrl);
+    } else {
+      // hash 已含 leading '#'，但 location.hash setter 兩種寫法都可
+      window.location.hash = target;
+    }
+  } finally {
+    // hashchange 是 macrotask；用 setTimeout(0) 排在它之後解 flag
+    setTimeout(() => { _writingHash = false; }, 0);
+  }
+}
+
+function _applyHashPatchToState(patch) {
+  state.userFilter = patch.userFilter;
+  state.sort = patch.sort;
+  state.q = patch.q;
+  state.kindFilter = patch.kindFilter;
+  // bookmarkedOnly / page 不從 hash 還原 — 翻頁從 1 起，bookmarked 是私人 view
+  state.page = 1;
+  if (patch.userFilter === null) state.profile = null;
+}
+
+function _syncUiFromState() {
+  // 把 state 推回 UI 控件（hash 進入時用）
+  const sortEl = $('gl-sort');
+  if (sortEl && sortEl.value !== state.sort) sortEl.value = state.sort;
+  const searchEl = $('gl-search');
+  if (searchEl && searchEl.value !== state.q) searchEl.value = state.q;
+  _syncFilterTabsActive();
+}
+
+function _onHashChange() {
+  if (_writingHash) return;  // 自家寫入觸發 — 略過
+  const patch = parseHash(window.location.hash);
+  _applyHashPatchToState(patch);
+  _syncUiFromState();
+  refresh();
+}
+
+
 // ============================================================ data fetch
 
 async function refresh() {
+  // r29f: state 變動 → 同步進 hash（refresh 是 mutation 統一入口）
+  _writeHash();
   // r29d: 若 userFilter set，多 fetch 一個 profile request
   const fetches = [
     fetchMe().catch(() => ({logged_in: false})),
@@ -683,5 +741,10 @@ function _syncFilterTabsActive() {
   attachAuthHandlers({ refresh });
   attachUploaderHandlers({ refresh });
   _wireToolbar();
+  // r29f: 讀 hash → 套進 state（在 first refresh 之前，避免閃畫面）
+  _applyHashPatchToState(parseHash(window.location.hash));
+  _syncUiFromState();
+  // r29f: 監聽外部來源改 hash（user 上一頁 / 點 profile 連結進入 / 手動改網址）
+  window.addEventListener('hashchange', _onHashChange);
   await refresh();
 })();
