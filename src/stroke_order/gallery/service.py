@@ -584,7 +584,11 @@ def get_upload(upload_id: int) -> dict:
 
 SORT_NEWEST = "newest"
 SORT_LIKES  = "likes"
-ALLOWED_SORTS = (SORT_NEWEST, SORT_LIKES)
+SORT_HOT    = "hot"
+ALLOWED_SORTS = (SORT_NEWEST, SORT_LIKES, SORT_HOT)
+
+# r29c: Search query 字串長度上限（避免巨大 LIKE pattern 拖慢）
+MAX_SEARCH_QUERY_LEN = 100
 
 
 def list_uploads(
@@ -594,6 +598,7 @@ def list_uploads(
     viewer_user_id: Optional[int] = None,
     sort: str = SORT_NEWEST,
     bookmarked_by: Optional[int] = None,
+    q: Optional[str] = None,
 ) -> dict:
     """Paginated upload list. Returns:
         { items: [...], total, page, size }
@@ -606,6 +611,11 @@ def list_uploads(
       ``"likes"`` 改 like_count DESC + created_at DESC tiebreak
     - ``bookmarked_by`` 若提供（user_id），只列出該 user bookmark 過的 uploads
       （給「我的收藏」filter tab 用）
+    Phase 5b r29c:
+    - ``sort`` 加 ``"hot"``：linear ranking ``like_count * 5 + julianday(created_at)``，
+      每 like 抵 5 天 recency boost，自然 surface 最近 + 受歡迎的內容
+    - ``q``：search query，比對 title / comment / uploader email / display_name
+      （SQLite LIKE ``%q%``，max_length=100；空字串視同 None）
     """
     page = max(1, int(page))
     size = max(1, min(MAX_PAGE_SIZE, int(size)))
@@ -629,13 +639,30 @@ def list_uploads(
             "WHERE b.user_id = ? AND b.upload_id = u.id)",
         )
         params.append(bookmarked_by)
+    # r29c: search query — 比對 title / comment / uploader email / display_name
+    q_clean = (q or "").strip() if q is not None else ""
+    if q_clean:
+        if len(q_clean) > MAX_SEARCH_QUERY_LEN:
+            raise InvalidUpload(
+                f"search query 過長（最多 {MAX_SEARCH_QUERY_LEN} 字）",
+            )
+        # LIKE 特殊字元 escape（_ % 都是 wildcard，純字面 user 搜尋不該 match wildcards）
+        q_escaped = q_clean.replace("\\", r"\\").replace("%", r"\%").replace("_", r"\_")
+        like_pat = f"%{q_escaped}%"
+        where_parts.append(
+            "(u.title LIKE ? ESCAPE '\\' "
+            "OR COALESCE(u.comment, '') LIKE ? ESCAPE '\\' "
+            "OR usr.email LIKE ? ESCAPE '\\' "
+            "OR COALESCE(usr.display_name, '') LIKE ? ESCAPE '\\')",
+        )
+        params.extend([like_pat, like_pat, like_pat, like_pat])
     where = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
 
     # r29: viewer_user_id 若 None → 用 -1 placeholder（不存在的 user_id），
     # EXISTS subquery 永遠 false → liked_by_me / bookmarked_by_me 全 0
     viewer_id = viewer_user_id if viewer_user_id is not None else -1
 
-    # r29b: sort 選項
+    # r29b/r29c: sort 選項
     if sort not in ALLOWED_SORTS:
         raise InvalidUpload(
             f"不支援的 sort: {sort!r}（已知：{', '.join(ALLOWED_SORTS)}）",
@@ -643,12 +670,28 @@ def list_uploads(
     if sort == SORT_LIKES:
         # like_count column 來自 SELECT，可直接用做 ORDER BY
         order_by = "ORDER BY like_count DESC, u.created_at DESC, u.id DESC"
+    elif sort == SORT_HOT:
+        # r29c: hot ranking — log-scale likes + julianday recency
+        # log(like_count) * 5 + julianday(created_at)，每 log10 點 likes（10x）
+        # = 5 天 boost。例：50 likes (≈log10=1.7×5≈8.5 days boost) vs
+        # 0 likes today: 法輪 (5 likes 1d ago) > 古寺 (0 likes today) >
+        # 九字 (20 likes 9d) > 漢字 (50 likes 19d)，符合「最近受歡迎」直覺。
+        # SQLite log() = log10()，CASE 處理 0 likes（log10(0) = -inf）
+        order_by = (
+            "ORDER BY ("
+            "CASE WHEN COALESCE(like_count, 0) > 0 "
+            "  THEN log(like_count) * 5.0 ELSE 0 END "
+            "+ julianday(u.created_at)"
+            ") DESC, u.id DESC"
+        )
     else:
         order_by = "ORDER BY u.created_at DESC, u.id DESC"
 
     with db_connection() as conn:
+        # r29c: count query 也 JOIN users（給 search 比對 usr.email / display_name 用）
         total = conn.execute(
-            f"SELECT count(*) AS n FROM uploads u {where}",
+            f"SELECT count(*) AS n "
+            f"FROM uploads u JOIN users usr ON usr.id = u.user_id {where}",
             params,
         ).fetchone()["n"]
         # SELECT params order: [viewer_id (liked), viewer_id (bookmarked)] +

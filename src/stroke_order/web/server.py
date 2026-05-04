@@ -3730,15 +3730,20 @@ def create_app() -> FastAPI:
             None, pattern="^(psd|mandala)$",
             description="upload 種類 filter；未傳列出全部",
         ),
-        # Phase 5b r29b: sort by newest (default) or likes
+        # Phase 5b r29b/r29c: sort 選項
         sort: str = Query(
-            "newest", pattern="^(newest|likes)$",
-            description="排序：newest (default) 按上傳時間 / likes 按 like 數",
+            "newest", pattern="^(newest|likes|hot)$",
+            description="排序：newest (default) / likes / hot (r29c 加 hot)",
         ),
         # Phase 5b r29b: 「我的收藏」filter — 只列當前 user 已 bookmark 的 upload
         bookmarked: bool = Query(
             False,
             description="True 時只列當前 user 已 bookmark 的 upload（需登入）",
+        ),
+        # Phase 5b r29c: text search
+        q: Optional[str] = Query(
+            None, max_length=100,
+            description="search query：比對 title / comment / uploader email / display_name",
         ),
         # Phase 5b r29: 從 cookie 拿 user，list 內每 item 加 liked_by_me
         psd_session: Optional[str] = Cookie(default=None),
@@ -3756,6 +3761,7 @@ def create_app() -> FastAPI:
                 viewer_user_id=(viewer["id"] if viewer else None),
                 sort=sort,
                 bookmarked_by=bookmarked_by,
+                q=q,
             )
         except gallery_service.GalleryError as e:
             _gallery_error_to_http(e)

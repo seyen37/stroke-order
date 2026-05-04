@@ -179,6 +179,20 @@ button:focus-visible {
   cursor: pointer;
 }
 
+/* Phase 5b r29c: search input — show in toolbar */
+#gl-search {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--gl-line, #ddd);
+  border-radius: 4px;
+  background: var(--gl-surface, #fff);
+  min-width: 200px;
+  outline: none;
+}
+#gl-search:focus {
+  border-color: var(--gl-accent, #46a);
+}
+
 /* Phase 5b r29b: bookmark filter tab — 視覺強調 */
 .gl-filter-tab.gl-filter-bookmark {
   margin-left: 8px;

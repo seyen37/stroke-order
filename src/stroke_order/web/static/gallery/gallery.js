@@ -26,10 +26,12 @@ const state = {
   items: [],
   // Phase 5b r28: kind filter ('' = 全部, 'psd' / 'mandala')
   kindFilter: '',
-  // Phase 5b r29b: sort ('newest' / 'likes')
+  // Phase 5b r29b/r29c: sort ('newest' / 'likes' / 'hot')
   sort: 'newest',
   // Phase 5b r29b: 「我的收藏」filter（true 時只列當前 user bookmark 的 upload）
   bookmarkedOnly: false,
+  // Phase 5b r29c: search query（空字串 → 不送 ?q=）
+  q: '',
 };
 
 // ============================================================ helpers
@@ -398,10 +400,12 @@ async function _fetchUploads() {
   });
   // r28: kind filter ('' = 全部，不送)
   if (state.kindFilter) params.set('kind', state.kindFilter);
-  // r29b: sort
+  // r29b/r29c: sort (newest / likes / hot)
   if (state.sort && state.sort !== 'newest') params.set('sort', state.sort);
   // r29b: bookmarked filter
   if (state.bookmarkedOnly) params.set('bookmarked', 'true');
+  // r29c: search query
+  if (state.q) params.set('q', state.q);
   const r = await fetch(`/api/gallery/uploads?${params}`, {
     credentials: 'same-origin',
   });
@@ -497,6 +501,22 @@ function _wireToolbar() {
     state.page = 1;
     refresh();
   });
+
+  // r29c: search input — debounced 300ms 觸發 refresh
+  let searchTimer = null;
+  const searchInput = $('gl-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', (ev) => {
+      const q = (ev.target.value || '').trim();
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        if (state.q === q) return;  // 沒變化不打 API
+        state.q = q;
+        state.page = 1;
+        refresh();
+      }, 300);
+    });
+  }
 }
 
 // r29b: sync 哪個 filter tab 當前 active

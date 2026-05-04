@@ -68,13 +68,15 @@
             data-bookmarked="true" type="button" role="tab"
             aria-selected="false" hidden>📌 我的收藏</button>
   </div>
-  <!-- Phase 5b r29b: sort dropdown -->
+  <!-- Phase 5b r29b/r29c: sort dropdown -->
   <select id="gl-sort" class="gl-sort" aria-label="排序方式">
     <option value="newest">📅 最新</option>
     <option value="likes">❤️ 最多讚</option>
+    <option value="hot">🔥 熱門</option>
   </select>
+  <!-- Phase 5b r29c: search 啟用 -->
   <input id="gl-search" type="search" placeholder="搜尋標題 / 評論 / 作者…"
-         autocomplete="off" hidden>
+         autocomplete="off">
   <span class="gl-toolbar-spacer"></span>
   <span id="gl-stats" class="gl-stats">— 筆</span>
 </section>
