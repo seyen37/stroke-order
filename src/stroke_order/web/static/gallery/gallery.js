@@ -621,6 +621,14 @@ function renderProfileBanner() {
   const memberSince = _formatRelativeTime(s.member_since);
   const bioHtml = u.bio
     ? `<div class="gl-profile-bio">${_escape(u.bio)}</div>`
+    : '<div class="gl-profile-bio gl-profile-bio--empty">（尚未填寫個人簡介）</div>';
+  // r29i: 看自己 profile 時顯示 ✏️ 編輯快捷按鈕
+  const isOwnProfile = state.me && state.me.id === u.id;
+  const editBtnHtml = isOwnProfile
+    ? `<button class="gl-btn gl-profile-edit" data-action="profile-edit"
+                type="button" title="編輯個人資料">
+         ✏️ 編輯
+       </button>`
     : '';
   if (!banner) {
     // 動態建 banner element（避免修改 gallery.html）
@@ -636,7 +644,7 @@ function renderProfileBanner() {
       ← 返回全部
     </button>
     <div class="gl-profile-info">
-      <div class="gl-profile-name">👤 ${_escape(author)}</div>
+      <div class="gl-profile-name">👤 ${_escape(author)}${editBtnHtml}</div>
       ${bioHtml}
       <div class="gl-profile-stats">
         <span><b>${s.total_uploads}</b> 個作品</span>
@@ -654,6 +662,15 @@ function renderProfileBanner() {
     state.page = 1;
     refresh();
   });
+  // r29i: 編輯按鈕（只有看自己 profile 才存在）
+  const editBtn = banner.querySelector('[data-action="profile-edit"]');
+  if (editBtn) {
+    editBtn.addEventListener('click', () => {
+      // 編完成功 → auth.js submit handler 已 chain refresh()，
+      // refresh 會自動重 fetch profile 並更新 banner
+      showProfileDialog(state.me);
+    });
+  }
   // r29e: top-strip click → scroll 到對應 card 並高亮 2 秒
   banner.querySelectorAll('[data-action="goto-upload"]').forEach(link => {
     link.addEventListener('click', (ev) => {

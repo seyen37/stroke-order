@@ -194,6 +194,18 @@ button:focus-visible {
   flex: none;
   font-size: 12px;
 }
+/* r29i: 編輯個人資料按鈕（看自己 profile 才顯示） */
+.gl-profile-edit {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 8px;
+  vertical-align: middle;
+}
+.gl-profile-bio--empty {
+  font-style: italic;
+  color: var(--gl-muted);
+  opacity: 0.7;
+}
 .gl-profile-info { flex: 1; min-width: 0; }
 .gl-profile-name {
   font-size: 16px;
