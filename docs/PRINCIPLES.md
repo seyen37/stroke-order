@@ -437,13 +437,184 @@ single batched add 一次完。
 
 ---
 
-## 6. 索引
+## 6. 設計流程原則（2026-05-06 phase 6z spike 新增）
 
-- 工作日誌：[`docs/journal/2026-05-04_05_session_log_r28-r29k.md`](journal/2026-05-04_05_session_log_r28-r29k.md)
-- 決策紀錄總覽：[`docs/decisions/2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)
-- 各 phase 詳細 decision log：`docs/decisions/2026-05-0[45]_phase5b_r29*.md`
+前 5 章累積的多是「**implementation-time**」原則（寫 code 時該怎麼做）。Phase 6z 禪繞字 design spike 過程浮現另一層 — 「**design-time**」原則（如何把 user 願景轉成可實作的 spec）。
+
+### 6.1 大 phase 必先寫 design doc，不寫 = 不該動 code
+
+8+ 條架構軸全未決狀態下動工 = 高機率重做 — 「不確認需求清楚」+「不確認技術可行」雙判準（personal-playbook §5.7）齊踩。
+
+**判準**：
+- Phase 涉及新 schema / 跨工具鏈 / 跨 mode infrastructure → **必經 design doc**
+- 改既有 implementation 內部細節 → 5-Q ceremony 即可，不需 design doc
+- Trivial polish / 1-2 行 fix → 跳 ceremony
+
+**Design doc 的 cost vs ROI**：
+- Cost：2-3 hours 寫
+- ROI：避免 30%+ 的 implementation 重做時間
+- ROI 不對 trivial phase 划算（小於 5h 工作別寫 design doc）
+
+**反例**：r29 系列 11 phases 都沒寫 design doc，因為每 phase 1-3h 工作量 + 對既有 schema 局部增量 + 5-Q ceremony 已 cover。Phase 6z 不一樣 — 全新 mode + 3 新 schema concept + 9+ 架構軸。
+
+**出處**：phase 6z spike 評估
+
+---
+
+### 6.2 草稿 vs 定稿 — 哲學張力的調和模式
+
+當 user 期待 (workflow practical) vs philosophy (purity) 衝突時，**用「兩 phase 模型」** 調和：
+
+| Phase | 行為 | 適用 |
+|---|---|---|
+| **Draft** | 全功能 undo / snapshot / 隨時可改 | 工作中、user 可休息回來 |
+| **Final / Published** | Immutable，發布即 frozen | 發布後不再修改 |
+
+**對應實例**：
+- **寫作**：草稿（自由改）vs 定稿（出版即定型）
+- **攝影**：RAW（後製空間）vs 沖洗成相片（定型）
+- **程式**：未 commit（git stash 可改）vs 已 commit（amend 算新 commit）
+- **Phase 6z 禪繞字**：draft 全 undo / snapshot vs published 上 gallery 後 immutable 不可後製
+
+**判準**：
+- User 既要「自由」又要「結構」 → 用兩 phase 模型
+- 不要在同一階段強迫融合衝突需求 → 一定有一邊不爽
+
+**Schema 含義**：`is_draft: bool` 必填 + 兩階段 boundary 明確（**「發布」按鈕**是 boundary 觸發點）。
+
+**出處**：phase 6z 禪繞「沒有錯誤」 vs user 「回上一步」 衝突調和
+
+---
+
+### 6.3 資料分批收集驅動設計，不急著動工
+
+Senior 該耐住「想動手」的衝動，等 user 提供完資料再 commit final spec。
+
+**5 個訊號表示「該等資料」**：
+1. User 用「請等我提供資料」 / 「我再想想」 / 「我有更多想法」
+2. Architecture decision 還有 ≥ 3 條未決
+3. 技術可行性 spike 沒做
+4. Multi-mode / cross-system 的 boundary 還沒定
+5. 「我覺得 X 應該怎樣 ...」 是個人 hunch，沒實際資料 backing
+
+**反例（不該等）**：
+- 既有 mode 內部 polish — 直接 5-Q + ship
+- Bug fix — 直接 fix
+- User 已給完整 spec — 可動工
+
+**對應 §5.7 personal-playbook 「何時不該立即實作」 的 4 判準** — 但加碼一條：「**user 自己說等等」是壓倒性 stop signal**。
+
+**出處**：phase 6z 接收 21 批資料後才達設計收斂
+
+---
+
+### 6.4 Product positioning 升級：thesis 進化於設計過程
+
+Design discussion 中 product 的核心定位有時會**進化**（不是原始 user request 字面）。Senior 該發現+articulate 這個進化，讓 user 確認新 thesis。
+
+**Phase 6z 案例**：
+
+| 階段 | Product thesis |
+|---|---|
+| 起點（user 字面）| 「禪繞字 = 漢字邊框 + 內部禪繞」 |
+| 中段（21 批資料消化中）| 「禪繞數位畫板 with character mode」 |
+| 末段（user 提 9 cell panel 後）| **「禪繞重複疊加減負工具」** |
+
+→ 末段才是真 thesis。「**重複疊加減負**」決定 product moat（vs Krita / Procreate 競品）+ 主 UI（9 cell panel 而非 toolbar of brushes）+ user 期待（享受重複節奏 vs 「畫得像不像」）。
+
+**規則**：
+- Design discussion 中發現 thesis 進化 → 主動講出來給 user 確認
+- Thesis 確定後 design doc 該明確 product positioning section
+- 避免「字面實作」陷阱：user 說 X，但 X 隱含的真 thesis 是 Y → ship Y 才滿足 user
+
+**出處**：phase 6z 21 批資料消化過程
+
+---
+
+### 6.5 QODA 4 步是「對話前置」 不是「事後紀錄」
+
+QODA（Question / Options / Decision / Approval）是 personal-playbook §5.9 的協作協定。今天 morning audit + phase 6z spike 全程套用，發現 4 步**不是事後紀錄結構**，而是**對話前置框架**。
+
+**正確使用**：
+- 每個非小事決定**動工前**就走 QODA 4 步
+- 文字明確標出當前在哪步（Q / O / D / A）
+- 等 user **明示** Approval 才動手
+- 動完才寫 decision log（QODA 4 步是 log 的 skeleton）
+
+**反例（事後紀錄誤用）**：
+- 動完才補寫 QODA — 是 rationalization 不是 decision-making
+- 自己腦補 user OK 了就動 — 跳過 Approval 是違反 QODA 精神
+
+**規則**：
+- 對話 / 釐清 / 微小修正 → 跳 QODA
+- 加新依賴 / 改架構 / 選 stack / 設計 API / 命名 / 動 license / 跨檔重構 → **必走 4 步**
+- 不確定該不該 QODA 時 → 走（cost < 1 分鐘，誤動 cost > 1 小時）
+
+**今日完整套用案例**：
+- 上午 morning audit：A/B/C 三 steps 各走 QODA Q-O-D-A 等 user 簽收才動
+- 下午 phase 6z spike：15 個決定方向逐個 Q-O-D-A，最終 user 「OK ★」 才算 spike 結束
+
+**出處**：今日全程套用驗證
+
+---
+
+### 6.6 21-batch acknowledge pattern — 資料批次收集 SOP
+
+當 user 要分批給資料（`「請等我提供資料」`），AI 該怎麼處理每批？
+
+**規則**：
+- **每批 acknowledge** — 標出「收到第 N 批」
+- **抽 3-5 個 architecture-relevant 訊號** — 不要 paraphrase 全文
+- **記下 schema / scope / philosophy 等對 design doc 重要的影響**
+- **不主動整合 design doc** — 等 user 說「就這些」 / 「OK ★」 才開始整合
+- **若該批 user data 跟之前批衝突或補強，標出這個 reconciliation**
+
+**Why**：
+- 立即整合每批 = 高機率覆蓋自己 / 跑得快但偏方向
+- 等 user 「就這些」 = 收斂 signal，user 自己判斷該停
+- 每批小 acknowledge = 給 user 即時反饋「我有理解」 + 可被糾正
+
+**反例**：每批 user 給完都立刻寫 design doc 草稿 → user 想多給但已感覺被「鎖死」 → 提供資料慾下降。
+
+**今日案例**：21 批 zentangle 資料逐批處理，每批 acknowledge + 抽 3-5 訊號 + 等 user signal 才 commit final design。
+
+**出處**：phase 6z 設計過程
+
+---
+
+### 6.7 「資料 + 觀察 = 待驗證」 的設計暫停模式
+
+User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**先規劃設計，待實際操作驗證後修改**」 — 這是明確的 deferred validation signal。
+
+**規則**：
+- AI **直接記下 user proposed design** 進 design doc
+- 標 `status: pending UX validation` 或「MVP 採此規劃，待真實使用後 iterate」
+- **不過度優化** — user 自己知道現在不確定，AI 別「自作聰明」改設計
+- AI 提幾個延伸建議（如預設值該幾個）但不取代 user proposal
+
+**今日案例**：user 說「次數/間距是否要出現預設值，自動因應空白區域大小而自動調整，請先規劃設計，待實際操作驗證後修改」 → 我提了 A 預設快選 + B 簡化版「填滿空白」 + C 智慧 adaptive defer，user 「OK ★」確認 — 採 A+B，C 等驗證。
+
+**對應 §8.5 啟用條件結構性煞車** — 但本條更聚焦「**user 主動標 待驗證**」的場景。
+
+**出處**：phase 6z 9 cell panel + 元素尺寸
+
+---
+
+## 7. 索引
+
+- 工作日誌：
+  - [`2026-05-04_05_session_log_r28-r29k.md`](journal/2026-05-04_05_session_log_r28-r29k.md)
+  - [`2026-05-06_session_log.md`](journal/2026-05-06_session_log.md)（本日）
+- 決策紀錄：
+  - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
+  - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（**本日 phase 6z spike**）
+  - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
+- Personal-playbook cross-link：
+  - `2026-05-06_r29-r29k_principles.md`（在 personal-playbook repo，跨 ref 案例 §B.15-B.23）
 - 已存 memory：`/sessions/friendly-dreamy-noether/mnt/.auto-memory/MEMORY.md`
 
 ---
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
+
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）。兩者互補。
