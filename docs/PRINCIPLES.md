@@ -443,6 +443,8 @@ single batched add 一次完。
 
 ### 6.1 大 phase 必先寫 design doc，不寫 = 不該動 code
 
+> 🔗 **Thesis 層**：personal-playbook **§0.4「重新框架問題 > 答問題（plan-first 升級）」** — 「Senior 紀律的核心不是會用更多工具、是問對問題」。本條是該 thesis 在工程實作層的 rule 化。
+
 8+ 條架構軸全未決狀態下動工 = 高機率重做 — 「不確認需求清楚」+「不確認技術可行」雙判準（personal-playbook §5.7）齊踩。
 
 **判準**：
@@ -533,6 +535,8 @@ Design discussion 中 product 的核心定位有時會**進化**（不是原始 
 
 ### 6.5 QODA 4 步是「對話前置」 不是「事後紀錄」
 
+> 🔗 **Thesis 層**：personal-playbook **§0.2「Enforcement-based vs Hope-based governance」** — 「能用代碼鎖的就不寫 prompt 期待」。QODA 4 步是 plan-approve 層的 enforcement instantiation；本條再強化「**動工前必走 4 步並等 Approval**」是 enforcement，不是 hope。
+
 QODA（Question / Options / Decision / Approval）是 personal-playbook §5.9 的協作協定。今天 morning audit + phase 6z spike 全程套用，發現 4 步**不是事後紀錄結構**，而是**對話前置框架**。
 
 **正確使用**：
@@ -584,6 +588,8 @@ QODA（Question / Options / Decision / Approval）是 personal-playbook §5.9 �
 
 ### 6.7 「資料 + 觀察 = 待驗證」 的設計暫停模式
 
+> 🔗 **Thesis 層**：personal-playbook **§8.32「失敗 2 次換方法 反偷懶協議」** 同精神 — 兩者都是「沒對齊就 stop signal」。差別：§8.32 處理「實作中」的失敗 stop，§6.7 處理「設計前」user 主動標記的 deferred validation。
+
 User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**先規劃設計，待實際操作驗證後修改**」 — 這是明確的 deferred validation signal。
 
 **規則**：
@@ -597,6 +603,47 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 **對應 §8.5 啟用條件結構性煞車** — 但本條更聚焦「**user 主動標 待驗證**」的場景。
 
 **出處**：phase 6z 9 cell panel + 元素尺寸
+
+---
+
+## 6.8 §6 vs personal-playbook 治理層 mapping（thesis ↔ rule 對照）
+
+2026-05-06 personal-playbook 第十三次修訂從 139 ref pool cherry-pick 12 條原則，新加 §零 治理哲學（thesis 層）。本表把 stroke-order §6 工程 rule 對應到 personal-playbook 的 thesis 層：
+
+| Stroke-order §6 (rule layer) | Personal-playbook §零 (thesis layer) | 關係 |
+|---|---|---|
+| §6.1 大 phase 必先寫 design doc | **§0.4** 重新框架問題 > 答問題（plan-first 升級） | thesis 層命名 |
+| §6.5 QODA 是對話前置 | **§0.2** Enforcement-based governance | thesis 層命名 |
+| §6.7 設計暫停模式 | **§8.32** 失敗 2 次換方法 反偷懶協議 | 同 stop-signal 精神 |
+| §6.4 Product positioning 升級 | **§0.4** 重新框架問題 部分 | 「重新框架」精神延伸 |
+| §6.2 草稿 vs 定稿 | (待 cherry-pick 進 personal-playbook) | stroke-order 獨有 |
+| §6.3 資料分批收集 | (待 cherry-pick) | stroke-order 獨有 |
+| §6.6 21-batch acknowledge | (待 cherry-pick) | stroke-order 獨有 |
+
+**反向映射 — personal-playbook 第十三次修訂中 stroke-order 該套用的 rule**：
+
+| Personal-playbook (新加) | Stroke-order 應用點 |
+|---|---|
+| §8.31 P7 三問自審 + strict completion format | **phase 6z 每 sub-phase 完成寫 P7 completion format**（剩餘風險必填） |
+| §8.32 失敗 2 次換方法 | §3.13 sandbox/host lock 是這個的 instance（嘗試 sandbox `rm` 失敗後改 host）|
+| §8.33 Self-defense bias / reviewer 拿純 diff | phase 6z review 該套用 |
+| §8.34 「會花真錢 API」enforcement | phase 6z+ image-to-config 階段適用 |
+| §8.35 Strict negative constraints | **phase 6z design doc 該有 anti-pattern 清單** |
+
+**設計意義**：
+
+```
+Thesis 層（personal-playbook §零 / §8.31-35）
+    ↑ rule 為什麼存在
+Rule 層（stroke-order PRINCIPLES.md §1-§6 / personal-playbook §一-§八）
+    ↑ 怎麼做
+Implementation 層（phase decision logs）
+```
+
+兩 SoT 互補：personal-playbook 是 **governance backbone**（thesis + meta-rules），stroke-order 是 **engineering rule book**（具體可動的工程規範）。**下次新原則該存哪**：
+
+- 跨專案、含 thesis / meta-pattern / governance discipline → personal-playbook
+- 純工程 implementation 經驗 → stroke-order PRINCIPLES.md，必要時 cherry-pick 進 personal-playbook
 
 ---
 
