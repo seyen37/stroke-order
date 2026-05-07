@@ -20,8 +20,13 @@ import {
   computeBbox,
   mapContourToTile,
   contoursAreClosed,
-  rotateContours,
 } from "./outline.mjs";
+
+// 6z-2.1 NOTE: `rotateContours` is intentionally NOT imported here.
+// Tile rotation is now applied via canvas ctx transform (so frame + outline
+// rotate together — see withTileRotation). The pure helper in outline.mjs
+// is preserved + Node-tested for future state-aware needs (Pseudo-3D
+// pre-render in 6z-5, SVG export, .zentangle.md serialization, etc.).
 
 // 6z-2b: tile size → canvas px attribute (real resize, Q3=A user decision).
 // Bijou 5cm / 標準 9cm / 學徒磚 ~15cm — proportional 6z-1 baseline (9cm = 600px).
@@ -95,6 +100,11 @@ let _rotationDegrees = 0;
 const _rotationHistory = [];
 const ROTATION_HISTORY_MAX = 16;  // bounded to keep memory tame
 
+// 6z-2.1: cache the last successfully fetched contours so rotation /
+// tile-resize redraws don't re-hit the server. Cleared whenever the
+// outline source changes (char / source select).
+let _cachedContours = null;
+
 /**
  * Boot — runs once, on first activation of zentangle mode.
  */
@@ -160,14 +170,29 @@ document.addEventListener("DOMContentLoaded", () => {
 // Canvas drawing
 // ---------------------------------------------------------------------------
 
-function drawTileBackground() {
+// 6z-2.1: split tile rendering into 3 helpers so the frame + outline rotate
+// TOGETHER under a single ctx transform (was previously: frame axis-aligned,
+// outline pre-rotated via rotateContours — visual mismatch when ≠ 0°).
+//
+//   clearCanvas()         — clear + white bg, axis-aligned (always)
+//   drawTileFrame()       — border + 4 corner dots (called inside ctx rotate)
+//   withTileRotation(fn)  — ctx.save + translate/rotate + fn() + ctx.restore
+//   redrawAll()           — full pipeline orchestrator (replaces dual call)
+
+function clearCanvas() {
   if (!_ctx) return;
   const ts = currentTileSize();
-  const tm = currentTileMargin();
-  // Clear → white background → 4-corner dots → thin border.
+  // Clear in axis-aligned space so the entire pixel area is wiped even when
+  // a previous rotation left content outside the post-rotation rect.
   _ctx.clearRect(0, 0, ts, ts);
   _ctx.fillStyle = "#ffffff";
   _ctx.fillRect(0, 0, ts, ts);
+}
+
+function drawTileFrame() {
+  if (!_ctx) return;
+  const ts = currentTileSize();
+  const tm = currentTileMargin();
   // Thin border — inset by 1px so it lives inside the canvas.
   _ctx.strokeStyle = BORDER_COLOR;
   _ctx.lineWidth = 1;
@@ -185,6 +210,56 @@ function drawTileBackground() {
     _ctx.arc(cx, cy, DOT_RADIUS, 0, Math.PI * 2);
     _ctx.fill();
   }
+}
+
+function withTileRotation(fn) {
+  if (!_ctx) return;
+  if (_rotationDegrees === 0) {
+    fn();
+    return;
+  }
+  const ts = currentTileSize();
+  const cx = ts / 2;
+  const cy = ts / 2;
+  _ctx.save();
+  _ctx.translate(cx, cy);
+  _ctx.rotate((_rotationDegrees * Math.PI) / 180);
+  _ctx.translate(-cx, -cy);
+  try {
+    fn();
+  } finally {
+    _ctx.restore();
+  }
+}
+
+/**
+ * Full canvas redraw orchestrator. Used after ANY change that affects what's
+ * on screen: rotation, tile size, char/source fetch result.
+ *
+ * No fetch here — uses _cachedContours. Callers that need fresh data run
+ * fetchOutline() → set _cachedContours → call redrawAll().
+ */
+function redrawAll() {
+  if (!_ctx) return;
+  clearCanvas();
+  withTileRotation(() => {
+    drawTileFrame();
+    if (_cachedContours && contoursAreClosed(_cachedContours)) {
+      const ts = currentTileSize();
+      const tm = currentTileMargin();
+      const bbox = computeBbox(_cachedContours);
+      const mapped = mapContourToTile(_cachedContours, bbox, ts, tm);
+      drawOutline(mapped);
+    }
+  });
+}
+
+/**
+ * Backward-compatible alias — earlier sub-phases called this directly.
+ * Now redirects through redrawAll so the pipeline stays unified.
+ */
+function drawTileBackground() {
+  redrawAll();
 }
 
 /**
@@ -272,7 +347,9 @@ async function renderOutline() {
   }
   const source = _sourceSelect?.value || "moe_kaishu";
   setStatus(`載入「${char}」（${source}）…`);
-  drawTileBackground();
+  // 6z-2.1: paint frame at current rotation immediately so user sees the
+  // rotated empty tile while fetch is in flight (better than blank canvas).
+  redrawAll();
   let payload;
   try {
     payload = await fetchOutline(char, source);
@@ -285,17 +362,15 @@ async function renderOutline() {
     setStatus("字框資料不完整（contour 點數 < 3）", true);
     return;
   }
-  const bbox = computeBbox(contours);
-  // 6z-2b: tile size dynamic; 6z-2c: rotation applied AFTER mapping (pivot
-  // = canvas center per Q4 user decision).
+  // 6z-2.1: cache fetched contours so subsequent rotation/tile-size changes
+  // re-draw without re-hitting the server (eliminates slider-drag race + lag,
+  // resolves 6z-2 R1 risk).
+  _cachedContours = contours;
+  redrawAll();
+  // Status: report what's currently on the canvas (post-mapping count).
   const ts = currentTileSize();
   const tm = currentTileMargin();
-  const mappedRaw = mapContourToTile(contours, bbox, ts, tm);
-  const mapped =
-    _rotationDegrees !== 0
-      ? rotateContours(mappedRaw, _rotationDegrees, [ts / 2, ts / 2])
-      : mappedRaw;
-  drawOutline(mapped);
+  const mapped = mapContourToTile(contours, computeBbox(contours), ts, tm);
   const totalPts = mapped.reduce((acc, p) => acc + p.length, 0);
   setStatus(
     `OK · ${mapped.length} contour / ${totalPts} 點 · ${source} · em=${payload.em_size}`
@@ -422,6 +497,8 @@ function wireInlineControls() {
       }
       if (v === _config?.char) return;  // no-op on same value
       commitConfigChange({ char: v });
+      // 6z-2.1: char change invalidates cache (different glyph polylines).
+      _cachedContours = null;
       renderOutline().catch((e) =>
         setStatus(`載入字框失敗：${e.message}`, true)
       );
@@ -447,6 +524,8 @@ function wireInlineControls() {
     _sourceSelect.addEventListener("change", () => {
       // Source isn't part of persisted config (rotates per-session), so we
       // just re-render with the new source.
+      // 6z-2.1: source change invalidates cache (different glyph shape).
+      _cachedContours = null;
       renderOutline().catch((e) =>
         setStatus(`載入字框失敗：${e.message}`, true)
       );
@@ -462,15 +541,13 @@ function wireInlineControls() {
       );
     });
   });
-  // 紙磚尺寸 radio — 6z-2b: change → persist + resize canvas + re-render.
+  // 紙磚尺寸 radio — 6z-2b: change → persist + resize canvas + 6z-2.1 redraw
+  // from cache (no re-fetch needed; tile size only affects mapping, not glyph).
   document.querySelectorAll('input[name="zentangle-tile"]').forEach((r) => {
     r.addEventListener("change", (e) => {
       commitConfigChange({ tileSize: e.target.value });
       resizeCanvasToConfig();
-      drawTileBackground();
-      renderOutline().catch((err) =>
-        setStatus(`載入字框失敗：${err.message}`, true)
-      );
+      redrawAll();
       setStatus(`紙磚尺寸 → ${TILE_LABELS[e.target.value]}`);
     });
   });
@@ -500,11 +577,9 @@ function applyRotation(newDeg, { skipHistory = false } = {}) {
   if (slider && slider.valueAsNumber !== n) slider.value = String(n);
   const display = document.getElementById("zentangle-rotation-display");
   if (display) display.textContent = `${n}°`;
-  // Re-render to apply rotation.
-  drawTileBackground();
-  renderOutline().catch((e) =>
-    setStatus(`旋轉重繪失敗：${e.message}`, true)
-  );
+  // 6z-2.1: redraw uses cached contours — frame + outline rotate together
+  // via ctx transform. No re-fetch, so slider drag is responsive.
+  redrawAll();
 }
 
 function angleReset() {
