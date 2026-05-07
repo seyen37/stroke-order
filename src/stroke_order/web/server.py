@@ -2103,6 +2103,65 @@ def create_app() -> FastAPI:
         from ..exporters.mandala import list_mandala_presets
         return {"presets": list_mandala_presets()}
 
+    # ------ 禪繞字模式 (zentangle, phase 6z-1) ------------------------
+    # Outline 抽取 — 給 char 回 polyline contours。前端 canvas mapper
+    # 把 EM-scaled Y-down coords 轉成 tile-local。
+    # Source 預設 moe_kaishu (per Q1 user decision)；其他源透過下拉選
+    # 暴露但不 silent default (D-C 強紀律弱預設)。
+
+    @app.get("/api/zentangle/outline")
+    async def zentangle_outline(
+        char: str = Query(..., min_length=1, max_length=1, description="single CJK char"),
+        source: str = Query("moe_kaishu", description="font source key"),
+        samples_per_curve: int = Query(8, ge=1, le=64, description="Bezier sampling density"),
+    ):
+        """Return polyline contours for a single character.
+
+        Returns
+        -------
+        ``{contours: [[[x, y], ...], ...], char, source, samples_per_curve, em_size}``
+
+        ``contours`` is a list of closed polylines, each a list of
+        ``[x, y]`` floats in EM-scaled Y-down coordinates. The frontend
+        maps them into tile-local space using ``em_size``.
+        """
+        from ..exporters import zentangle as zt
+        from ..ir import EM_SIZE
+        from ..sources.g0v import CharacterNotFound
+        try:
+            polylines = zt.extract_outline_polylines(
+                char, source=source, samples_per_curve=samples_per_curve
+            )
+        except ValueError as e:
+            raise HTTPException(400, detail=str(e)) from e
+        except CharacterNotFound as e:
+            raise HTTPException(404, detail=str(e)) from e
+        except RuntimeError as e:
+            # font file missing on disk → 503 service-unavailable so the
+            # client can degrade gracefully (try another source / show
+            # install hint) rather than treat as a permanent 4xx error.
+            raise HTTPException(503, detail=str(e)) from e
+        # Tuple → list for JSON serialisation.
+        contours = [[[x, y] for (x, y) in poly] for poly in polylines]
+        return {
+            "contours": contours,
+            "char": char,
+            "source": source,
+            "samples_per_curve": samples_per_curve,
+            "em_size": EM_SIZE,
+        }
+
+    @app.get("/api/zentangle/sources")
+    async def zentangle_sources():
+        """List available outline sources for the UI dropdown.
+
+        Each entry: ``{key, label, ready}``. ``ready=False`` means the
+        font file is missing — the UI should grey out that option and
+        show an install tooltip rather than letting the user 503 on it.
+        """
+        from ..exporters import zentangle as zt
+        return {"sources": zt.list_sources()}
+
     # ------ 塗鴉模式 (doodle) ------------------------------------------
 
     @app.post("/api/doodle")
