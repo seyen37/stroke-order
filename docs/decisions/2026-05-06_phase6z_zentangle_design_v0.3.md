@@ -1,15 +1,60 @@
-# Phase 6z 禪繞字 Design Doc — v0.2 (PS2-inspired UX + Pseudo-3D)
+# Phase 6z 禪繞字 Design Doc — v0.3 (Gamepad-inspired UX + Pseudo-3D)
 
-**日期**：2026-05-06
-**版本**：design-v0.2（取代 v0.1，待 user Approval 後動工 6z-1 implementation）
-**範圍**：禪繞字模式 — 漢字 outline + 內部禪繞畫填充 + 紙磚旋轉 + ICSO 元素重複疊加 + **PS2 inspired control scheme** + **pseudo-3D 變形** + 草稿系統 + gallery 整合
-**前一版**：[`2026-05-06_phase6z_zentangle_design.md`](2026-05-06_phase6z_zentangle_design.md)（v0.1，5/6 深夜寫，已 commit `0043cfc`）
+**日期**：2026-05-07（v0.2 → v0.3 senior review path A reframe）
+**版本**：design-v0.3（取代 v0.2，待 user Approval 後動工 6z-1 implementation）
+**範圍**：禪繞字模式 — 漢字 outline + 內部禪繞畫填充 + 紙磚旋轉 + ICSO 元素重複疊加 + **鍵盤+滑鼠 core control + 通用 gamepad enhancement (Web Gamepad API)** + **pseudo-3D 變形** + 草稿系統 + gallery 整合
+**前一版**：v0.2 (commit `fff3014`，5/6 深夜) + v0.1 [`2026-05-06_phase6z_zentangle_design.md`](2026-05-06_phase6z_zentangle_design.md)（commit `0043cfc`）
 
-> 🔗 **上層 thesis**：personal-playbook §0.4「重新框架問題 > 答問題（plan-first 升級）」 + §0.1「AI 不是能力不夠、是紀律不夠」 — v0.2 是 thesis 升級後的 design re-frame。
+> 🔗 **上層 thesis**：personal-playbook §0.4「重新框架問題 > 答問題（plan-first 升級）」 + §0.1「AI 不是能力不夠、是紀律不夠」 — v0.3 是針對 v0.2 senior review path A 的 elegant simplification（PS2 hardware niche → generic gamepad via Web Gamepad API）。
 
 ---
 
-## 0. v0.1 → v0.2 Change Log
+## 0. v0.2 → v0.3 Change Log
+
+**v0.2 senior review 結果（2026-05-07）**：5 notes，其中 strong caveat #1 = PS2 controller hardware niche 風險。User 選 path A（PS2 → generic gamepad reframe）。
+
+### v0.3 主要變更
+
+| # | v0.2 | v0.3 |
+|---|---|---|
+| 1 | PS2 controller 為主 + 三 input method 等效 hard requirement | **鍵盤+滑鼠 core (universal)** + **Web Gamepad API auto-detect 任何標準 gamepad** (PS2 / PS5 / Xbox / 通用) |
+| 2 | 6z-7「3-input-method 等效」 8-10h | **6z-7「Web Gamepad API integration」** 3-4h（gamepad detection + button mapping wrapper） |
+| 3 | 6z-11 testing「3-input matrix」5-6h | 6z-11 testing「鍵盤+滑鼠 manual E2E + gamepad smoke」3-4h |
+| 4 | PS2 圖示 = mandatory hardware target | PS2 圖示 = **通用 gamepad layout 範例** (教學用，不綁定 hardware) |
+| 5 | Risk R4「PS2 hardware niche」Medium | **R4 改「Web Gamepad API 跨 browser 行為差異」Medium** (Chrome primary) |
+| 6 | 估時 58-79h | **48-67h**（節省 10-12h） |
+
+### Reframing 理由
+
+- **Acquisition target user 大部分沒 PS2 controller**（家裡有 / 配 USB adapter / 願意連電腦的人是 niche）
+- **三 input matrix testing = dead weight**（target user 用不到 PS2 path，但 dev cost 真實）
+- **More elegant**: Web Gamepad API 自動偵測**任何標準 gamepad**，PS2 layout 圖示作為 mapping 範例保留
+- 鍵盤+滑鼠是 web universal core，gamepad 是 progressive enhancement（auto-detect on connect）
+
+### v0.3 不變項目（v0.2 →v0.3 保留）
+
+- Pseudo-3D 變形系統（depth_dir + curve_mode）
+- 切割 mode 狀態機（□ cycle I → . → O，I 模式 D-Pad bend C/S）
+- Tile-local coords 核心 mechanism
+- 6 個 tangle 庫
+- 3 modes（純禪繞 / 空心填充 / 背景鑲嵌）
+- 草稿 vs 定稿 boundary
+- 30 步 undo + 5 分鐘 auto-save
+- File schema (含 pseudo_3d field)
+- Acquisition-first thesis（「快速產出禪繞效果」）
+
+### Senior review 其他 4 notes 處理
+
+| Note | 處理方式 |
+|---|---|
+| #2 Pseudo-3D 4×4 over-engineered | 6z-5 內部切階段 (5a depth_dir 4 dir / 5b curve_mode 軸 1 / 5c 評估砍軸)，不動 design doc |
+| #3 估時偏樂觀 | §9 Risk R7 補警告「實際 burn 預期 1.2-1.5x」 |
+| #4 「禪繞」品牌 vs Pseudo-3D 矛盾 | 列入 §12 defer (6z-12 marketing copy phase) |
+| #5 D-C 強紀律弱預設 | 6z-1 主選單 force-modal + schema null 加 comment，6z-1 動手時注意 |
+
+---
+
+## 0a. v0.1 → v0.2 Change Log（歷史紀錄保留）
 
 User 對 v0.1 的反饋：
 
@@ -59,15 +104,16 @@ User 對 v0.1 的反饋：
 
 **Phase 6z 是「快速產出禪繞效果的數位工具」**，鎖定「想要禪繞風格但不想慢慢手繪」的 acquisition target。
 
-| Aspect | v0.1（減負） | **v0.2（acquisition-first）** ★ |
-|---|---|---|
-| 核心 user | 想做完整禪繞但減重複勞動的人 | **想要禪繞效果但不想慢慢手繪的人** |
-| 主要 UI | 9 cell panel | **PS2-inspired scheme + 三 input 方式** |
-| 視覺 power | 重複疊加減負 | **重複疊加減負 + Pseudo-3D 變形** |
-| Product moat | 重複機制 + 紙磚旋轉 + ICSO | **手感豐富 input + Pseudo-3D + 速度產出** |
-| vs 紙筆禪繞 | 不直接競爭（仍偏冥想練習）| **明確 differentiate**（電腦 power, 不是紙筆替代） |
+| Aspect | v0.1（減負） | v0.2（acquisition-first） | **v0.3（gamepad reframe）** ★ |
+|---|---|---|---|
+| 核心 user | 想做完整禪繞但減重複勞動的人 | 想要禪繞效果但不想慢慢手繪的人 | **同 v0.2** |
+| 主要 UI | 9 cell panel | PS2-inspired + 三 input 等效 | **鍵盤+滑鼠 core + Web Gamepad API auto-detect** |
+| 視覺 power | 重複疊加減負 | 重複疊加減負 + Pseudo-3D | **同 v0.2** |
+| Product moat | 重複機制 + 紙磚旋轉 + ICSO | 手感豐富 input + Pseudo-3D + 速度產出 | **同 v0.2** |
+| Gamepad 支援 | 無 | PS2 only (hard requirement) | **任何標準 USB/Bluetooth gamepad** (PS2/PS5/Xbox/通用，auto-detect) |
+| vs 紙筆禪繞 | 不直接競爭（仍偏冥想練習）| 明確 differentiate（電腦 power, 不是紙筆替代） | **同 v0.2** |
 
-**MVP 主流程（PS2 為例）**：
+**MVP 主流程（鍵盤滑鼠 + 可選 gamepad）**：
 
 ```
 1. 開磚 (PSB_START 主選單) → 選 char "心" / mode 空心填充 / tile 9cm
@@ -95,11 +141,15 @@ User 對 v0.1 的反饋：
 - Image → config 反向解析（CV）
 - 跨 mode snapshot system（phase 7）
 
-**估時**：6z-0 design doc 已寫（本檔）+ 6z-1 ~ 6z-11 sub-phases 約 **58-79 hours / 2-3 週工作日**。
+**估時**：6z-0 design doc 已寫（本檔）+ 6z-1 ~ 6z-11 sub-phases 約 **48-67 hours / 1.5-2 週工作日**（v0.3 reframe 從 58-79h 節省 10-12h）。
+
+> **預期實際 burn rate 1.2-1.5x**（greenfield + 4 高 risk sub-phase），realistic 估時 **58-100h**。User 心理預期校正後不會在 6z-5 卡關時恐慌（senior review note #3 應用）。
 
 ---
 
-## 2. PS2 Controller Scheme (v0.2 核心 UX)
+## 2. Gamepad Scheme (以 PS2 layout 圖示，通用 gamepad mapping)
+
+> 🆕 **v0.3 reframe**：本節 PS2 layout 為**示意圖**（教學友善 + 復古辨識度高）；實作上**支援任何標準 USB/Bluetooth gamepad**（PS5 / Xbox / 通用），透過 [Web Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API) 自動偵測連接 → 動態 mapping 到下圖 button 角色。Gamepad 是 **optional enhancement**，鍵盤+滑鼠是 **universal core**（§3）。
 
 ### 2.1 完整 button mapping
 
@@ -221,13 +271,17 @@ User 對 v0.1 的反饋：
 
 ---
 
-## 3. 三 input method 等效 spec
+## 3. Input methods（鍵盤+滑鼠 core, gamepad optional enhancement）
 
-User 願景：PS2 為基礎，鍵盤 / 滑鼠等效。
+> 🆕 **v0.3 reframe**：v0.2 將「PS2 + 鍵盤 + 滑鼠三 input method 等效」列為 hard requirement；v0.3 重新定位為：
+>
+> - **鍵盤 + 滑鼠是 universal core**（web 標準，所有 user 都能用、不需額外硬體）
+> - **Gamepad 是 progressive enhancement**（透過 [Web Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API) auto-detect 連接，**任何標準 USB/Bluetooth gamepad** 都能 mapping）
+> - PS2 layout 圖示作為 mapping 教學範例保留（§2），不限制 hardware
 
-### 3.1 鍵盤 mapping
+### 3.1 鍵盤 mapping（universal core）
 
-| PS2 操作 | 鍵盤 |
+| Gamepad 角色（以 PS2 layout 為例） | 鍵盤 |
 |---|---|
 | D-Pad ↑↓←→ | **方向鍵** (右手) |
 | L-stick (連續 4 軸) | **WASD** (左手, 持續按 = 連續) |
@@ -245,7 +299,7 @@ User 願景：PS2 為基礎，鍵盤 / 滑鼠等效。
 | L3 (density cycle) | **C** |
 | R3 (layer cycle) | **V** |
 
-### 3.2 滑鼠 mapping + 紙磚右側 sidebar
+### 3.2 滑鼠 mapping + 紙磚右側 sidebar（universal core）
 
 ```
 ┌────────────────────────┬─────────────────────────┐
@@ -280,6 +334,45 @@ User 願景：PS2 為基礎，鍵盤 / 滑鼠等效。
 - **滾輪** = element size 調整（XS↔XL）
 - **Shift + 滾輪** = density 切換
 - **Ctrl + 滾輪** = tile rotation
+
+### 3.3 Web Gamepad API integration（progressive enhancement）
+
+🆕 v0.3 新加。
+
+**偵測流程**：
+
+```js
+// 監聽 gamepad 連接事件
+window.addEventListener('gamepadconnected', (e) => {
+  // e.gamepad.id: 例 "Sony PLAYSTATION(R)3 Controller"
+  //                "Xbox 360 Controller"
+  //                "Standard Gamepad" (W3C standard mapping)
+  showToast(`Gamepad 已連接：${e.gamepad.id}（可選用）`);
+  enableGamepadInput(e.gamepad.index);
+});
+
+// Game loop 內 poll gamepad state
+function pollGamepad(index) {
+  const gp = navigator.getGamepads()[index];
+  if (!gp) return;
+  // gp.buttons[0..16] / gp.axes[0..3]
+  // 對應 W3C "Standard Gamepad" mapping
+}
+```
+
+**Mapping 策略**：
+- 使用 W3C **「[Standard Gamepad](https://w3c.github.io/gamepad/#dfn-standard-gamepad)」** mapping (gp.mapping === 'standard')
+- Standard mapping 已涵蓋 PS3/PS4/PS5 + Xbox 360/One/Series + 大部分 USB gamepad
+- Button index 對應 §2 PS2 layout 的角色（square=button[2], triangle=button[3] 等）
+- 非 standard mapping 的 gamepad → fallback 到 generic numeric mapping + UI 顯示「請用鍵盤滑鼠」
+
+**Browser 支援**：
+- Chrome / Edge: 完整支援（primary target）
+- Firefox: 支援但 button mapping 偶有差異 → 6z-7 manual 驗一次
+- Safari: 支援但需 user gesture 啟動
+- 對應 §9 Risk R4「Web Gamepad API 跨 browser 行為差異」
+
+**降級策略**：gamepad 不可用 / 沒接 → 鍵盤+滑鼠 sidebar 完整 cover 所有功能（universal core 已是 hard requirement）。
 
 ---
 
@@ -366,14 +459,15 @@ strokes:
 | 11 | 下載檔名 timestamp | 不變 |
 | 12 | Gallery dispatch | 不變（kind='zentangle'） |
 
-### v0.2 新加軸
+### v0.2 新加軸（v0.3 微調）
 
-### 5.13 軸 13：PS2 controller scheme 為主 UX
+### 5.13 軸 13：Input scheme — 鍵盤+滑鼠 core，gamepad enhancement
 
 **Q**：用什麼 input scheme？
-**D ★** PS2 + 鍵盤 + 滑鼠三種等效。
+**v0.2 D**：PS2 + 鍵盤 + 滑鼠三種等效（hard requirement）。
+**v0.3 D ★（reframe）**：**鍵盤 + 滑鼠是 universal core**（所有 user 都能用）；**Gamepad 是 progressive enhancement**（透過 Web Gamepad API auto-detect 任何標準 gamepad，PS2/PS5/Xbox/通用都支援）。PS2 layout 圖示作為 mapping 範例（教學友善），**不限制 hardware**。
 **Schema 影響**：input method 不存 schema（只記錄結果 stroke）。
-**A**：✅ 已 confirmed
+**A**：✅ v0.3 confirmed (senior review path A)
 
 ### 5.14 軸 14：Pseudo-3D 變形系統
 
@@ -393,24 +487,34 @@ strokes:
 
 ---
 
-## 6. Sub-phase 拆解 (v0.2 重 plan)
+## 6. Sub-phase 拆解 (v0.3 重 plan)
 
-| Sub-phase | 範圍 | v0.1 估時 | **v0.2 估時** | Notes |
-|---|---|---|---|---|
-| **6z-0** | Design doc v0.2（本檔） | — | 4-5h | ✅ 完成 |
-| **6z-1** | Outline 抽取 + 純禪繞 mode + 紙磚 canvas | 4-5h | **5-6h** | 加 PS2 input layer scaffolding |
-| **6z-2** | 紙磚旋轉（R-stick 連續 + L1/L2 history + R3 preset cycle） | 3-4h | **5-7h** | 加 R-stick 連續 + L1/L2 angle stack |
-| **6z-3** | ICSO 工具 + 6 tangles 庫 + △ cycle | 5-6h | **6-8h** | 加 △ Triangle tangle cycle |
-| **6z-4** | **PS2 input layer 完整 wiring**（D-Pad + L-stick + R1/R2 + L3/R3） | — | **6-8h** | NEW — input layer 為核心 |
-| **6z-5** | **Pseudo-3D 變形 schema + render pipeline** | — | **8-10h** | NEW — 最重 sub-phase |
-| **6z-6** | **切割 mode 狀態機（□ cycle I/./O + D-Pad bend C/S）** | — | **5-7h** | NEW — 核心 mechanism |
-| **6z-7** | **3-input-method 等效（PS2 + 鍵盤 + 滑鼠 sidebar）** | — | **8-10h** | NEW — input matrix testing |
-| **6z-8** | Embedded mode（漢字 outline + fill_mode） | 4-5h | **4-5h** | unchanged |
-| **6z-9** | Draft 系統（30 步 undo + 5 分鐘 auto-save + download timestamp） | 3-4h | **4-5h** | 加 R3 layer toggle |
-| **6z-10** | Gallery 整合（kind='zentangle' + thumbnail + dispatch dict） | 2-3h | **2-3h** | unchanged |
-| **6z-11** | Tests + decision logs + bump | 3-4h | **5-6h** | 3-input matrix testing |
+| Sub-phase | 範圍 | v0.1 | v0.2 | **v0.3** | Notes |
+|---|---|---|---|---|---|
+| **6z-0** | Design doc（v0.2 → v0.3） | — | 4-5h | **5-6h** | ✅ 完成（含 v0.3 reframe） |
+| **6z-1** | Outline 抽取 + 純禪繞 mode + 紙磚 canvas | 4-5h | 5-6h | **5-6h** | 加鍵盤+滑鼠 input layer scaffolding（含主選單 force-modal） |
+| **6z-2a** | 紙磚 rotation logic + math (pure, no input wiring) | — | — | **3-4h** | NEW v0.3 — 切自 v0.2 6z-2 (senior note #5) |
+| **6z-2b** | 紙磚 rotation input wiring (鍵盤+滑鼠 sidebar 鈕 + R-stick 預留) | — | — | **2-3h** | NEW v0.3 — 切自 v0.2 6z-2 |
+| **6z-3** | ICSO 工具 + 6 tangles 庫 + tangle cycle | 5-6h | 6-8h | **6-8h** | 鍵盤 R 鍵 + sidebar tangle 區 |
+| **6z-4** | 鍵盤+滑鼠 input layer 完整 wiring（D-Pad/L-stick 等 abstraction）| — | 6-8h | **5-7h** | input abstraction layer (gamepad-agnostic) |
+| **6z-5a** | Pseudo-3D `depth_dir` 4 方向 (perspective only) | — | — | **5-6h** | NEW v0.3 — 切自 v0.2 6z-5 (senior note #2) |
+| **6z-5b** | Pseudo-3D `curve_mode` 軸 1 (中高邊低) + visual verify gate | — | — | **2-3h** | NEW v0.3 — 加軸前 visual verify |
+| **6z-5c** | Pseudo-3D `curve_mode` 軸 2 (邊高中低) — 視 5b 結果決定軸 3-4 | — | — | **1-2h or skip** | 評估點：若 5b 視覺夠豐富，軸 3-4 砍 |
+| **6z-6** | 切割 mode 狀態機（□ cycle I/./O + D-Pad bend C/S）| — | 5-7h | **5-7h** | 核心 mechanism (pure logic 抽 .mjs，可 Node test) |
+| **6z-7** | **Web Gamepad API integration**（auto-detect + button mapping wrapper）| — | 8-10h | **3-4h** ⭐ | 🆕 v0.3 reframe — gamepad-agnostic enhancement (節省 ~6h) |
+| **6z-8** | Embedded mode（漢字 outline + fill_mode）| 4-5h | 4-5h | **4-5h** | unchanged |
+| **6z-9** | Draft 系統（30 步 undo + 5 分鐘 auto-save + download timestamp）| 3-4h | 4-5h | **4-5h** | 加 layer toggle |
+| **6z-10** | Gallery 整合（kind='zentangle' + thumbnail + dispatch dict）| 2-3h | 2-3h | **2-3h** | unchanged |
+| **6z-11** | Tests + decision logs + bump（鍵鼠 manual E2E + gamepad smoke）| 3-4h | 5-6h | **3-4h** ⭐ | 🆕 v0.3 — testing matrix 縮減 (節省 ~2h) |
 
-**Phase 6z v0.2 總估**：**58-79 hours / 2-3 週工作日**（vs v0.1 30-40h，1.5-2x scope，user 已接受 trade-off 換 acquisition power）。
+**Phase 6z v0.3 總估**：**48-67 hours / 1.5-2 週工作日**（vs v0.2 58-79h，**節省 10-12h** 透過 gamepad reframe + sub-phase 切細）。
+
+> **v0.3 vs v0.2 估時節省來源**：
+> - 6z-7 Web Gamepad API wrapper (3-4h) vs v0.2 三 input matrix 等效 (8-10h) → **-6h**
+> - 6z-11 testing 縮減 (3-4h) vs v0.2 三 input matrix testing (5-6h) → **-2h**
+> - 6z-2 切 a/b + 6z-5 切 a/b/c：**估時不變但 sub-phase boundary 清楚**（senior review note #2 + #5 應用）
+>
+> **預期實際 burn 1.2-1.5x**（greenfield + 4 高 risk），realistic **58-100h**（§9 R7）。
 
 ---
 
@@ -434,10 +538,11 @@ strokes:
 
 ### 7.3 UX 層 anti-patterns
 
-- ❌ **強迫單一 input method**（user 沒 PS2 controller 就用不了）— 三 input 等效是 hard requirement
-- ❌ **PS2 button 以外的功能塞進無關按鈕** — 每按鈕 single-purpose
+- ❌ **強迫使用 gamepad**（user 沒 gamepad 就用不了）— **鍵盤+滑鼠是 universal core**，gamepad 是 optional enhancement
+- ❌ **gamepad button 以外的功能塞進無關按鈕** — 每按鈕 single-purpose（鍵盤 mapping 同精神）
 - ❌ **published 後可後製改動** — 違反軸 10 immutable
 - ❌ **強制 wizard 流程** — 自由為主 + 主選單組織
+- ❌ **silent default**（特別 `pseudo_3d.depth_dir` / tile size / mode）— 主選單第一次開磚 force-modal、schema null 加 comment（v0.3 senior review note #5）
 
 ### 7.4 Implementation 層 anti-patterns
 
@@ -469,20 +574,20 @@ strokes:
 
 ---
 
-## 9. Risk Register (v0.2 更新)
+## 9. Risk Register (v0.3 更新)
 
 | # | Risk | Impact | Mitigation |
 |---|---|---|---|
 | **R1** | 字框 outline 抽取技術未驗證 | High | 6z-1 spike 先驗證 freetype + Pillow path 抽取；fallback hard-coded outline 庫 |
-| **R2** | 紙磚旋轉 + tile-local coords 算錯 | High | 6z-2 完成後 manual E2E 驗證旋轉一致性 |
-| **R3** | **Pseudo-3D render pipeline 複雜** | **High** | NEW — 6z-5 spike 用簡單 perspective transform 先做，複雜度逐步加 |
-| **R4** | **PS2 controller hardware niche** | **Medium** | NEW — 三 input 等效是 hard requirement；鍵盤/滑鼠等效一定要做完整 |
-| **R5** | **3-input-method matrix testing 爆 scope** | **High** | NEW — 6z-11 預留 5-6h 專測，每個操作 PS2 / 鍵盤 / 滑鼠 都 manual E2E 一次 |
+| **R2** | 紙磚旋轉 + tile-local coords 算錯 | High | 6z-2a 完成後 manual E2E 驗證旋轉一致性（pure logic 抽 .mjs，Node test 易） |
+| **R3** | **Pseudo-3D render pipeline 複雜** | **High** | 6z-5 切 a/b/c 三階段：5a depth_dir 4 dir → visual verify → 5b curve 軸 1 → verify → 5c 評估砍軸 |
+| **R4** | 🆕 v0.3 改 — **Web Gamepad API 跨 browser 行為差異** | **Medium** | Chrome 為 primary target；Firefox/Safari/Edge 6z-7 manual smoke 各 1 次；非 standard mapping 的 gamepad fallback 顯示「請用鍵盤滑鼠」 |
+| **R5** | 🆕 v0.3 縮減 — **Input testing 鍵鼠 + gamepad smoke** | **Medium** | 6z-11 預留 3-4h：鍵盤+滑鼠 完整 manual E2E（universal core），gamepad 各 1 個 smoke 測 |
 | R6 | Tangle library 內容深度不足 | Medium | 6 個帶詳細 step tutorial；user 反饋驅動加 tangle |
-| R7 | Phase 6z scope creep（58-79h） | High | 嚴守 sub-phase 邊界，每 sub-phase 結束 commit + bump（仿 r29 系列節奏） |
+| R7 | 🆕 v0.3 更新 — **Phase 6z 實際 burn 1.2-1.5x design 估時** | **High** | 估時 48-67h，realistic 預期 58-100h；嚴守 sub-phase 邊界，每 sub-phase 結束 commit + bump（仿 r29 節奏） |
 | R8 | Draft 跟 published schema 不對齊 | Medium | `draft_meta.is_draft` 必填 + 兩 phase 明確 boundary |
-| R9 | **切割 mode 狀態機 bug** | Medium | NEW — 6z-6 寫狀態機 unit test（pure logic，可 Node `node:test`） |
-| R10 | User 期待跟 thesis 偏離 | Low | thesis 已明確 acquisition-first，產品定位清楚不會誤導 |
+| R9 | **切割 mode 狀態機 bug** | Medium | 6z-6 寫狀態機 unit test（pure logic，可 Node `node:test`） |
+| R10 | 🆕 v0.3 更新 — **「禪繞」品牌 vs Pseudo-3D 創新風格矛盾** | Medium | 列入 §12 defer (6z-12 marketing copy phase)；UI 第一次開磚加「本工具是禪繞**啟發**的數位化創作」disclaimer |
 
 ---
 
@@ -495,8 +600,9 @@ strokes:
 3. ✅ User 願景明確（21 批資料 + v0.1 反饋 + 13 missing decisions confirmed）
 4. ✅ Schema 設計收斂（軸 1-15 全 confirmed）
 5. ✅ Anti-pattern 清單 + P7 strict completion 套用
-6. ✅ 三 input method spec 明確
-7. ✅ Pseudo-3D mechanism 明確
+6. ✅ Input method spec 明確（鍵盤+滑鼠 universal core + Web Gamepad API enhancement）
+7. ✅ Pseudo-3D mechanism 明確（含 6z-5 a/b/c 切階段策略）
+8. ✅ v0.2 senior review 5 notes 全處理（path A reframe 已落實 v0.3）
 
 🚦 **未滿足條件（如有）**：無 — 可進 6z-1 implementation。
 
@@ -530,16 +636,18 @@ strokes:
 | Cross-mode snapshot system | **phase 7** (獨立) |
 | Mobile / tablet responsive | phase 6z+1 |
 | `pushState` 取代 hash route | 視 SEO 需求 |
+| 🆕 v0.3 — **Marketing copy + 品牌 disclaimer**（「禪繞**啟發**的數位化創作」UI 文案） | **phase 6z-12**（gallery 整合後） |
+| 🆕 v0.3 — **Tangle 庫線上更新機制** (server-driven library) | phase 6z+2 |
 
 ---
 
 ## 13. Approval gate
 
-**Design doc v0.2 寫完 ✅**。下一步：
+**Design doc v0.3 寫完 ✅**（v0.2 senior review path A reframe 已落實）。下一步：
 
 | | 動作 |
 |---|---|
-| **A ★** | **User Approve design doc v0.2 → 進 6z-1 implementation** |
+| **A ★** | **User Approve design doc v0.3 → 進 6z-1 implementation** |
 | B | User 想修改某條軸 → re-loop QODA |
 | C | 暫存 design doc → 收工 |
 
@@ -549,7 +657,8 @@ strokes:
 
 ## 14. Cross-link 參考
 
-- Design v0.1（前一版，5/6 深夜）：[`2026-05-06_phase6z_zentangle_design.md`](2026-05-06_phase6z_zentangle_design.md)
+- Design v0.2（前一版，5/6 深夜）：commit `fff3014`（git history snapshot）
+- Design v0.1（5/6 深夜）：[`2026-05-06_phase6z_zentangle_design.md`](2026-05-06_phase6z_zentangle_design.md)
 - 設計 spike：[`2026-05-06_phase6z_design_spike.md`](2026-05-06_phase6z_design_spike.md)
 - 工作日誌：[`../journal/2026-05-06_session_log.md`](../journal/2026-05-06_session_log.md)
 - 共通性原則：[`../PRINCIPLES.md`](../PRINCIPLES.md) §6 設計流程原則 + §6.8 thesis ↔ rule mapping
@@ -567,10 +676,12 @@ strokes:
 
 ## 15. 結尾
 
-Phase 6z v0.2 是 stroke-order 至今最大單一 phase（58-79h，比 v0.1 1.5-2x）。Design doc 完成代表「**動筆前該想清楚的事都想清楚了**」 — 對應 personal-playbook §0.4 重新框架問題 thesis 的具體實踐。
+Phase 6z v0.3 是 stroke-order 至今最大單一 phase（**48-67h** 設計估，realistic 58-100h）。Design doc 完成代表「**動筆前該想清楚的事都想清楚了**」 — 對應 personal-playbook §0.4 重新框架問題 thesis 的具體實踐。
 
-**Thesis 升級**：v0.1「禪繞重複疊加減負工具」 → v0.2「**快速產出禪繞效果的數位工具**」 acquisition-first，鎖定「想要禪繞風格但不想慢慢手繪」的 user。
+**Thesis 升級** (v0.1→v0.2 內容 thesis 不變)：v0.1「禪繞重複疊加減負工具」 → v0.2「**快速產出禪繞效果的數位工具**」 acquisition-first，鎖定「想要禪繞風格但不想慢慢手繪」的 user。
 
-Implementation 等 user Approval design doc v0.2 後正式啟動。每 sub-phase 帶 P7 completion format + anti-pattern 自審 + commit + bump，仿 r29 系列節奏推進。
+**v0.3 reframe** (input architecture)：v0.2 PS2 hard requirement → v0.3「鍵盤+滑鼠 universal core + Web Gamepad API auto-detect 任何標準 gamepad」。Senior review path A 的 elegant simplification — acquisition power 不下降，dev cost 節省 10-12h，hardware niche risk 消除。
+
+Implementation 等 user Approval design doc v0.3 後正式啟動。每 sub-phase 帶 P7 completion format + anti-pattern 自審 + commit + bump，仿 r29 系列節奏推進。
 
 > 「方法論的本質 = 把『應該做但會偷懶的事』變成『不做就無法交付』」 — personal-playbook §0.1
