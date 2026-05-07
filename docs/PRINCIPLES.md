@@ -441,6 +441,8 @@ single batched add 一次完。
 
 前 5 章累積的多是「**implementation-time**」原則（寫 code 時該怎麼做）。Phase 6z 禪繞字 design spike 過程浮現另一層 — 「**design-time**」原則（如何把 user 願景轉成可實作的 spec）。
 
+> **§6 子節順序註**：§6.1-§6.7 是 5/6 spike 累積、§6.9-§6.12 是 5/8 implementation 過程萃取。§6.8 是 meta-mapping section（§6 ↔ personal-playbook 治理層對照），刻意放本章最末。文件順序是 6.1 → 6.7 → 6.9 → 6.10 → 6.11 → 6.12 → 6.8，跟編號順序不同 — by design。
+
 ### 6.1 大 phase 必先寫 design doc，不寫 = 不該動 code
 
 > 🔗 **Thesis 層**：personal-playbook **§0.4「重新框架問題 > 答問題（plan-first 升級）」** — 「Senior 紀律的核心不是會用更多工具、是問對問題」。本條是該 thesis 在工程實作層的 rule 化。
@@ -603,6 +605,109 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 **對應 §8.5 啟用條件結構性煞車** — 但本條更聚焦「**user 主動標 待驗證**」的場景。
 
 **出處**：phase 6z 9 cell panel + 元素尺寸
+
+---
+
+### 6.9 預設策略 domain-specific — Ops 強紀律弱預設 vs UX 預設要 senior
+
+**Trigger**：規劃任何 default value / form field / config 流程時。
+
+**規則**：問三維後再決：
+1. **錯預設代價**？（Ops 斷網/資料壞 vs UX 視覺不符預期）
+2. **修正代價**？（半夜跑機房 vs 按一下換）
+3. **First-paint 友善**對 acquisition target 是否致命？
+
+**對映**：
+- **Ops / Infra** (e.g. NIC name / schema version) → **強紀律弱預設** (D-C)：force user verify、無預設、ESC 不可 dismiss
+- **UX / Acquisition target** (e.g. zentangle char / mode / tile size) → **預設要 senior 不要 absent**：合理初始值即時開磚、modal 改 settings 入口、ESC 可關
+
+**Anti-pattern**：把 ops 通則套進 UX → first-paint friction = lost user。
+
+**今日案例**：
+- 6z-1F 套 D-C 寫 force-modal 必填 → user 反饋「要預設值先讓使用者開磚」
+- 6z-1.1 加 `DEFAULT_CONFIG = {char:"心", mode:"hollow", tileSize:"standard"}` fallback
+- 6z-1.2 完全刪 modal → inline 控件 + change auto-apply
+
+**對應 memory**：[`feedback_domain_specific_defaults`](../../.auto-memory/feedback_domain_specific_defaults.md) — 詳細三維問題清單。
+
+**對應 personal-playbook**：§0.4 重新框架（「**這個 domain 的錯預設代價是什麼**」 才是 senior 問題、「**該不該有預設**」 是表象 binary）。
+
+**出處**：phase 6z-1F → 6z-1.1 → 6z-1.2 三次連續修補
+
+---
+
+### 6.10 Modal vs Inline — Creative tool config 用 inline + auto-apply
+
+**Trigger**：設計任何 settings / config UI 時。
+
+**規則**：
+- **Modal** 只用於 **transactional / destructive / irreversible** 動作（轉帳、刪除、發布、上傳）
+- **Inline + auto-apply** 用於 **可逆 settings / continuous adjustment**（mode、color、size、density、filter 等 creative tool config）
+
+**Why**：Creative tool 的本質是**直接操作 + 立即反饋**。Modal 在 settings 場景＝多一道 friction（open → confirm → close → 想再調 → 再 open）。對連續微調（slider drag、radio cycle）尤其反 pattern。
+
+**今日案例**：6z-1F 把 char + mode + tile size 包成 modal，連續 3 次 user 反饋（必填 → 改 fallback → 改 inline radio），第 3 次徹底刪 modal、改 inline radio + change 即 apply。
+
+**Strip-and-rebuild signal**：第 2 次同類 modal-vs-inline 修補後，root cause = modal 當 settings 入口的錯誤前提；第 3 次該 strip 而非 patch。
+
+**對應 personal-playbook §8.32 失敗 2 次換方法** — 本條是該原則在 UI 層的 instance。
+
+**出處**：phase 6z-1F → 6z-1.2 三輪修補
+
+---
+
+### 6.11 Canvas 整體變換用 ctx transform，不對 primitive 個別 pre-rotate
+
+**Trigger**：Canvas / SVG 上需要「**多個 primitive 視覺上群組變換**」（旋轉、縮放、平移、透視）時。
+
+**規則**：
+- **群組變換**（如「**整個紙磚**旋轉」 含邊框 + dot + 字 + tangle 同步轉）→ **ctx.save / translate / rotate / restore 包住整個 draw block**
+- **個別 primitive 變換**（如某條 stroke 的 pseudo-3D 透視 stored 進 schema）→ pure helper 對 polyline coords 預變換
+
+**Anti-pattern**：用 polyline pre-rotation (e.g. `rotateContours()`) 來實現「**整體旋轉**」 — frame 不在 polyline 集合裡，會落在 axis-aligned 空間，造成「字轉、磚不轉」 視覺 bug。
+
+**今日案例**：
+- 6z-2 用 `rotateContours(mappedRaw, _rotationDegrees, [ts/2, ts/2])` 對 outline polylines pre-rotate → drawTileBackground 仍 axis-aligned → user 反饋「**外框連同字一起旋轉**才對」
+- 6z-2.1 改 `withTileRotation(fn)` ctx transform 包整個 redrawAll → frame + outline + tangle 全在同一 transform 下
+
+**驗法**：當 visual element 群組旋轉時，問「**這群是不是該作為 unit 一起變**」？是 → ctx transform 包住；否 → primitive pre-transform。
+
+**Bonus 觀察**：Pure helper（如 `rotateContours`）仍值得保留 + Node test，給 state-aware 場景用：SVG export、`.zentangle.md` serialization、Pseudo-3D pre-render（content 變換需要存進 schema）。
+
+**對應 6z-2.2 補充 — Viewport 控制 vs 內容變換是不同層**：
+- **Viewport** (pan / zoom / scroll) — 只影響顯示、不改 content data → ctx transform 即可
+- **內容變換** (rotation / scale / pseudo-3D / fill) — 影響 content 視覺 representation → 該存進 schema
+- 兩者正交、state 應分開存（如 `_rotationDegrees` 是內容變換 + `_panState` 是 viewport — 互不重疊）
+
+**出處**：phase 6z-2 → 6z-2.1 修 frame 旋轉 → 6z-2.2 加 pan buttons
+
+---
+
+## 6.12 失敗 2 次同類修補 → 第 3 次 strip and rebuild（§8.32 工程 instance）
+
+**Trigger**：對同一塊 code / UX / spec 連續第 2 次以上同方向修補時。
+
+**規則**：第 2 次同類修補後，停下問「**root cause 是什麼**」 — 通常是某個架構性前提錯了。第 3 次該 **strip and rebuild**，不該再 patch。
+
+**辨識訊號**：
+- 同一檔案連續 commit 訊息都是「fix: X 修補 N 次」
+- 修法越來越「繞」（補 if、加 hack、case-by-case）
+- User 反饋持續同一方向（「再讓 X 更...」 / 「這個還是有問題...」）
+- 自我感覺「**怎麼又改這塊**」
+
+**對應 personal-playbook §8.32** — 思維層原則的工程 instance。
+
+**今日案例**：
+- **6z-1 force-modal**：6z-1F (必填) → 6z-1.1 (DEFAULT_CONFIG fallback、modal 改非阻擋) → 6z-1.2 (完全刪 modal + inline radio)
+  - 三次都修 modal、第 3 次該 strip 才看清「**modal 當 settings 入口」 是錯的前提**
+- **6z-2 rotation 視覺**：6z-2 (rotation pre-rotate) → 6z-2.1 (改 ctx transform) → 6z-2.2 (加 pan) → 6z-2.3 (修箭頭方向)
+  - 4 次 visual fix 揭示「**unit test 抓不到 visual**」 真實 (對應 memory `feedback_visual_render_verify`) — 但 root cause 不同（架構 vs 視覺細節），所以不是 strip signal、是「visual verify 該每次都做」signal
+
+**區辨**：
+- 同 root cause 反覆修補 → strip
+- 不同 root cause 只是同檔位/同視覺區 → 持續 visual verify
+
+**出處**：phase 6z-1 三輪 modal 修補（明確 strip signal）+ 6z-2 四輪 visual fix（visual verify 累積）
 
 ---
 
