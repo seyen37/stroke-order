@@ -21,6 +21,12 @@ import {
   mapContourToTile,
   contoursAreClosed,
 } from "./outline.mjs";
+import {
+  TANGLES,
+  buildTangle,
+  renderTangleSpecs,
+  listTangles,
+} from "./tangle.mjs";
 
 // 6z-2.1 NOTE: `rotateContours` is intentionally NOT imported here.
 // Tile rotation is now applied via canvas ctx transform (so frame + outline
@@ -104,6 +110,20 @@ const ROTATION_HISTORY_MAX = 16;  // bounded to keep memory tame
 // tile-resize redraws don't re-hit the server. Cleared whenever the
 // outline source changes (char / source select).
 let _cachedContours = null;
+
+// 6z-3: active tangle key (per-session state, NOT persisted).
+//   "none"          → no tangle layer rendered
+//   "crescent_moon" → 6z-3 MVP
+//   "florz"         → 6z-3 MVP
+//   (others 6z-3.X)
+// △ Triangle / R 鍵 cycles through this list.
+let _activeTangle = "none";
+
+// 6z-3: tangle render style (kept module-level so 6z-3.X density UI can mutate).
+const TANGLE_DENSITY = "medium";  // 6z-3 MVP fixed; future: tie to L3 cycle / radio
+const TANGLE_STROKE = "#444";
+const TANGLE_FILL = "#444";
+const TANGLE_LINE_WIDTH = 1;
 
 // 6z-2.2: pan state — quick-peek at rotation overflow corners.
 //   "center" : no pan (default; corners may exceed viewport when rotated)
@@ -301,8 +321,54 @@ function redrawAll() {
       const bbox = computeBbox(_cachedContours);
       const mapped = mapContourToTile(_cachedContours, bbox, ts, tm);
       drawOutline(mapped);
+      // 6z-3d: tangle layer (clip 在 outline 內，mode=pure 視覺；hollow/bg 暫 fallback)
+      drawTangleLayer(mapped);
     }
   });
+}
+
+/**
+ * 6z-3d — Render the active tangle inside the outline interior (pure mode
+ * mask via Canvas Path2D + ctx.clip("evenodd")).
+ *
+ * Q3=B: 6z-3 only implements pure mode visual; mode=hollow / mode=bg currently
+ * fall back to pure (so user always sees tangle when picked). Differentiation
+ * arrives in 6z-3.X (hollow = fill outside outline; bg = full tile + 字 reverse).
+ *
+ * The "evenodd" fill rule handles nested contours correctly — e.g. 「日」 has
+ * an outer rect + inner rect; even-odd makes the inner rect a HOLE in the
+ * filled region (so the inner stripe between the 2 horizontal bars stays
+ * empty), which is the natural intuition.
+ */
+function drawTangleLayer(mappedContours) {
+  if (_activeTangle === "none") return;
+  if (!Array.isArray(mappedContours) || mappedContours.length === 0) return;
+  const ts = currentTileSize();
+  const tm = currentTileMargin();
+  // Tangle covers the inner box (margin-inset) — same area used for outline
+  // mapping, so the clip + tangle align by construction.
+  const area = {x: tm, y: tm, w: ts - 2 * tm, h: ts - 2 * tm};
+  const specs = buildTangle(_activeTangle, area, TANGLE_DENSITY);
+  if (specs.length === 0) return;
+  // Build outline Path2D (one sub-path per contour) for clip.
+  const clipPath = new Path2D();
+  for (const poly of mappedContours) {
+    if (!Array.isArray(poly) || poly.length < 3) continue;
+    clipPath.moveTo(poly[0][0], poly[0][1]);
+    for (let i = 1; i < poly.length; i++) {
+      clipPath.lineTo(poly[i][0], poly[i][1]);
+    }
+    clipPath.closePath();
+  }
+  _ctx.save();
+  _ctx.clip(clipPath, "evenodd");
+  _ctx.strokeStyle = TANGLE_STROKE;
+  _ctx.fillStyle = TANGLE_FILL;
+  _ctx.lineWidth = TANGLE_LINE_WIDTH;
+  _ctx.lineJoin = "round";
+  _ctx.lineCap = "round";
+  renderTangleSpecs(_ctx, specs);
+  _ctx.restore();
 }
 
 /**
@@ -681,6 +747,45 @@ function wireRotationControls() {
   _actionHandlers["tile-rotate-delta"] = (delta) => rotationDelta(delta);
   // 6z-2.2: pan buttons.
   wirePanControls();
+  // 6z-3c: tangle picker + △/R 鍵 cycle.
+  wireTangleControls();
+}
+
+// ---------------------------------------------------------------------------
+// 6z-3c — Tangle picker + cycle action
+// ---------------------------------------------------------------------------
+
+function setActiveTangle(key) {
+  if (key !== "none" && !TANGLES[key]) {
+    setStatus(`未知 tangle: ${key}`, true);
+    return;
+  }
+  if (key === _activeTangle) return;
+  _activeTangle = key;
+  // Sync inline radio.
+  document.querySelectorAll('input[name="zentangle-tangle"]').forEach((r) => {
+    r.checked = r.value === key;
+  });
+  redrawAll();
+  setStatus(
+    key === "none" ? "Tangle → 無" : `Tangle → ${TANGLES[key].label}`
+  );
+}
+
+function cycleTangle() {
+  // Order: none → registered tangles in registry order → loop.
+  const order = ["none", ...listTangles().map((t) => t.key)];
+  const idx = order.indexOf(_activeTangle);
+  const next = order[(idx + 1) % order.length];
+  setActiveTangle(next);
+}
+
+function wireTangleControls() {
+  document.querySelectorAll('input[name="zentangle-tangle"]').forEach((r) => {
+    r.addEventListener("change", (e) => setActiveTangle(e.target.value));
+  });
+  // 6z-1E ACTION wiring → register real handler (replaces stub fallback).
+  _actionHandlers["cycle-tangle"] = cycleTangle;
 }
 
 /**
