@@ -100,14 +100,13 @@ function boot() {
       );
     });
   }
-  // 6z-1D: force-modal lifecycle wiring.
-  wireForceModal();
+  // 6z-1.2: inline controls (取代 modal) — change → 立即 persist + re-render.
+  wireInlineControls();
   // 6z-1E: input scaffolding (鍵盤 + 滑鼠 + Web Gamepad API stubs).
   wireInputScaffolding();
 
   // 6z-1.1: acquisition-first — apply persisted config, else fall back to
-  // DEFAULT_CONFIG and render immediately. No first-paint blocking modal.
-  // (User can hit「重新設定紙磚」 to open the modal explicitly.)
+  // DEFAULT_CONFIG and render immediately. No first-paint blocking.
   applyConfig(readConfig() || DEFAULT_CONFIG);
   renderOutline().catch((e) =>
     setStatus(`預設字框載入失敗：${e.message}（請選擇字體後手動載入）`, true)
@@ -312,120 +311,114 @@ function clearConfig() {
 }
 
 /**
- * Apply an in-memory config to the running UI (char input + display).
- * Called both on first confirm and on browser reload after restore.
+ * Apply an in-memory config to the running UI:
+ *   - main-screen char input
+ *   - inline mode + tile_size radios (6z-1.2)
+ *   - config display strip
+ * Called on first boot (DEFAULT_CONFIG / restored), and as the side-effect of
+ * any inline control change.
  */
 function applyConfig(cfg) {
   _config = cfg;
   if (_charInput) _charInput.value = cfg.char;
+  // 6z-1.2: sync inline mode + tile radios so reload / boot reflects state.
+  document.querySelectorAll('input[name="zentangle-mode"]').forEach((r) => {
+    r.checked = r.value === cfg.mode;
+  });
+  document.querySelectorAll('input[name="zentangle-tile"]').forEach((r) => {
+    r.checked = r.value === cfg.tileSize;
+  });
   if (_configDisplay) {
     _configDisplay.textContent =
-      `已開磚: 字="${cfg.char}", 模式=${MODE_LABELS[cfg.mode] || cfg.mode}, ` +
-      `紙磚=${TILE_LABELS[cfg.tileSize] || cfg.tileSize}`;
+      `紙磚: 字="${cfg.char}", 模式=${MODE_LABELS[cfg.mode] || cfg.mode}, ` +
+      `尺寸=${TILE_LABELS[cfg.tileSize] || cfg.tileSize}`;
   }
 }
 
-function openModal() {
-  const modal = document.getElementById("zentangle-modal");
-  if (!modal) return;
-  modal.style.display = "flex";
-  // 6z-1.1: pre-fill with current config (user is editing, not entering
-  // from scratch). Falls back to DEFAULT_CONFIG when modal opens via
-  // "重新設定" right after a clearConfig().
-  const cfg = _config || DEFAULT_CONFIG;
-  const charEl = document.getElementById("zm-char");
-  if (charEl) charEl.value = cfg.char || "";
-  document.querySelectorAll('input[name="zm-mode"]').forEach((r) => {
-    r.checked = r.value === cfg.mode;
-  });
-  document.querySelectorAll('input[name="zm-tile"]').forEach((r) => {
-    r.checked = r.value === cfg.tileSize;
-  });
-  updateConfirmButtonState();
-  if (charEl) charEl.focus();
+// ---------------------------------------------------------------------------
+// 6z-1.2 — Inline control wiring (replaces 6z-1D modal lifecycle)
+// ---------------------------------------------------------------------------
+//
+// Pattern: any inline control change → mutate _config → persist → re-render.
+// Char input is debounced (~300ms) so the canvas doesn't thrash mid-typing;
+// other controls (radios, source select) re-render immediately because each
+// click is a deliberate, atomic choice.
+
+const CHAR_DEBOUNCE_MS = 300;
+let _charDebounceTimer = null;
+
+function commitConfigChange(partial) {
+  // Merge `partial` into the current config and propagate.
+  _config = { ..._config, ...partial };
+  writeConfig(_config);
+  if (_configDisplay) {
+    _configDisplay.textContent =
+      `紙磚: 字="${_config.char}", 模式=${
+        MODE_LABELS[_config.mode] || _config.mode
+      }, 尺寸=${TILE_LABELS[_config.tileSize] || _config.tileSize}`;
+  }
 }
 
-function closeModalAndKeepConfig() {
-  // 6z-1.1: ESC / backdrop dismiss path — keep current config unchanged.
-  closeModal();
-}
-
-function closeModal() {
-  const modal = document.getElementById("zentangle-modal");
-  if (modal) modal.style.display = "none";
-}
-
-function readModalSelection() {
-  const charEl = document.getElementById("zm-char");
-  const modeEl = document.querySelector('input[name="zm-mode"]:checked');
-  const tileEl = document.querySelector('input[name="zm-tile"]:checked');
-  return {
-    char: (charEl?.value || "").trim(),
-    mode: modeEl?.value || "",
-    tileSize: tileEl?.value || "",
-  };
-}
-
-function updateConfirmButtonState() {
-  const sel = readModalSelection();
-  const valid =
-    sel.char.length === 1 &&
-    !!sel.mode &&
-    !!sel.tileSize;
-  const btn = document.getElementById("zm-confirm");
-  if (!btn) return;
-  btn.disabled = !valid;
-  btn.style.opacity = valid ? "1" : "0.5";
-  btn.style.cursor = valid ? "pointer" : "not-allowed";
-}
-
-function wireForceModal() {
-  const modal = document.getElementById("zentangle-modal");
-  if (!modal) return;
-  // Live-validate as user types/picks.
-  const charEl = document.getElementById("zm-char");
-  if (charEl) charEl.addEventListener("input", updateConfirmButtonState);
-  document.querySelectorAll('input[name="zm-mode"]').forEach((r) => {
-    r.addEventListener("change", updateConfirmButtonState);
-  });
-  document.querySelectorAll('input[name="zm-tile"]').forEach((r) => {
-    r.addEventListener("change", updateConfirmButtonState);
-  });
-  // Confirm button → save + close + apply + render.
-  const confirmBtn = document.getElementById("zm-confirm");
-  if (confirmBtn) {
-    confirmBtn.addEventListener("click", () => {
-      const sel = readModalSelection();
-      if (!(sel.char.length === 1 && sel.mode && sel.tileSize)) return;
-      writeConfig(sel);
-      applyConfig(sel);
-      closeModal();
+function wireInlineControls() {
+  // 字 input — debounce keystrokes, also commit on Enter / blur.
+  if (_charInput) {
+    const flushChar = () => {
+      const v = (_charInput.value || "").trim();
+      if (v.length !== 1) {
+        setStatus("請輸入一個漢字", true);
+        return;
+      }
+      if (v === _config?.char) return;  // no-op on same value
+      commitConfigChange({ char: v });
+      renderOutline().catch((e) =>
+        setStatus(`載入字框失敗：${e.message}`, true)
+      );
+    };
+    _charInput.addEventListener("input", () => {
+      clearTimeout(_charDebounceTimer);
+      _charDebounceTimer = setTimeout(flushChar, CHAR_DEBOUNCE_MS);
+    });
+    _charInput.addEventListener("blur", () => {
+      clearTimeout(_charDebounceTimer);
+      flushChar();
+    });
+    _charInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        clearTimeout(_charDebounceTimer);
+        flushChar();
+      }
+    });
+  }
+  // 字體 select — change → render.
+  if (_sourceSelect) {
+    _sourceSelect.addEventListener("change", () => {
+      // Source isn't part of persisted config (rotates per-session), so we
+      // just re-render with the new source.
       renderOutline().catch((e) =>
         setStatus(`載入字框失敗：${e.message}`, true)
       );
     });
   }
-  // 6z-1.1: ESC dismiss — close modal, keep current config.
-  modal.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      e.preventDefault();
-      closeModalAndKeepConfig();
-    }
-  });
-  // 6z-1.1: Backdrop click dismiss — same.
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) closeModalAndKeepConfig();
-  });
-  // 「重新設定紙磚」button on the main view → clear + reopen.
-  const resetBtn = document.getElementById("zentangle-reset");
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      clearConfig();
-      _config = null;
-      if (_configDisplay) _configDisplay.textContent = "";
-      openModal();
+  // 模式 radio — change → persist; visual diff arrives in 6z-3 (fill phase).
+  document.querySelectorAll('input[name="zentangle-mode"]').forEach((r) => {
+    r.addEventListener("change", (e) => {
+      commitConfigChange({ mode: e.target.value });
+      // No re-render needed in 6z-1 (no visual diff yet); status reflects.
+      setStatus(
+        `模式 → ${MODE_LABELS[e.target.value]} (視覺差異將在 6z-3 fill phase 啟用)`
+      );
     });
-  }
+  });
+  // 紙磚尺寸 radio — change → persist; visual diff arrives in 6z-2 (canvas resize).
+  document.querySelectorAll('input[name="zentangle-tile"]').forEach((r) => {
+    r.addEventListener("change", (e) => {
+      commitConfigChange({ tileSize: e.target.value });
+      setStatus(
+        `紙磚尺寸 → ${TILE_LABELS[e.target.value]} (視覺差異將在 6z-2 canvas resize 啟用)`
+      );
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------

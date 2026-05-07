@@ -2567,75 +2567,6 @@
        切割 mode, draft system) come in 6z-2..6z-11
      ============================================================ -->
 <main id="zentangle-view" style="display:none;">
-  <!-- Force-modal — 第一次開磚必填 char + mode + tile size (D-C 強紀律弱預設)。
-       關閉後存 localStorage，下次自動套用；按「重新設定紙磚」可再開。 -->
-  <div id="zentangle-modal" style="display:none;position:fixed;inset:0;
-       background:rgba(0,0,0,0.55);z-index:1000;
-       align-items:center;justify-content:center;padding:16px;">
-    <div style="background:#fff;border-radius:8px;padding:24px 28px;
-                max-width:480px;width:100%;
-                box-shadow:0 10px 40px rgba(0,0,0,0.25);">
-      <h3 style="margin:0 0 6px;">紙磚設定</h3>
-      <p style="color:var(--muted);font-size:13px;margin:0 0 16px;line-height:1.5;">
-        修改紙磚參數（字 / 模式 / 尺寸）。
-        <br>初始已套用預設：<strong>「心」 + 空心填充 + 標準磚 (9 cm)</strong> — 對位 acquisition-first thesis（先讓 user 開磚、不擋 first paint）。
-        <br>按 ESC 或外圍可取消、保留現有設定。
-      </p>
-      <div style="margin-bottom:14px;">
-        <label for="zm-char" style="font-weight:bold;display:block;margin-bottom:4px;">
-          字（單一漢字）
-        </label>
-        <input id="zm-char" type="text" maxlength="1" autocomplete="off"
-               style="width:80px;text-align:center;font-size:20px;padding:6px;
-                      border:1px solid var(--border);border-radius:4px;">
-      </div>
-      <fieldset style="border:1px solid var(--border);border-radius:4px;
-                       padding:8px 12px;margin-bottom:14px;">
-        <legend style="font-weight:bold;padding:0 6px;">模式</legend>
-        <label style="display:block;padding:3px 0;">
-          <input type="radio" name="zm-mode" value="pure">
-          純禪繞 <span style="color:var(--muted);font-size:12px;">(只填充字內部)</span>
-        </label>
-        <label style="display:block;padding:3px 0;">
-          <input type="radio" name="zm-mode" value="hollow">
-          空心填充 <span style="color:var(--muted);font-size:12px;">(留字邊空白、外圍填)</span>
-        </label>
-        <label style="display:block;padding:3px 0;">
-          <input type="radio" name="zm-mode" value="bg">
-          背景鑲嵌 <span style="color:var(--muted);font-size:12px;">(整磚填、字反白)</span>
-        </label>
-      </fieldset>
-      <fieldset style="border:1px solid var(--border);border-radius:4px;
-                       padding:8px 12px;margin-bottom:18px;">
-        <legend style="font-weight:bold;padding:0 6px;">紙磚尺寸</legend>
-        <label style="display:block;padding:3px 0;">
-          <input type="radio" name="zm-tile" value="bijou">
-          Bijou <span style="color:var(--muted);font-size:12px;">(5 cm 小磚, 速繪)</span>
-        </label>
-        <label style="display:block;padding:3px 0;">
-          <input type="radio" name="zm-tile" value="standard">
-          標準磚 <span style="color:var(--muted);font-size:12px;">(9 cm 經典)</span>
-        </label>
-        <label style="display:block;padding:3px 0;">
-          <input type="radio" name="zm-tile" value="apprentice">
-          學徒磚 <span style="color:var(--muted);font-size:12px;">(~15 cm 大磚, 細節展演)</span>
-        </label>
-      </fieldset>
-      <div style="display:flex;justify-content:flex-end;">
-        <button id="zm-confirm" type="button" disabled
-                style="padding:8px 18px;background:var(--accent, #c33);color:#fff;
-                       border:0;border-radius:4px;font-size:14px;cursor:pointer;
-                       opacity:0.5;">
-          確認開磚
-        </button>
-      </div>
-      <p style="color:var(--muted);font-size:11px;margin:12px 0 0;line-height:1.4;">
-        💡 6z-1.1 thesis 再平衡：first-paint friction > 嚴格輸入紀律的 acquisition cost。
-        D-C 仍適用 ops 場景（NIC 名稱錯=斷網），但 UX target 預設要 senior 不要 absent。
-      </p>
-    </div>
-  </div>
-
   <section class="card">
     <h2>禪繞字</h2>
     <p style="color:var(--muted);font-size:13px;line-height:1.6;">
@@ -2656,16 +2587,38 @@
                      border:0;border-radius:4px;cursor:pointer;font-size:14px;">
         載入字框
       </button>
-      <button id="zentangle-reset" type="button"
-              style="padding:6px 14px;background:#fafaf8;color:#444;
-                     border:1px solid var(--border);border-radius:4px;
-                     cursor:pointer;font-size:13px;margin-left:auto;"
-              title="清除設定 + 重開 force-modal">
-        重新設定紙磚
-      </button>
+    </div>
+    <!-- 6z-1.2: inline mode + 紙磚尺寸 控件 — 直接點選 + 立即更新 (取代 modal) -->
+    <div class="row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;">
+      <fieldset style="border:1px solid var(--border);border-radius:4px;
+                       padding:4px 10px;margin:0;">
+        <legend style="font-size:12px;font-weight:bold;padding:0 6px;color:var(--muted);">模式</legend>
+        <label style="font-size:13px;margin-right:10px;">
+          <input type="radio" name="zentangle-mode" value="pure">純禪繞
+        </label>
+        <label style="font-size:13px;margin-right:10px;">
+          <input type="radio" name="zentangle-mode" value="hollow" checked>空心填充
+        </label>
+        <label style="font-size:13px;">
+          <input type="radio" name="zentangle-mode" value="bg">背景鑲嵌
+        </label>
+      </fieldset>
+      <fieldset style="border:1px solid var(--border);border-radius:4px;
+                       padding:4px 10px;margin:0;">
+        <legend style="font-size:12px;font-weight:bold;padding:0 6px;color:var(--muted);">紙磚尺寸</legend>
+        <label style="font-size:13px;margin-right:10px;">
+          <input type="radio" name="zentangle-tile" value="bijou">Bijou (5 cm)
+        </label>
+        <label style="font-size:13px;margin-right:10px;">
+          <input type="radio" name="zentangle-tile" value="standard" checked>標準磚 (9 cm)
+        </label>
+        <label style="font-size:13px;">
+          <input type="radio" name="zentangle-tile" value="apprentice">學徒磚 (~15 cm)
+        </label>
+      </fieldset>
     </div>
     <div id="zentangle-config-display"
-         style="font-size:12px;color:var(--muted);margin-top:6px;font-style:italic;">
+         style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">
     </div>
     <div id="zentangle-status"
          style="font-size:12px;color:var(--muted);margin-top:8px;min-height:1.4em;">
