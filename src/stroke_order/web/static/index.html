@@ -2617,6 +2617,36 @@
         </label>
       </fieldset>
     </div>
+    <!-- 6z-2c: 紙磚旋轉 inline 控件 — 8 preset 按鈕 + slider 微調 + 立即回正 / 上次角度 -->
+    <div class="row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
+      <span style="font-weight:bold;color:var(--muted);">紙磚旋轉</span>
+      <button type="button" class="zt-rot-preset" data-deg="0"
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">0°</button>
+      <button type="button" class="zt-rot-preset" data-deg="45"
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">45°</button>
+      <button type="button" class="zt-rot-preset" data-deg="90"
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">90°</button>
+      <button type="button" class="zt-rot-preset" data-deg="135"
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">135°</button>
+      <button type="button" class="zt-rot-preset" data-deg="180"
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">180°</button>
+      <button type="button" class="zt-rot-preset" data-deg="-135"
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">-135°</button>
+      <button type="button" class="zt-rot-preset" data-deg="-90"
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">-90°</button>
+      <button type="button" class="zt-rot-preset" data-deg="-45"
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">-45°</button>
+      <input id="zentangle-rotation-slider" type="range" min="-180" max="180" step="1" value="0"
+             style="width:140px;" title="連續微調 -180° ~ 180°">
+      <span id="zentangle-rotation-display"
+            style="display:inline-block;min-width:48px;text-align:center;font-family:monospace;color:var(--muted);">0°</span>
+      <button id="zentangle-rot-reset" type="button"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
+              title="L1 / Q 鍵：立即回正 = 0°">立即回正</button>
+      <button id="zentangle-rot-prev" type="button"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
+              title="L2 / Shift+Q 鍵：回上次角度">上次角度</button>
+    </div>
     <div id="zentangle-config-display"
          style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">
     </div>

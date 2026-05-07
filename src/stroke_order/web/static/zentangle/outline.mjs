@@ -108,3 +108,62 @@ export function contoursAreClosed(contours) {
   }
   return true;
 }
+
+/**
+ * Rotate every point of every contour by `degrees` about `center`.
+ *
+ * Phase 6z-2a — implements the「轉動紙磚」 mechanism. The rotation is
+ * applied AFTER `mapContourToTile()` so the pivot is in the SAME px space
+ * as the canvas. Caller chooses the pivot — for "rotate the whole tile"
+ * pass `[tileSize/2, tileSize/2]` (canvas center, per Q4 user decision).
+ *
+ * @param {Array} contours - polylines in some 2D coord (typically tile-local px)
+ * @param {number} degrees - rotation amount, positive = clockwise on screen
+ *                           (Y-down). Negative = counter-clockwise.
+ * @param {[number, number]} center - pivot [cx, cy] in same coord system
+ * @returns {Array} new polylines (input not mutated)
+ *
+ * Note: Y-down means the math is the standard 2D rotation matrix —
+ *   x' = cx + (x - cx) cos θ - (y - cy) sin θ
+ *   y' = cy + (x - cx) sin θ + (y - cy) cos θ
+ * with θ in radians (degrees * π / 180). On a Y-down screen this rotates
+ * visually clockwise for positive degrees, which matches the「轉動紙磚」
+ * intuition (user pushes the tile to the right = positive rotation).
+ */
+export function rotateContours(contours, degrees, center) {
+  if (!Array.isArray(contours) || contours.length === 0) return [];
+  if (typeof degrees !== "number" || !Number.isFinite(degrees)) {
+    throw new RangeError(`degrees must be a finite number; got ${degrees}`);
+  }
+  if (
+    !Array.isArray(center) ||
+    center.length !== 2 ||
+    !Number.isFinite(center[0]) ||
+    !Number.isFinite(center[1])
+  ) {
+    throw new RangeError(
+      `center must be [number, number]; got ${JSON.stringify(center)}`
+    );
+  }
+  // Normalise degrees to (-360, 360) before computing — purely cosmetic
+  // for tests that compare large angles to their canonical equivalent.
+  const theta = (degrees * Math.PI) / 180;
+  const cos = Math.cos(theta);
+  const sin = Math.sin(theta);
+  const [cx, cy] = center;
+  const out = [];
+  for (const poly of contours) {
+    if (!Array.isArray(poly) || poly.length === 0) continue;
+    const rotated = [];
+    for (const pt of poly) {
+      if (!Array.isArray(pt) || pt.length < 2) continue;
+      const [x, y] = pt;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      const dx = x - cx;
+      const dy = y - cy;
+      rotated.push([cx + dx * cos - dy * sin, cy + dx * sin + dy * cos]);
+    }
+    if (rotated.length > 0) out.push(rotated);
+  }
+  return out;
+}

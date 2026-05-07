@@ -10,6 +10,7 @@ import {
   computeBbox,
   mapContourToTile,
   contoursAreClosed,
+  rotateContours,
 } from "../src/stroke_order/web/static/zentangle/outline.mjs";
 
 // ---------- fixtures ----------
@@ -156,4 +157,111 @@ test("contoursAreClosed: any contour < 3 pts → false", () => {
     contoursAreClosed([SQUARE_CONTOURS[0], [[0, 0], [1, 1]]]),
     false
   );
+});
+
+// ---------- rotateContours (6z-2a) ----------
+
+const TOL = 1e-9;
+function approxEqual(actual, expected, tol = TOL) {
+  return Math.abs(actual - expected) < tol;
+}
+
+test("rotateContours: 0 degrees is identity", () => {
+  const out = rotateContours(SQUARE_CONTOURS, 0, [50, 50]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].length, 4);
+  for (let i = 0; i < 4; i++) {
+    assert.ok(approxEqual(out[0][i][0], SQUARE_CONTOURS[0][i][0]));
+    assert.ok(approxEqual(out[0][i][1], SQUARE_CONTOURS[0][i][1]));
+  }
+});
+
+test("rotateContours: 90° clockwise about origin maps (1,0) → (0,1)", () => {
+  const single = [[[1, 0]]];
+  // Point lists < 3 are filtered by mapContourToTile, but rotateContours
+  // accepts them — the function is generic. Wrap in larger poly to keep
+  // it through the rotateContours filter (≥1 pt rotated).
+  const triangle = [[[1, 0], [0, 0], [0, 1]]];
+  const out = rotateContours(triangle, 90, [0, 0]);
+  // (1,0) rotated 90° CW (Y-down) → (0, 1)
+  assert.ok(approxEqual(out[0][0][0], 0), `expected x≈0, got ${out[0][0][0]}`);
+  assert.ok(approxEqual(out[0][0][1], 1), `expected y≈1, got ${out[0][0][1]}`);
+  // (0,1) → (-1, 0)
+  assert.ok(approxEqual(out[0][2][0], -1), `expected x≈-1, got ${out[0][2][0]}`);
+  assert.ok(approxEqual(out[0][2][1], 0), `expected y≈0, got ${out[0][2][1]}`);
+});
+
+test("rotateContours: 180° flips coordinates about pivot", () => {
+  const tri = [[[10, 20], [30, 40], [50, 60]]];
+  const out = rotateContours(tri, 180, [0, 0]);
+  // 180° about origin → negate
+  assert.ok(approxEqual(out[0][0][0], -10));
+  assert.ok(approxEqual(out[0][0][1], -20));
+  assert.ok(approxEqual(out[0][2][0], -50));
+  assert.ok(approxEqual(out[0][2][1], -60));
+});
+
+test("rotateContours: 360° returns to original (within tolerance)", () => {
+  const out = rotateContours(SQUARE_CONTOURS, 360, [50, 50]);
+  for (let i = 0; i < 4; i++) {
+    assert.ok(approxEqual(out[0][i][0], SQUARE_CONTOURS[0][i][0], 1e-6));
+    assert.ok(approxEqual(out[0][i][1], SQUARE_CONTOURS[0][i][1], 1e-6));
+  }
+});
+
+test("rotateContours: rotation about non-origin pivot keeps pivot fixed", () => {
+  // The pivot itself should be unchanged for any angle.
+  const triWithPivot = [[[100, 100], [50, 50], [0, 0]]];
+  const out = rotateContours(triWithPivot, 47, [100, 100]);
+  // First point IS the pivot → unchanged
+  assert.ok(approxEqual(out[0][0][0], 100, 1e-9));
+  assert.ok(approxEqual(out[0][0][1], 100, 1e-9));
+});
+
+test("rotateContours: -90° is inverse of +90°", () => {
+  const tri = [[[5, 0], [10, 5], [0, 10]]];
+  const forward = rotateContours(tri, 90, [0, 0]);
+  const back = rotateContours(forward, -90, [0, 0]);
+  for (let i = 0; i < 3; i++) {
+    assert.ok(approxEqual(back[0][i][0], tri[0][i][0], 1e-9));
+    assert.ok(approxEqual(back[0][i][1], tri[0][i][1], 1e-9));
+  }
+});
+
+test("rotateContours: empty input → []", () => {
+  assert.deepEqual(rotateContours([], 45, [0, 0]), []);
+  assert.deepEqual(rotateContours(null, 45, [0, 0]), []);
+});
+
+test("rotateContours: rejects non-finite degrees", () => {
+  assert.throws(
+    () => rotateContours(SQUARE_CONTOURS, NaN, [0, 0]),
+    /degrees/
+  );
+  assert.throws(
+    () => rotateContours(SQUARE_CONTOURS, Infinity, [0, 0]),
+    /degrees/
+  );
+});
+
+test("rotateContours: rejects bad center shape", () => {
+  assert.throws(
+    () => rotateContours(SQUARE_CONTOURS, 45, [0]),
+    /center/
+  );
+  assert.throws(
+    () => rotateContours(SQUARE_CONTOURS, 45, [NaN, 0]),
+    /center/
+  );
+  assert.throws(
+    () => rotateContours(SQUARE_CONTOURS, 45, "bad"),
+    /center/
+  );
+});
+
+test("rotateContours: skips malformed points but keeps polyline", () => {
+  const bad = [[[0, 0], [NaN, 5], [10, 10]]];
+  const out = rotateContours(bad, 0, [0, 0]);
+  // 3 pts in, NaN one filtered, 2 valid pts kept
+  assert.equal(out[0].length, 2);
 });

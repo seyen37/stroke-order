@@ -20,15 +20,30 @@ import {
   computeBbox,
   mapContourToTile,
   contoursAreClosed,
+  rotateContours,
 } from "./outline.mjs";
 
-const TILE_SIZE = 600;        // px (Q2 user decision: 9cm 標準磚 → 600px)
-const TILE_MARGIN = 60;       // px (~10% inset; 字 outline 不貼邊)
+// 6z-2b: tile size → canvas px attribute (real resize, Q3=A user decision).
+// Bijou 5cm / 標準 9cm / 學徒磚 ~15cm — proportional 6z-1 baseline (9cm = 600px).
+const TILE_SIZES = {
+  bijou: 360,         // ~5cm @ ~67px/cm
+  standard: 600,      // 9cm baseline (Q2)
+  apprentice: 900,    // ~13.5cm — viewport-friendly cap (vs spec 15cm)
+};
+const TILE_MARGIN_RATIO = 0.10;  // ~10% inset; 字 outline 不貼邊
 const DOT_RADIUS = 3;         // px
 const DOT_COLOR = "#222";
 const BORDER_COLOR = "#bbb";
 const OUTLINE_COLOR = "#222";
 const OUTLINE_WIDTH = 1.5;
+
+// Helpers — derive current tile size + margin from in-memory config.
+function currentTileSize() {
+  return TILE_SIZES[_config?.tileSize] || TILE_SIZES.standard;
+}
+function currentTileMargin() {
+  return Math.round(currentTileSize() * TILE_MARGIN_RATIO);
+}
 
 // localStorage key for persisted force-modal config (per session, browser-local).
 const CONFIG_STORAGE_KEY = "stroke_order.zentangle.config.v1";
@@ -73,6 +88,13 @@ let _configDisplay = null;
 // In-memory config — mirror of localStorage. null until force-modal confirmed.
 let _config = null;
 
+// 6z-2c per-session rotation state (Q5=B, NOT persisted across reload).
+//   _rotationDegrees: current applied rotation (0 = upright)
+//   _rotationHistory: stack of previous angles for L2「上次角度」
+let _rotationDegrees = 0;
+const _rotationHistory = [];
+const ROTATION_HISTORY_MAX = 16;  // bounded to keep memory tame
+
 /**
  * Boot — runs once, on first activation of zentangle mode.
  */
@@ -108,6 +130,10 @@ function boot() {
   // 6z-1.1: acquisition-first — apply persisted config, else fall back to
   // DEFAULT_CONFIG and render immediately. No first-paint blocking.
   applyConfig(readConfig() || DEFAULT_CONFIG);
+  // 6z-2b: ensure canvas attribute matches restored config (HTML default
+  // is standard=600; reloading with bijou/apprentice needs explicit resize).
+  resizeCanvasToConfig();
+  drawTileBackground();
   renderOutline().catch((e) =>
     setStatus(`預設字框載入失敗：${e.message}（請選擇字體後手動載入）`, true)
   );
@@ -136,26 +162,44 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function drawTileBackground() {
   if (!_ctx) return;
+  const ts = currentTileSize();
+  const tm = currentTileMargin();
   // Clear → white background → 4-corner dots → thin border.
-  _ctx.clearRect(0, 0, TILE_SIZE, TILE_SIZE);
+  _ctx.clearRect(0, 0, ts, ts);
   _ctx.fillStyle = "#ffffff";
-  _ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+  _ctx.fillRect(0, 0, ts, ts);
   // Thin border — inset by 1px so it lives inside the canvas.
   _ctx.strokeStyle = BORDER_COLOR;
   _ctx.lineWidth = 1;
-  _ctx.strokeRect(0.5, 0.5, TILE_SIZE - 1, TILE_SIZE - 1);
+  _ctx.strokeRect(0.5, 0.5, ts - 1, ts - 1);
   // 4-corner dots — classic Zentangle tile signature.
   _ctx.fillStyle = DOT_COLOR;
   const corners = [
-    [TILE_MARGIN / 2, TILE_MARGIN / 2],
-    [TILE_SIZE - TILE_MARGIN / 2, TILE_MARGIN / 2],
-    [TILE_MARGIN / 2, TILE_SIZE - TILE_MARGIN / 2],
-    [TILE_SIZE - TILE_MARGIN / 2, TILE_SIZE - TILE_MARGIN / 2],
+    [tm / 2, tm / 2],
+    [ts - tm / 2, tm / 2],
+    [tm / 2, ts - tm / 2],
+    [ts - tm / 2, ts - tm / 2],
   ];
   for (const [cx, cy] of corners) {
     _ctx.beginPath();
     _ctx.arc(cx, cy, DOT_RADIUS, 0, Math.PI * 2);
     _ctx.fill();
+  }
+}
+
+/**
+ * Resize the canvas backing buffer to match the current tile size.
+ * Should be called whenever _config.tileSize changes — after this, redraw.
+ */
+function resizeCanvasToConfig() {
+  const canvas = document.getElementById("zentangle-canvas");
+  if (!canvas) return;
+  const ts = currentTileSize();
+  if (canvas.width !== ts || canvas.height !== ts) {
+    canvas.width = ts;
+    canvas.height = ts;
+    // Re-fetch ctx because resizing the canvas resets state.
+    _ctx = canvas.getContext("2d");
   }
 }
 
@@ -242,7 +286,15 @@ async function renderOutline() {
     return;
   }
   const bbox = computeBbox(contours);
-  const mapped = mapContourToTile(contours, bbox, TILE_SIZE, TILE_MARGIN);
+  // 6z-2b: tile size dynamic; 6z-2c: rotation applied AFTER mapping (pivot
+  // = canvas center per Q4 user decision).
+  const ts = currentTileSize();
+  const tm = currentTileMargin();
+  const mappedRaw = mapContourToTile(contours, bbox, ts, tm);
+  const mapped =
+    _rotationDegrees !== 0
+      ? rotateContours(mappedRaw, _rotationDegrees, [ts / 2, ts / 2])
+      : mappedRaw;
   drawOutline(mapped);
   const totalPts = mapped.reduce((acc, p) => acc + p.length, 0);
   setStatus(
@@ -410,15 +462,97 @@ function wireInlineControls() {
       );
     });
   });
-  // 紙磚尺寸 radio — change → persist; visual diff arrives in 6z-2 (canvas resize).
+  // 紙磚尺寸 radio — 6z-2b: change → persist + resize canvas + re-render.
   document.querySelectorAll('input[name="zentangle-tile"]').forEach((r) => {
     r.addEventListener("change", (e) => {
       commitConfigChange({ tileSize: e.target.value });
-      setStatus(
-        `紙磚尺寸 → ${TILE_LABELS[e.target.value]} (視覺差異將在 6z-2 canvas resize 啟用)`
+      resizeCanvasToConfig();
+      drawTileBackground();
+      renderOutline().catch((err) =>
+        setStatus(`載入字框失敗：${err.message}`, true)
       );
+      setStatus(`紙磚尺寸 → ${TILE_LABELS[e.target.value]}`);
     });
   });
+  // 6z-2c rotation 控件 — inline UI buttons + slider + L1/L2 reset/prev.
+  wireRotationControls();
+}
+
+// ---------------------------------------------------------------------------
+// 6z-2c — Inline rotation controls + ANGLE_RESET / ANGLE_PREV wiring
+// ---------------------------------------------------------------------------
+
+function applyRotation(newDeg, { skipHistory = false } = {}) {
+  // Normalise to (-180, 180] for cleaner display + comparisons.
+  let n = newDeg % 360;
+  if (n > 180) n -= 360;
+  if (n <= -180) n += 360;
+  if (n === _rotationDegrees) return;  // no-op
+  if (!skipHistory) {
+    _rotationHistory.push(_rotationDegrees);
+    if (_rotationHistory.length > ROTATION_HISTORY_MAX) {
+      _rotationHistory.shift();
+    }
+  }
+  _rotationDegrees = n;
+  // Reflect in inline UI.
+  const slider = document.getElementById("zentangle-rotation-slider");
+  if (slider && slider.valueAsNumber !== n) slider.value = String(n);
+  const display = document.getElementById("zentangle-rotation-display");
+  if (display) display.textContent = `${n}°`;
+  // Re-render to apply rotation.
+  drawTileBackground();
+  renderOutline().catch((e) =>
+    setStatus(`旋轉重繪失敗：${e.message}`, true)
+  );
+}
+
+function angleReset() {
+  applyRotation(0);
+}
+
+function anglePrev() {
+  if (_rotationHistory.length === 0) {
+    setStatus("沒有上次角度紀錄", true);
+    return;
+  }
+  const prev = _rotationHistory.pop();
+  // skipHistory=true so we don't push the current angle (we're popping).
+  applyRotation(prev, { skipHistory: true });
+}
+
+function rotationDelta(degrees) {
+  applyRotation(_rotationDegrees + degrees);
+}
+
+function wireRotationControls() {
+  // 8 preset angle buttons.
+  document.querySelectorAll(".zt-rot-preset").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const deg = parseInt(btn.dataset.deg, 10);
+      if (!Number.isFinite(deg)) return;
+      applyRotation(deg);
+    });
+  });
+  // Continuous slider — live update on input (drag).
+  const slider = document.getElementById("zentangle-rotation-slider");
+  if (slider) {
+    slider.addEventListener("input", () => {
+      applyRotation(slider.valueAsNumber);
+    });
+  }
+  // Reset button → 0°.
+  const resetBtn = document.getElementById("zentangle-rot-reset");
+  if (resetBtn) resetBtn.addEventListener("click", angleReset);
+  // 上次角度 button → history pop.
+  const prevBtn = document.getElementById("zentangle-rot-prev");
+  if (prevBtn) prevBtn.addEventListener("click", anglePrev);
+  // Hook ACTIONS dispatch (鍵盤 Q / Shift+Q via 6z-1E wireInputScaffolding).
+  // The dispatchAction stub still logs; we override at the action handler
+  // level here so the same key binding produces real effect now.
+  _actionHandlers["angle-reset"] = angleReset;
+  _actionHandlers["angle-prev"] = anglePrev;
+  _actionHandlers["tile-rotate-delta"] = (delta) => rotationDelta(delta);
 }
 
 // ---------------------------------------------------------------------------
@@ -479,15 +613,30 @@ const KEY_MAP = {
   ArrowRight: [ACTIONS.PSEUDO3D_DIR, "right"],
 };
 
+// 6z-2c: action handler registry. Each phase swaps in real handlers; any
+// action without a registered handler falls back to the status-bar stub
+// (so 6z-3+ ACTIONS can land incrementally without a runtime crash).
+const _actionHandlers = Object.create(null);
+
 /**
- * Stub dispatcher. 6z-2 ~ 6z-7 will replace this with a registry of
- * per-action handlers; for now we just surface the action in the status
- * bar so manual E2E can confirm the dispatch table is wired.
+ * Dispatch an action through the registry. Registered handlers are called
+ * with the trailing args; unregistered actions degrade to the status-bar
+ * stub from 6z-1E (preserves visibility for in-progress phases).
  */
 function dispatchAction(action, ...args) {
   if (!action) return;
+  const handler = _actionHandlers[action];
+  if (typeof handler === "function") {
+    try {
+      handler(...args);
+    } catch (e) {
+      setStatus(`[input] ${action} 處理失敗：${e.message}`, true);
+    }
+    return;
+  }
   setStatus(
-    `[input] ${action}` + (args.length ? ` (${args.join(", ")})` : ""),
+    `[input] ${action}` + (args.length ? ` (${args.join(", ")})` : "") +
+      "  (handler 待 6z-3+ wire)",
     false
   );
 }
