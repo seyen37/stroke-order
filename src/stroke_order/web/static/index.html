@@ -2656,11 +2656,36 @@
   </section>
   <section class="card">
     <h2>紙磚 (600 × 600 px ≈ 9 cm 標準磚)</h2>
+    <!-- 6z-2.2: 4 側邊 pan buttons — 旋轉時邊角超出 viewport 的 quick-peek。
+         按一下：紙磚向反方向移動，露出該側超界區；同側再按：回正中心。 -->
     <div id="zentangle-canvas-wrap"
-         style="display:flex;justify-content:center;padding:8px;">
+         style="display:grid;justify-content:center;padding:8px;
+                grid-template-columns:auto auto auto;
+                grid-template-rows:auto auto auto;
+                gap:4px;align-items:center;justify-items:center;">
+      <span></span>
+      <button type="button" class="zt-pan-btn" data-pan="top"
+              style="padding:4px 14px;font-size:13px;border:1px solid var(--border);
+                     border-radius:4px;background:#fafaf8;cursor:pointer;"
+              title="露出上邊角（再按一次回正）">↑ 上</button>
+      <span></span>
+      <button type="button" class="zt-pan-btn" data-pan="left"
+              style="padding:8px 6px;font-size:13px;border:1px solid var(--border);
+                     border-radius:4px;background:#fafaf8;cursor:pointer;writing-mode:vertical-lr;"
+              title="露出左邊角（再按一次回正）">← 左</button>
       <canvas id="zentangle-canvas" width="600" height="600"
               style="max-width:100%;height:auto;border:1px solid var(--border);
                      background:#fff;"></canvas>
+      <button type="button" class="zt-pan-btn" data-pan="right"
+              style="padding:8px 6px;font-size:13px;border:1px solid var(--border);
+                     border-radius:4px;background:#fafaf8;cursor:pointer;writing-mode:vertical-lr;"
+              title="露出右邊角（再按一次回正）">→ 右</button>
+      <span></span>
+      <button type="button" class="zt-pan-btn" data-pan="bottom"
+              style="padding:4px 14px;font-size:13px;border:1px solid var(--border);
+                     border-radius:4px;background:#fafaf8;cursor:pointer;"
+              title="露出下邊角（再按一次回正）">↓ 下</button>
+      <span></span>
     </div>
     <p style="color:var(--muted);font-size:12px;margin-top:8px;">
       <strong>下一步</strong>（後續 sub-phase 解鎖）：紙磚旋轉 (R-stick)、切割 mode (□)、

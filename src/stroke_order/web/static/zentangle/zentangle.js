@@ -105,6 +105,16 @@ const ROTATION_HISTORY_MAX = 16;  // bounded to keep memory tame
 // outline source changes (char / source select).
 let _cachedContours = null;
 
+// 6z-2.2: pan state — quick-peek at rotation overflow corners.
+//   "center" : no pan (default; corners may exceed viewport when rotated)
+//   "top"    : pan tile DOWN to reveal what was hidden at TOP
+//   "bottom" : pan tile UP   to reveal what was hidden at BOTTOM
+//   "left"   : pan tile RIGHT to reveal what was hidden at LEFT
+//   "right"  : pan tile LEFT  to reveal what was hidden at RIGHT
+// Per-session, NOT persisted (mirrors _rotationDegrees policy).
+// Toggle: same side again → center; different side → switch.
+let _panState = "center";
+
 /**
  * Boot — runs once, on first activation of zentangle mode.
  */
@@ -212,9 +222,44 @@ function drawTileFrame() {
   }
 }
 
+/**
+ * 6z-2.2: compute how many px of the rotated bbox extend beyond the
+ * canvas on each side. For a square tile rotated by θ:
+ *   bboxExt = ts · (|cos θ| + |sin θ|)
+ *   overflowPerSide = max(0, (bboxExt − ts) / 2)
+ * At θ=0 → 0; at θ=45° → ts·(√2−1)/2 ≈ 0.207·ts.
+ */
+function rotationOverflow() {
+  if (_rotationDegrees === 0) return 0;
+  const θ = (_rotationDegrees * Math.PI) / 180;
+  const ts = currentTileSize();
+  const bboxExt = ts * (Math.abs(Math.cos(θ)) + Math.abs(Math.sin(θ)));
+  return Math.max(0, (bboxExt - ts) / 2);
+}
+
+/**
+ * 6z-2.2: derive [panX, panY] in canvas px from current _panState +
+ * rotation. Pan is the displacement applied to the tile content (rotated
+ * draws are shifted by this vector). The amount = rotationOverflow() so a
+ * single press reveals the full hidden corner on that side.
+ */
+function computePanOffset() {
+  if (_panState === "center") return [0, 0];
+  const v = rotationOverflow();
+  if (v === 0) return [0, 0];
+  switch (_panState) {
+    case "top":    return [0,  v];   // shift tile DOWN → top corner visible
+    case "bottom": return [0, -v];
+    case "left":   return [ v, 0];
+    case "right":  return [-v, 0];
+    default:       return [0, 0];
+  }
+}
+
 function withTileRotation(fn) {
   if (!_ctx) return;
-  if (_rotationDegrees === 0) {
+  const [px, py] = computePanOffset();
+  if (_rotationDegrees === 0 && px === 0 && py === 0) {
     fn();
     return;
   }
@@ -222,6 +267,12 @@ function withTileRotation(fn) {
   const cx = ts / 2;
   const cy = ts / 2;
   _ctx.save();
+  // 6z-2.2: pan applied first in concat order = displaces the rotated
+  // tile after rotation (transform composes right-to-left at draw time:
+  // M = T(pan) · T(c) · R(θ) · T(-c), so for any point p,
+  //   x' = pan + c + R(θ)(p - c)
+  // — exactly the「rotated tile slid by pan」 behaviour we want).
+  _ctx.translate(px, py);
   _ctx.translate(cx, cy);
   _ctx.rotate((_rotationDegrees * Math.PI) / 180);
   _ctx.translate(-cx, -cy);
@@ -628,6 +679,47 @@ function wireRotationControls() {
   _actionHandlers["angle-reset"] = angleReset;
   _actionHandlers["angle-prev"] = anglePrev;
   _actionHandlers["tile-rotate-delta"] = (delta) => rotationDelta(delta);
+  // 6z-2.2: pan buttons.
+  wirePanControls();
+}
+
+/**
+ * 6z-2.2 — pan button handlers. Toggle behaviour:
+ *   click same side  → reset to "center"
+ *   click new side   → switch _panState to that side
+ * Visual indicator: active button gets a thicker border + bg highlight.
+ */
+function togglePan(side) {
+  _panState = _panState === side ? "center" : side;
+  refreshPanButtonHighlight();
+  redrawAll();
+  if (_panState === "center") {
+    setStatus("紙磚 pan → 中心");
+  } else {
+    const labels = { top: "上邊角", bottom: "下邊角", left: "左邊角", right: "右邊角" };
+    setStatus(
+      `紙磚 pan → 露出 ${labels[_panState]}（${Math.round(rotationOverflow())} px；再按一次回中心）`
+    );
+  }
+}
+
+function refreshPanButtonHighlight() {
+  document.querySelectorAll(".zt-pan-btn").forEach((btn) => {
+    const isActive = btn.dataset.pan === _panState;
+    btn.style.background = isActive ? "var(--accent, #c33)" : "#fafaf8";
+    btn.style.color = isActive ? "#fff" : "#444";
+    btn.style.borderColor = isActive ? "var(--accent, #c33)" : "var(--border)";
+  });
+}
+
+function wirePanControls() {
+  document.querySelectorAll(".zt-pan-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const side = btn.dataset.pan;
+      if (!["top", "bottom", "left", "right"].includes(side)) return;
+      togglePan(side);
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
