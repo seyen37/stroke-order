@@ -36,6 +36,19 @@ const CONFIG_STORAGE_KEY = "stroke_order.zentangle.config.v1";
 // 6z-1D config schema. v1 is the very first; bump to v2 when fields shift.
 const CONFIG_SCHEMA_VERSION = 1;
 
+// 6z-1.1: acquisition-first default config — show first paint immediately,
+// don't block on a force-modal. User explicit thesis decision (5/7 evening):
+// 「會用電腦操作來取代手繪的人，本來就已經設想要快速做出禪繞效果」 — first-
+// paint friction hurts acquisition more than silent defaults hurt verification.
+// D-C 強紀律弱預設 仍適用於高代價 ops 場景（NIC 名稱錯 = 斷網），但 UX
+// acquisition target 不該為 strict input rigor 付 first-paint cost。Modal
+// 仍 wired up，user 主動按「重新設定紙磚」可開啟調整。
+const DEFAULT_CONFIG = {
+  char: "心",
+  mode: "hollow",      // 空心填充
+  tileSize: "standard", // 標準磚 (9 cm)
+};
+
 // 6z-1D: human labels for the persisted enum values.
 const MODE_LABELS = {
   pure: "純禪繞",
@@ -92,17 +105,13 @@ function boot() {
   // 6z-1E: input scaffolding (鍵盤 + 滑鼠 + Web Gamepad API stubs).
   wireInputScaffolding();
 
-  // Try to restore config from localStorage. If absent → modal must run
-  // before canvas is usable. If present → apply + render.
-  const restored = readConfig();
-  if (restored) {
-    applyConfig(restored);
-    renderOutline().catch((e) =>
-      setStatus(`預設字框載入失敗：${e.message}（請選擇字體後手動載入）`, true)
-    );
-  } else {
-    openModal();
-  }
+  // 6z-1.1: acquisition-first — apply persisted config, else fall back to
+  // DEFAULT_CONFIG and render immediately. No first-paint blocking modal.
+  // (User can hit「重新設定紙磚」 to open the modal explicitly.)
+  applyConfig(readConfig() || DEFAULT_CONFIG);
+  renderOutline().catch((e) =>
+    setStatus(`預設字框載入失敗：${e.message}（請選擇字體後手動載入）`, true)
+  );
   _booted = true;
 }
 
@@ -320,18 +329,25 @@ function openModal() {
   const modal = document.getElementById("zentangle-modal");
   if (!modal) return;
   modal.style.display = "flex";
-  // Reset modal inputs each time we open (force fresh selection — no
-  // residual state).
+  // 6z-1.1: pre-fill with current config (user is editing, not entering
+  // from scratch). Falls back to DEFAULT_CONFIG when modal opens via
+  // "重新設定" right after a clearConfig().
+  const cfg = _config || DEFAULT_CONFIG;
   const charEl = document.getElementById("zm-char");
-  if (charEl) charEl.value = "";
+  if (charEl) charEl.value = cfg.char || "";
   document.querySelectorAll('input[name="zm-mode"]').forEach((r) => {
-    r.checked = false;
+    r.checked = r.value === cfg.mode;
   });
   document.querySelectorAll('input[name="zm-tile"]').forEach((r) => {
-    r.checked = false;
+    r.checked = r.value === cfg.tileSize;
   });
   updateConfirmButtonState();
   if (charEl) charEl.focus();
+}
+
+function closeModalAndKeepConfig() {
+  // 6z-1.1: ESC / backdrop dismiss path — keep current config unchanged.
+  closeModal();
 }
 
 function closeModal() {
@@ -389,20 +405,16 @@ function wireForceModal() {
       );
     });
   }
-  // Block ESC dismissal — D-C strict no-escape (matches the modal's own
-  // disclaimer text).
+  // 6z-1.1: ESC dismiss — close modal, keep current config.
   modal.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      e.stopPropagation();
+      closeModalAndKeepConfig();
     }
   });
-  // Block backdrop click dismissal as well — same strict policy.
+  // 6z-1.1: Backdrop click dismiss — same.
   modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    if (e.target === modal) closeModalAndKeepConfig();
   });
   // 「重新設定紙磚」button on the main view → clear + reopen.
   const resetBtn = document.getElementById("zentangle-reset");
