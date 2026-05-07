@@ -610,6 +610,8 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 
 2026-05-06 personal-playbook 第十三次修訂從 139 ref pool cherry-pick 12 條原則，新加 §零 治理哲學（thesis 層）。本表把 stroke-order §6 工程 rule 對應到 personal-playbook 的 thesis 層：
 
+> **2026-05-07 補充**：personal-playbook commit `0917c60` / `3ad1cab` / `0d66f28` 從另一台電腦 ESXi/VM ops 工作中萃取 4 共通性原則（#13-#16）+ 5 個 U5M60 setup decisions（D-A 至 D-E）。本表已擴充，新增 row 標 🆕。詳見 personal-playbook `docs/WORK_LOG_2026-05-07.md` §G + `docs/decisions/2026-05-07_u5m60_first_setup.md`。
+
 | Stroke-order §6 (rule layer) | Personal-playbook §零 (thesis layer) | 關係 |
 |---|---|---|
 | §6.1 大 phase 必先寫 design doc | **§0.4** 重新框架問題 > 答問題（plan-first 升級） | thesis 層命名 |
@@ -619,6 +621,9 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 | §6.2 草稿 vs 定稿 | (待 cherry-pick 進 personal-playbook) | stroke-order 獨有 |
 | §6.3 資料分批收集 | (待 cherry-pick) | stroke-order 獨有 |
 | §6.6 21-batch acknowledge | (待 cherry-pick) | stroke-order 獨有 |
+| 🆕 §8.22 Reconnaissance + §6.4 不擴大 scope | **#13 Prerequisite Confirm** + **#15 IT Debt 區分紀律** | thesis 層強化「假設 vs reality 落差」+ scope hygiene（不是所有 debt 都該動） |
+| 🆕 §6.4 Product positioning「真正能用」維度 | **D-D 完成度 = capability not installation**（U5M60 verify gate）| thesis 層深化既有 visual_render_verify culture — 「裝起來」≠「能跑」 |
+| 🆕 (memory: schema_versioning + i18n_filename dual-storage) | **D-C 強紀律弱預設**（force verify + 列舉常見值，不 pin specific value）| 跨 domain 同精神 — stroke-order 既有 memory pattern 在 ops domain 重現 |
 
 **反向映射 — personal-playbook 第十三次修訂中 stroke-order 該套用的 rule**：
 
@@ -629,6 +634,10 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 | §8.33 Self-defense bias / reviewer 拿純 diff | phase 6z review 該套用 |
 | §8.34 「會花真錢 API」enforcement | phase 6z+ image-to-config 階段適用 |
 | §8.35 Strict negative constraints | **phase 6z design doc 該有 anti-pattern 清單** |
+| 🆕 #13 + #16 Prerequisite / Reality Confirm | **phase 6z-1 啟動前**：grep 既有 outline-extract / SVG path ops、verify zentangle library deps、確認 SVG `<path>` API 限制（避免 sandbox 假設 vs 瀏覽器 reality 落差）|
+| 🆕 #14 政策對位紀律 | phase 6z 尊重 SVG / Canvas API 既有約束、不 over-engineer rendering（如：不為偽 3D 自寫 perspective transform，先確認 SVG 既有 transform 可達）|
+| 🆕 D-C 強紀律弱預設 | phase 6z **API defaults 應 force user 確認**（如 `pseudo_3d.depth_dir` / `tile_size` 不該 silent default、應 require explicit choice 或在 UI 提供 5 預設按鈕並標明）|
+| 🆕 D-D 真正能用 verify gate | phase 6z 每 sub-phase 完成 gate = **visual render test pass**（PNG 截圖比對），不是 unit test 過就標 done — 對應 stroke-order memory `feedback_visual_render_verify` |
 
 **設計意義**：
 
