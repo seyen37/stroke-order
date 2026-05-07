@@ -176,6 +176,8 @@
       文字雲模式 <span style="color:var(--muted);font-size:12px;">(外框繞字/填滿)</span></label>
     <label><input type="radio" name="mode" value="mandala">
       曼陀羅模式 <span style="color:var(--muted);font-size:12px;">(中心字+字環+半圓交織)</span></label>
+    <label><input type="radio" name="mode" value="zentangle">
+      禪繞字模式 <span style="color:var(--muted);font-size:12px;">(字框+禪繞填充, Phase 6z-1)</span></label>
   </div>
   <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
     <button id="ud-open" type="button"
@@ -2558,6 +2560,53 @@
   </section>
 </main>
 
+<!-- ============================================================
+     禪繞字模式 (zentangle) — Phase 6z-1
+     - hidden by default, toggled by mode radio
+     - canvas + outline render; full mechanics (pseudo-3D,
+       切割 mode, draft system) come in 6z-2..6z-11
+     ============================================================ -->
+<main id="zentangle-view" style="display:none;">
+  <section class="card">
+    <h2>禪繞字</h2>
+    <p style="color:var(--muted);font-size:13px;line-height:1.6;">
+      <strong>快速產出禪繞風格的漢字</strong> — 字框 + 內部禪繞填充。
+      <br>本工具是禪繞 <strong>啟發</strong> 的數位化創作，不嚴格遵循傳統紙筆禪繞。
+      <br>Phase 6z-1：字框抽取 + 紙磚 canvas + 鍵盤滑鼠 input scaffolding（後續 sub-phase 加切割工具、tangle 庫、pseudo-3D 等）。
+    </p>
+    <div class="row" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <label for="zentangle-char">字</label>
+      <input id="zentangle-char" type="text" maxlength="1" value="心"
+             autocomplete="off" style="width:60px;text-align:center;font-size:18px;">
+      <label for="zentangle-source">字體</label>
+      <select id="zentangle-source" style="font-size:14px;">
+        <option value="moe_kaishu">教育部楷書 (預設)</option>
+      </select>
+      <button id="zentangle-render" type="button"
+              style="padding:6px 14px;background:var(--accent, #c33);color:white;
+                     border:0;border-radius:4px;cursor:pointer;font-size:14px;">
+        載入字框
+      </button>
+    </div>
+    <div id="zentangle-status"
+         style="font-size:12px;color:var(--muted);margin-top:8px;min-height:1.4em;">
+    </div>
+  </section>
+  <section class="card">
+    <h2>紙磚 (600 × 600 px ≈ 9 cm 標準磚)</h2>
+    <div id="zentangle-canvas-wrap"
+         style="display:flex;justify-content:center;padding:8px;">
+      <canvas id="zentangle-canvas" width="600" height="600"
+              style="max-width:100%;height:auto;border:1px solid var(--border);
+                     background:#fff;"></canvas>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-top:8px;">
+      <strong>下一步</strong>（後續 sub-phase 解鎖）：紙磚旋轉 (R-stick)、切割 mode (□)、
+      tangle 庫 (△)、疊加 (R1/R2)、pseudo-3D (D-Pad)、草稿系統 (○ undo)。
+    </p>
+  </section>
+</main>
+
 <main id="single-view">
   <section class="card">
     <h2>輸入</h2>
@@ -2912,6 +2961,7 @@ const views = {
   sutra:      document.getElementById("sutra-view"),     // Phase 5az
   wordart:    document.getElementById("wordart-view"),
   mandala:    document.getElementById("mandala-view"),  // Phase 5b r4
+  zentangle:  document.getElementById("zentangle-view"),  // Phase 6z-1
 };
 document.querySelectorAll('input[name="mode"]').forEach(r =>
   r.addEventListener("change", () => {
@@ -8940,5 +8990,9 @@ async function renderCnsDecomposition(char) {
   }
 }
 </script>
+
+<!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js） -->
+<script type="module" src="/static/zentangle/zentangle.js"></script>
+
 </body>
 </html>
