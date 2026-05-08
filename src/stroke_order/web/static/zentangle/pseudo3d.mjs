@@ -138,3 +138,116 @@ export const VALID_DEPTH_DIRS = ["forward", "backward", "left", "right"];
 export function isValidDepthDir(dir) {
   return dir === null || VALID_DEPTH_DIRS.includes(dir);
 }
+
+// ---------------------------------------------------------------------------
+// 6z-5b — Curve mode (per v0.3 §4.1 L-stick 4 軸 deformation curvature)
+// ---------------------------------------------------------------------------
+//
+// 6z-5b MVP 只實作 軸 1「中高邊低」 (high-mid) — central column elevated,
+// sides sunken. Per-unit local transform applied AFTER depth_dir (chained
+// via wirePseudo3DControls in zentangle.js).
+//
+// 軸 2-4 (high-sides / left-high / right-high) 留 6z-5c 視 5b 視覺豐富度
+// 評估是否補完。本檔已預埋 isValidCurveMode + VALID_CURVE_MODES 接口、
+// applyCurveModeToPoint switch 也已實作 4 軸 (但 zentangle.js 6z-5b UI
+// 只暴露軸 1)；6z-5c 解鎖只需開 UI button、不動 pure module。
+
+export const VALID_CURVE_MODES = [
+  "high-mid",     // 中央高、兩側低 (parabola y=x² inverted, Y-down 是 -y)
+  "high-sides",   // 兩側高、中央低 (倒拋物線)
+  "left-high",    // 左高斜下到右低 (linear gradient)
+  "right-high",   // 右高斜下到左低
+];
+
+export function isValidCurveMode(mode) {
+  return mode === null || VALID_CURVE_MODES.includes(mode);
+}
+
+// Max y-offset (in unit_scale units) at curve_degree=1.
+const CURVE_COEF = 0.5;
+
+/**
+ * Transform a single (x, y) point per curve_mode, around unit center, at
+ * given curve_degree (0..1) and unit_scale (the unit's "radius" or extent
+ * — used to normalise (x, y) - (ucx, ucy) into [-1, 1]).
+ *
+ * @param {number} x
+ * @param {number} y
+ * @param {number} ucx - unit center x
+ * @param {number} ucy - unit center y
+ * @param {string|null} curve_mode - "high-mid" | "high-sides" | "left-high" | "right-high" | null
+ * @param {number} curve_degree - 0..1
+ * @param {number} unit_scale - unit's normalising scale (typically PLACED_UNIT_SCALE)
+ * @returns {[number, number]}
+ */
+export function applyCurveModeToPoint(x, y, ucx, ucy, curve_mode, curve_degree, unit_scale) {
+  if (!curve_mode || !curve_degree || !unit_scale) return [x, y];
+  const us = unit_scale;
+  const dx = x - ucx;
+  // Normalise dx into [-1, 1] for easier curve math (clamp for points
+  // outside unit_scale — rare but defensive).
+  const tx = Math.max(-1, Math.min(1, dx / us));
+  let curve;  // 0..1, multiplied by curve_degree * us * CURVE_COEF for final offset
+  switch (curve_mode) {
+    case "high-mid":
+      curve = 1 - tx * tx;       // 1 at center, 0 at edges
+      break;
+    case "high-sides":
+      curve = tx * tx;           // 0 at center, 1 at edges
+      break;
+    case "left-high":
+      curve = (1 - tx) / 2;      // 1 at left (tx=-1), 0 at right (tx=1)
+      break;
+    case "right-high":
+      curve = (1 + tx) / 2;      // 0 at left, 1 at right
+      break;
+    default:
+      return [x, y];
+  }
+  // Y-down: subtract to move "up" visually.
+  return [x, y - curve * curve_degree * us * CURVE_COEF];
+}
+
+/**
+ * Apply curve_mode transform to a spec. Like applyPseudo3DToSpec but for
+ * curve_mode (depth_dir 已在 caller 套過、本 helper 不重複 apply)。
+ */
+export function applyCurveModeToSpec(spec, ucx, ucy, curve_mode, curve_degree, unit_scale) {
+  if (!spec || !curve_mode || !curve_degree || !unit_scale) return spec;
+  const tp = (x, y) =>
+    applyCurveModeToPoint(x, y, ucx, ucy, curve_mode, curve_degree, unit_scale);
+  switch (spec.type) {
+    case SPEC_LINE: {
+      const [x1, y1] = tp(spec.x1, spec.y1);
+      const [x2, y2] = tp(spec.x2, spec.y2);
+      return {...spec, x1, y1, x2, y2};
+    }
+    case SPEC_CURVE: {
+      const [x1, y1] = tp(spec.x1, spec.y1);
+      const [cx, cy] = tp(spec.cx, spec.cy);
+      const [x2, y2] = tp(spec.x2, spec.y2);
+      return {...spec, x1, y1, cx, cy, x2, y2};
+    }
+    case SPEC_S_SHAPE: {
+      const [x1, y1] = tp(spec.x1, spec.y1);
+      const [x2, y2] = tp(spec.x2, spec.y2);
+      return {...spec, x1, y1, x2, y2};
+    }
+    case SPEC_ORB:
+    case SPEC_DOT: {
+      const [cx, cy] = tp(spec.cx, spec.cy);
+      // Curve mode is shear-y-only — preserves r (no radius scaling).
+      return {...spec, cx, cy};
+    }
+    default:
+      return spec;
+  }
+}
+
+export function applyCurveModeToSpecs(specs, ucx, ucy, curve_mode, curve_degree, unit_scale) {
+  if (!Array.isArray(specs)) return [];
+  if (!curve_mode || !curve_degree || !unit_scale) return specs;
+  return specs.map((s) =>
+    applyCurveModeToSpec(s, ucx, ucy, curve_mode, curve_degree, unit_scale)
+  );
+}

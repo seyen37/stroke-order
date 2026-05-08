@@ -2687,6 +2687,24 @@
         ↑↓←→ 鍵 ＝ 4 方向；套到最後 unit + sticky inherit 後續新 unit
       </span>
     </div>
+    <!-- 6z-5b: Curve mode (軸 1 中高邊低 only); 軸 2-4 留 6z-5c 視覺評估後解鎖 -->
+    <div class="row" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
+      <span style="font-weight:bold;color:var(--muted);">曲度</span>
+      <button type="button" class="zt-curve-btn" data-curve="high-mid"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              title="中高邊低 — 中央拱起、兩側下沉（拋物線 inverse curve）">中高 ⌒</button>
+      <span style="margin-left:6px;color:var(--muted);">強度</span>
+      <input id="zentangle-curve-slider" type="range" min="0" max="1" step="0.05" value="0.5"
+             style="width:120px;" title="curve_degree 0~1">
+      <span id="zentangle-curve-display"
+            style="display:inline-block;min-width:36px;text-align:center;font-family:monospace;color:var(--muted);">0.50</span>
+      <button id="zentangle-curve-clear" type="button"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
+              title="清除 sticky curve_mode + 把最後 unit 變回無曲度">無曲度</button>
+      <span style="color:var(--muted);font-size:11px;margin-left:4px;">
+        6z-5b MVP only 軸 1; 邊高中低 / 左高右低 / 右高左低 留 6z-5c
+      </span>
+    </div>
     <div id="zentangle-config-display"
          style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">
     </div>

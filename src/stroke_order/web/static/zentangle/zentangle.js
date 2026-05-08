@@ -31,6 +31,9 @@ import {
   applyPseudo3DToSpecs,
   isValidDepthDir,
   VALID_DEPTH_DIRS,
+  applyCurveModeToSpecs,
+  isValidCurveMode,
+  VALID_CURVE_MODES,
 } from "./pseudo3d.mjs";
 
 // 6z-2.1 NOTE: `rotateContours` is intentionally NOT imported here.
@@ -150,6 +153,12 @@ const PLACED_UNIT_SCALE = 45;
 //   - 「無透視」 button → clear sticky + clear last unit pseudo_3d
 let _stickyDepthDir = null;
 let _stickyDepthDegree = 0.5;
+
+// 6z-5b: curve mode sticky state (parallel to depth_dir but independent).
+// 6z-5b MVP only exposes 軸 1 (high-mid) in UI; pseudo3d.mjs supports all 4
+// (high-sides / left-high / right-high) but UI 解鎖留 6z-5c 視覺評估後決定。
+let _stickyCurveMode = null;
+let _stickyCurveDegree = 0.5;
 
 // 6z-5a: Arrow-key dispatcher arg → pseudo3d.mjs depth_dir name.
 // (KEY_MAP in 6z-1E uses "up"/"down"/"left"/"right" args; our schema uses
@@ -402,8 +411,7 @@ function drawTangleLayer(mappedContours) {
     const t = TANGLES[unit.tangle];
     if (!t || typeof t.buildUnit !== "function") continue;
     let specs = t.buildUnit(unit.cx, unit.cy, PLACED_UNIT_SCALE);
-    // 6z-5a: apply per-unit Pseudo-3D transform (depth_dir 4 dir + degree).
-    // null pseudo_3d / 0 degree → identity (early-return inside helper).
+    // 6z-5a: apply depth_dir transform first (forward/backward/left/right).
     if (unit.pseudo_3d && unit.pseudo_3d.depth_dir) {
       specs = applyPseudo3DToSpecs(
         specs,
@@ -411,6 +419,18 @@ function drawTangleLayer(mappedContours) {
         unit.cy,
         unit.pseudo_3d.depth_dir,
         unit.pseudo_3d.depth_degree
+      );
+    }
+    // 6z-5b: chain curve_mode transform after depth_dir.
+    // Pipeline: spec → depth_dir → curve_mode → render
+    if (unit.pseudo_3d && unit.pseudo_3d.curve_mode) {
+      specs = applyCurveModeToSpecs(
+        specs,
+        unit.cx,
+        unit.cy,
+        unit.pseudo_3d.curve_mode,
+        unit.pseudo_3d.curve_degree,
+        PLACED_UNIT_SCALE
       );
     }
     renderTangleSpecs(_ctx, specs);
@@ -958,6 +978,93 @@ function wirePseudo3DControls() {
     if (!dir) return;
     setPerspectiveDir(dir);
   };
+  // 6z-5b: curve mode controls.
+  wireCurveModeControls();
+}
+
+// ---------------------------------------------------------------------------
+// 6z-5b — Curve mode 控件 (軸 1 高-邊低 only; 軸 2-4 留 6z-5c)
+// ---------------------------------------------------------------------------
+
+function setCurveMode(mode) {
+  if (!isValidCurveMode(mode)) {
+    setStatus(`unknown curve_mode: ${mode}`, true);
+    return;
+  }
+  _stickyCurveMode = mode;
+  if (_placedUnits.length > 0) {
+    const last = _placedUnits[_placedUnits.length - 1];
+    if (mode === null) {
+      // Don't wipe entire pseudo_3d (depth_dir may still be set); just clear curve fields.
+      if (last.pseudo_3d) {
+        last.pseudo_3d.curve_mode = null;
+        last.pseudo_3d.curve_degree = 0;
+      }
+    } else {
+      last.pseudo_3d = last.pseudo_3d || {
+        depth_dir: null,
+        depth_degree: 0,
+        curve_mode: null,
+        curve_degree: 0,
+      };
+      last.pseudo_3d.curve_mode = mode;
+      last.pseudo_3d.curve_degree = _stickyCurveDegree;
+    }
+  }
+  refreshCurveModeButtonHighlight();
+  redrawAll();
+  if (mode === null) {
+    setStatus("曲度 → 無 (sticky cleared)");
+  } else {
+    const labels = {
+      "high-mid": "中高邊低",
+      "high-sides": "邊高中低 (6z-5c)",
+      "left-high": "左高右低 (6z-5c)",
+      "right-high": "右高左低 (6z-5c)",
+    };
+    setStatus(
+      `曲度 → ${labels[mode]}, degree=${_stickyCurveDegree.toFixed(2)}; 後續 placed unit sticky inherit`
+    );
+  }
+}
+
+function setCurveDegree(degree) {
+  const d = Math.max(0, Math.min(1, degree));
+  _stickyCurveDegree = d;
+  const display = document.getElementById("zentangle-curve-display");
+  if (display) display.textContent = d.toFixed(2);
+  if (_placedUnits.length > 0) {
+    const last = _placedUnits[_placedUnits.length - 1];
+    if (last.pseudo_3d && last.pseudo_3d.curve_mode) {
+      last.pseudo_3d.curve_degree = d;
+    }
+  }
+  redrawAll();
+}
+
+function clearCurveMode() {
+  setCurveMode(null);
+}
+
+function refreshCurveModeButtonHighlight() {
+  document.querySelectorAll(".zt-curve-btn").forEach((btn) => {
+    const isActive = btn.dataset.curve === _stickyCurveMode;
+    btn.style.background = isActive ? "var(--accent, #c33)" : "#fafaf8";
+    btn.style.color = isActive ? "#fff" : "#444";
+    btn.style.borderColor = isActive ? "var(--accent, #c33)" : "var(--border)";
+  });
+}
+
+function wireCurveModeControls() {
+  document.querySelectorAll(".zt-curve-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setCurveMode(btn.dataset.curve));
+  });
+  const slider = document.getElementById("zentangle-curve-slider");
+  if (slider) {
+    slider.addEventListener("input", () => setCurveDegree(slider.valueAsNumber));
+  }
+  const clearBtn = document.getElementById("zentangle-curve-clear");
+  if (clearBtn) clearBtn.addEventListener("click", clearCurveMode);
 }
 
 /**
@@ -978,10 +1085,18 @@ function placeUnitAtClick(e, canvas) {
   const viewY = (e.clientY - rect.top) * scaleY;
   // Inverse transform → tile-local (so rotation + pan compose naturally).
   const [tx, ty] = viewportToTileLocal(viewX, viewY);
-  // 6z-5a: new units inherit sticky pseudo_3d state.
-  const pseudo_3d = _stickyDepthDir
-    ? {depth_dir: _stickyDepthDir, depth_degree: _stickyDepthDegree}
-    : null;
+  // 6z-5a/b: new units inherit sticky pseudo_3d (depth_dir + curve_mode).
+  // Build pseudo_3d only if any sticky field is active — keeps null short-
+  // circuit working when neither is set.
+  const pseudo_3d =
+    _stickyDepthDir || _stickyCurveMode
+      ? {
+          depth_dir: _stickyDepthDir,
+          depth_degree: _stickyDepthDegree,
+          curve_mode: _stickyCurveMode,
+          curve_degree: _stickyCurveDegree,
+        }
+      : null;
   _placedUnits.push({tangle: _activeTangle, cx: tx, cy: ty, pseudo_3d});
   // Update _lastDirection if we have ≥ 2 units.
   if (_placedUnits.length >= 2) {
