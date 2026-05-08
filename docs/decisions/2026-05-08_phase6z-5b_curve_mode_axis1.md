@@ -217,3 +217,50 @@ pseudo_3d block 直接 serialise 進 frontmatter (per v0.3 §4.2 schema)。
 - v0.3 design §4.3 Render pipeline (depth_dir + curve_mode 在同 pseudo_3d block)
 - Senior review note #2: 6z-5 切 a/b/c 對應策略
 - Memory `feedback_pure_helper_for_node_test`
+
+---
+
+## 9. 6z-5c addendum — 解鎖剩 3 curve 軸 (5/8 同日)
+
+**版本**：0.14.132 → **0.14.133**
+**範圍**：純 UI 解鎖，邏輯零改動（pseudo3d.mjs 4 軸已備）。
+**對應 commit**：本 commit 同時 ship 6z-5b + 6z-5c（連續，6z-5c 是 6z-5b 的 follow-up），但分為獨立 git commit：6z-5b commit `3264f4d` + 6z-5c (本)。
+
+### 9.1 變更
+
+- `index.html`: 曲度 row 加 3 button
+  - 「邊高 ⌣」 (high-sides)
+  - 「左高 ⟍」 (left-high)
+  - 「右高 ⟋」 (right-high)
+- 提示文案改 「6z-5c 全 4 軸啟用；同 unit 任選一軸（換軸=覆蓋上次）」
+- `zentangle.js` setCurveMode label dict 移除 `(6z-5c)` suffix
+
+### 9.2 不需 verify
+
+- `applyCurveModeToPoint` switch 已 cover 4 軸 + 對應 Node test 已 pass
+- HTML class `.zt-curve-btn[data-curve]` 共用 wirable selector — 加新 button 自動 wired
+- Sticky state machine 不需改（`_stickyCurveMode` 已能存任一 valid mode）
+
+### 9.3 視覺差異 (對 Florz 4 petals)
+
+| Mode | 視覺效果 |
+|---|---|
+| high-mid ⌒ | 中央拉高 (北/南/中心 dot 都拉)，東/西 不動 |
+| high-sides ⌣ | U 形 — 東/西 拉高 (邊緣)，中央/北/南 不動 |
+| left-high ⟍ | 左側 (西 petal) 拉高，右側 (東 petal) 不動 — 線性 |
+| right-high ⟋ | 右側 (東 petal) 拉高，左側 (西 petal) 不動 |
+
+### 9.4 新 sticky semantics
+
+同 unit 切不同軸 = 覆蓋（單一軸 enum）。Sticky inherit 仍 work — 後續 placed unit 用最新 sticky curve mode。
+
+### 9.5 P7-COMPLETION (6z-5c)
+
+- 任務：解鎖剩 3 curve 軸
+- 方案：HTML +3 button、JS 移除「(6z-5c)」 標記
+- 改動：2 files, +12 / -5 lines + 本 §9 addendum
+- 影響分析：純 UI 解鎖，pure module 4 軸已 Node test 100% cover；既有 90 Node + 18 pytest + 11 smoke 全 pass
+- 三問：方案正確 ✓ / 影響全面 ✓ / 回歸風險 極低（純 additive UI button）
+- 剩餘風險：
+  1. 視覺差異待 user verify（4 軸對 Florz 是否如預期）
+  2. CURVE_COEF=0.5 對 4 軸統一—若某些軸視覺強度不對等，未來可分軸調 coef

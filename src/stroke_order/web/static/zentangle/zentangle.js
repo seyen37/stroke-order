@@ -1018,9 +1018,9 @@ function setCurveMode(mode) {
   } else {
     const labels = {
       "high-mid": "中高邊低",
-      "high-sides": "邊高中低 (6z-5c)",
-      "left-high": "左高右低 (6z-5c)",
-      "right-high": "右高左低 (6z-5c)",
+      "high-sides": "邊高中低",
+      "left-high": "左高右低",
+      "right-high": "右高左低",
     };
     setStatus(
       `曲度 → ${labels[mode]}, degree=${_stickyCurveDegree.toFixed(2)}; 後續 placed unit sticky inherit`
