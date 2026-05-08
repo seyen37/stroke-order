@@ -14,6 +14,8 @@ import {
   TANGLES,
   buildCrescentMoon,
   buildFlorz,
+  buildCrescentMoonUnit,
+  buildFlorzUnit,
   buildTangle,
   listTangles,
 } from "../src/stroke_order/web/static/zentangle/tangle.mjs";
@@ -158,5 +160,68 @@ test("build*: offset area (non-zero origin)", () => {
       assert.ok(s.cx >= 100);
       assert.ok(s.cy >= 100);
     }
+  }
+});
+
+// ---------- 6z-3.5 single-unit builders ----------
+
+test("buildCrescentMoonUnit: returns 2 specs (1 orb + 1 dot)", () => {
+  const specs = buildCrescentMoonUnit(100, 100, 45);
+  assert.equal(specs.length, 2);
+  assert.equal(specs[0].type, SPEC_ORB);
+  assert.equal(specs[1].type, SPEC_DOT);
+});
+
+test("buildCrescentMoonUnit: orb centered at given (cx, cy)", () => {
+  const specs = buildCrescentMoonUnit(123, 456, 45);
+  const orb = specs.find((s) => s.type === SPEC_ORB);
+  assert.equal(orb.cx, 123);
+  assert.equal(orb.cy, 456);
+});
+
+test("buildCrescentMoonUnit: dot is below the orb", () => {
+  const specs = buildCrescentMoonUnit(100, 100, 45);
+  const orb = specs.find((s) => s.type === SPEC_ORB);
+  const dot = specs.find((s) => s.type === SPEC_DOT);
+  assert.ok(dot.cy > orb.cy, "dot should be below orb on Y-down canvas");
+});
+
+test("buildCrescentMoonUnit: scale affects orb radius", () => {
+  const small = buildCrescentMoonUnit(0, 0, 30);
+  const large = buildCrescentMoonUnit(0, 0, 60);
+  const smallR = small.find((s) => s.type === SPEC_ORB).r;
+  const largeR = large.find((s) => s.type === SPEC_ORB).r;
+  assert.ok(largeR > smallR);
+});
+
+test("buildFlorzUnit: returns 5 specs (4 orbs + 1 dot)", () => {
+  const specs = buildFlorzUnit(100, 100, 45);
+  assert.equal(specs.length, 5);
+  const orbs = specs.filter((s) => s.type === SPEC_ORB);
+  const dots = specs.filter((s) => s.type === SPEC_DOT);
+  assert.equal(orbs.length, 4);
+  assert.equal(dots.length, 1);
+});
+
+test("buildFlorzUnit: 4 petals symmetric around center", () => {
+  const specs = buildFlorzUnit(100, 100, 45);
+  const orbs = specs.filter((s) => s.type === SPEC_ORB);
+  // Sum of (cx - center) and (cy - center) should be ≈ 0 (symmetric).
+  const dxSum = orbs.reduce((acc, o) => acc + (o.cx - 100), 0);
+  const dySum = orbs.reduce((acc, o) => acc + (o.cy - 100), 0);
+  assert.ok(Math.abs(dxSum) < 1e-9);
+  assert.ok(Math.abs(dySum) < 1e-9);
+});
+
+test("buildFlorzUnit: center dot at (cx, cy)", () => {
+  const specs = buildFlorzUnit(50, 80, 45);
+  const dot = specs.find((s) => s.type === SPEC_DOT);
+  assert.equal(dot.cx, 50);
+  assert.equal(dot.cy, 80);
+});
+
+test("TANGLES registry has buildUnit for both 6z-3 MVP tangles", () => {
+  for (const key of ["crescent_moon", "florz"]) {
+    assert.ok(typeof TANGLES[key].buildUnit === "function");
   }
 });

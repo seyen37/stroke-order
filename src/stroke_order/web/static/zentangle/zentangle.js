@@ -125,6 +125,19 @@ const TANGLE_STROKE = "#444";
 const TANGLE_FILL = "#444";
 const TANGLE_LINE_WIDTH = 1;
 
+// 6z-3.5: user-placed tangle units (per-session, per Q5=B mirror policy).
+// Each entry: {tangle: "crescent_moon"|"florz", cx, cy} in TILE-LOCAL px.
+// Render iterates this array via TANGLES[tangle].buildUnit; the click
+// handler inverse-transforms viewport coords → tile-local before push.
+let _placedUnits = [];
+
+// 6z-3.5: last placement direction (vector from 2nd-last → last unit).
+// Updated each click that produces ≥ 2 units. Used by REPEAT_3 / R 鍵.
+let _lastDirection = null;  // [dx, dy] in tile-local px, or null
+
+// 6z-3.5: per-unit visual scale (~ same as auto-fill grid spacing).
+const PLACED_UNIT_SCALE = 45;
+
 // 6z-2.2: pan state — quick-peek at rotation overflow corners.
 //   "center" : no pan (default; corners may exceed viewport when rotated)
 //   "top"    : pan tile DOWN to reveal what was hidden at TOP
@@ -328,28 +341,22 @@ function redrawAll() {
 }
 
 /**
- * 6z-3d — Render the active tangle inside the outline interior (pure mode
- * mask via Canvas Path2D + ctx.clip("evenodd")).
+ * 6z-3.5 — Render USER-PLACED tangle units inside the outline interior.
  *
- * Q3=B: 6z-3 only implements pure mode visual; mode=hollow / mode=bg currently
- * fall back to pure (so user always sees tangle when picked). Differentiation
- * arrives in 6z-3.X (hollow = fill outside outline; bg = full tile + 字 reverse).
+ * Behavior switch from 6z-3:
+ *   - 6z-3 (auto-fill): drawTangleLayer 用 buildTangle(key, area, density) 鋪滿 grid
+ *   - 6z-3.5 (user-place): iterate _placedUnits, render each via TANGLES[].buildUnit
  *
- * The "evenodd" fill rule handles nested contours correctly — e.g. 「日」 has
- * an outer rect + inner rect; even-odd makes the inner rect a HOLE in the
- * filled region (so the inner stripe between the 2 horizontal bars stays
- * empty), which is the natural intuition.
+ * Why: acquisition-first thesis — 「user 親手畫」 比 auto-fill 「按一個 button 一鍵成型」
+ * 更接近 v0.3 §1 主流程「從基底元素開始畫疊加」 設計。User feedback (5/8): 「目前
+ * 看起來是自動填滿、後續會如何操控這些元素的疊加方式」 — 直接挑明了 auto-fill ≠ final UX。
+ *
+ * Q3=B: only pure mode 視覺 (hollow/bg fallback to pure for now, 6z-3.X 補)。
+ * Path2D clip("evenodd") 處理 nested contour（如「日」 內框是 hole）。
  */
 function drawTangleLayer(mappedContours) {
-  if (_activeTangle === "none") return;
+  if (_placedUnits.length === 0) return;
   if (!Array.isArray(mappedContours) || mappedContours.length === 0) return;
-  const ts = currentTileSize();
-  const tm = currentTileMargin();
-  // Tangle covers the inner box (margin-inset) — same area used for outline
-  // mapping, so the clip + tangle align by construction.
-  const area = {x: tm, y: tm, w: ts - 2 * tm, h: ts - 2 * tm};
-  const specs = buildTangle(_activeTangle, area, TANGLE_DENSITY);
-  if (specs.length === 0) return;
   // Build outline Path2D (one sub-path per contour) for clip.
   const clipPath = new Path2D();
   for (const poly of mappedContours) {
@@ -367,8 +374,41 @@ function drawTangleLayer(mappedContours) {
   _ctx.lineWidth = TANGLE_LINE_WIDTH;
   _ctx.lineJoin = "round";
   _ctx.lineCap = "round";
-  renderTangleSpecs(_ctx, specs);
+  for (const unit of _placedUnits) {
+    const t = TANGLES[unit.tangle];
+    if (!t || typeof t.buildUnit !== "function") continue;
+    const specs = t.buildUnit(unit.cx, unit.cy, PLACED_UNIT_SCALE);
+    renderTangleSpecs(_ctx, specs);
+  }
   _ctx.restore();
+}
+
+/**
+ * 6z-3.5 — Inverse the active ctx transform to map a viewport (canvas px)
+ * point to TILE-LOCAL coords. Used by the click placement handler so units
+ * rotate + pan along with the rest of the tile (stored in tile-local, the
+ * subsequent render inside `withTileRotation` re-applies the forward
+ * transform — net effect: clicks land where user expects).
+ *
+ * Forward transform applied at draw time:
+ *   M = T(pan) · T(c) · R(θ) · T(-c)
+ *   x' = pan + c + R(θ)(p - c)
+ * Inverse:
+ *   p = c + R(-θ)(x' - pan - c)
+ */
+function viewportToTileLocal(viewX, viewY) {
+  const ts = currentTileSize();
+  const cx = ts / 2;
+  const cy = ts / 2;
+  const [panX, panY] = computePanOffset();
+  const θ = -(_rotationDegrees * Math.PI) / 180;
+  const cosθ = Math.cos(θ);
+  const sinθ = Math.sin(θ);
+  const ux = viewX - panX;
+  const uy = viewY - panY;
+  const dx = ux - cx;
+  const dy = uy - cy;
+  return [cx + dx * cosθ - dy * sinθ, cy + dx * sinθ + dy * cosθ];
 }
 
 /**
@@ -786,6 +826,94 @@ function wireTangleControls() {
   });
   // 6z-1E ACTION wiring → register real handler (replaces stub fallback).
   _actionHandlers["cycle-tangle"] = cycleTangle;
+  // 6z-3.5: canvas left-click → place tangle unit at click point.
+  const canvas = document.getElementById("zentangle-canvas");
+  if (canvas) {
+    canvas.addEventListener("click", (e) => placeUnitAtClick(e, canvas));
+  }
+  // 6z-3.5: REPEAT_3 / R 鍵 → 3x repeat last unit along _lastDirection.
+  _actionHandlers["repeat-3"] = repeatLast3;
+  _actionHandlers["repeat-fill"] = repeatLast3;  // 6z-3.5 fallback; R2 「到底」 留 6z-3.5.X
+  // 6z-3.5: 「清除已放」 button.
+  const clearBtn = document.getElementById("zentangle-clear-units");
+  if (clearBtn) clearBtn.addEventListener("click", clearPlacedUnits);
+}
+
+/**
+ * 6z-3.5 — Translate browser click event to TILE-LOCAL coords + push unit.
+ */
+function placeUnitAtClick(e, canvas) {
+  if (_activeTangle === "none") {
+    setStatus("先選一個 tangle (Crescent Moon / Florz)，再點 canvas 放置", true);
+    return;
+  }
+  if (!TANGLES[_activeTangle]) return;
+  // Browser click → canvas px (account for CSS scaling).
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const viewX = (e.clientX - rect.left) * scaleX;
+  const viewY = (e.clientY - rect.top) * scaleY;
+  // Inverse transform → tile-local (so rotation + pan compose naturally).
+  const [tx, ty] = viewportToTileLocal(viewX, viewY);
+  _placedUnits.push({tangle: _activeTangle, cx: tx, cy: ty});
+  // Update _lastDirection if we have ≥ 2 units.
+  if (_placedUnits.length >= 2) {
+    const a = _placedUnits[_placedUnits.length - 2];
+    const b = _placedUnits[_placedUnits.length - 1];
+    _lastDirection = [b.cx - a.cx, b.cy - a.cy];
+  }
+  redrawAll();
+  const dirHint =
+    _lastDirection !== null
+      ? `；方向 (${_lastDirection[0].toFixed(0)}, ${_lastDirection[1].toFixed(0)})、R 鍵 repeat 3 次`
+      : "；再點一下定方向";
+  setStatus(
+    `已放置 ${_placedUnits.length} 個 ${TANGLES[_activeTangle].label}${dirHint}`
+  );
+}
+
+/**
+ * 6z-3.5 — Repeat the last placed unit 3 times along _lastDirection.
+ */
+function repeatLast3() {
+  if (_placedUnits.length === 0) {
+    setStatus("沒有已放置的 unit，先點 canvas 放第一個", true);
+    return;
+  }
+  if (_lastDirection === null) {
+    setStatus("需要至少 2 個 unit 才能定方向；再點一下 canvas", true);
+    return;
+  }
+  const last = _placedUnits[_placedUnits.length - 1];
+  const [dx, dy] = _lastDirection;
+  for (let i = 1; i <= 3; i++) {
+    _placedUnits.push({
+      tangle: last.tangle,
+      cx: last.cx + dx * i,
+      cy: last.cy + dy * i,
+    });
+  }
+  redrawAll();
+  setStatus(
+    `Repeat 3 次完成、共 ${_placedUnits.length} 個 unit；繼續點 / 再 R / 清除`
+  );
+}
+
+/**
+ * 6z-3.5 — Clear all placed units (本 session 內 reset).
+ */
+function clearPlacedUnits() {
+  if (_placedUnits.length === 0) {
+    setStatus("沒有 unit 可清除");
+    return;
+  }
+  const n = _placedUnits.length;
+  _placedUnits = [];
+  _lastDirection = null;
+  redrawAll();
+  setStatus(`已清除 ${n} 個 unit`);
 }
 
 /**

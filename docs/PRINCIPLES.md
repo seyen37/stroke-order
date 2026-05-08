@@ -717,6 +717,8 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 
 > **2026-05-07 補充**：personal-playbook commit `0917c60` / `3ad1cab` / `0d66f28` 從另一台電腦 ESXi/VM ops 工作中萃取 4 共通性原則（#13-#16）+ 5 個 U5M60 setup decisions（D-A 至 D-E）。本表已擴充，新增 row 標 🆕。詳見 personal-playbook `docs/WORK_LOG_2026-05-07.md` §G + `docs/decisions/2026-05-07_u5m60_first_setup.md`。
 
+> **2026-05-08 補充**：personal-playbook 第十三次修訂 commit `5ca1ab4` 新加 **§3.14 Cowork 寫檔工具對 mounted Windows UTF-8 中文 markdown 的 corruption SOP** + **§B.24 案例**（biped-research round 12 PRINCIPLES.md 連續踩 Edit / Write / bash heredoc 三種失效模式）。**§3.14 是 AI agent 工作流層級 SOP、非 stroke-order 工程 rule**，本 PRINCIPLES.md 不另寫副本，引用對應即可。**5/7-5/8 stroke-order 13 commits 寫的 10 個中文 .md 已用三件套（`wc -l` / `tail -3` / `xxd | tail -2`）回溯驗證、全 pass（0 mojibake / 結尾全 LF / 行數無截斷）— 是倖存者偏差，從 `5ca1ab4` 起所有新檔寫入採 §3.14 唯一可靠寫法（Python list-of-strings + 三件套 verify）**。
+
 | Stroke-order §6 (rule layer) | Personal-playbook §零 (thesis layer) | 關係 |
 |---|---|---|
 | §6.1 大 phase 必先寫 design doc | **§0.4** 重新框架問題 > 答問題（plan-first 升級） | thesis 層命名 |

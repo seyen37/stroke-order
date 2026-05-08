@@ -125,12 +125,79 @@ export function buildFlorz(area, density = "medium") {
 }
 
 // ---------------------------------------------------------------------------
+// 6z-3.5 — Single-unit builders (user-place pattern)
+// ---------------------------------------------------------------------------
+//
+// Each unit builder takes (cx, cy, scale) and returns specs for ONE tangle
+// unit centered at (cx, cy). `scale` is roughly the spacing param of the
+// grid version — controls visual size. Used by user-clickable placement
+// (vs grid auto-fill via build*).
+
+/**
+ * One Crescent Moon unit: top half-arc + dot below.
+ * @param {number} cx - center x
+ * @param {number} cy - center y
+ * @param {number} scale - "spacing" equivalent; arc r = scale * 0.35
+ * @returns {Array<object>} specs (1 orb + 1 dot)
+ */
+export function buildCrescentMoonUnit(cx, cy, scale = 45) {
+  const r = scale * 0.35;
+  return [
+    {
+      type: SPEC_ORB,
+      cx,
+      cy,
+      r,
+      startAngle: Math.PI,
+      endAngle: Math.PI * 2,
+      fill: false,
+    },
+    {type: SPEC_DOT, cx, cy: cy + r + 6, r: 1.6},
+  ];
+}
+
+/**
+ * One Florz unit: 4 petal orbs (N/E/S/W) + center dot.
+ * @param {number} cx
+ * @param {number} cy
+ * @param {number} scale - "spacing" equivalent; petal offset = scale * 0.32
+ * @returns {Array<object>} specs (4 orbs + 1 dot)
+ */
+export function buildFlorzUnit(cx, cy, scale = 45) {
+  const petalR = scale * 0.22;
+  const petalOffset = scale * 0.32;
+  const petals = [
+    [cx, cy - petalOffset],
+    [cx + petalOffset, cy],
+    [cx, cy + petalOffset],
+    [cx - petalOffset, cy],
+  ];
+  const specs = petals.map(([px, py]) => ({
+    type: SPEC_ORB,
+    cx: px,
+    cy: py,
+    r: petalR,
+    fill: false,
+  }));
+  specs.push({type: SPEC_DOT, cx, cy, r: 1.4});
+  return specs;
+}
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
 export const TANGLES = {
-  crescent_moon: {label: "Crescent Moon", build: buildCrescentMoon},
-  florz: {label: "Florz", build: buildFlorz},
+  crescent_moon: {
+    label: "Crescent Moon",
+    build: buildCrescentMoon,
+    buildUnit: buildCrescentMoonUnit,
+  },
+  florz: {
+    label: "Florz",
+    build: buildFlorz,
+    buildUnit: buildFlorzUnit,
+  },
 };
 
 export function listTangles() {
