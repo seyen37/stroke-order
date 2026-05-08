@@ -711,6 +711,75 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 
 ---
 
+### 6.13 Sticky default + new-element inherit — 連續創作的低 friction 預設
+
+**Trigger**：creative tool 有 per-element 設定（每筆 stroke / 每個 unit / 每張 layer 各自的 perspective、color、density 等）時。
+
+**規則**：
+- **Set once → all NEW 元素 inherit**（user 不需逐個重設）
+- **修改 sticky state ALSO updates LATEST 元素**（即時 preview，user 看得到效果）
+- **Old 元素保留自己的設定**（non-destructive；若想修改舊元素需 selection mechanism — 6z-5a/b 沒做、defer）
+- **Reset / clear button** 斷 sticky chain
+
+**對位**：
+- §6.9 預設策略 = **product launch** 預設（first-paint 友善）
+- §6.13 sticky default = **continuous creation** 預設（per-action 友善）
+- 兩者都在減 friction，但發生在 user journey 不同點
+
+**Anti-pattern**：每個新元素 modal 彈出問「要 forward 還是 backward？」 — 違反 6z-1.2 modal-as-settings 反 pattern + 違反 acquisition-first creative tool 直覺。
+
+**今日案例**（5/8）：
+- 6z-5a `_stickyDepthDir / _stickyDepthDegree` — 4 方向 + 強度
+- 6z-5b `_stickyCurveMode / _stickyCurveDegree` — 4 軸 + 強度
+- 6z-1.2 `_config` (char + mode + tile_size) 也是 sticky 但更早期 instance
+- 「無透視」 / 「無曲度」 button 是斷 chain 入口
+
+**對應 personal-playbook §0.4 重新框架** — 「應該每次選嗎」 是表象 binary、「**這個 setting 變化頻率 / 用 sticky 還是 per-action**」 才是 senior 問題。
+
+**出處**：6z-5a / 6z-5b sticky state 設計
+
+---
+
+### 6.14 Multi-axis enum + class-based wirable selector — 預埋 + 漸進解鎖 pattern
+
+**Trigger**：feature 有多個 discrete options（4 方向 / 4 軸 / 8 preset / N 個 tangle / N 個 mode）+ 想要漸進 ship 時。
+
+**規則 3 層**：
+
+1. **Pure module 預埋全 enum**：`VALID_X_MODES = [...]` + `isValidX(mode)` 驗證 + `applyXTo*` 實作 ALL options（即使 UI 暫不全暴露）。Node test cover 全 enum。
+
+2. **HTML 用 class + data-attr selector**：
+   ```html
+   <button class="zt-curve-btn" data-curve="high-mid">中高</button>
+   <button class="zt-curve-btn" data-curve="high-sides">邊高</button>
+   ```
+
+3. **JS class-based addEventListener**：
+   ```js
+   document.querySelectorAll(".zt-curve-btn").forEach(btn =>
+     btn.addEventListener("click", () => setCurveMode(btn.dataset.curve))
+   );
+   ```
+
+**結果**：解鎖剩餘 enum option = **加 1 行 HTML + 0 行 JS**（pure module 已 cover、selector 自動 wire）。
+
+**今日案例**（5/8）：
+- 6z-5b 寫 pure module 全 4 軸 + UI 暴露 1 軸（high-mid）
+- 6z-5c 解鎖剩 3 軸：純 HTML +3 button、JS 0 改動。10 min 完工。
+- Pattern 在 6z-2 旋轉 (data-deg) / 6z-2.2 pan (data-pan) / 6z-3 tangle (name="zentangle-tangle") / 6z-5a depth (data-dir) 都重複出現
+
+**對位 personal-playbook §8.32 失敗 2 次換方法** — 反向：**成功 2 次同 pattern 該升格為 reusable mechanism**。
+
+**對位 §6.10 inline + auto-apply** — class-based selector + auto-wire 是 inline pattern 的工程實作底層。
+
+**Anti-pattern**：
+- 每 button 寫 `getElementById + addEventListener`（量大時 boilerplate 爆）
+- Pure module 只實作 UI 當下需要的 option（解鎖時要重寫邏輯）
+
+**出處**：6z-5b → 6z-5c 解鎖驗證（10 min ship 3 軸）
+
+---
+
 ## 6.8 §6 vs personal-playbook 治理層 mapping（thesis ↔ rule 對照）
 
 2026-05-06 personal-playbook 第十三次修訂從 139 ref pool cherry-pick 12 條原則，新加 §零 治理哲學（thesis 層）。本表把 stroke-order §6 工程 rule 對應到 personal-playbook 的 thesis 層：
