@@ -27,6 +27,11 @@ import {
   renderTangleSpecs,
   listTangles,
 } from "./tangle.mjs";
+import {
+  applyPseudo3DToSpecs,
+  isValidDepthDir,
+  VALID_DEPTH_DIRS,
+} from "./pseudo3d.mjs";
 
 // 6z-2.1 NOTE: `rotateContours` is intentionally NOT imported here.
 // Tile rotation is now applied via canvas ctx transform (so frame + outline
@@ -137,6 +142,25 @@ let _lastDirection = null;  // [dx, dy] in tile-local px, or null
 
 // 6z-3.5: per-unit visual scale (~ same as auto-fill grid spacing).
 const PLACED_UNIT_SCALE = 45;
+
+// 6z-5a: pseudo-3D sticky state — set by D-Pad / 4 button clicks / Arrow keys.
+//   - All NEW placed units inherit this (sticky); old units keep their own
+//   - Click a direction button → set sticky + apply to last placed unit
+//   - Slider → set sticky degree + sync last unit's degree
+//   - 「無透視」 button → clear sticky + clear last unit pseudo_3d
+let _stickyDepthDir = null;
+let _stickyDepthDegree = 0.5;
+
+// 6z-5a: Arrow-key dispatcher arg → pseudo3d.mjs depth_dir name.
+// (KEY_MAP in 6z-1E uses "up"/"down"/"left"/"right" args; our schema uses
+// "forward"/"backward"/"left"/"right" — translate at the dispatch boundary
+// to keep the input layer agnostic of perspective semantics.)
+const KEY_DIR_TO_PSEUDO3D = {
+  up: "forward",
+  down: "backward",
+  left: "left",
+  right: "right",
+};
 
 // 6z-2.2: pan state — quick-peek at rotation overflow corners.
 //   "center" : no pan (default; corners may exceed viewport when rotated)
@@ -377,7 +401,18 @@ function drawTangleLayer(mappedContours) {
   for (const unit of _placedUnits) {
     const t = TANGLES[unit.tangle];
     if (!t || typeof t.buildUnit !== "function") continue;
-    const specs = t.buildUnit(unit.cx, unit.cy, PLACED_UNIT_SCALE);
+    let specs = t.buildUnit(unit.cx, unit.cy, PLACED_UNIT_SCALE);
+    // 6z-5a: apply per-unit Pseudo-3D transform (depth_dir 4 dir + degree).
+    // null pseudo_3d / 0 degree → identity (early-return inside helper).
+    if (unit.pseudo_3d && unit.pseudo_3d.depth_dir) {
+      specs = applyPseudo3DToSpecs(
+        specs,
+        unit.cx,
+        unit.cy,
+        unit.pseudo_3d.depth_dir,
+        unit.pseudo_3d.depth_degree
+      );
+    }
     renderTangleSpecs(_ctx, specs);
   }
   _ctx.restore();
@@ -837,6 +872,92 @@ function wireTangleControls() {
   // 6z-3.5: 「清除已放」 button.
   const clearBtn = document.getElementById("zentangle-clear-units");
   if (clearBtn) clearBtn.addEventListener("click", clearPlacedUnits);
+  // 6z-5a: pseudo-3D 透視控件 + Arrow 鍵 ACTION。
+  wirePseudo3DControls();
+}
+
+// ---------------------------------------------------------------------------
+// 6z-5a — Pseudo-3D 透視 控件 (4 方向 + slider + 無透視)
+// ---------------------------------------------------------------------------
+
+function setPerspectiveDir(dir) {
+  // dir: "forward" | "backward" | "left" | "right" | null
+  if (!isValidDepthDir(dir)) {
+    setStatus(`unknown depth_dir: ${dir}`, true);
+    return;
+  }
+  _stickyDepthDir = dir;
+  // Apply to last unit (preview); also update sticky for new units.
+  if (_placedUnits.length > 0) {
+    const last = _placedUnits[_placedUnits.length - 1];
+    last.pseudo_3d = dir
+      ? {depth_dir: dir, depth_degree: _stickyDepthDegree}
+      : null;
+  }
+  refreshPerspectiveButtonHighlight();
+  redrawAll();
+  if (dir === null) {
+    setStatus("透視 → 無 (sticky cleared)");
+  } else {
+    const labels = {
+      forward: "前 (foreshortening)",
+      backward: "後 (擴張)",
+      left: "左 (剪切右厚)",
+      right: "右 (剪切左厚)",
+    };
+    setStatus(
+      `透視 → ${labels[dir]}, degree=${_stickyDepthDegree.toFixed(2)}; 後續 placed unit sticky inherit`
+    );
+  }
+}
+
+function setPerspectiveDegree(degree) {
+  const d = Math.max(0, Math.min(1, degree));
+  _stickyDepthDegree = d;
+  // Sync display
+  const display = document.getElementById("zentangle-p3d-display");
+  if (display) display.textContent = d.toFixed(2);
+  // Update last unit's degree if it has pseudo_3d
+  if (_placedUnits.length > 0) {
+    const last = _placedUnits[_placedUnits.length - 1];
+    if (last.pseudo_3d) last.pseudo_3d.depth_degree = d;
+  }
+  redrawAll();
+}
+
+function clearPerspective() {
+  setPerspectiveDir(null);
+}
+
+function refreshPerspectiveButtonHighlight() {
+  document.querySelectorAll(".zt-p3d-btn").forEach((btn) => {
+    const isActive = btn.dataset.dir === _stickyDepthDir;
+    btn.style.background = isActive ? "var(--accent, #c33)" : "#fafaf8";
+    btn.style.color = isActive ? "#fff" : "#444";
+    btn.style.borderColor = isActive ? "var(--accent, #c33)" : "var(--border)";
+  });
+}
+
+function wirePseudo3DControls() {
+  // 4 direction buttons.
+  document.querySelectorAll(".zt-p3d-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setPerspectiveDir(btn.dataset.dir));
+  });
+  // depth_degree slider.
+  const slider = document.getElementById("zentangle-p3d-slider");
+  if (slider) {
+    slider.addEventListener("input", () => setPerspectiveDegree(slider.valueAsNumber));
+  }
+  // 「無透視」 button.
+  const clearBtn = document.getElementById("zentangle-p3d-clear");
+  if (clearBtn) clearBtn.addEventListener("click", clearPerspective);
+  // ↑↓←→ Arrow 鍵 ACTION → setPerspectiveDir (translate via KEY_DIR_TO_PSEUDO3D).
+  // (6z-1E KEY_MAP already dispatches PSEUDO3D_DIR with arg; we register the handler.)
+  _actionHandlers["pseudo3d-dir"] = (keyDir) => {
+    const dir = KEY_DIR_TO_PSEUDO3D[keyDir];
+    if (!dir) return;
+    setPerspectiveDir(dir);
+  };
 }
 
 /**
@@ -857,7 +978,11 @@ function placeUnitAtClick(e, canvas) {
   const viewY = (e.clientY - rect.top) * scaleY;
   // Inverse transform → tile-local (so rotation + pan compose naturally).
   const [tx, ty] = viewportToTileLocal(viewX, viewY);
-  _placedUnits.push({tangle: _activeTangle, cx: tx, cy: ty});
+  // 6z-5a: new units inherit sticky pseudo_3d state.
+  const pseudo_3d = _stickyDepthDir
+    ? {depth_dir: _stickyDepthDir, depth_degree: _stickyDepthDegree}
+    : null;
+  _placedUnits.push({tangle: _activeTangle, cx: tx, cy: ty, pseudo_3d});
   // Update _lastDirection if we have ≥ 2 units.
   if (_placedUnits.length >= 2) {
     const a = _placedUnits[_placedUnits.length - 2];

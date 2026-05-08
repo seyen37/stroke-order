@@ -2660,6 +2660,33 @@
               style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
               title="L2 / Shift+Q 鍵：回上次角度">上次角度</button>
     </div>
+    <!-- 6z-5a: Pseudo-3D 透視變形 inline 控件 (depth_dir 4 方向, sticky state, slider for degree) -->
+    <div class="row" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
+      <span style="font-weight:bold;color:var(--muted);">透視</span>
+      <button type="button" class="zt-p3d-btn" data-dir="forward"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              title="↑ 鍵 / 朝前 (foreshortening, 元素往畫面深處延伸)">前 ↑</button>
+      <button type="button" class="zt-p3d-btn" data-dir="backward"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              title="↓ 鍵 / 朝自己 (元素往畫面前方延伸 + 兩側變厚)">後 ↓</button>
+      <button type="button" class="zt-p3d-btn" data-dir="left"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              title="← 鍵 / 朝左 (left tilt, 右側看起來厚)">左 ←</button>
+      <button type="button" class="zt-p3d-btn" data-dir="right"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              title="→ 鍵 / 朝右 (right tilt, 左側看起來厚)">右 →</button>
+      <span style="margin-left:6px;color:var(--muted);">強度</span>
+      <input id="zentangle-p3d-slider" type="range" min="0" max="1" step="0.05" value="0.5"
+             style="width:120px;" title="depth_degree 0~1, slider 連續微調">
+      <span id="zentangle-p3d-display"
+            style="display:inline-block;min-width:36px;text-align:center;font-family:monospace;color:var(--muted);">0.50</span>
+      <button id="zentangle-p3d-clear" type="button"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
+              title="清除 sticky pseudo-3D state + 把最後 unit 變回 axis-aligned">無透視</button>
+      <span style="color:var(--muted);font-size:11px;margin-left:4px;">
+        ↑↓←→ 鍵 ＝ 4 方向；套到最後 unit + sticky inherit 後續新 unit
+      </span>
+    </div>
     <div id="zentangle-config-display"
          style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">
     </div>
