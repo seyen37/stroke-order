@@ -815,6 +815,15 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 | 🆕 D-C 強紀律弱預設 | phase 6z **API defaults 應 force user 確認**（如 `pseudo_3d.depth_dir` / `tile_size` 不該 silent default、應 require explicit choice 或在 UI 提供 5 預設按鈕並標明）|
 | 🆕 D-D 真正能用 verify gate | phase 6z 每 sub-phase 完成 gate = **visual render test pass**（PNG 截圖比對），不是 unit test 過就標 done — 對應 stroke-order memory `feedback_visual_render_verify` |
 
+> **2026-05-11 補充**：personal-playbook 第十五次修訂 commit `19534e9` 從另一專案（biped-research）sync 4 條原則 **§3.15 / §3.16 / §8.36 / §8.37** + §B.25-B.27 案例索引。本表新增 4 row 標 🆕（5/11）：
+
+| Personal-playbook (5/11 新加) | Stroke-order 應用點 |
+|---|---|
+| 🆕 §3.15 Cowork sandbox cross-mount 大檔 IO 限制（5-6 MB/s, 45s timeout）| AI workflow SOP — stroke-order 純 text 寫入不踩；但若將來加 LFS / 大 PNG fixture 需走 user PowerShell。同 §3.14 是 workflow 層、非 engineering rule、引用即可 |
+| 🆕 §3.16 巨型 binary 政策（>50 MB 個別 pathspec gitignore + metadata）| 同上 — stroke-order 目前無 >50 MB binary；若 phase 6z+ 加 high-res tangle texture 或 gallery thumbnail 大檔，套政策（_raw/ 留檔 + .gitignore 個別 pathspec + NOTICE 紀錄）|
+| 🆕 §8.36 Self-audit 抓錯立刻修 + 順帶解決相關結構問題 | **stroke-order 4-strike pattern 是 §8.36 的 instance** — 6z-1.2 / 6z-2.1 / 6z-2.2 / 6z-2.3 連續修補時都「順帶清相關小問題」（如 6z-2.1 加 _cachedContours 順手解 slider fetch race）。對應既有 §6.12 strip-and-rebuild 是子集 |
+| 🆕 §8.37 一手 metadata > 推測（cross-source 一致 = 強證據）| **stroke-order「visual render verify」 是 §8.37 在前端的 instance** — 不推測渲染結果、跑實際 PNG 比對；不推測 outline 形狀、用 fonttools 一手 outline_cmds。對應 memory `feedback_visual_render_verify`（unit test 不夠、要看真實 render）|
+
 **設計意義**：
 
 ```
