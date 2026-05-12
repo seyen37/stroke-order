@@ -824,6 +824,14 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 | 🆕 §8.36 Self-audit 抓錯立刻修 + 順帶解決相關結構問題 | **stroke-order 4-strike pattern 是 §8.36 的 instance** — 6z-1.2 / 6z-2.1 / 6z-2.2 / 6z-2.3 連續修補時都「順帶清相關小問題」（如 6z-2.1 加 _cachedContours 順手解 slider fetch race）。對應既有 §6.12 strip-and-rebuild 是子集 |
 | 🆕 §8.37 一手 metadata > 推測（cross-source 一致 = 強證據）| **stroke-order「visual render verify」 是 §8.37 在前端的 instance** — 不推測渲染結果、跑實際 PNG 比對；不推測 outline 形狀、用 fonttools 一手 outline_cmds。對應 memory `feedback_visual_render_verify`（unit test 不夠、要看真實 render）|
 
+> **2026-05-13 補充**：personal-playbook 第十六/十七次修訂 commits `784dfce` / `f6f0685` 再加 **§3.17 paste prompt audit** + **§3.18 Cowork uploads sync silent failure SOP** + §3.14 R37 dogfood 2nd validation。Cowork sandbox 系列 SOPs 累積成 7 節：§3.10 / §3.13 / §3.14 / §3.15 / §3.16 / §3.17 / §3.18 — 涵蓋 git-index-corruption / git-lock-race / write-tool-corruption / cross-mount-IO-limit / giant-binary-policy / paste-prompt-audit / upload-sync-silent-failure 共「sandbox-視角 ≠ host-視角」 多維邊界。Stroke-order 採取 single reference policy（不逐節 row, 引用全系列即可）：
+
+| Personal-playbook (5/13 新加) | Stroke-order 應用點 |
+|---|---|
+| 🆕 §3.17 paste prompt audit | AI workflow SOP — Claude 給命令時必標 `【host 端 PowerShell】` / `【sandbox bash】` / `【VM 內 bash】`；user paste 前 5 秒讀 prompt 對位 |
+| 🆕 §3.18 uploads sync silent failure | AI workflow SOP — round 啟動前必 `ls /sessions/.../mnt/uploads/` 實證、不可基於 `<uploaded_files>` tag 假設檔案在 sandbox |
+| 🆕 Cowork sandbox 系列 (§3.10/13/14/15/16/17/18) 整合引用 | 全列為 AI workflow 紀律、stroke-order 引用即可。若未來 §3.19+ 增加 → 在此 row 加 entry、不另開新 row |
+
 **設計意義**：
 
 ```
