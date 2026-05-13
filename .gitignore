@@ -109,3 +109,8 @@ docs/site/
 /data/g0v_cache/
 /data/kanjivg_cache/
 /data/mmh_cache/
+
+# === Commit message handoff (Cowork §3.10 default-deny workflow) ===
+# Claude 寫 commit msg 到此資料夾 (Python list-of-strings)、
+# user host PowerShell 跑 `git commit -F docs/_commit_msg/YYYY-MM-DD_NN.txt`
+/docs/_commit_msg/

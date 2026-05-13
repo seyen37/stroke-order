@@ -832,6 +832,28 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 | 🆕 §3.18 uploads sync silent failure | AI workflow SOP — round 啟動前必 `ls /sessions/.../mnt/uploads/` 實證、不可基於 `<uploaded_files>` tag 假設檔案在 sandbox |
 | 🆕 Cowork sandbox 系列 (§3.10/13/14/15/16/17/18) 整合引用 | 全列為 AI workflow 紀律、stroke-order 引用即可。若未來 §3.19+ 增加 → 在此 row 加 entry、不另開新 row |
 
+> **2026-05-14 補充**：personal-playbook 第三十一/三十二次修訂 commits `60b8ff3` / `f6b5628` 升等 **§3.10 Cowork sandbox bash git index corruption SOP**：5/14 起 **default-deny 嚴格化** — sandbox bash 對 stroke-order repo **完全不跑任何 git 寫入命令**（含 `git fetch / status / add / commit / push`、不只先前的 `git add`/`commit`/`push`）。同時 §3.13 strengthen 補強、§8.36 加 sub-rule 3 ("順手解結構問題不擴張原 task scope")。
+
+| Personal-playbook (5/14 升等) | Stroke-order 應用點 |
+|---|---|
+| 🆕 §3.10 5/14 default-deny 升等（sandbox 0 git-write）| **本 repo workflow 從此調整**：Claude 在 sandbox 只能 `Read` / `Bash` 純讀 + `Write`/`Edit`/Python 寫 .md/.py/.mjs 等非 git-index 檔；**所有 `git add` / `git commit` / `git push` / `git fetch` / `git status` 一律由 user 在 host PowerShell 執行**。Claude 負責寫好完整 commit message + 列出該 stage 的檔案清單，user 一次 paste 跑完。Friction ↑ 但 git index corruption / lock race 0 風險、跨 device session 並行最安全。先前 18+ commits 採 sandbox commit + host push 模式雖無事故 (倖存者偏差) — 從本 commit 起轉嚴格 |
+| 🆕 §3.13 5/14 strengthen | 同上整合於 §3.10 default-deny；本 repo 無額外 row |
+| 🆕 §8.36 sub-rule 3「順手解結構問題、不擴張原 task scope」| **stroke-order 4-strike pattern 已是 §8.36 instance**（5/11 補充已記）；5/14 sub-rule 3 加強約束 — 順手清的「結構問題」不可演變成新 phase 級重構。本 repo 持續以「decision log 標『順手清』 + commit message 分行列舉」收斂 scope drift |
+
+**Workflow 對照表**（5/14 起生效）：
+
+| 命令類別 | 5/14 前 | 5/14 後（A 嚴格）|
+|---|---|---|
+| `git add` / `git commit` | sandbox bash 跑 | **host PowerShell** 跑（Claude 提供完整命令）|
+| `git push` / `git push backup` | sandbox bash 跑 | **host PowerShell** 跑 |
+| `git fetch` / `git pull` | sandbox bash 跑 | **host PowerShell** 跑 |
+| `git status` / `git log` / `git diff` | sandbox bash 跑（讀） | **host PowerShell** 跑（避免 sandbox 看到 stale index）|
+| 檔案寫入 (.md / .py / .mjs / .json) | sandbox `Write`/`Edit`/Python | sandbox `Write`/`Edit`/Python（**§3.14 SOP**：中文 .md 走 Python list-of-strings + 三件套 verify）|
+| `grep` / `find` / `cat` / `ls` | sandbox bash | sandbox bash（純讀不受影響）|
+| `pytest` / `node --test` | sandbox bash | sandbox bash（純執行測試、不寫 git index）|
+
+**Commit message handoff convention**：Claude 寫 message 時用 Python list-of-strings 存到 `docs/_commit_msg/YYYY-MM-DD_NN.txt`（gitignore），user paste 後 `git commit -F` 引用，避免 PowerShell heredoc / escape 痛點。
+
 **設計意義**：
 
 ```
