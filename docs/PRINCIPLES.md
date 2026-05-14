@@ -854,6 +854,24 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 
 **Commit message handoff convention**：Claude 寫 message 時用 Python list-of-strings 存到 `docs/_commit_msg/YYYY-MM-DD_NN.txt`（gitignore），user paste 後 `git commit -F` 引用，避免 PowerShell heredoc / escape 痛點。
 
+> **2026-05-14 day 2 補充**：personal-playbook 第三十三次修訂 commit `551929c` 為「**5/14 day 1 #2 升級 §3.10 default-deny 後的同日 dogfooding**」— user 在另一個 session (biped-research R48) 沒先 fetch / log 就動工、整 round 用 sandbox bash 跑 `git show HEAD:PROJECT_PLAYBOOK.md` 違反剛升級的 §3.10 紀律、修訂編號用 28th 但 remote 已到 32nd（差 4）。R48 6 case 全部對位既有 §3.10/§3.14/§3.18 — user 自寫 SOP 已涵蓋情境、但仍踩 → 強力支持本 repo 嚴格 default-deny + fetch-first opening SOP。
+
+| Personal-playbook (5/14 day 2 補充) | Stroke-order 應用點 |
+|---|---|
+| 🆕 §3.10 strengthen 候選 / §8.36 sub-rule 4 候選：**開工 SOP 第 1 步 = `git fetch origin + git log HEAD..origin/main`** | **本 repo 今早已實踐** ✓ — 5/14 morning audit 第一動作是請 user host PS 跑這兩條，catch 到 `551929c` 否則會延後一天看到。落地為「開工 routine 第 1 動作」、不另寫 §6.x、merge 進既有 morning audit SOP |
+| 🆕 §3.14 / §3.18 strengthen 候選（R48 case 5）：**跨邊界 git 操作後 sandbox bash mount cache stale** — host git 後、sandbox Read 看到 stale 版本、若 sandbox write 回去 = 直接覆蓋 host 最新版（資料損失） | **本 repo workflow 0 風險命中** — sandbox 寫新檔（journal/decision/_commit_msg）→ host commit + push、sandbox 不會 host 改檔後再讀寫該檔。但記錄為已知風險、若未來 host 端被另一 session edit + 本 sandbox 接手 read/write → 必須走 host。Memory 新增 `feedback_host_git_then_sandbox_cache_stale` |
+| 🆕 AI 給 user SOP 三段式分離紀律（R48 case 6） | **本 repo 5/14_01 / 5/14_02 commit handoff 已遵守** ✓ — PowerShell 命令獨立 fenced block、commit msg 走 `docs/_commit_msg/...txt` 不混 markdown content。Convention 文件化於 §6.8 5/14 day 1 補充「**Commit message handoff convention**」段 |
+| 🆕 修訂編號 race（R48 case 4）→ commit hash > 順序編號 | 本 repo 已 default 用 commit hash (`28c1730` / `4698fc8` 等) cross-ref、無「Nth commit」style 順序編號 — 0 風險 |
+
+**R48 dogfooding 對我們的 4 個 reinforcement**：
+
+1. **§3.10 嚴格 default-deny 是對的** — case 3 證實「user 自己升級紀律後、自己在另一 session 就踩」。我們昨天選 A 嚴格落實受實證支持。
+2. **fetch-first opening SOP 是必須** — case 3+4 提煉。本 repo 已實踐、不需新文件、merge 進開工 routine。
+3. **Sandbox mount cache stale 是真實 risk** — case 5 嚴重性高（資料損失）；本 repo workflow 0 風險命中但記錄為已知。
+4. **Commit msg handoff `-F` convention 預先防 case 6** — 5/14 day 1 採用的 friction killer 同時也是 R48 case 6「SOP 三段式分離」的具體實踐。我們提前一個 commit 就走對了。
+
+**Cross-ref**: personal-playbook commit `551929c` (33rd revision) HISTORY.md §A 第三十三次修訂；本 repo memory `feedback_host_git_then_sandbox_cache_stale`（新加）+ `feedback_strict_default_deny_git`（更新加 fetch-first 條目）。
+
 **設計意義**：
 
 ```
