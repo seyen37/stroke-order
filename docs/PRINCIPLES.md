@@ -872,6 +872,30 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 
 **Cross-ref**: personal-playbook commit `551929c` (33rd revision) HISTORY.md §A 第三十三次修訂；本 repo memory `feedback_host_git_then_sandbox_cache_stale`（新加）+ `feedback_strict_default_deny_git`（更新加 fetch-first 條目）。
 
+> **2026-05-19 morning audit 補充**：personal-playbook 5/14 → 5/19 共 7 個新 commit（fetch-first SOP catch）。**直接影響本 repo workflow 的 2 條**：`d2ea545` (5/14 day 3 第 34 修 R59 biped session)「§3.14 升 6→9 維度 + worst case sandbox 失能 + §3.13 2nd strengthen + 3 候選紀律」+ `13bbcc7` (5/19 evening Round 2)「共通性原則候選 5 條（plan-first ADR / plan v1→v2 / hardcode 掃描 / 動工延後 user-side gate / ssh fallback）」。其餘 4 commit（pptx / U5M60 / U6P40 / 5/19 worklog）為另專案無關。
+
+| Personal-playbook (5/14 day 3 + 5/19 補充) | Stroke-order 命中度 / 應用點 |
+|---|---|
+| 🆕 §3.14 維度 7：Cowork outputs/ 不 host-visible | **0 命中** — 本 repo 寫檔全到 mounted folder (`/sessions/.../mnt/stroke_order/...`)、從未用 `outputs/`、不踩 |
+| 🆕 §3.14 維度 8：Python 中文 print silent crash (cp950) | **0 命中** — 本 repo 寫檔 SOP 用 `path.write_text(..., encoding='utf-8', newline='\n')` 不用 print；sandbox bash 三件套 verify 用 `wc/tail/xxd` 不在 host PowerShell 跑 Python；不踩 |
+| 🆕 §3.14 維度 9：Windows `python` = Microsoft Store stub | **0 命中** — 本 repo host PowerShell 工作流純 git 命令 (`git add/commit -F/push`)、不跑 Python；不踩 |
+| 🆕 §3.13 2nd strengthen：sandbox 完全失能 worst case host-side fallback SOP | **0 命中**（sandbox 持續可用）— 但記錄為 **已知 contingency**；新加 memory `feedback_sandbox_unavailable_fallback` 提前部署應對 |
+| 🆕 §8.36 sub-rule 5 候選：Windows Python runtime 邊界檢查 | 不適用（host 不跑 Python）|
+| 🆕 13bbcc7 候選 #1 plan-first ADR + decision log 三分類 (inspection/plan/close) | **啟發** — 本 repo decision log 目前單一分類（如 `2026-05-14_strict_default_deny_workflow.md`）；待 user 升等正式紀律後評估是否套用三分類 |
+| 🆕 13bbcc7 候選 #2 plan v1 通用 → v2 具體兩段式 | **啟發** — 本 repo phase 6z plan 是 v0.3 一次性、未做兩段式；6z-6 切割 mode 開動時可考慮 |
+| 🆕 13bbcc7 候選 #4 動工延後 user-side gate 紀律 | **已實踐** ✓ — 本 repo 多次 plan-first + QODA confirm 後才動工（5/14 day 1 A 嚴格落實 / day 2 R48 補充 / 今日 5/19 audit 都先 confirm 才寫 code）|
+| 🆕 13bbcc7 候選 #3 / #5（hardcode 掃描 / ssh fallback） | 不適用（無 production / 無 ssh 場景）|
+
+**✅ Close 第 33 修 follow-up #3**（§3.14/§3.18 跨邊界 mount stale 補強）— d2ea545 9 維度 + worst case 已涵蓋。本 repo 5/14 day 2 提的「sandbox mount cache stale」記錄為 known risk、d2ea545 將其形式化為 6 維度 → 9 維度的維度升級。
+
+**5/19 morning audit 3 個 reinforcement**：
+
+1. **§3.14 9 維度框架對本 repo 0 命中** — 我們 workflow 路徑（mounted folder + Python list-of-strings + sandbox bash 三件套 + `git commit -F`）天然繞過維度 7/8/9 全部三條陷阱。**Reinforce「workflow 設計避坑 > 規則記憶」**。
+2. **Worst case sandbox 失能是真實 risk 但 contingency 已部署** — 新 memory `feedback_sandbox_unavailable_fallback` 紀錄若 sandbox 失能時的 host-side fallback SOP（PS 命令直接 paste / commit msg 手寫 / 降層 verify）。
+3. **候選原則 #4「user-side gate」是我們 default 紀律** — 本 repo 從 5/14 day 1 起每個 commit 都先 QODA 等 user confirm 才動工。User 在 personal-playbook 才剛標為「候選」、我們已實踐 6+ 次、是 supporting case 來源。
+
+**Cross-ref**: personal-playbook commits `d2ea545` (34th revision, 5/14 day 3 R59 biped session) + `13bbcc7` (5/19 evening Round 2 共通性原則候選 5 條)；本 repo memory `feedback_sandbox_unavailable_fallback`（新加）+ `feedback_strict_default_deny_git` SOP-0 已實踐第 2 supporting case（today fetch-first catch 7 commits）。
+
 **設計意義**：
 
 ```
