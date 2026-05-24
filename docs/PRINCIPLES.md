@@ -896,6 +896,34 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 
 **Cross-ref**: personal-playbook commits `d2ea545` (34th revision, 5/14 day 3 R59 biped session) + `13bbcc7` (5/19 evening Round 2 共通性原則候選 5 條)；本 repo memory `feedback_sandbox_unavailable_fallback`（新加）+ `feedback_strict_default_deny_git` SOP-0 已實踐第 2 supporting case（today fetch-first catch 7 commits）。
 
+> **2026-05-24 morning audit 補充**：personal-playbook 5/19 → 5/24 跨 5 天累積 **17 個新 commit**（fetch-first SOP catch；本機 host 已 pull 至 `d67d483`、sandbox refs invalidate ✓）。**5/24 升等 3 條正式紀律**直接相關：`d67d483` §8.40 default-deny 二維紀律整合升等 + `00193ad` §3.20 PS 5.1 中文編碼三件套 + §8.36 sub-rule 4「Debug ground truth first」。其餘 14 commits（U5/U6 / 知識庫 / PS toolkit 等他專案）無關。
+
+| Personal-playbook (5/24 升等正式紀律) | Stroke-order 命中度 / 應用點 |
+|---|---|
+| 🆕 **§8.40 Default-deny 二維紀律整合升等**：跨「技術維」(權限域共寫資源) + 「業務維」(交付邊界) 的 4Q 決策框架 (代價 / 成本 / ratio / 跨邊界) | **本 repo 是 §8.40 技術維 source case** ✓ — 5/14 day 1 採用 §3.10 sandbox bash 不跑 git 寫入命令 = `f6b5628` (32nd revision) 升 default-deny 的 instantiation。§8.40 5/14 case study 直接引本 repo 落地經驗。Personal-playbook §3.10 已加 cross-ref note 指向 §8.40 |
+| 🆕 **§3.20 PS 5.1 中文 Windows host 編碼地雷三件套 SOP**：Layer 1 (BOM 必加) / Layer 2 (Set-Content `-Encoding UTF8`) / Layer 3 (netsh tempfile + UTF-8 嚴格 heuristic) | **目前 0 命中**（commit msg `-F` 走 UTF-8+LF、不放 emoji、host PS 不跑 netsh）；但記錄為 **已知 contingency**、新加 memory `feedback_ps5_chinese_encoding_three_layers` 預部署、若未來 stroke-order 給 user 跑 `.ps1` 工具或 deploy script 須遵守 |
+| 🆕 **§8.36 Sub-rule 4 Debug ground truth first**：第 1 輪猜失敗就停下加 diagnostic、不連續猜超過 2 輪 | **通用 debug 原則、高頻適用**；新加 memory `feedback_debug_ground_truth_first`。未來 phase 6z+ 任何 debug 都套：第 1 個修正版立即加 diagnostic、留 production、第 3 輪絕對停、自己拿 ground truth 不問用戶 |
+| §1.6 寫第一份使用手冊 / §3.6 第 5 條 Unix 工具（5/24 升等 4 條中其餘 2 條）| 不適用（無使用手冊交付 / PS toolkit context）|
+
+**§8.40 對位本 repo workflow 的二維 mapping**：
+
+| 動作 | 技術維 | 業務維 | §8.40 紀律 |
+|---|---|---|---|
+| Sandbox bash 跑 `git add/commit/push` | 跨權限域共寫 `.git/index` | （無業務邊界）| **default-deny** ✓ (5/14 day 1 採用) |
+| Sandbox bash 跑 `git log` / `git show` (純讀) | 同域純讀 | （無）| **no rule** ✓ (允許) |
+| Sandbox Python `path.write_text(...)` 寫 .md/.py | 同域寫 mounted folder | （無）| **careful-operation** ✓ (§3.14 SOP) |
+| Host PowerShell 跑 `git commit -F` | 同域寫 host `.git` | （無）| **careful-operation** ✓ (host 是 git 權限域 owner) |
+
+本 repo 5 個 commits（5/14 → 5/19）workflow 自然滿足 §8.40 二維決策、無 retrofit 需求。
+
+**5/24 audit 3 個 reinforcement**：
+
+1. **§8.40 升等是「supporting case 提供 → source case 升為 thesis」的閉環** — 5/14 day 1 我們選 A 嚴格落實 §3.10 default-deny、6 天後（5/14 day 2 R48 + 5/14 day 3 R59 + 5/24 業務維 Network_Validator）累積 supporting case、5/24 升為 §8.40 二維 thesis。**證實「user-side gate 紀律」+「不超前升等」原則** — 上游時序對齊、本 repo 收成 source case 引用、不越權升等。
+2. **§3.20 三件套是 §3.14 9 維度的補維度** — §3.14 涵蓋 Cowork sandbox + Python runtime + 跨邊界、§3.20 補「PS 5.1 host 本身編碼坑」。兩節合用 = 跨工具 / 跨語言 / 跨主機的編碼紀律完整覆蓋。本 repo 兩節 0 命中、但 contingency 預部署。
+3. **§8.36 Sub-rule 4 是 phase 6z+ debug 必備工具** — 未來 6z-6 / 6z-7+ 開動時、debug 任何 visual rendering / state transition / canvas transform 等問題、第 1 輪猜失敗就停下加 console.log diagnostic（前綴 `[Diagnostic]`、留 production）、避免「再猜下一個」浪費 user 時間。對位本 repo memory `feedback_visual_render_verify`（visual 驗證每 round）+ 新 memory 二維互補。
+
+**Cross-ref**: personal-playbook commits `d67d483` (§8.40 二維紀律升等) + `00193ad` (5/24 升等 4 條：§1.6/§3.6/§3.20/§8.36 sub-rule 4) + 14 個其他專案 commits（無關）；本 repo 5/14-5/19 5 commits（`28c1730` / `4698fc8` / `87e92fe` / `2b9dd6d` / `1c1d585`）= §8.40 技術維 case study source；新加 memory `feedback_ps5_chinese_encoding_three_layers` + `feedback_debug_ground_truth_first`。
+
 **設計意義**：
 
 ```
