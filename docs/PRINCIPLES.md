@@ -924,6 +924,25 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 
 **Cross-ref**: personal-playbook commits `d67d483` (§8.40 二維紀律升等) + `00193ad` (5/24 升等 4 條：§1.6/§3.6/§3.20/§8.36 sub-rule 4) + 14 個其他專案 commits（無關）；本 repo 5/14-5/19 5 commits（`28c1730` / `4698fc8` / `87e92fe` / `2b9dd6d` / `1c1d585`）= §8.40 技術維 case study source；新加 memory `feedback_ps5_chinese_encoding_three_layers` + `feedback_debug_ground_truth_first`。
 
+> **2026-05-29 morning audit 補充**：personal-playbook 5/24 → 5/29 跨 5 天累積 **14 個新 commit**（SOP-0 fetch-first 第 4 supporting case、user 今早 02:22 host fetch+pull 完成）。**核心發現：5/14 followup #2「協作電腦類 round 開工 SOP fetch-first」已在 5/25 R36 commit `db52ac1` formal close** — 第 2 個我們 source case 被 cite 收尾的閉環（第 1 個是 5/24 §8.40 close 5/14 candidate 2）。**§3.19 跨機並行 push divergence handling SOP** 升 **3rd practice production-grade**（R59 + R34 + R35/R36 = N+ supporting cases）。
+
+| Personal-playbook (5/29 audit) | Stroke-order 命中度 / 應用點 |
+|---|---|
+| 🆕 **§3.19 跨機並行 push divergence handling SOP 升 3rd practice production-grade**（stash → pull --ff-only → pop dance 7 步 + 3 反例）| **0 命中** — 本 repo 7 commits single push direction、無跨機 race；但 **contingency 預部署**、新加 memory `feedback_cross_machine_push_divergence_dance`、若未來在另一台改 stroke-order 觸發 fast-forward 衝突立即可套 7 步 dance |
+| 🆕 **5/14 followup #2 close**（commit `db52ac1` 5/25 R36）：「協作電腦類 round 開工 SOP 第 1 步 = `git fetch + git log HEAD..origin/main`」**正式 formalize 為 §3.19 SOP 3rd practice** | **本 repo SOP-0 是 source case 之一** ✓（與 R59 / R34 / R35/R36 並列 N+ supporting cases）；5/14 day 2 R48 case 3+4 提煉、5/19/5/24/5/29 4 次連續 catch（1→7→17→14 commits、累計 catch 39 commits）— 我們 sustained discipline 是 close 紀律的 evidence |
+| §3.21 已設定電腦稽核 SOP (5/26、6-step monthly checklist) | 不適用 — 本 repo 為 active dev 環境、非「已設定電腦」、無 monthly routine 需求 |
+| §3.22 LLM / RAG 黑盒症狀 debug (5/28 升等、先 grep log 後調 model 參數) | 無關 — 本 repo 不做 LLM / RAG |
+| §3.23 跨層 cache invalidation 4 步紀律 (5/28、host nginx + docker + browser HSTS + DNS) | 無關 — 本 repo 無 nginx / docker / DNS |
+| 其他 9 commits（46th gap fill、47th OpenClaw、48th cleanup、5/24 docx v4.12.1、jitsi、B.36-38）| 無關（governance 內部 sync / 其他專案）|
+
+**5/29 audit 3 個 reinforcement**：
+
+1. **第 2 個 source case 閉環浮現** — 5/24 §8.40 close 我們 5/14 day 1 §3.10 採用（第 1 閉環）；今日 5/25 R36 close 我們 5/14 day 2 SOP-0 提煉（第 2 閉環）。**長期紀律累積的回報 = 被 cite 為 source case** — 5/14 我們提的兩條紀律都在 11 天內被 personal-playbook 正式 formalize、屬「sustained discipline pays」實證。
+2. **Contingency memory 第 3 條同類、標準持續形成** — 5/19 `feedback_sandbox_unavailable_fallback`（sandbox 失能 worst case）+ 5/24 `feedback_ps5_chinese_encoding_three_layers`（PS 三件套）+ 5/29 `feedback_cross_machine_push_divergence_dance`（divergence dance）三條同類 contingency。共同特徵：0 命中 + 高 impact + 短反應時間 + marginal cost ~30 min + option value 高。**標準明確化**：未來遇到「跨邊界 + 0 命中 + 高 impact」紀律候選直接套模板。
+3. **Fetch-first SOP-0 catch 量分布**：1 (5/14 day 2) → 7 (5/19) → 17 (5/24) → **14 (5/29)** = 累計 39 commits 4 次連續 catch。5/29 量 14 略低於預測 (預期 ≥17、實測 -3) — 推測因為 5/24-5/26 user 在 personal-playbook 集中工作 (12 commits gap fill)、5/27-5/29 較分散 (2 commits OpenClaw + 1 cleanup)。**catch 量隨 user 工作密度波動、不需嚴格 exp growth、但 5-7 天 cycle 仍需維持**。
+
+**Cross-ref**: personal-playbook commits `db52ac1` (46th, 5/25 R36 §3.19 SOP 3rd practice + close 5/14 followup #2) + `f9b15de` (5/25 35-45th gap fill + close 33rd §3.20 + 5/14 candidate 2) + `72a77b6` (§3.21) + `073f903` (§3.22+§3.23) + `10868cb`/`fc7639a` (47-48th OpenClaw + cleanup)；本 repo 5/14-5/24 7 commits（`28c1730` / `4698fc8` / `87e92fe` / `2b9dd6d` / `1c1d585` / `816faaa` / `0f15f13`）= **2 個 source case 閉環的 evidence**（§3.10 / SOP-0 fetch-first）；新加 memory `feedback_cross_machine_push_divergence_dance`。
+
 **設計意義**：
 
 ```
