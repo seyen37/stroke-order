@@ -943,6 +943,33 @@ User 提具體 UI mechanism（如「9 cell 重複疊加 panel」）並說「**�
 
 **Cross-ref**: personal-playbook commits `db52ac1` (46th, 5/25 R36 §3.19 SOP 3rd practice + close 5/14 followup #2) + `f9b15de` (5/25 35-45th gap fill + close 33rd §3.20 + 5/14 candidate 2) + `72a77b6` (§3.21) + `073f903` (§3.22+§3.23) + `10868cb`/`fc7639a` (47-48th OpenClaw + cleanup)；本 repo 5/14-5/24 7 commits（`28c1730` / `4698fc8` / `87e92fe` / `2b9dd6d` / `1c1d585` / `816faaa` / `0f15f13`）= **2 個 source case 閉環的 evidence**（§3.10 / SOP-0 fetch-first）；新加 memory `feedback_cross_machine_push_divergence_dance`。
 
+> **2026-06-08 morning audit 補充**：personal-playbook 5/29 → 6/8 跨 **10 天累積 24 個新 commit**（**catch 量首次爆炸**、超過 5-7 天 sustainable cycle、user 已 host fetch+pull 至 `417e5f7`）。**核心發現：第 3 個 source-case-like 閉環浮現** — 我們 5/19 day 3 候選 #1 awareness「plan-first ADR + decision log 三分類」已在 6/2 commit `17ffefe` 升為 **§5.12 + §5.13** 兩條正式紀律（與 5/14 day 1 §3.10 / 5/14 day 2 SOP-0 / 5/19 候選 #1 三條源頭紀律全部 close）。
+
+| Personal-playbook (6/8 audit) | Stroke-order 命中度 / 應用點 |
+|---|---|
+| 🆕 **§5.13 decision log 三分類升等**（inspection / plan / close 三類、來源 5/19 候選 #1）| **awareness only、不 retrofit** — 本 repo decision log 是「audit-driven 混合」非 production-deploy 場景（W-N + rollback + downtime）；§5.13 設計目的不對應、不適用嚴格三分類。本 repo decision log 既有單一分類保留、不 churn。**第 3 個閉環**：5/19 候選 #1 awareness → 6/2 升等 |
+| 🆕 **§5.12 plan-first ADR 必跑 actual state inspect**（不假設「未做」）| **已天然遵循** ✓ — 每 morning audit 第 1 動作 `cat .git/refs/heads/main` + `git log` 純讀本機 state、絕不假設、跟 §5.12 同 spirit |
+| 🆕 **§3.14 / §3.20 R60 補強 + R65 / R65.1 / R65.2**（commits `d2a2521` / `c23e1af` / `35bb022` / `17ffefe`）| **R65.1 ssh -t quoting**：不適用（host PS 不跑 ssh）；**R65.2 foreach Get-Item 中文檔名 0-byte quirk**：不適用（`-F` 走 git commit 不過 Get-Item）；**Memory 更新** `feedback_ps5_chinese_encoding_three_layers` 加 R65 補強 awareness 段 |
+| 🆕 **§8.41 Service URL / SOP 必寫文件、不靠 conversation memory** | **已天然遵循** ✓ — commit message + journal + decision log + auto-memory 全文件化、不靠 conversation memory |
+| 🆕 **§8.42 跨 session 量化 baseline 必驗、不可信 conversation memory** | **已天然遵循** ✓ — cross-validate mount cache、三件套 verify（wc/tail/xxd）每次重驗、不信 conversation memory |
+| 🆕 **§8.43 LLM A/B 評分二維分離** | 無關（不做 LLM）|
+| 🆕 §3.24 production VM boot system / §3.26 Docker / §3.27 SDK z-order | 無關（無 VM / Docker / SDK）|
+| 🆕 **§3.25 SOP 寫作紀律：rollback / abort 命令必須 explicit ⛔ marker** | **目前不適用**（我們 host PS 命令清單無 rollback 命令）；若未來 6z deploy 流程加 rollback 須遵守 |
+| 🆕 **§5.14 跨機 silent work 必補 close ADR** | 不適用（本 repo 是 single-machine repo、無跨機 silent work）|
+| 🆕 候選 `2d9a84e` 5/31 候選 3「sandbox 不碰 mounted repo .git」（§3.13 同源）| **本 repo §3.10 default-deny 同源 case、是 supporting case 之一** — 若未來升等可能引用本 repo evidence |
+| 其他 19 commits（Cyber 3D 地圖 9 / U5M60 U6 ESXi 4 / Yang+Chiu tta 6）| 無關（其他專案）|
+
+**6/8 audit 4 個 reinforcement**：
+
+1. **第 3 個 source-case-like 閉環浮現** — 5/14 day 1 §3.10 → 5/24 §8.40（10 天）+ 5/14 day 2 SOP-0 → 5/25 §3.19（11 天）+ **5/19 候選 #1 awareness → 6/2 §5.12+§5.13（14 天）**。**5/14-5/19 我們提的三條源頭紀律全部 close**、sustained discipline pays 持續實證。
+2. **§5.13 三分類不適用本 repo decision log** — §5.13 是 production-deploy 場景（W-N + rollback + downtime + actual state inspect）、本 repo decision log 是 audit-driven 混合（inspection + plan + close 同一檔內共存）。**不超前升等 + 不為「對齊新紀律」churn 既有 decision log** — 與 5/14 day 1 決策 3「不另開 §6.x rule」+ 5/19 day 3 規則 3「不超前升等」一致。
+3. **§8.41 / §8.42 已天然遵循、§8.43 無關** — 我們 workflow 自然滿足「文件化」+「baseline 必驗」兩條 senior 紀律、是其 source case 之一。**workflow 設計避坑 > 規則記憶** 規律再次實證（5/19 規則 1）。
+4. **跨 10 天 catch 量首次爆炸 24 commits** — 速率 2.4/day（vs 5-7 天 cycle 速率 1.4-3.4）。雖速率仍 manageable、但 catch 總量翻倍推處理時間。**未來 audit cycle 嚴守 5-7 天**、不要拉長到 10+ 天。
+
+**Catch 量分布**：1 (5/14 day 2) → 7 (5/19) → 17 (5/24) → 14 (5/29) → **24 (6/8、跨 10 天)** = 累計 83 commits、6 次連續 catch、SOP-0 fetch-first 6 supporting cases 累積。
+
+**Cross-ref**: personal-playbook commits `17ffefe` (49th, 6/2 大批升 §3.24-3.27 + §5.12-5.13 + §3.20 R65) + `d2a2521` (R60 升等 §3.14/§3.20 + §8.41-43) + `35bb022` (52nd §5.14 + §3.20 R65.1 v3) + `c23e1af` (50th §3.20 R65.1 dogfood) + `2d9a84e` (5/31 候選 3 §3.13 同源) + 其他 19 commits 無關；本 repo 5/14-5/29 9 commits = **3 個 source case 閉環的 evidence**；memory 更新 `feedback_ps5_chinese_encoding_three_layers` 加 R65 補強段。
+
 **設計意義**：
 
 ```
