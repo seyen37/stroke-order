@@ -157,14 +157,19 @@ def test_outline_endpoint_explicit_samples_per_curve_respected(client):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.skipif(
-    _kaishu_available(),
-    reason="font available — this test simulates the missing-font path",
-)
-def test_outline_endpoint_503_when_font_missing(client):
-    """Sandbox/CI without the font → 503 (not 500), so frontend can
-    degrade gracefully rather than treat as permanent error."""
+def test_outline_endpoint_503_when_font_missing(monkeypatch):
+    """Force a guaranteed-missing font path so this graceful-degradation
+    test is deterministic regardless of whether a kaishu font happens to
+    be installed in the default location (~/.stroke-order/kaishu-fonts)
+    on the dev machine. Sandbox/CI and dev machines behave identically.
+
+    Missing font → 404 (no glyph) or 503 (font file absent); the contract
+    is simply "never 200 / 500".
+    """
+    monkeypatch.setenv(
+        "STROKE_ORDER_KAISHU_FONT_FILE", "/nonexistent/__no_kaishu__.ttf"
+    )
+    reset_kaishu_singleton()
+    client = TestClient(create_app())
     r = client.get("/api/zentangle/outline?char=" + "心")
-    # 404 (no glyph) and 503 (font file absent) are both acceptable
-    # graceful-degradation outcomes; the contract is "no 500 / 200".
     assert r.status_code in (404, 503), r.text
