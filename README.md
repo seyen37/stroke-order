@@ -1,10 +1,10 @@
 # stroke-order
 
 [![CI](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml/badge.svg)](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-1057%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-1511%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![license](https://img.shields.io/badge/license-MIT-yellow)
-![version](https://img.shields.io/badge/version-0.14.0-orange)
+![version](https://img.shields.io/badge/version-0.14.133-orange)
 
 ## 🌟 核心願景
 
@@ -38,7 +38,7 @@
 
 ---
 
-## 目前版本：0.13.0 (Phase 1 → 5g 完成)
+## 目前版本：0.14.133 (Phase 1 → 5an + Phase A 組件分析器 + zentangle 6z)
 
 > **Web UI 9 模式**：單字 / 字帖 / 筆記 / 信紙 / 稿紙 / 塗鴉 / 文字雲 / **筆順練習** (5d) / **公眾分享庫** (5g)。
 >
@@ -46,7 +46,7 @@
 >
 > **`/gallery`** 5g MVP — 公眾分享庫，使用者可上傳 PSD JSON 分享，email magic-link 登入，SQLite 儲存。詳見 [docs/GALLERY_DEPLOYMENT.md](docs/GALLERY_DEPLOYMENT.md)。
 >
-> **1057 個單元測試**全部通過。
+> **1511 個單元測試**全部通過。
 
 ### Phase 1 — 核心轉換 pipeline ✅
 
