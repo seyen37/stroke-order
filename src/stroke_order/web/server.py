@@ -3079,7 +3079,28 @@ def create_app() -> FastAPI:
     # Filesystem-safe preset key — accepts builtins (eg. "heart_sutra") AND
     # user uploads (eg. "tao_te_ching", "我的座右銘"). 64 chars + CJK range.
     _SUTRA_PRESET_PATTERN = r"^[A-Za-z0-9_一-鿿\-]{1,64}$"
-    _SUTRA_PAGE_TYPE_PATTERN = "^(cover|body|dedication)$"
+    # 5bo: "table" — preset-specific table-layout page (週期表 / 九九乘法表)
+    _SUTRA_PAGE_TYPE_PATTERN = "^(cover|body|dedication|table)$"
+
+    def _table_page_renderer(preset: str):
+        """5bo: return the table-layout renderer for ``preset``, or None.
+
+        Presets with a dedicated single-page table layout register here;
+        the sutra endpoints expose them via ``page_type=table`` and the
+        PDF export appends the page after the sequential body pages.
+        """
+        if preset == "periodic_table":
+            from ..exporters.periodic_table import render_periodic_table_page
+            return render_periodic_table_page
+        if preset == "multiplication_table":
+            from ..exporters.multiplication_table import (
+                render_multiplication_table_page,
+            )
+            return render_multiplication_table_page
+        if preset == "solar_terms":
+            from ..exporters.solar_terms import render_solar_terms_page
+            return render_solar_terms_page
+        return None
 
     @app.get("/api/sutra/categories")
     async def sutra_categories_endpoint():
@@ -3328,9 +3349,17 @@ def create_app() -> FastAPI:
         info = get_sutra_info(req.preset)
         if info is None:
             raise HTTPException(404, detail=f"unknown preset {req.preset!r}")
-        if req.page_type not in ("cover", "body", "dedication"):
+        if req.page_type not in ("cover", "body", "dedication", "table"):
             raise HTTPException(422,
                 detail=f"unknown page_type {req.page_type!r}")
+        # 5bo: table-layout pages exist only for presets with a dedicated
+        # table renderer — reject others early with a clear message.
+        if req.page_type == "table" and \
+                _table_page_renderer(req.preset) is None:
+            raise HTTPException(422,
+                detail="page_type 'table' is only available for presets "
+                       "with a table layout (periodic_table, "
+                       "multiplication_table, solar_terms)")
 
         def loader(ch: str):
             try:
@@ -3344,7 +3373,15 @@ def create_app() -> FastAPI:
             except HTTPException:
                 return None
 
-        if req.page_type == "cover":
+        if req.page_type == "table":
+            # 5bo: preset-specific table layout, one A4-landscape page.
+            render_table = _table_page_renderer(req.preset)
+            svg = render_table(
+                char_loader=loader,
+                trace_fill=req.trace_fill,
+                show_grid=req.show_grid,
+            )
+        elif req.page_type == "cover":
             svg = render_sutra_cover(
                 info, char_loader=loader,
                 scribe=req.scribe, signature=req.signature,
@@ -3597,6 +3634,17 @@ def create_app() -> FastAPI:
                 mark_renderer="polyline",
                 # 5bz: optional reference letterform under the skeleton.
                 outline_glyph_loader=outline_loader,
+            ))
+
+        # 5bo: presets with a table layout get that page appended after
+        # the sequential body pages (landscape only — table pages have a
+        # fixed A4-landscape geometry).
+        render_table = _table_page_renderer(preset)
+        if render_table is not None and paper_orientation == "landscape":
+            svgs.append(render_table(
+                char_loader=loader,
+                trace_fill=trace_fill,
+                show_grid=show_grid,
             ))
 
         if include_dedication:

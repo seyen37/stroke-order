@@ -386,20 +386,38 @@ from stroke_order.sutras import (
 # ---------------------------------------------------------------------------
 
 
-def test_seven_categories_registered():
-    """5bf: 6 → 7 categories with inspirational added."""
+def test_eight_categories_registered():
+    """5bf: 6 → 7 (inspirational); 5bo: 7 → 8 (educational)."""
     assert set(CATEGORY_ORDER) == {
         "buddhist", "taoist", "confucian", "classical",
-        "christian", "inspirational", "user_custom",
+        "christian", "inspirational", "educational", "user_custom",
     }
     for cat in CATEGORY_ORDER:
         assert cat in CATEGORY_LABELS
     assert CATEGORY_LABELS["inspirational"] == "勵志家訓"
+    assert CATEGORY_LABELS["educational"] == "科普教育"
 
 
 def test_all_builtins_marked_is_builtin_true():
     for info in BUILTIN_SUTRAS.values():
         assert info.is_builtin is True
+
+
+def test_5bo_periodic_table_builtin_registered(temp_sutra_dir):
+    """5bo: 元素週期表 preset — educational category, 118 chars."""
+    info = get_sutra_info("periodic_table")
+    assert info is not None
+    assert info.is_builtin is True
+    assert info.category == "educational"
+    assert info.expected_chars == 118
+    assert info.filename == "periodic_table.txt"
+    # Whitespace (one line per period) is stripped on load.
+    bd = builtin_dir()
+    bd.mkdir(parents=True, exist_ok=True)
+    (bd / "periodic_table.txt").write_text(
+        "氫氦\n鋰鈹硼碳氮氧氟氖\n", encoding="utf-8")
+    from stroke_order.sutras import load_text
+    assert load_text("periodic_table") == "氫氦鋰鈹硼碳氮氧氟氖"
 
 
 def test_builtins_span_three_categories():
@@ -560,10 +578,10 @@ def test_list_user_keys_finds_uploaded(temp_sutra_dir):
 # ---------------------------------------------------------------------------
 
 
-def test_grouped_presets_returns_seven_categories(temp_sutra_dir):
-    """5bf: 7 categories (added inspirational)."""
+def test_grouped_presets_returns_eight_categories(temp_sutra_dir):
+    """5bf: 7 (inspirational); 5bo: 8 (educational)."""
     groups = grouped_presets()
-    assert len(groups) == 7
+    assert len(groups) == 8
     keys = [g["key"] for g in groups]
     assert keys == CATEGORY_ORDER
 
@@ -599,11 +617,11 @@ def test_sanitize_key_strips_unsafe_chars():
 # ---------------------------------------------------------------------------
 
 
-def test_api_categories_returns_seven(client):
+def test_api_categories_returns_eight(client):
     r = client.get("/api/sutra/categories")
     assert r.status_code == 200
     cats = r.json()["categories"]
-    assert len(cats) == 7
+    assert len(cats) == 8
     keys = [c["key"] for c in cats]
     assert keys == CATEGORY_ORDER
 
@@ -613,7 +631,7 @@ def test_api_presets_grouped_format(client):
     assert r.status_code == 200
     data = r.json()
     assert "categories" in data
-    assert len(data["categories"]) == 7   # 5bf: 6 → 7
+    assert len(data["categories"]) == 8   # 5bf: 6 → 7; 5bo: 7 → 8
     buddhist = next(c for c in data["categories"] if c["key"] == "buddhist")
     keys = [p["key"] for p in buddhist["presets"]]
     # Phase 5az + 5be + 5bg buddhist canonicals
@@ -1007,10 +1025,10 @@ def test_5be_kumarajiva_appears_in_grouped_listing(client):
 def test_5bf_inspirational_category_added():
     assert "inspirational" in CATEGORY_LABELS
     assert CATEGORY_LABELS["inspirational"] == "勵志家訓"
-    # Position: between christian and user_custom
+    # Position: between christian and educational (5bo inserted educational)
     idx = CATEGORY_ORDER.index("inspirational")
     assert CATEGORY_ORDER[idx - 1] == "christian"
-    assert CATEGORY_ORDER[idx + 1] == "user_custom"
+    assert CATEGORY_ORDER[idx + 1] == "educational"
 
 
 def test_5bf_classical_has_14_builtins():
@@ -1092,8 +1110,20 @@ def test_5bg_buddhist_now_has_8_builtins():
     assert len(buddhist) == 8
 
 
-def test_5bg_total_builtins_is_46():
-    assert len(BUILTIN_SUTRAS) == 46
+def test_5bg_total_builtins_is_52():
+    """5bg: 46; 5bo: +periodic_table +chinese_numerals +zodiac_hours
+    +solar_system +multiplication_table +solar_terms = 52."""
+    assert len(BUILTIN_SUTRAS) == 52
+
+
+def test_5bo_educational_has_6_builtins():
+    edu = [i for i in BUILTIN_SUTRAS.values()
+           if i.category == "educational"]
+    assert len(edu) == 6
+    keys = {i.key for i in edu}
+    assert keys == {"periodic_table", "chinese_numerals",
+                    "zodiac_hours", "solar_system",
+                    "multiplication_table", "solar_terms"}
 
 
 def test_5bg_closing_templates_per_category_exist():
@@ -1156,7 +1186,7 @@ def test_5bg_api_closing_templates_endpoint(client):
     keys = [t["category"] for t in data["templates"]]
     assert keys == [
         "buddhist", "taoist", "confucian", "classical",
-        "christian", "inspirational", "user_custom",
+        "christian", "inspirational", "educational", "user_custom",
     ]
     buddhist = next(t for t in data["templates"] if t["category"] == "buddhist")
     assert buddhist["closing"]["title"] == "迴向文"

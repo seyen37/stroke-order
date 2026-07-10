@@ -1742,6 +1742,7 @@
         <option value="classical">文學經典</option>
         <option value="christian">基督宗教</option>
         <option value="inspirational">勵志家訓</option>
+        <option value="educational">科普教育</option>
         <option value="user_custom" selected>自訂</option>
       </select>
     </div>
@@ -7953,6 +7954,12 @@ async function sutraRebuildLayout() {
   for (let i = 0; i < bodyPages; i++) {
     layout.push({type: "body", body_index: i});
   }
+  // 5bo: presets with a table layout get that page after the body
+  // pages (A4 landscape fixed geometry).
+  if (["periodic_table", "multiplication_table", "solar_terms"]
+      .includes(p.key) && p.ready) {
+    layout.push({type: "table"});
+  }
   if (includeDedication) layout.push({type: "dedication"});
   SUTRA.layout = layout;
   SUTRA.total_pages = layout.length;
@@ -7979,6 +7986,7 @@ function sutraUpdatePageLabel() {
   let typeLabel;
   if (slot.type === "cover") typeLabel = "封面";
   else if (slot.type === "dedication") typeLabel = "迴向頁";
+  else if (slot.type === "table") typeLabel = "週期表";
   else typeLabel = `描紅 ${slot.body_index + 1}`;
   lbl.textContent = `${idx + 1} / ${SUTRA.total_pages} (${typeLabel})`;
 }

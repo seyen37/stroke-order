@@ -33,14 +33,16 @@ Missing ``.json`` is fine — defaults are derived from the filename.
 
 Categories
 ----------
-Six fixed categories — UI groups presets by these:
+Eight fixed categories — UI groups presets by these:
 
-- ``buddhist``     佛教
-- ``taoist``       道家
-- ``confucian``    儒家
-- ``classical``    文學經典
-- ``christian``    基督宗教
-- ``user_custom``  自訂
+- ``buddhist``      佛教
+- ``taoist``        道家
+- ``confucian``     儒家
+- ``classical``     文學經典
+- ``christian``     基督宗教
+- ``inspirational`` 勵志家訓
+- ``educational``   科普教育
+- ``user_custom``   自訂
 
 Builtins always carry a fixed category (the 4 we ship are ``buddhist``).
 User presets default to ``user_custom`` but can be reassigned via the JSON.
@@ -68,7 +70,7 @@ _DEFAULT_DIR = Path.home() / ".stroke-order" / "sutras"
 
 Category = Literal[
     "buddhist", "taoist", "confucian", "classical",
-    "christian", "inspirational", "user_custom",
+    "christian", "inspirational", "educational", "user_custom",
 ]
 
 #: Display labels for each category — surfaced by the API for UI grouping.
@@ -79,11 +81,12 @@ CATEGORY_LABELS: dict[str, str] = {
     "classical":     "文學經典",
     "christian":     "基督宗教",
     "inspirational": "勵志家訓",
+    "educational":   "科普教育",
     "user_custom":   "自訂",
 }
 CATEGORY_ORDER: list[str] = [
     "buddhist", "taoist", "confucian", "classical",
-    "christian", "inspirational", "user_custom",
+    "christian", "inspirational", "educational", "user_custom",
 ]
 
 
@@ -176,6 +179,12 @@ CLOSING_TEMPLATES: dict[str, ClosingPageSpec] = {
         verse="願以此銘記於心，常自警惕",
         blank1_label="抄錄者",
         blank2_label="勉之",
+    ),
+    "educational": ClosingPageSpec(
+        title="格物致知",
+        verse="致知在格物，物格而後知至",
+        blank1_label="學習者",
+        blank2_label="習畢誌之",
     ),
     "user_custom": ClosingPageSpec(
         title="結語",
@@ -889,6 +898,96 @@ BUILTIN_SUTRAS: dict[str, SutraInfo] = {
         description="林則徐人生十無益格言，"
                     "「存心不善，風水無益」開頭，警示世人修身。",
         expected_chars=80,
+    ),
+
+    # --- 科普教育 (Phase 5bo) ------------------------------------------
+    "periodic_table": SutraInfo(
+        key="periodic_table",
+        title="元素週期表",
+        subtitle="手抄本（118 元素・臺灣譯名）",
+        filename="periodic_table.txt",
+        category="educational",
+        author="",
+        editor="國家教育研究院 譯名",
+        source="IUPAC 元素週期表（2016 年第七週期補齊後全 118 元素）",
+        source_url="https://zh.wikipedia.org/zh-tw/元素週期表",
+        description="依原子序 1（氫）至 118（鿫）順序抄寫全部元素中文名，"
+                    "一字一元素。金屬從釒、氣體從气、非金屬從石，"
+                    "邊抄邊記形聲造字規律。104 號後之罕見字由"
+                    "全字庫字型描邊呈現。",
+        expected_chars=118,
+    ),
+    "chinese_numerals": SutraInfo(
+        key="chinese_numerals",
+        title="國字大寫數字",
+        subtitle="手抄本（銀行支票・契約用字）",
+        filename="chinese_numerals.txt",
+        category="educational",
+        author="",
+        editor="",
+        source="通行大寫數字（防塗改用字）",
+        source_url="",
+        description="零壹貳參肆伍陸柒捌玖拾佰仟萬億與圓整角分，"
+                    "銀行支票、契約金額的防塗改大寫。"
+                    "成人日常最實用的一組字。",
+        expected_chars=19,
+    ),
+    "zodiac_hours": SutraInfo(
+        key="zodiac_hours",
+        title="十二時辰十二生肖",
+        subtitle="手抄本（地支・生肖對照）",
+        filename="zodiac_hours.txt",
+        category="educational",
+        author="",
+        editor="",
+        source="傳統曆法地支生肖對照",
+        source_url="",
+        description="子鼠、丑牛、寅虎…依序成對抄寫十二地支與"
+                    "對應生肖，一邊練字一邊記時辰。",
+        expected_chars=24,
+    ),
+    "multiplication_table": SutraInfo(
+        key="multiplication_table",
+        title="九九乘法表",
+        subtitle="手抄本（四十五句口訣）",
+        filename="multiplication_table.txt",
+        category="educational",
+        author="",
+        editor="",
+        source="臺灣國小通行口訣（小九九 45 句）",
+        source_url="",
+        description="一一得一到九九八十一，依列抄寫四十五句口訣；"
+                    "另附乘法表版面頁（下三角 9×9）可直接列印背誦。",
+        expected_chars=200,
+    ),
+    "solar_terms": SutraInfo(
+        key="solar_terms",
+        title="二十四節氣",
+        subtitle="手抄本（四季各六節氣）",
+        filename="solar_terms.txt",
+        category="educational",
+        author="",
+        editor="",
+        source="傳統曆法二十四節氣（國曆日期為典型值）",
+        source_url="https://zh.wikipedia.org/zh-tw/節氣",
+        description="立春到大寒依序抄寫二十四節氣，"
+                    "另附四季×六節氣版面頁，含國曆日期提示，"
+                    "可直接列印當月曆背誦。",
+        expected_chars=48,
+    ),
+    "solar_system": SutraInfo(
+        key="solar_system",
+        title="太陽系天體",
+        subtitle="手抄本（八大行星）",
+        filename="solar_system.txt",
+        category="educational",
+        author="",
+        editor="",
+        source="IAU 太陽系天體中文通行譯名",
+        source_url="https://zh.wikipedia.org/zh-tw/太陽系",
+        description="太陽、八大行星（依距日遠近）、月球與"
+                    "矮行星冥王星，抄寫即複習太陽系結構。",
+        expected_chars=25,
     ),
 }
 
