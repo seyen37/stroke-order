@@ -1,18 +1,29 @@
-# Phase 5bo 科普教育分類（6 部 preset）
+# Phase 5bo 科普教育分類（8 部 preset）
 
 ## 安裝
 
-把本資料夾的 6 個 .txt 放到內建經文目錄即可：
+把本資料夾的 8 個 .txt 放到內建經文目錄即可：
 
 ```
 ~/.stroke-order/sutras/builtin/
 ├── periodic_table.txt        元素週期表（118 字）＋ table 版面頁
 ├── multiplication_table.txt  九九乘法表（45 句 200 字）＋ table 版面頁
 ├── solar_terms.txt           二十四節氣（48 字）＋ table 版面頁
+├── kangxi_radicals.txt       康熙 214 部首（教育部字形）＋ table 版面頁
+├── cangjie_roots.txt         倉頡字根（24＋難）＋ table 版面頁
 ├── chinese_numerals.txt      國字大寫數字（19 字）
 ├── zodiac_hours.txt          十二時辰十二生肖（24 字）
 └── solar_system.txt          太陽系天體（25 字）
 ```
+
+## 康熙部首與倉頡字根
+
+- **kangxi_radicals**：214 部首採臺灣教育部標準字形（青非靑、戶非户），
+  全部命中筆順資料庫、零 CNS fallback。table 頁為 18 欄流式排列、
+  畫數分帶換色，每帶首格紅字標畫數。部首＝組件，與 docs/VISION.md
+  組件化字型路線直接呼應。
+- **cangjie_roots**：24 基本字根＋X 難，table 頁依哲理／筆畫／人身／
+  字形／特殊五類分帶，格內紅字標鍵位（A-Y）。
 
 Windows：`%USERPROFILE%\.stroke-order\sutras\builtin\`
 

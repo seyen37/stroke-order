@@ -30,9 +30,18 @@ if errorlevel 1 (
 
 echo.
 echo === [3/3] tests green -- committing ===
+REM pick the newest prepared commit-message file automatically
+set "MSGFILE="
+for /f "delims=" %%f in ('dir /b /o:n "docs\_commit_msg\*.txt"') do set "MSGFILE=docs\_commit_msg\%%f"
+if "%MSGFILE%"=="" (
+    echo No commit message file found in docs\_commit_msg\ -- aborting.
+    pause
+    exit /b 1
+)
+echo Using message file: %MSGFILE%
 git add -A
 git status -s
-git commit -F "docs\_commit_msg\2026-07-11_01.txt"
+git commit -F "%MSGFILE%"
 
 echo.
 echo === done. last 3 commits: ===

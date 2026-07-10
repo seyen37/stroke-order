@@ -7956,7 +7956,8 @@ async function sutraRebuildLayout() {
   }
   // 5bo: presets with a table layout get that page after the body
   // pages (A4 landscape fixed geometry).
-  if (["periodic_table", "multiplication_table", "solar_terms"]
+  if (["periodic_table", "multiplication_table", "solar_terms",
+       "kangxi_radicals", "cangjie_roots"]
       .includes(p.key) && p.ready) {
     layout.push({type: "table"});
   }

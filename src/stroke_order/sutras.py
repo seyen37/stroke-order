@@ -975,6 +975,35 @@ BUILTIN_SUTRAS: dict[str, SutraInfo] = {
                     "可直接列印當月曆背誦。",
         expected_chars=48,
     ),
+    "kangxi_radicals": SutraInfo(
+        key="kangxi_radicals",
+        title="康熙二一四部首",
+        subtitle="手抄本（教育部標準字形・依畫數排列）",
+        filename="kangxi_radicals.txt",
+        category="educational",
+        author="",
+        editor="字形採臺灣教育部標準",
+        source="康熙字典 214 部首系統",
+        source_url="https://zh.wikipedia.org/zh-tw/康熙部首",
+        description="一畫「一」到十七畫「龠」依畫數抄寫全部 214 部首。"
+                    "部首是組字的基本組件——寫熟部首，"
+                    "等於掌握大多數漢字的構件。另附畫數分帶版面頁。",
+        expected_chars=214,
+    ),
+    "cangjie_roots": SutraInfo(
+        key="cangjie_roots",
+        title="倉頡字根",
+        subtitle="手抄本（24 基本字根＋難）",
+        filename="cangjie_roots.txt",
+        category="educational",
+        author="朱邦復（倉頡輸入法）",
+        editor="",
+        source="倉頡輸入法字根系統（三代通行）",
+        source_url="https://zh.wikipedia.org/zh-tw/倉頡輸入法",
+        description="哲理、筆畫、人身、字形四類 24 字根加特殊鍵難，"
+                    "一邊練字一邊記鍵位。另附四類分帶＋鍵位對照版面頁。",
+        expected_chars=25,
+    ),
     "solar_system": SutraInfo(
         key="solar_system",
         title="太陽系天體",

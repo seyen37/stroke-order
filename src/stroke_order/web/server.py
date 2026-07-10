@@ -3100,6 +3100,14 @@ def create_app() -> FastAPI:
         if preset == "solar_terms":
             from ..exporters.solar_terms import render_solar_terms_page
             return render_solar_terms_page
+        if preset == "kangxi_radicals":
+            from ..exporters.kangxi_radicals import (
+                render_kangxi_radicals_page,
+            )
+            return render_kangxi_radicals_page
+        if preset == "cangjie_roots":
+            from ..exporters.cangjie_roots import render_cangjie_roots_page
+            return render_cangjie_roots_page
         return None
 
     @app.get("/api/sutra/categories")
@@ -3359,7 +3367,8 @@ def create_app() -> FastAPI:
             raise HTTPException(422,
                 detail="page_type 'table' is only available for presets "
                        "with a table layout (periodic_table, "
-                       "multiplication_table, solar_terms)")
+                       "multiplication_table, solar_terms, "
+                       "kangxi_radicals, cangjie_roots)")
 
         def loader(ch: str):
             try:
