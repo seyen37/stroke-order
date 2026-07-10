@@ -1,10 +1,10 @@
 # stroke-order
 
 [![CI](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml/badge.svg)](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-1537%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-1547%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![license](https://img.shields.io/badge/license-MIT-yellow)
-![version](https://img.shields.io/badge/version-0.14.134-orange)
+![version](https://img.shields.io/badge/version-0.14.135-orange)
 
 ## 🌟 核心願景
 
@@ -38,7 +38,7 @@
 
 ---
 
-## 目前版本：0.14.134 (Phase 1 → 5bo + Phase A 組件分析器 + zentangle 6z)
+## 目前版本：0.14.135 (Phase 1 → 5bo + Phase A 組件分析器 + zentangle 6z)
 
 > **Web UI 9 模式**：單字 / 字帖 / 筆記 / 信紙 / 稿紙 / 塗鴉 / 文字雲 / **筆順練習** (5d) / **公眾分享庫** (5g)。
 >
@@ -46,9 +46,9 @@
 >
 > **`/gallery`** 5g MVP — 公眾分享庫，使用者可上傳 PSD JSON 分享，email magic-link 登入，SQLite 儲存。詳見 [docs/GALLERY_DEPLOYMENT.md](docs/GALLERY_DEPLOYMENT.md)。
 >
-> **抄經模式・科普教育** (5bo) — 第 8 分類，6 部 preset：元素週期表（118 元素）、九九乘法表、二十四節氣、國字大寫數字、十二時辰生肖、太陽系天體；前三者附 `page_type=table` 版面頁（週期表 18×7＋鑭錒系 / 乘法口訣下三角 / 節氣四季帶），PDF 匯出自動附頁。文本部署見 [samples/5bo/](samples/5bo/)。
+> **抄經模式・科普教育** (5bo) — 第 8 分類，8 部 preset：元素週期表（118 元素）、九九乘法表、二十四節氣、康熙 214 部首、倉頡字根、國字大寫數字、十二時辰生肖、太陽系天體；前五者附 `page_type=table` 版面頁（週期表 18×7＋鑭錒系 / 乘法口訣下三角 / 節氣四季帶 / 部首畫數分帶 / 倉頡四類鍵位），PDF 匯出自動附頁。文本部署見 [samples/5bo/](samples/5bo/)。
 >
-> **1537 個單元測試**全部通過。
+> **1547 個單元測試**全部通過。
 
 ### Phase 1 — 核心轉換 pipeline ✅
 
