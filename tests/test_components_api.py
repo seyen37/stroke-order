@@ -207,3 +207,78 @@ def test_recommend_response_shape(client):
     assert isinstance(rec["new_components"], list)
     assert isinstance(rec["gain"], int)
     assert rec["gain"] == len(rec["new_components"])
+
+
+# ===========================================================================
+# Phase 5cd: 組件家族反查 + 部首教學路線
+# ===========================================================================
+
+
+def test_5cd_family_includes_variant_forms(client):
+    """查「水」的家族要吃到 氵 旁的字（IDS 葉子是變體形）。"""
+    r = client.get("/api/components/水/family?coverset=cjk_common_808")
+    assert r.status_code == 200
+    data = r.json()
+    assert "氵" in data["targets"]
+    assert data["family_size"] > 10
+    chars = data["chars"]
+    assert "江" in chars or "海" in chars
+
+
+def test_5cd_family_radical_char_leads(client):
+    """部首本字（或其變體）永遠排家族第一——先寫部首再寫家族。"""
+    r = client.get("/api/components/水/family?coverset=cjk_common_808")
+    data = r.json()
+    assert data["chars"][0] in data["targets"]
+
+
+def test_5cd_family_sorted_simple_to_complex(client):
+    """非 target 家族字按 IDS 葉數升冪（結構簡→繁）。"""
+    from stroke_order.components import decompose, default_ids_map
+    r = client.get("/api/components/水/family?coverset=cjk_common_808")
+    data = r.json()
+    ids_map = default_ids_map()
+    rest = [ch for ch in data["chars"] if ch not in data["targets"]]
+    counts = [len(decompose(ch, ids_map)) for ch in rest]
+    assert counts == sorted(counts)
+
+
+def test_5cd_family_limit_and_multichar_rejected(client):
+    r = client.get("/api/components/人/family"
+                   "?coverset=cjk_common_808&limit=5")
+    data = r.json()
+    assert len(data["chars"]) == 5
+    assert data["family_size"] > 5      # 未截斷總數照報
+    r2 = client.get("/api/components/兩字/family")
+    assert r2.status_code == 400
+
+
+def test_5cd_family_unknown_coverset_404(client):
+    r = client.get("/api/components/水/family?coverset=nope")
+    assert r.status_code == 404
+
+
+def test_5cd_radical_route_ordering_and_shape(client):
+    """路線按家族大小降冪；單元含 radical/strokes/family_size/preview。"""
+    r = client.get("/api/radical-route?coverset=cjk_common_808")
+    assert r.status_code == 200
+    data = r.json()
+    route = data["route"]
+    assert data["unit_count"] == len(route) > 50
+    sizes = [u["family_size"] for u in route]
+    assert sizes == sorted(sizes, reverse=True)
+    u0 = route[0]
+    assert {"radical", "strokes", "family_size", "preview"} <= set(u0)
+    assert 1 <= len(u0["preview"]) <= 5
+
+
+def test_5cd_radical_route_unknown_coverset_404(client):
+    r = client.get("/api/radical-route?coverset=nope")
+    assert r.status_code == 404
+
+
+def test_5cd_index_has_radical_family_ui(client):
+    html = client.get("/").text
+    assert 'id="grid-radical"' in html
+    assert 'id="grid-radical-fill"' in html
+    assert "/api/radical-route" in html

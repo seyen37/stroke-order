@@ -35,12 +35,21 @@ from .decompose import (
     get_leaf_components,
     is_atomic,
 )
+from .family import (
+    RADICAL_VARIANTS,
+    component_family,
+    component_targets,
+    radical_route,
+)
 from .ids import default_ids_map, parse_ids_file
 
 __all__ = [
     "CoverSet",
+    "RADICAL_VARIANTS",
     "Recommendation",
     "collect_components",
+    "component_family",
+    "component_targets",
     "coverage_status",
     "covers",
     "decompose",
@@ -52,5 +61,6 @@ __all__ = [
     "load_coverset",
     "load_coverset_from_path",
     "parse_ids_file",
+    "radical_route",
     "recommend_next",
 ]

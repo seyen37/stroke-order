@@ -764,6 +764,50 @@ def create_app() -> FastAPI:
             "distinct_components": len(components),
         }
 
+    # ------ 組件家族反查＋部首教學路線 (Phase 5cd) ---------------------
+
+    @app.get("/api/components/{char}/family")
+    async def components_family(
+        char: str,
+        coverset: str = Query("cjk_common_808"),
+        limit: int = Query(50, ge=1, le=500),
+        include_variants: bool = Query(True),
+    ):
+        """Cover-set 內所有含此組件（或其偏旁變體）的字。
+
+        部首本字領頭，其餘按（IDS 葉數, 字碼）簡→繁排序。
+        """
+        from ..components import component_family
+        if len(char) != 1:
+            raise HTTPException(400, detail="Single character required")
+        try:
+            return component_family(char, coverset,
+                                    include_variants=include_variants,
+                                    limit=limit)
+        except KeyError:
+            raise HTTPException(404, detail=f"Unknown cover-set {coverset!r}")
+
+    @app.get("/api/radical-route")
+    async def radical_route_endpoint(
+        coverset: str = Query("cjk_common_808"),
+        min_family: int = Query(1, ge=1),
+    ):
+        """214 康熙部首的組件教學路線（家族大的先教）。
+
+        每單元含 radical / strokes（部首筆畫數）/ family_size /
+        preview（家族前 5 字）。該 cover-set 用不到的部首自動剔除。
+        """
+        from ..components import radical_route
+        from ..exporters.kangxi_radicals import ALL_RADICALS, RADICALS
+        band_of = {r: s for r, _i, s, _b in RADICALS}
+        try:
+            route = radical_route(ALL_RADICALS, coverset,
+                                  band_of=band_of, min_family=min_family)
+        except KeyError:
+            raise HTTPException(404, detail=f"Unknown cover-set {coverset!r}")
+        return {"coverset": coverset, "unit_count": len(route),
+                "route": route}
+
     @app.post("/api/coverage/recommend")
     async def coverage_recommend(req: CoverageRecommendRequest):
         """Greedy set-cover: recommend next char(s) to write.
