@@ -1061,6 +1061,84 @@ renderer registry 同款哲學：**新能力＝新註冊項，零重構**。
 （5ch）。每輪收工訊息應主動給「實機驗收動線」（去哪裡、按
 什麼、應該看到什麼），把使用者變成最後一道測試防線。
 
+## 9. 環境層除錯與資源交付原則（2026-07-11 5ck→5cq 新增）
+
+> OpenCV 交付鏈五層根因（死 CDN → 校網靜默丟包 → docs 官網 403
+> 擋資料中心 → async def 凍 event loop → 受管理電腦環境層卡大型
+> 腳本執行）單日連環揭露的沉澱。詳細脈絡見
+> `decisions/2026-07-11_5ck_5cq_opencv_delivery_userfont.md`。
+
+### 9.1 async 框架裡的同步 I/O 是全站級災難
+
+async def 端點內呼叫同步 requests.get，下載 11MB 期間凍的不是
+這條請求、是整個 event loop（全站無回應，5ck）。長 I/O 一律
+同步 def（框架自動走 threadpool）或背景執行緒；並用
+`inspect.iscoroutinefunction` 斷言把「必須同步 def」釘成回歸鎖。
+
+### 9.2 伺服器端與瀏覽器端是兩套 CDN 可用性
+
+docs.opencv.org 在瀏覽器 200、對 Render 資料中心出站卻 403
+（bot/UA 防護，5cl）。代理下載的來源要選 hotlink 友善的基礎
+設施（jsDelivr/unpkg）；帶版本轉跳的 URL（如 /4.x/）不可入
+pin 清單——轉跳目標會漂移到未驗證版本。
+
+### 9.3 worker 的同步 importScripts 是三重黑箱
+
+不可逾時、不可中斷、錯誤不可見——遇到防火牆「靜默丟包」就是
+永久懸掛，還會把整條降級階梯凍住（5cm）。凡載入路徑可能經過
+防火牆：fetch 先行當「看門狗＋進度回報＋快取暖身」（15s chunk
+間隔逾時、MB 進度），importScripts 只在 fetch 成功後讀暖快取
+執行，永不裸碰網路（5co 定型）。
+
+### 9.4 10MB 級大字串 eval 行為不穩定，不可依賴
+
+同一字串：inline eval 216ms、引擎內同一行無限 CPU 懸掛、攔截
+self.eval 包一層再轉呼叫又恢復——V8 對大字串 eval 的行為依呼叫
+情境而異（5co 實測）。大型第三方腳本在 worker 一律
+importScripts（見 9.3 的 fetch 前置），eval 只留給小段程式。
+
+### 9.5 降級階梯每一層都要有看門狗
+
+「失敗會往下走」只對「會回報失敗」的層成立；任一層「懸掛」
+（而非失敗）就凍住整條階梯（5cm）。renderVia 的進度看門狗
+（每則訊息重計時、逾時 terminate → 降級）是階梯的心跳監測；
+逾時值以「正常階段間隔 × 10」估（實測 <3s → 30s，5cp 收緊）。
+
+### 9.6 同 bytes、不同執行管道、結果迥異＝環境層嫌疑
+
+opencv.js 在 blob worker 4/4 成功（最快 420ms），同一台機器的
+URL worker importScripts／主執行緒 script tag／worker eval 一律
+懸掛（5cp 定案）。嫌疑清單：端點防護掃描大型腳本執行、code
+cache 寫入、漫遊設定檔配額。**blob worker 是快速對照組**——
+十分鐘分辨「程式錯」還是「環境病」。
+
+### 9.7 環境層病灶的正解是換路徑＋失敗記憶，不是繞
+
+每繞一層它換個地方卡（importScripts 卡 → 換 eval 也卡 → 換回
+importScripts 還是卡）。正解：把預設路徑換到不受影響的引擎
+（伺服器端渲染），失敗記憶（sessionStorage）避免使用者重複
+等待，受影響引擎降「實驗性」並在 UI 講明（5cp）。
+
+### 9.8 驗收必須含「無儀器的人工原生測試」
+
+CDP 偵錯器本身是會改變行為的變因（附掛 worker、影響編譯路徑
+與時序）。自動化實機驗證（Chrome MCP）之後，永遠補一輪使用者
+親手、無偵錯器的原生操作才算驗收完成（5cp 教訓）。
+
+### 9.9 執行期零外網依賴：build-time 燒入
+
+執行期才抓外部資源＝把可用性押在「當下網路」上。vendor 檔於
+build 時下載進 git checkout 路徑（非 ephemeral home）、runtime
+以同一環境變數指路（5cq，與字型 render_fetch_fonts.sh 同慣例）；
+惰性補抓保留當保險。抓檔邏輯復用同一函式（單一事實來源），
+不寫平行實作。
+
+### 9.10 badge／統計數字一律抄實跑輸出
+
+「+3 測試」心算成「+4」讓 badge 錯一輪（5cn 事故）。規則：
+README badges、commit 訊息的測試數，一律抄全量 pytest 的
+實際輸出，不用預期值。
+
 ---
 
 ## 7. 索引
@@ -1068,12 +1146,13 @@ renderer registry 同款哲學：**新能力＝新註冊項，零重構**。
 - 工作日誌：
   - [`2026-05-04_05_session_log_r28-r29k.md`](journal/2026-05-04_05_session_log_r28-r29k.md)
   - [`2026-05-06_session_log.md`](journal/2026-05-06_session_log.md)
-  - [`WORK_LOG_2026-07-11.md`](WORK_LOG_2026-07-11.md)（5bt→5ch
-    十輪＋救援全記錄，含收官總結）
+  - [`WORK_LOG_2026-07-11.md`](WORK_LOG_2026-07-11.md)（5bt→5cq
+    全日兩弧十七輪＋救援全記錄，含雙收官總結）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
   - [`2026-07-11_5bo_educational_category.md`](decisions/2026-07-11_5bo_educational_category.md)（科普教育分類）
+  - [`2026-07-11_5ck_5cq_opencv_delivery_userfont.md`](decisions/2026-07-11_5ck_5cq_opencv_delivery_userfont.md)（OpenCV 交付鏈五層根因＋自訂字型，對應 §9）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
