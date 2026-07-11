@@ -7831,10 +7831,14 @@ async function sutraLoadPresets() {
 
     sutraRebuildPresetDropdown();
 
-    // Banner: show only if BUILTIN presets missing
-    const anyMissingBuiltin = SUTRA.presets.some(p => p.is_builtin && !p.ready);
+    // Banner: only when NO builtin text is loaded at all (a truly empty
+    // sutra install). 5bp ships packaged texts, so a healthy deployment
+    // always has most builtins ready; individually-missing presets
+    // (e.g. copyright-excluded macarthur_prayer) are already marked
+    // ✗ in the preset dropdown and must not trigger the banner.
+    const noBuiltinReady = !SUTRA.presets.some(p => p.is_builtin && p.ready);
     document.getElementById("su-not-loaded-banner").style.display =
-      anyMissingBuiltin ? "block" : "none";
+      noBuiltinReady ? "block" : "none";
     sutraRebuildLayout();
   } catch (e) {
     document.getElementById("su-status").textContent = "載入經文清單失敗：" + e.message;
