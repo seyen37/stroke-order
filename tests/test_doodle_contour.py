@@ -216,6 +216,28 @@ def test_5ck_vendor_status_observability(client, tmp_path, monkeypatch):
     assert r.json() == {"opencv_cached": True, "size": len(fake)}
 
 
+def test_5cl_fetch_sources_datacenter_friendly(client):
+    """5cl：docs.opencv.org 對資料中心出站回 403（Render 實測）。
+
+    伺服器抓取源以 jsDelivr 鏡像為主（@techstark/opencv-js 的
+    dist/opencv.js＝官方 4.9.0 原檔）、unpkg 次之、docs 降末位
+    備援並補瀏覽器 UA；瀏覽器端備援清單第二位也加 jsDelivr
+    （校網常放行 cdn.jsdelivr.net）。
+    """
+    from stroke_order.web.server import (
+        _OPENCV_FETCH_HEADERS,
+        _OPENCV_SOURCES,
+    )
+    assert "cdn.jsdelivr.net" in _OPENCV_SOURCES[0]
+    assert "4.9.0" in _OPENCV_SOURCES[0]                # 版本 pin 不漂移
+    assert "docs.opencv.org" in _OPENCV_SOURCES[-1]     # 官方降末位備援
+    assert "Mozilla/5.0" in _OPENCV_FETCH_HEADERS["User-Agent"]
+
+    js = client.get("/static/doodle_engine.js").text
+    urls_block = js.split("OPENCV_CDN_URLS = [")[1].split("];")[0]
+    assert "cdn.jsdelivr.net" in urls_block            # 瀏覽器備援
+
+
 def test_5ck_ensure_cached_hits_cache_without_network(tmp_path, monkeypatch):
     """5ck：快取命中時 _ensure_opencv_cached 不碰網路直接回。"""
     from stroke_order.web.server import _ensure_opencv_cached
@@ -233,9 +255,10 @@ def test_index_has_style_select_and_cdn_fix(client):
     assert 'id="dd-server-style"' in html
     assert 'value="contour"' in html
     js = client.get("/static/doodle_engine.js").text
-    # 5ch：4.10.0 死連結修正 → 4.9.0 pin ＋ 4.x 備援清單
+    # 5ch：4.10.0 死連結修正 → 4.9.0 pin；5cl：4.x 移除（會轉跳
+    # 漂移版本），備援改 jsDelivr 鏡像（見 test_5cl_*）
     assert "OPENCV_CDN_URLS" in js
     assert "https://docs.opencv.org/4.9.0/opencv.js" in js
-    assert "https://docs.opencv.org/4.x/opencv.js" in js
+    assert "https://docs.opencv.org/4.x/opencv.js" not in js
     # 死連結不再被引用（註解提及版號 OK，URL 不行）
     assert "https://docs.opencv.org/4.10.0/opencv.js" not in js
