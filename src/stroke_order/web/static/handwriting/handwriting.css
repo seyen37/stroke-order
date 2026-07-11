@@ -269,6 +269,39 @@ input:focus, select:focus, button:focus-visible {
   font-size: 10px; color: var(--hw-accent); font-weight: 600;
 }
 
+/* ----- 5ce 部首教學路線 curriculum --------------------------------- */
+
+.hw-curriculum {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 8px; padding-top: 8px;
+  border-top: 1px dashed var(--hw-line);
+}
+.hw-cur-head {
+  display: flex; align-items: center; gap: 8px;
+}
+.hw-cur-head button {
+  padding: 2px 8px;
+  border: 1px solid var(--hw-line);
+  border-radius: 6px;
+  background: var(--hw-card, #fff);
+  cursor: pointer;
+}
+.hw-cur-head button:hover {
+  background: var(--hw-accent-soft, #e9f0ff);
+}
+.hw-cur-radical {
+  font-size: 26px; font-weight: 700; line-height: 1;
+}
+.hw-cur-progress {
+  font-size: 12px; color: var(--hw-muted, #888);
+  margin-left: auto;
+}
+.hw-rec-chip.hw-cur-done {
+  opacity: 0.45;
+  text-decoration: line-through;
+  border-style: dashed;
+}
+
 /* ----- right stage (canvas + controls) ----------------------------- */
 
 .hw-stage {

@@ -293,3 +293,39 @@ def test_exporter_module_emits_em_2048_viewbox(client):
     assert 'viewBox="0 0 ${EM_SIZE} ${EM_SIZE}"' in r.text \
         or 'viewBox="0 0 2048 2048"' in r.text \
         or "EM_SIZE      = 2048" in r.text   # const definition
+
+
+# ---------------------------------------------------------------------------
+# Phase 5ce — 部首教學路線 curriculum view
+# ---------------------------------------------------------------------------
+
+
+def test_5ce_curriculum_panel_elements(client):
+    """手寫頁含教學路線面板：單元卡、進度、chips、上下單元鈕。"""
+    html = client.get("/handwriting").text
+    for eid in ("hw-curriculum", "hw-cur-radical", "hw-cur-progress",
+                "hw-cur-chips", "hw-cur-prev", "hw-cur-next",
+                "hw-cur-fill", "hw-cur-hint"):
+        assert f'id="{eid}"' in html, f"handwriting.html 缺少 {eid}"
+
+
+def test_5ce_curriculum_consumes_5cd_apis(client):
+    """curriculum 吃 5cd 的兩個 API：radical-route ＋ family。"""
+    html = client.get("/handwriting").text
+    assert "/api/radical-route" in html
+    assert "/family" in html
+    assert "renderCurriculumUnit" in html
+    # 單元位置依 coverset 分開持久化
+    assert "hw-curriculum-unit:" in html
+
+
+def test_5ce_commit_hook_auto_advances(client):
+    """commit 後帶 autoAdvance 刷新——寫完單元自動前往下一單元。"""
+    html = client.get("/handwriting").text
+    assert "autoAdvance: true" in html
+
+
+def test_5ce_css_has_done_chip_style(client):
+    css = client.get("/static/handwriting/handwriting.css").text
+    assert "hw-cur-done" in css
+    assert "hw-curriculum" in css

@@ -164,6 +164,26 @@
           <small class="hw-hint">建議下個字（依組件增益排序）：</small>
           <div class="hw-rec-chips" id="hw-rec-chips"></div>
         </div>
+
+        <!-- 5ce 部首教學路線 curriculum -->
+        <div class="hw-curriculum" id="hw-curriculum" hidden>
+          <small class="hw-hint">部首教學路線 · 單元
+            <span id="hw-cur-pos">1</span>/<span id="hw-cur-total">?</span>
+          </small>
+          <div class="hw-cur-head">
+            <button id="hw-cur-prev" type="button"
+                    title="上一單元" aria-label="上一單元">◀</button>
+            <span class="hw-cur-radical" id="hw-cur-radical">？</span>
+            <span class="hw-cur-progress" id="hw-cur-progress">0/0</span>
+            <button id="hw-cur-next" type="button"
+                    title="下一單元" aria-label="下一單元">▶</button>
+          </div>
+          <div class="hw-progress-bar">
+            <div class="hw-progress-fill" id="hw-cur-fill"></div>
+          </div>
+          <div class="hw-rec-chips" id="hw-cur-chips"></div>
+          <small class="hw-hint" id="hw-cur-hint"></small>
+        </div>
       </div>
     </section>
 
@@ -296,6 +316,8 @@
     // Phase A 6b — component coverage
     coversetName:  '',                   // '' = disabled, else cover-set id
     coverset:      null,                 // detail payload from /api/coverset/{name}
+    // Phase 5ce — 部首教學路線 curriculum
+    curriculum:    null,                 // {route, unitIdx, families: Map}
   };
 
   // ========================================================= UI utilities
@@ -556,6 +578,9 @@
         // (no-op when state.coversetName === '')
         refreshCoverageStatus().catch(err =>
           console.warn('coverage refresh after commit failed', err));
+        // 5ce: 單元進度刷新（單元剛好完成 → 自動前往下一單元）
+        renderCurriculumUnit({autoAdvance: true}).catch(err =>
+          console.warn('curriculum refresh after commit failed', err));
         // Auto-advance to next char if material has one
         if (state.material && state.material.total > 0
             && state.material.index < state.material.total - 1) {
@@ -712,6 +737,9 @@
         `  跳過 ${result.skipped} 筆（格式錯誤）`,
       );
       await refreshDbStats();
+      // 5ce: 匯入會改變已寫字集合 → 覆蓋儀表板與單元進度一併刷新
+      await refreshCoverageStatus().catch(() => {});
+      await renderCurriculumUnit().catch(() => {});
     } catch (err) {
       console.error(err);
       alert('匯入失敗：' + (err.message || err));
@@ -736,6 +764,8 @@
         await refreshDbStats();
         // 6b-9: reset coverage dashboard
         await refreshCoverageStatus().catch(() => {});
+        // 5ce: 單元進度歸零重畫
+        await renderCurriculumUnit().catch(() => {});
         alert('已清空');
       } catch (e) {
         console.error(e);
@@ -777,6 +807,8 @@
       meta.hidden = true;
       meta.textContent = '';
       dash.hidden = true;          // 6b-9: hide dashboard when disabled
+      state.curriculum = null;     // 5ce: 教學路線一併停用
+      $('hw-curriculum').hidden = true;
       return;
     }
     try {
@@ -789,6 +821,8 @@
         `${data.title} · ${data.size} 字 · ${data.distinct_components} 獨特組件`;
       // 6b-9: kick off coverage dashboard refresh now that we know the target
       await refreshCoverageStatus();
+      // 5ce: 載入部首教學路線（接續上次進度，跳過已完成單元）
+      await loadCurriculum();
     } catch (e) {
       console.warn('coverset detail failed', e);
       meta.hidden = false;
@@ -875,6 +909,123 @@
     $('hw-input-string').value = char;
     await loadMaterial();
   }
+
+  // ============================================================ 5ce 部首教學路線 curriculum
+  //
+  // 資料流：/api/radical-route（單元序）＋ /api/components/{r}/family
+  // （單元字，per-radical 快取）× IndexedDB listUniqueChars（已寫）。
+  // 單元位置以 localStorage 依 coverset 分開記憶。
+
+  const CUR_UNIT_LIMIT = 20;      // 每單元最多練習字數
+
+  function _curKey() {
+    return `hw-curriculum-unit:${state.coversetName}`;
+  }
+
+  async function loadCurriculum() {
+    const box = $('hw-curriculum');
+    if (!state.coversetName) {
+      state.curriculum = null;
+      box.hidden = true;
+      return;
+    }
+    try {
+      const r = await fetch(
+        `/api/radical-route?coverset=${encodeURIComponent(state.coversetName)}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      if (!data.route.length) { box.hidden = true; return; }
+      const saved = parseInt(localStorage.getItem(_curKey()) || '0', 10);
+      state.curriculum = {
+        route: data.route,
+        unitIdx: Math.min(Math.max(saved || 0, 0), data.route.length - 1),
+        families: new Map(),
+      };
+      box.hidden = false;
+      await renderCurriculumUnit({skipToIncomplete: true});
+    } catch (e) {
+      console.warn('curriculum load failed', e);
+      state.curriculum = null;
+      box.hidden = true;
+    }
+  }
+
+  async function _unitFamily(radical) {
+    const cur = state.curriculum;
+    if (cur.families.has(radical)) return cur.families.get(radical);
+    const r = await fetch(
+      `/api/components/${encodeURIComponent(radical)}/family` +
+      `?coverset=${encodeURIComponent(state.coversetName)}` +
+      `&limit=${CUR_UNIT_LIMIT}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const fam = (await r.json()).chars;
+    cur.families.set(radical, fam);
+    return fam;
+  }
+
+  // opts.autoAdvance      — commit 後路徑：單元剛好完成 → 自動下一單元
+  // opts.skipToIncomplete — 初次載入：跳過已完成單元，接續練習
+  // opts.keepHint         — 保留上一輪 hint（自動前進訊息）
+  async function renderCurriculumUnit(opts = {}) {
+    const cur = state.curriculum;
+    if (!cur || !cur.route.length) return;
+    const written = new Set(await listUniqueChars());
+
+    if (opts.skipToIncomplete) {
+      while (cur.unitIdx < cur.route.length - 1) {
+        const fam = await _unitFamily(cur.route[cur.unitIdx].radical);
+        if (fam.some(ch => !written.has(ch))) break;
+        cur.unitIdx++;
+      }
+    }
+    const unit = cur.route[cur.unitIdx];
+    const fam = await _unitFamily(unit.radical);
+    const done = fam.filter(ch => written.has(ch)).length;
+
+    if (opts.autoAdvance && fam.length && done === fam.length
+        && cur.unitIdx < cur.route.length - 1) {
+      cur.unitIdx++;
+      localStorage.setItem(_curKey(), String(cur.unitIdx));
+      $('hw-cur-hint').textContent =
+        `🎉 「${unit.radical}」單元完成，自動前往下一單元`;
+      return renderCurriculumUnit({keepHint: true});
+    }
+
+    localStorage.setItem(_curKey(), String(cur.unitIdx));
+    $('hw-cur-pos').textContent = cur.unitIdx + 1;
+    $('hw-cur-total').textContent = cur.route.length;
+    $('hw-cur-radical').textContent = unit.radical;
+    $('hw-cur-progress').textContent = `${done}/${fam.length}`;
+    $('hw-cur-fill').style.width =
+      fam.length ? `${Math.round(done / fam.length * 100)}%` : '0%';
+    if (!opts.keepHint) {
+      $('hw-cur-hint').textContent = (fam.length && done === fam.length)
+        ? '本單元已完成 ✓（可用 ▶ 前往下一單元）' : '';
+    }
+    const chips = $('hw-cur-chips');
+    chips.innerHTML = '';
+    for (const ch of fam) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const isDone = written.has(ch);
+      btn.className = 'hw-rec-chip' + (isDone ? ' hw-cur-done' : '');
+      btn.title = isDone ? `「${ch}」已寫過（可重寫）` : `練習「${ch}」`;
+      btn.innerHTML = `<span class="hw-rec-char">${ch}</span>`;
+      btn.addEventListener('click', () => loadRecommendedChar(ch));
+      chips.appendChild(btn);
+    }
+  }
+
+  function _curStep(delta) {
+    const cur = state.curriculum;
+    if (!cur) return;
+    cur.unitIdx = Math.min(
+      Math.max(cur.unitIdx + delta, 0), cur.route.length - 1);
+    localStorage.setItem(_curKey(), String(cur.unitIdx));
+    renderCurriculumUnit().catch(e => console.warn(e));
+  }
+  $('hw-cur-prev').addEventListener('click', () => _curStep(-1));
+  $('hw-cur-next').addEventListener('click', () => _curStep(1));
 
   $('hw-coverset').addEventListener('change', (e) => {
     loadCoversetDetail(e.target.value);
