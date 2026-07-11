@@ -926,7 +926,7 @@
     <div class="row">
       <label>處理引擎</label>
       <select id="dd-engine">
-        <option value="browser" selected>瀏覽器（即時預覽，不上傳圖片）</option>
+        <option value="browser" selected>瀏覽器（掃描線速寫，即時預覽）</option>
         <option value="opencv">OpenCV（輪廓向量化，首次載入約 8MB）</option>
         <option value="server">伺服器</option>
       </select>
@@ -954,6 +954,13 @@
       <input id="dd-cv-minarea" type="number" value="30" min="0" max="500" style="width:60px;">
       <label style="margin-left:8px;" title="處理解析度（最長邊 px），越高線稿越平滑">解析度</label>
       <input id="dd-cv-maxside" type="number" value="1000" min="200" max="2000" step="100" style="width:70px;">
+    </div>
+    <div class="row" id="dd-server-params" style="display:none;">
+      <label>取樣方式</label>
+      <select id="dd-server-style">
+        <option value="contour" selected>輪廓向量（Otsu 二值化＋邊界追蹤，5ch 預設）</option>
+        <option value="scanline">掃描線（逐列水平線，雷雕填線用）</option>
+      </select>
     </div>
     <div class="row" title="上傳後自動處理原圖，不影響原始檔案">
       <label>自動裁切</label>
@@ -4671,6 +4678,8 @@ function collectDoodleOpts() {
     autoCropWhitespace: document.getElementById("dd-crop-whitespace").checked,
     autoCropBorder: document.getElementById("dd-crop-border").checked,
     annotations: collectDoodleAnnotations(),
+    // Phase 5ch: 伺服器取樣方式（fallback 路徑也吃這個值）
+    vectorStyle: document.getElementById("dd-server-style").value,
     // Phase 5cb: OpenCV 引擎參數
     cv: {
       mode: document.getElementById("dd-cv-mode").value,
@@ -4697,6 +4706,7 @@ async function renderDoodleViaServer(file, opts) {
   fd.append("auto_crop_whitespace", opts.autoCropWhitespace ? "true" : "false");
   fd.append("auto_crop_border", opts.autoCropBorder ? "true" : "false");
   fd.append("annotations_json", JSON.stringify(opts.annotations));
+  fd.append("vector_style", opts.vectorStyle || "contour");   // 5ch
   const r = await fetch(`${API_BASE}/api/doodle`, {method: "POST", body: fd});
   if (!r.ok) {
     const err = await r.json().catch(() => ({detail: r.statusText}));
@@ -4787,17 +4797,19 @@ function ddLiveRerender() {
   .forEach(id => document.getElementById(id)
     .addEventListener("input", ddLiveRerender));
 ["dd-crop-whitespace", "dd-crop-border", "dd-image", "dd-engine",
- "dd-cv-mode", "dd-cv-invert"]
+ "dd-cv-mode", "dd-cv-invert", "dd-server-style"]
   .forEach(id => document.getElementById(id)
     .addEventListener("change", ddLiveRerender));
 document.getElementById("dd-annotations")
   .addEventListener("input", ddLiveRerender);
 
-// Phase 5cb: 引擎切換時同步 OpenCV 參數列顯示
+// Phase 5cb/5ch: 引擎切換時同步 OpenCV／伺服器參數列顯示
 function ddSyncEngineUi() {
   const v = document.getElementById("dd-engine").value;
   document.getElementById("dd-cv-params").style.display =
     v === "opencv" ? "" : "none";
+  document.getElementById("dd-server-params").style.display =
+    v === "server" ? "" : "none";
 }
 document.getElementById("dd-engine")
   .addEventListener("change", ddSyncEngineUi);

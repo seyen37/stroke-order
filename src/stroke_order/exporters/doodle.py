@@ -234,6 +234,158 @@ def _edge_binary(img: Image.Image, threshold: int = 50) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Phase 5ch — contour 輪廓向量化（取代掃描線成為預設取樣方式）
+#
+# 舊管線（scanline）把邊緣圖逐列 RLE 成水平 <line>，輸出是「掃描線
+# 風格」——對雷雕填線有用，但作為線稿與 VectorLine 等輪廓工具相比
+# 觀感差距大（使用者實測回報）。contour 管線：Otsu 自動二值化 →
+# 方格邊界追蹤（有向邊集合走環，外框/孔洞自然分離）→ RDP 簡化 →
+# 閉合 <path>。零新依賴（numpy already required）。
+# ---------------------------------------------------------------------------
+
+
+def _otsu_threshold(gray: np.ndarray) -> int:
+    """Otsu 自動二值化門檻（0-255 灰階 ndarray → int 門檻）。"""
+    hist = np.bincount(gray.ravel(), minlength=256).astype(np.float64)
+    total = float(gray.size)
+    sum_all = float(np.dot(np.arange(256), hist))
+    sum_b = 0.0
+    w_b = 0.0
+    best_t, best_var = 127, -1.0
+    for t in range(256):
+        w_b += hist[t]
+        if w_b == 0:
+            continue
+        w_f = total - w_b
+        if w_f == 0:
+            break
+        sum_b += t * hist[t]
+        m_b = sum_b / w_b
+        m_f = (sum_all - sum_b) / w_f
+        var_between = w_b * w_f * (m_b - m_f) ** 2
+        if var_between > best_var:
+            best_var, best_t = var_between, t
+    return best_t
+
+
+def _trace_boundary_loops(mask: np.ndarray) -> list[list[tuple[int, int]]]:
+    """二值 mask（True=主體）→ 邊界閉環清單（格點座標）。
+
+    做法：對每個「主體像素暴露在外的邊」建立有向單位邊（方向約定
+    讓主體永遠在行進方向左側），每個頂點入度=出度（Euler 性質），
+    逐環走訪即得閉合邊界；外輪廓與孔洞自動分成不同環。輸出是
+    直角階梯狀格點環，交給 RDP 簡化成平滑折線。
+    """
+    from collections import defaultdict
+
+    pad = np.zeros((mask.shape[0] + 2, mask.shape[1] + 2), dtype=bool)
+    pad[1:-1, 1:-1] = mask
+    core = pad[1:-1, 1:-1]
+    up = pad[:-2, 1:-1]
+    down = pad[2:, 1:-1]
+    left = pad[1:-1, :-2]
+    right = pad[1:-1, 2:]
+
+    out: dict = defaultdict(list)
+
+    def _add(arr, seg_fn):
+        yy, xx = np.nonzero(arr)
+        for y, x in zip(yy.tolist(), xx.tolist()):
+            a, b = seg_fn(x, y)
+            out[a].append(b)
+
+    _add(core & ~up,    lambda x, y: ((x, y),         (x + 1, y)))
+    _add(core & ~right, lambda x, y: ((x + 1, y),     (x + 1, y + 1)))
+    _add(core & ~down,  lambda x, y: ((x + 1, y + 1), (x, y + 1)))
+    _add(core & ~left,  lambda x, y: ((x, y + 1),     (x, y)))
+
+    loops: list[list[tuple[int, int]]] = []
+    while out:
+        start = next(iter(out))
+        loop = [start]
+        cur = start
+        prev = None
+        while True:
+            cands = out.get(cur)
+            if not cands:
+                break                      # 防禦（理論上不會發生）
+            if len(cands) == 1 or prev is None:
+                nxt = cands[0]
+            else:
+                # 角對角相接的交叉頂點：選「最右轉」候選，避免環自交
+                dx, dy = cur[0] - prev[0], cur[1] - prev[1]
+                nxt = min(cands, key=lambda c: (
+                    dx * (c[1] - cur[1]) - dy * (c[0] - cur[0])))
+            cands.remove(nxt)
+            if not cands:
+                del out[cur]
+            if nxt == start:
+                break                      # 閉環
+            loop.append(nxt)
+            prev, cur = cur, nxt
+        if len(loop) >= 4:
+            loops.append(loop)
+    return loops
+
+
+def _loop_area(loop: list[tuple[int, int]]) -> float:
+    """Shoelace 面積（絕對值），用於去斑過濾。"""
+    a = 0.0
+    n = len(loop)
+    for i in range(n):
+        x1, y1 = loop[i]
+        x2, y2 = loop[(i + 1) % n]
+        a += x1 * y2 - x2 * y1
+    return abs(a) / 2.0
+
+
+def _rdp(pts: list, eps: float) -> list:
+    """Ramer–Douglas–Peucker（迭代式），開放折線版；閉環請先斷開。"""
+    if eps <= 0 or len(pts) < 3:
+        return list(pts)
+    keep = [False] * len(pts)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(pts) - 1)]
+    while stack:
+        s, e = stack.pop()
+        ax, ay = pts[s]
+        bx, by = pts[e]
+        dx, dy = bx - ax, by - ay
+        length = (dx * dx + dy * dy) ** 0.5 or 1e-12
+        max_d, max_i = -1.0, -1
+        for i in range(s + 1, e):
+            d = abs(dy * pts[i][0] - dx * pts[i][1] + bx * ay - by * ax) \
+                / length
+            if d > max_d:
+                max_d, max_i = d, i
+        if max_d > eps:
+            keep[max_i] = True
+            stack.append((s, max_i))
+            stack.append((max_i, e))
+    return [p for p, k in zip(pts, keep) if k]
+
+
+def _simplify_loop(loop: list, eps: float) -> list:
+    """閉環 RDP。
+
+    注意經典陷阱：閉環首尾同點時 RDP 基線退化（長度 0 → 所有點
+    距離為 0 → 整環被塌縮）。正解：以「距起點最遠的點」為錨，把
+    環拆成兩條開放折線分別簡化再接回。
+    """
+    if eps <= 0 or len(loop) < 3:
+        return list(loop)
+    p0 = loop[0]
+    far_i = max(range(1, len(loop)),
+                key=lambda i: (loop[i][0] - p0[0]) ** 2 +
+                              (loop[i][1] - p0[1]) ** 2)
+    half_a = _rdp(loop[:far_i + 1], eps)
+    half_b = _rdp(loop[far_i:] + [p0], eps)
+    # half_a 以最遠點收尾（half_b 開頭同點）、half_b 以 p0 收尾
+    # （即起點）——各去尾接回，得閉環頂點序列
+    return half_a[:-1] + half_b[:-1]
+
+
+# ---------------------------------------------------------------------------
 # Run-length encoding: binary edges → list of horizontal lines
 # ---------------------------------------------------------------------------
 
@@ -273,6 +425,9 @@ def render_doodle_svg(
     background: str = "white",
     annotations: Optional[list[Annotation]] = None,
     margin_mm: float = 10.0,
+    style: str = "contour",
+    simplify_px: float = 1.2,
+    min_area_px: float = 12.0,
 ) -> str:
     """
     Convert an image to a doodle SVG with optional text annotations.
@@ -287,7 +442,8 @@ def render_doodle_svg(
     max_side_px
         Max dimension in pixels after downsampling. Lower → simpler doodle.
     threshold
-        Edge detection threshold (0-255). Higher → fewer lines.
+        Edge detection threshold (0-255), scanline 取樣用。Higher → fewer
+        lines.（contour 取樣的二值化門檻走 Otsu 自動判定。）
     line_color, line_width
         SVG stroke appearance.
     background
@@ -296,6 +452,14 @@ def render_doodle_svg(
         Optional list of text annotations in mm coords.
     margin_mm
         Padding around the image inside the canvas.
+    style
+        Phase 5ch 取樣方式："contour"（預設）＝ Otsu 二值化 → 邊界
+        追蹤 → RDP → 閉合向量路徑（線稿/雷切導向，觀感對齊
+        VectorLine 等輪廓工具）；"scanline" ＝ 舊版邊緣圖逐列 RLE
+        水平線（雷雕填線導向，保留為選項）。
+    simplify_px, min_area_px
+        contour 取樣的 RDP 簡化強度（px）與最小輪廓面積（px²，
+        去斑）。
 
     Returns
     -------
@@ -322,8 +486,6 @@ def render_doodle_svg(
     sx = inner_w / W
     sy = inner_h / H
 
-    runs = _rle_rows(binary)
-
     parts: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="0 0 {canvas_width_mm} {canvas_height_mm}" '
@@ -336,22 +498,40 @@ def render_doodle_svg(
     # Translate image group to inside the margin
     parts.append(f'<g transform="translate({margin_mm},{margin_mm})" '
                  f'stroke="{_xml_escape(line_color)}" fill="none" '
-                 f'stroke-width="{line_width}" stroke-linecap="round">')
-    # Emit runs as <line>. Y = (y+0.5)*sy so lines sit mid-row.
-    for (y, xs, xe) in runs:
-        x1 = xs * sx
-        x2 = xe * sx
-        ym = (y + 0.5) * sy
-        # ensure visible dot for singletons
-        if xe - xs == 1:
-            parts.append(f'<circle cx="{x1 + sx/2:.2f}" cy="{ym:.2f}" '
-                         f'r="{sx*0.4:.2f}" fill="{_xml_escape(line_color)}" '
-                         f'stroke="none"/>')
-        else:
-            parts.append(
-                f'<line x1="{x1:.2f}" y1="{ym:.2f}" '
-                f'x2="{x2:.2f}" y2="{ym:.2f}"/>'
-            )
+                 f'stroke-width="{line_width}" stroke-linecap="round" '
+                 f'stroke-linejoin="round">')
+    if style == "scanline":
+        runs = _rle_rows(binary)
+        # Emit runs as <line>. Y = (y+0.5)*sy so lines sit mid-row.
+        for (y, xs, xe) in runs:
+            x1 = xs * sx
+            x2 = xe * sx
+            ym = (y + 0.5) * sy
+            # ensure visible dot for singletons
+            if xe - xs == 1:
+                parts.append(
+                    f'<circle cx="{x1 + sx/2:.2f}" cy="{ym:.2f}" '
+                    f'r="{sx*0.4:.2f}" fill="{_xml_escape(line_color)}" '
+                    f'stroke="none"/>')
+            else:
+                parts.append(
+                    f'<line x1="{x1:.2f}" y1="{ym:.2f}" '
+                    f'x2="{x2:.2f}" y2="{ym:.2f}"/>'
+                )
+    else:
+        # Phase 5ch contour：Otsu 二值化（暗主體）→ 邊界環 → RDP
+        arr = np.array(gray)
+        mask = arr <= _otsu_threshold(arr)
+        for loop in _trace_boundary_loops(mask):
+            if _loop_area(loop) < min_area_px:
+                continue                    # 去斑
+            pts = _simplify_loop(loop, simplify_px)
+            if len(pts) < 3:
+                continue
+            d = [f"M {pts[0][0] * sx:.2f},{pts[0][1] * sy:.2f}"]
+            d += [f"L {px * sx:.2f},{py * sy:.2f}" for px, py in pts[1:]]
+            d.append("Z")
+            parts.append(f'<path d="{" ".join(d)}"/>')
     parts.append("</g>")
     # annotations
     parts.append(_annotations_svg(annotations or []))

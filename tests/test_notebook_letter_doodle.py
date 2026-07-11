@@ -106,8 +106,13 @@ def test_doodle_from_circle_image():
     ImageDraw.Draw(img).ellipse([30, 30, 170, 170], outline="black", width=4)
     svg = render_doodle_svg(img, canvas_width_mm=100)
     assert "<svg" in svg
-    # should have some line elements
-    assert svg.count("<line") + svg.count("<circle") > 5
+    # Phase 5ch: 預設取樣改為 contour——圓環線稿 → 閉合向量路徑
+    # （外緣＋內緣至少兩環）；掃描線 <line> 僅在 style="scanline"
+    assert svg.count('<path d="M') >= 2
+    assert svg.count("Z\"/>") >= 2
+    svg_scan = render_doodle_svg(img, canvas_width_mm=100,
+                                 style="scanline")
+    assert svg_scan.count("<line") + svg_scan.count("<circle") > 5
 
 
 @pytest.mark.skipif(not _HAS_DEPS, reason="Pillow required")

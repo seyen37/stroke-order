@@ -68,8 +68,9 @@ def test_5cb_opencv_engine_registered(client):
     assert "opencv:" in body
     assert "loadOpenCV" in body
     assert "renderInOpenCV" in body
-    # CDN 惰性載入且版本 pin 死（可重現性）
-    assert "https://docs.opencv.org/4.10.0/opencv.js" in body
+    # CDN 惰性載入且版本 pin 死（可重現性）；5ch：4.10.0 實測 404，
+    # 改 pin 4.9.0（詳細清單斷言見 test_doodle_contour.py）
+    assert "https://docs.opencv.org/4.9.0/opencv.js" in body
 
 
 def test_5cb_opencv_pipeline_symbols(client):
@@ -110,8 +111,9 @@ def test_5cf_engine_has_worker_offload(client):
     assert "renderVia" in body
     assert "workerSupported" in body
     assert '"/static/doodle_worker.js"' in body
-    # loadOpenCV 的 Worker 分支（importScripts 取代 script tag）
-    assert "importScripts(OPENCV_CDN_URL)" in body
+    # loadOpenCV 的 Worker 分支（importScripts 取代 script tag）；
+    # 5ch 改為 CDN 清單重試 → importScripts(url)
+    assert "importScripts(url)" in body
 
 
 def test_5cf_index_routes_through_render_via(client):

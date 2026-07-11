@@ -557,7 +557,14 @@ async function renderInBrowser(file, opts) {
  * 5cb：OpenCV.js 引擎（CDN 惰性載入）
  * ------------------------------------------------------------ */
 
-var OPENCV_CDN_URL = "https://docs.opencv.org/4.10.0/opencv.js";
+// 5ch：4.10.0 路徑實測 404（5cb pin 錯，引擎從未成功載入——三層
+// 降級把它掩蓋成「還能用」）。改 pin 實測存在的 4.9.0，並以 4.x
+// （官方最新）作備援，逐一重試。
+var OPENCV_CDN_URLS = [
+  "https://docs.opencv.org/4.9.0/opencv.js",
+  "https://docs.opencv.org/4.x/opencv.js",
+];
+var OPENCV_CDN_URL = OPENCV_CDN_URLS[0];   // 向後相容（測試引用）
 var _cvPromise = null;
 
 /** cv 物件初始化收尾（promise 型／onRuntimeInitialized 型皆相容）。 */
@@ -577,37 +584,50 @@ function _resolveCv(resolve, reject) {
 /** 惰性載入 OpenCV.js（僅載一次；相容 promise 型與
  *  onRuntimeInitialized 型兩種官方初始化介面）。
  *  Phase 5cf：Worker 環境走 importScripts，主執行緒走 script tag。 */
-function loadOpenCV(onStatus) {
-  if (_cvPromise) return _cvPromise;
-  if (typeof importScripts === "function") {        // Worker（5cf）
-    _cvPromise = new Promise(function (resolve, reject) {
+function _loadCvFromUrl(url, onStatus) {
+  return new Promise(function (resolve, reject) {
+    if (onStatus) {
+      onStatus("首次載入 OpenCV.js（約 8MB，之後走快取）… " + url);
+    }
+    if (typeof importScripts === "function") {      // Worker（5cf）
       try {
-        if (onStatus) onStatus("首次載入 OpenCV.js（約 8MB，之後走快取）…");
-        importScripts(OPENCV_CDN_URL);
+        importScripts(url);
         _resolveCv(resolve, reject);
-      } catch (e) {
-        _cvPromise = null;   // 下次可重試
-        reject(e);
-      }
-    });
-    return _cvPromise;
-  }
-  _cvPromise = new Promise(function (resolve, reject) {
+      } catch (e) { reject(e); }
+      return;
+    }
     if (typeof document === "undefined") {
       reject(new Error("OpenCV 引擎僅支援瀏覽器環境"));
       return;
     }
-    if (onStatus) onStatus("首次載入 OpenCV.js（約 8MB，之後走快取）…");
     var tag = document.createElement("script");
-    tag.src = OPENCV_CDN_URL;
+    tag.src = url;
     tag.async = true;
     tag.onerror = function () {
-      _cvPromise = null;   // 下次可重試
-      reject(new Error("OpenCV.js 載入失敗（CDN 無法連線）"));
+      reject(new Error("OpenCV.js 載入失敗：" + url));
     };
     tag.onload = function () { _resolveCv(resolve, reject); };
     document.head.appendChild(tag);
   });
+}
+
+function loadOpenCV(onStatus) {
+  if (_cvPromise) return _cvPromise;
+  _cvPromise = (async function () {
+    var lastErr = null;
+    for (var i = 0; i < OPENCV_CDN_URLS.length; i++) {
+      try {
+        return await _loadCvFromUrl(OPENCV_CDN_URLS[i], onStatus);
+      } catch (e) {
+        lastErr = e;
+        if (typeof console !== "undefined") {
+          console.warn("OpenCV.js CDN 失敗，換下一個來源:", e);
+        }
+      }
+    }
+    _cvPromise = null;                              // 全滅：下次可重試
+    throw lastErr || new Error("OpenCV.js 所有 CDN 來源皆載入失敗");
+  })();
   return _cvPromise;
 }
 

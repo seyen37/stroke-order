@@ -2221,8 +2221,13 @@ def create_app() -> FastAPI:
         # Phase 5ag: pre-crop the uploaded image before edge detection
         auto_crop_whitespace: bool = Form(False),
         auto_crop_border: bool = Form(False),
+        # Phase 5ch: 取樣方式 — contour（輪廓向量，預設）/ scanline（掃描線）
+        vector_style: str = Form("contour"),
     ):
         """Upload an image → return doodle SVG."""
+        if vector_style not in ("contour", "scanline"):
+            raise HTTPException(
+                422, detail="vector_style must be 'contour' or 'scanline'")
         import json
         from PIL import Image as PILImage
         from ..exporters.doodle import auto_crop_image, render_doodle_svg
@@ -2271,6 +2276,7 @@ def create_app() -> FastAPI:
             line_color=line_color,
             line_width=line_width,
             annotations=anns,
+            style=vector_style,
         )
         headers: dict[str, str] = {}
         if download:
