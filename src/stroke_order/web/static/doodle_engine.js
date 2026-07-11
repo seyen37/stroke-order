@@ -584,8 +584,14 @@ async function renderInBrowser(file, opts) {
 // 5cl：第二位加 jsDelivr 鏡像——@techstark/opencv-js 的
 // dist/opencv.js 是官方 4.9.0 原檔；校網擋 docs.opencv.org 時
 // cdn.jsdelivr.net 常是放行的。
+// 5cm：同源位址「絕對化」——相對路徑在 blob/巢狀 worker 的
+// base URL 解析不可靠（blob 基底直接 SyntaxError），且實機解剖
+// 顯示正式 worker 內相對路徑 importScripts 無限懸掛、絕對 URL
+// 3/3 成功。node（無 location）維持相對字串。
+var _ORIGIN = (typeof location !== "undefined" && location.origin &&
+               location.origin !== "null") ? location.origin : "";
 var OPENCV_CDN_URLS = [
-  "/vendor/opencv.js",
+  _ORIGIN + "/vendor/opencv.js",
   "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0-release.3" +
     "/dist/opencv.js",
   "https://docs.opencv.org/4.9.0/opencv.js",
@@ -607,35 +613,93 @@ function _resolveCv(resolve, reject) {
   }
 }
 
+/* 5cm：worker 端下載改 fetch——importScripts 是同步阻塞、
+ * 無法逾時，遇到防火牆「靜默丟包」（連錯誤都不回）就是永久
+ * 懸掛；且實機解剖顯示正式 worker 內它對本檔莫名卡死。
+ * fetch 可設 chunk 間隔逾時、可回報下載進度（MB）。 */
+var OPENCV_FETCH_STALL_MS = 15000;   // 相鄰 chunk 間隔上限
+
+async function _fetchScript(url, onStatus) {
+  var ctrl = new AbortController();
+  var stall = null;
+  function bump() {
+    if (stall) clearTimeout(stall);
+    stall = setTimeout(function () { ctrl.abort(); },
+                       OPENCV_FETCH_STALL_MS);
+  }
+  bump();
+  try {
+    var resp = await fetch(url, {signal: ctrl.signal});
+    if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + url);
+    if (!resp.body || !resp.body.getReader) {
+      var txt = await resp.text();
+      clearTimeout(stall);
+      return txt;
+    }
+    var reader = resp.body.getReader();
+    var chunks = [], got = 0, lastMb = 0;
+    for (;;) {
+      var r = await reader.read();
+      if (r.done) break;
+      bump();
+      chunks.push(r.value);
+      got += r.value.length;
+      var mb = (got / (1 << 20)) | 0;
+      if (onStatus && mb > lastMb) {
+        lastMb = mb;
+        onStatus("下載 OpenCV.js… " + mb + " MB");
+      }
+    }
+    clearTimeout(stall);
+    var buf = new Uint8Array(got), off = 0;
+    for (var i = 0; i < chunks.length; i++) {
+      buf.set(chunks[i], off);
+      off += chunks[i].length;
+    }
+    return new TextDecoder("utf-8").decode(buf);
+  } catch (e) {
+    if (stall) clearTimeout(stall);
+    throw e;
+  }
+}
+
 /** 惰性載入 OpenCV.js（僅載一次；相容 promise 型與
  *  onRuntimeInitialized 型兩種官方初始化介面）。
- *  Phase 5cf：Worker 環境走 importScripts，主執行緒走 script tag。 */
+ *  5cf：Worker 與主執行緒分流；5cm：Worker 走 fetch＋間接 eval
+ *  （全域作用域，UMD 設 globalThis.cv），主執行緒 script tag
+ *  加 20s 逾時（silent-drop 防火牆下 onerror 永不觸發）。 */
 function _loadCvFromUrl(url, onStatus) {
   return new Promise(function (resolve, reject) {
     if (onStatus) {
       // 5ci：講清楚「會等多久」——首次下載＋WASM 編譯視網速
       // 可達數十秒，沒有這句就是「無回應」體感
-      onStatus("下載＋編譯 OpenCV.js（首次約 8MB，視網速需 10~60 秒，" +
-               "之後走快取）… " + url);
+      onStatus("下載＋編譯 OpenCV.js（首次約 10MB，之後走快取）… " + url);
     }
-    if (typeof importScripts === "function") {      // Worker（5cf）
-      try {
-        importScripts(url);
-        _resolveCv(resolve, reject);
-      } catch (e) { reject(e); }
-      return;
-    }
-    if (typeof document === "undefined") {
-      reject(new Error("OpenCV 引擎僅支援瀏覽器環境"));
+    if (typeof document === "undefined") {           // Worker（5cf/5cm）
+      _fetchScript(url, onStatus).then(function (code) {
+        try {
+          if (onStatus) onStatus("編譯 OpenCV.js（WASM 初始化）…");
+          (0, eval)(code);                           // 間接 eval → 全域
+          _resolveCv(resolve, reject);
+        } catch (e) { reject(e); }
+      }, reject);
       return;
     }
     var tag = document.createElement("script");
+    var timer = setTimeout(function () {             // 5cm：逾時保險
+      tag.onload = tag.onerror = null;
+      reject(new Error("OpenCV.js 載入逾時（20s）：" + url));
+    }, 20000);
     tag.src = url;
     tag.async = true;
     tag.onerror = function () {
+      clearTimeout(timer);
       reject(new Error("OpenCV.js 載入失敗：" + url));
     };
-    tag.onload = function () { _resolveCv(resolve, reject); };
+    tag.onload = function () {
+      clearTimeout(timer);
+      _resolveCv(resolve, reject);
+    };
     document.head.appendChild(tag);
   });
 }
@@ -834,7 +898,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=152";   // 5cl cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=153";   // 5cm cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;
@@ -855,9 +919,11 @@ function _getWorker() {
     var p = _pending.get(m.id);
     if (!p) return;
     if (m.status !== undefined) {              // 進度轉發（如 opencv 載入）
+      if (p.bump) p.bump();                    // 5cm：有進度＝還活著
       if (p.onStatus) p.onStatus(m.status);
       return;
     }
+    if (p.clearStall) p.clearStall();          // 5cm：收尾解除看門狗
     _pending.delete(m.id);
     if (m.ok) {
       p.resolve({svg: m.svg, ms: m.ms, paths: m.paths, via: "worker"});
@@ -868,6 +934,7 @@ function _getWorker() {
   _worker.onerror = function (e) {
     _workerBroken = true;                      // 之後一律主執行緒直跑
     _pending.forEach(function (p) {
+      if (p.clearStall) p.clearStall();        // 5cm
       p.reject(new Error("worker error: " + (e && e.message || e)));
     });
     _pending.clear();
@@ -887,8 +954,25 @@ async function renderVia(engineId, file, opts) {
       var id = ++_msgSeq;
       var w = _getWorker();
       return await new Promise(function (resolve, reject) {
+        // 5cm：進度看門狗——90 秒沒有任何訊息（進度或收尾）就視為
+        // worker 懸掛（實測校網 silent-drop 會讓載入端永久卡住而無
+        // 例外），terminate 後回主執行緒降級。每收到一則訊息重計時。
+        var stall = null;
+        function bump() {
+          if (stall) clearTimeout(stall);
+          stall = setTimeout(function () {
+            _pending.delete(id);
+            _workerBroken = true;
+            try { _worker && _worker.terminate(); } catch (e2) { /* noop */ }
+            _worker = null;
+            reject(new Error("worker 逾時無回應（90s）"));
+          }, 90000);
+        }
+        function clearStall() { if (stall) clearTimeout(stall); }
+        bump();
         _pending.set(id, {resolve: resolve, reject: reject,
-                          onStatus: opts.onStatus});
+                          onStatus: opts.onStatus,
+                          bump: bump, clearStall: clearStall});
         var send = {};                         // function 欄位不可 clone
         for (var k in opts) {
           if (typeof opts[k] !== "function") send[k] = opts[k];

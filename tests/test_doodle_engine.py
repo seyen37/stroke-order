@@ -112,9 +112,10 @@ def test_5cf_engine_has_worker_offload(client):
     assert "renderVia" in body
     assert "workerSupported" in body
     assert '"/static/doodle_worker.js?v=' in body   # 5cj cache-bust
-    # loadOpenCV 的 Worker 分支（importScripts 取代 script tag）；
-    # 5ch 改為 CDN 清單重試 → importScripts(url)
-    assert "importScripts(url)" in body
+    # loadOpenCV 的 Worker 分支；5cm：importScripts（同步阻塞、
+    # 無法逾時，silent-drop 防火牆下永久懸掛）改為 fetch＋間接 eval
+    assert "_fetchScript(" in body
+    assert "importScripts(url)" not in body
 
 
 def test_5cf_index_routes_through_render_via(client):

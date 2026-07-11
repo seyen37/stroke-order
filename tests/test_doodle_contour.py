@@ -144,8 +144,10 @@ def test_5ci_responsiveness_fixes(client):
     assert "塗鴉預覽" in html
     assert 'im.src = url' in html
     js = client.get("/static/doodle_engine.js").text
-    # ③ 可觀察性：載入講清楚要等多久＋各階段進度
-    assert "10~60 秒" in js
+    # ③ 可觀察性：載入講清楚在等什麼＋各階段進度
+    #   （5cm 起下載進度以 MB 即時回報，取代「10~60 秒」約略句）
+    assert "下載＋編譯 OpenCV.js" in js
+    assert "下載 OpenCV.js… " in js          # 5cm：MB 進度
     assert "解碼與縮圖…" in js
     assert "二值化與輪廓抽取…" in js
     assert "條路徑）…" in js
@@ -173,7 +175,8 @@ def test_5cj_vendor_proxy_and_same_origin_first(client, tmp_path,
     js = client.get("/static/doodle_engine.js").text
     urls_block = js.split("OPENCV_CDN_URLS = [")[1].split("]")[0]
     lines = [l.strip() for l in urls_block.splitlines() if '"' in l]
-    assert lines[0].startswith('"/vendor/opencv.js"')   # 同源優先
+    # 5cm：同源位址絕對化（_ORIGIN 前綴），仍居首位
+    assert '"/vendor/opencv.js"' in lines[0]            # 同源優先
     assert any("docs.opencv.org" in l for l in lines)   # CDN 備援仍在
 
 
@@ -236,6 +239,29 @@ def test_5cl_fetch_sources_datacenter_friendly(client):
     js = client.get("/static/doodle_engine.js").text
     urls_block = js.split("OPENCV_CDN_URLS = [")[1].split("];")[0]
     assert "cdn.jsdelivr.net" in urls_block            # 瀏覽器備援
+
+
+def test_5cm_fetch_eval_watchdog_absolutized(client):
+    """5cm：Chrome 實機解剖三修（校網環境「產生中…」永久卡死）。
+
+    ① OPENCV_CDN_URLS 同源位址絕對化（location.origin）——相對
+       路徑在 blob/巢狀 worker 的 base URL 下直接 SyntaxError，
+       且正式 worker 內相對 importScripts 實測無限懸掛
+    ② worker 端載入改 fetch＋間接 eval——importScripts 同步阻塞
+       無法逾時，silent-drop 防火牆（校網）下永久懸掛；fetch 有
+       chunk 間隔逾時＋MB 下載進度
+    ③ 主執行緒 script tag 20s 逾時＋renderVia 90s 進度看門狗
+       （terminate → 主執行緒降級 → 伺服器），恢復降級階梯
+    """
+    js = client.get("/static/doodle_engine.js").text
+    assert "var _ORIGIN" in js
+    assert '_ORIGIN + "/vendor/opencv.js"' in js        # ① 絕對化
+    assert "_fetchScript" in js                          # ② fetch 載入
+    assert "(0, eval)(code)" in js                       # ② 間接 eval
+    assert "OPENCV_FETCH_STALL_MS" in js                 # ② chunk 逾時
+    assert "OpenCV.js 載入逾時" in js                    # ③ script tag 逾時
+    assert "worker 逾時無回應" in js                     # ③ 看門狗
+    assert "clearStall" in js
 
 
 def test_5ck_ensure_cached_hits_cache_without_network(tmp_path, monkeypatch):
