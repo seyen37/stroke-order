@@ -67,5 +67,10 @@
 - [x] audit：plotter SVG 的 mm 實體尺寸與 viewBox 是否全模式一致
       （2026-07-11 Phase 5bt：抓到印章全 preset 縮 2.4-3.5% 實體尺寸
       bug 並修復；export 加選配 size_mm；14 項契約測試鎖定全站）
+- [x] 塗鴉模式前端化（2026-07-11 Phase 5ca：doodle_engine.js 瀏覽器
+      復刻 Python 管線＋可插拔引擎表＋調參即時預覽；node×Python
+      parity 驗證等價。OpenCV.js WASM 引擎——即本文件借鑑點 3 的
+      完整架構樣板——預留 5cb 掛入同一張引擎表）
+- [x] 社群層面互連（2026-07-11 Phase 5ca：塗鴉模式 UI 導流連結
+      「進階向量化 → 描線工坊 VectorLine」；對方回鏈待社群接洽）
 - [ ] 塗鴉模式雷雕情境：試把我們的 SVG 丟進它的 workflow 反向驗證相容性
-- [ ] 社群層面：同為台灣開源 maker 工具，可互相連結（它的 hashtag 生態與我們重疊）

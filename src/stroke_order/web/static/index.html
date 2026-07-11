@@ -8,6 +8,7 @@
   <!-- Phase 5b r27: 曼陀羅 .mandala.md 匯出/匯入支援 (純前端) -->
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.20.4/dist/index.js"></script>
+  <script src="/static/doodle_engine.js"></script>
   <style>
     :root {
       --bg: #fafafa;
@@ -910,6 +911,18 @@
     <div class="row">
       <label>上傳圖片</label>
       <input id="dd-image" type="file" accept="image/*">
+    </div>
+    <div class="row">
+      <label>處理引擎</label>
+      <select id="dd-engine">
+        <option value="browser" selected>瀏覽器（即時預覽，不上傳圖片）</option>
+        <option value="server">伺服器</option>
+      </select>
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        瀏覽器引擎在本機處理、調參即時更新；進階向量化可用
+        <a href="https://vector-line.vercel.app" target="_blank"
+           rel="noopener">描線工坊 VectorLine</a>
+      </span>
     </div>
     <div class="row" title="上傳後自動處理原圖，不影響原始檔案">
       <label>自動裁切</label>
@@ -4615,6 +4628,43 @@ function collectDoodleAnnotations() {
   return anns;
 }
 
+// Phase 5ca: 收集塗鴉參數（瀏覽器/伺服器引擎共用同一組）
+function collectDoodleOpts() {
+  return {
+    apiBase: API_BASE,
+    canvasWidthMm: parseFloat(document.getElementById("dd-width").value),
+    maxSidePx: parseInt(document.getElementById("dd-max-side").value, 10),
+    threshold: parseInt(document.getElementById("dd-threshold").value, 10),
+    lineColor: document.getElementById("dd-color").value,
+    lineWidth: parseFloat(document.getElementById("dd-linewidth").value),
+    autoCropWhitespace: document.getElementById("dd-crop-whitespace").checked,
+    autoCropBorder: document.getElementById("dd-crop-border").checked,
+    annotations: collectDoodleAnnotations(),
+  };
+}
+
+// 伺服器引擎（POST /api/doodle）—— doodle_engine.js 沒載入時的保底路徑
+async function renderDoodleViaServer(file, opts) {
+  const t0 = performance.now();
+  const fd = new FormData();
+  fd.append("image", file);
+  fd.append("canvas_width_mm", opts.canvasWidthMm);
+  fd.append("max_side_px", opts.maxSidePx);
+  fd.append("threshold", opts.threshold);
+  fd.append("line_color", opts.lineColor);
+  fd.append("line_width", opts.lineWidth);
+  fd.append("auto_crop_whitespace", opts.autoCropWhitespace ? "true" : "false");
+  fd.append("auto_crop_border", opts.autoCropBorder ? "true" : "false");
+  fd.append("annotations_json", JSON.stringify(opts.annotations));
+  const r = await fetch(`${API_BASE}/api/doodle`, {method: "POST", body: fd});
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({detail: r.statusText}));
+    throw new Error(err.detail || `HTTP ${r.status}`);
+  }
+  return {svg: await r.text(), ms: performance.now() - t0};
+}
+
+let ddRenderSeq = 0;   // 即時預覽下丟棄過期回合
 async function renderDoodle() {
   const statusEl = document.getElementById("dd-status");
   const previewEl = document.getElementById("dd-preview");
@@ -4624,35 +4674,41 @@ async function renderDoodle() {
     previewEl.innerHTML = `<span style="color:var(--accent);">請先選擇圖片</span>`;
     return;
   }
+  const file = imageInput.files[0];
+  const opts = collectDoodleOpts();
+  const seq = ++ddRenderSeq;
   statusEl.textContent = "產生中…";
   downloadEl.style.display = "none";
 
-  const fd = new FormData();
-  fd.append("image", imageInput.files[0]);
-  fd.append("canvas_width_mm", document.getElementById("dd-width").value);
-  fd.append("max_side_px", document.getElementById("dd-max-side").value);
-  fd.append("threshold", document.getElementById("dd-threshold").value);
-  fd.append("line_color", document.getElementById("dd-color").value);
-  fd.append("line_width", document.getElementById("dd-linewidth").value);
-  fd.append("auto_crop_whitespace",
-            document.getElementById("dd-crop-whitespace").checked ? "true" : "false");
-  fd.append("auto_crop_border",
-            document.getElementById("dd-crop-border").checked ? "true" : "false");
-  fd.append("annotations_json", JSON.stringify(collectDoodleAnnotations()));
-
+  const engineVal = document.getElementById("dd-engine").value;
+  const mod = window.DoodleEngine;
+  const useBrowser = engineVal === "browser" && mod &&
+                     mod.DoodleEngines.browser.available();
   try {
-    const r = await fetch(`${API_BASE}/api/doodle`, {method: "POST", body: fd});
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({detail: r.statusText}));
-      throw new Error(err.detail || `HTTP ${r.status}`);
+    let res, engineNote;
+    if (useBrowser) {
+      try {
+        res = await mod.DoodleEngines.browser.render(file, opts);
+        engineNote = "瀏覽器引擎";
+      } catch (e) {
+        // Phase 5ca: 瀏覽器引擎失敗 → 自動退回伺服器
+        console.warn("browser doodle engine failed, falling back:", e);
+        res = await renderDoodleViaServer(file, opts);
+        engineNote = "瀏覽器引擎失敗，已改用伺服器";
+      }
+    } else {
+      res = await renderDoodleViaServer(file, opts);
+      engineNote = "伺服器引擎";
     }
-    const svg = await r.text();
+    if (seq !== ddRenderSeq) return;   // 有更新的一輪在跑，丟棄本輪
+    const svg = res.svg;
     previewEl.innerHTML = svg;
     const innerSvg = previewEl.querySelector("svg");
     if (innerSvg) { innerSvg.style.maxWidth = "100%"; innerSvg.style.height = "auto"; }
     // Phase 5s: save the doodle SVG for import into notebook zones
     lastDoodleSvg = svg;
     statusEl.textContent = `OK · ${(svg.length / 1024).toFixed(1)} KB ` +
+      `· ${engineNote} ${res.ms.toFixed(0)}ms ` +
       `· 可切到「筆記模式」按「⬅ 匯入塗鴉」把向量塞進塗鴉區`;
     const blob = new Blob([svg], {type: "image/svg+xml"});
     const url = URL.createObjectURL(blob);
@@ -4661,12 +4717,31 @@ async function renderDoodle() {
     downloadEl.textContent = "⤓ 下載 SVG";
     downloadEl.style.display = "inline-block";
   } catch (e) {
+    if (seq !== ddRenderSeq) return;
     statusEl.textContent = "";
     previewEl.innerHTML =
       `<span style="color:var(--accent);">錯誤：${e.message}</span>`;
   }
 }
 document.getElementById("dd-render").onclick = renderDoodle;
+
+// Phase 5ca: 瀏覽器引擎下參數改動即時重算（debounce 150ms）
+let ddLiveTimer = null;
+function ddLiveRerender() {
+  if (document.getElementById("dd-engine").value !== "browser") return;
+  const f = document.getElementById("dd-image");
+  if (!f.files || !f.files[0]) return;
+  clearTimeout(ddLiveTimer);
+  ddLiveTimer = setTimeout(renderDoodle, 150);
+}
+["dd-width", "dd-max-side", "dd-threshold", "dd-color", "dd-linewidth"]
+  .forEach(id => document.getElementById(id)
+    .addEventListener("input", ddLiveRerender));
+["dd-crop-whitespace", "dd-crop-border", "dd-image", "dd-engine"]
+  .forEach(id => document.getElementById(id)
+    .addEventListener("change", ddLiveRerender));
+document.getElementById("dd-annotations")
+  .addEventListener("input", ddLiveRerender);
 
 // ============================================================
 // WordArt (文字雲) mode
