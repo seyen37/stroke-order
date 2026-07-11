@@ -578,7 +578,11 @@ async function renderInBrowser(file, opts) {
 // 5ch：4.10.0 路徑實測 404（5cb pin 錯，引擎從未成功載入——三層
 // 降級把它掩蓋成「還能用」）。改 pin 實測存在的 4.9.0，並以 4.x
 // （官方最新）作備援，逐一重試。
+// 5cj：使用者校網實測 docs.opencv.org 被防火牆靜默丟包（連
+// onerror 都等不到）——首位改「同源」：本伺服器 /vendor/opencv.js
+// 代抓＋快取，使用者連得上本站就載得到引擎；外部 CDN 降為備援。
 var OPENCV_CDN_URLS = [
+  "/vendor/opencv.js",
   "https://docs.opencv.org/4.9.0/opencv.js",
   "https://docs.opencv.org/4.x/opencv.js",
 ];
@@ -826,7 +830,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js";
+var WORKER_URL = "/static/doodle_worker.js?v=151";   // 5cj cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;

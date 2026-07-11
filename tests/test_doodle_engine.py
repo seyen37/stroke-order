@@ -99,7 +99,8 @@ def test_5cf_worker_shell_serves(client):
     r = client.get("/static/doodle_worker.js")
     assert r.status_code == 200
     body = r.text
-    assert 'importScripts("/static/doodle_engine.js")' in body
+    # 5cj：?v= cache-busting（舊快取 JS 會殘留死 CDN 位址）
+    assert 'importScripts("/static/doodle_engine.js?v=' in body
     assert "self.onmessage" in body
     # message 協定三態：status／ok:true／ok:false
     assert "status: msg" in body
@@ -110,7 +111,7 @@ def test_5cf_engine_has_worker_offload(client):
     body = client.get("/static/doodle_engine.js").text
     assert "renderVia" in body
     assert "workerSupported" in body
-    assert '"/static/doodle_worker.js"' in body
+    assert '"/static/doodle_worker.js?v=' in body   # 5cj cache-bust
     # loadOpenCV 的 Worker 分支（importScripts 取代 script tag）；
     # 5ch 改為 CDN 清單重試 → importScripts(url)
     assert "importScripts(url)" in body

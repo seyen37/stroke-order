@@ -26,6 +26,7 @@ Run with::
 from __future__ import annotations
 
 import io
+import os
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
@@ -2207,6 +2208,43 @@ def create_app() -> FastAPI:
         return {"sources": zt.list_sources()}
 
     # ------ 塗鴉模式 (doodle) ------------------------------------------
+
+    @app.get("/vendor/opencv.js")
+    async def vendor_opencv():
+        """Phase 5cj：OpenCV.js 同源代理＋落地快取。
+
+        校園/企業防火牆常擋外部網域（docs.opencv.org 被靜默丟包
+        時瀏覽器連 onerror 都等不到）。改由本伺服器代抓：使用者
+        已經連得上本站，同源載入永不被擋；Render 出站不受使用者
+        端網路限制。首次請求下載約 11MB 並快取（免費 tier home
+        目錄 ephemeral，每次部署後首個請求重抓一次）。
+        """
+        import requests as _rq
+        vendor_dir = Path(os.environ.get(
+            "STROKE_ORDER_VENDOR_DIR",
+            str(Path.home() / ".stroke-order" / "vendor")))
+        cache = vendor_dir / "opencv.js"
+        if not cache.is_file() or cache.stat().st_size < 1_000_000:
+            vendor_dir.mkdir(parents=True, exist_ok=True)
+            last_err: Optional[Exception] = None
+            for url in ("https://docs.opencv.org/4.9.0/opencv.js",
+                        "https://docs.opencv.org/4.x/opencv.js"):
+                try:
+                    r = _rq.get(url, timeout=120)
+                    r.raise_for_status()
+                    if len(r.content) < 1_000_000:
+                        raise ValueError(f"opencv.js 過小：{len(r.content)}B")
+                    cache.write_bytes(r.content)
+                    last_err = None
+                    break
+                except Exception as e:      # noqa: BLE001 — 逐源重試
+                    last_err = e
+            if last_err is not None:
+                raise HTTPException(
+                    502, detail=f"伺服器代抓 opencv.js 失敗：{last_err}")
+        return FileResponse(
+            cache, media_type="text/javascript",
+            headers={"Cache-Control": "public, max-age=604800"})
 
     @app.post("/api/doodle")
     async def doodle(

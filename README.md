@@ -1,10 +1,10 @@
 # stroke-order
 
 [![CI](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml/badge.svg)](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-1630%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-1631%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![license](https://img.shields.io/badge/license-MIT-yellow)
-![version](https://img.shields.io/badge/version-0.14.150-orange)
+![version](https://img.shields.io/badge/version-0.14.151-orange)
 
 ## 🌟 核心願景
 
@@ -38,7 +38,7 @@
 
 ---
 
-## 目前版本：0.14.150 (Phase 1 → 5ci + Phase A 組件分析器 + zentangle 6z)
+## 目前版本：0.14.151 (Phase 1 → 5cj + Phase A 組件分析器 + zentangle 6z)
 
 > **Web UI 9 模式**：單字 / 字帖 / 筆記 / 信紙 / 稿紙 / 塗鴉 / 文字雲 / **筆順練習** (5d) / **公眾分享庫** (5g)。
 >

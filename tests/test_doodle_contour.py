@@ -153,6 +153,30 @@ def test_5ci_responsiveness_fixes(client):
     assert "needCrop" in js
 
 
+def test_5cj_vendor_proxy_and_same_origin_first(client, tmp_path,
+                                                monkeypatch):
+    """5cj：校網擋外部 CDN → OpenCV.js 改同源代抓。
+
+    端點測試不打真網路：預先植入假快取檔（>1MB 門檻）驗證服務
+    與快取標頭；引擎清單驗證同源位址排首位。
+    """
+    vendor = tmp_path / "vendor"
+    vendor.mkdir()
+    fake = b"/* fake opencv.js */" + b"x" * 1_100_000
+    (vendor / "opencv.js").write_bytes(fake)
+    monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
+    r = client.get("/vendor/opencv.js")
+    assert r.status_code == 200
+    assert r.content == fake
+    assert "max-age" in r.headers.get("cache-control", "")
+
+    js = client.get("/static/doodle_engine.js").text
+    urls_block = js.split("OPENCV_CDN_URLS = [")[1].split("]")[0]
+    lines = [l.strip() for l in urls_block.splitlines() if '"' in l]
+    assert lines[0].startswith('"/vendor/opencv.js"')   # 同源優先
+    assert any("docs.opencv.org" in l for l in lines)   # CDN 備援仍在
+
+
 def test_index_has_style_select_and_cdn_fix(client):
     html = client.get("/").text
     assert 'id="dd-server-style"' in html
