@@ -1004,6 +1004,21 @@ BUILTIN_SUTRAS: dict[str, SutraInfo] = {
                     "一邊練字一邊記鍵位。另附四類分帶＋鍵位對照版面頁。",
         expected_chars=25,
     ),
+    "zhuyin_symbols": SutraInfo(
+        key="zhuyin_symbols",
+        title="注音符號",
+        subtitle="手抄本（聲母介音韻母 37 符號）",
+        filename="zhuyin_symbols.txt",
+        category="educational",
+        author="",
+        editor="",
+        source="教育部注音符號（1918 年公布沿用）",
+        source_url="https://zh.wikipedia.org/zh-tw/注音符號",
+        description="聲母二十一、介音三、韻母十三，共 37 個注音符號"
+                    "依序描紅；另附分類版面頁，含標準（大千式）"
+                    "鍵盤鍵位對照，練字兼記鍵位。",
+        expected_chars=37,
+    ),
     "solar_system": SutraInfo(
         key="solar_system",
         title="太陽系天體",

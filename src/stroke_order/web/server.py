@@ -3108,6 +3108,9 @@ def create_app() -> FastAPI:
         if preset == "cangjie_roots":
             from ..exporters.cangjie_roots import render_cangjie_roots_page
             return render_cangjie_roots_page
+        if preset == "zhuyin_symbols":
+            from ..exporters.zhuyin import render_zhuyin_page
+            return render_zhuyin_page
         return None
 
     @app.get("/api/sutra/categories")
@@ -3368,7 +3371,7 @@ def create_app() -> FastAPI:
                 detail="page_type 'table' is only available for presets "
                        "with a table layout (periodic_table, "
                        "multiplication_table, solar_terms, "
-                       "kangxi_radicals, cangjie_roots)")
+                       "kangxi_radicals, cangjie_roots, zhuyin_symbols)")
 
         def loader(ch: str):
             try:

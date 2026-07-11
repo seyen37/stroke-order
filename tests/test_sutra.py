@@ -1115,20 +1115,21 @@ def test_5bg_buddhist_now_has_8_builtins():
     assert len(buddhist) == 8
 
 
-def test_5bg_total_builtins_is_54():
-    """5bg: 46; 5bo: +8 educational presets = 54."""
-    assert len(BUILTIN_SUTRAS) == 54
+def test_5bg_total_builtins_is_55():
+    """5bg: 46; 5bo: +9 educational presets = 55."""
+    assert len(BUILTIN_SUTRAS) == 55
 
 
-def test_5bo_educational_has_8_builtins():
+def test_5bo_educational_has_9_builtins():
     edu = [i for i in BUILTIN_SUTRAS.values()
            if i.category == "educational"]
-    assert len(edu) == 8
+    assert len(edu) == 9
     keys = {i.key for i in edu}
     assert keys == {"periodic_table", "chinese_numerals",
                     "zodiac_hours", "solar_system",
                     "multiplication_table", "solar_terms",
-                    "kangxi_radicals", "cangjie_roots"}
+                    "kangxi_radicals", "cangjie_roots",
+                    "zhuyin_symbols"}
 
 
 def test_5bg_closing_templates_per_category_exist():

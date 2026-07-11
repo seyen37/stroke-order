@@ -1,8 +1,12 @@
-# Phase 5bo 科普教育分類（8 部 preset）
+# Phase 5bo 科普教育分類（9 部 preset）
 
-## 安裝
+> **5bp 之後本步驟已為選配**：全部文本已打包進
+> `src/stroke_order/data/sutras/builtin/`，新安裝與部署環境開箱即用。
+> 手動放檔僅在想覆蓋打包版時需要（使用者檔優先）。
 
-把本資料夾的 8 個 .txt 放到內建經文目錄即可：
+## 安裝（選配）
+
+把本資料夾的 .txt 放到內建經文目錄即可：
 
 ```
 ~/.stroke-order/sutras/builtin/
@@ -11,6 +15,7 @@
 ├── solar_terms.txt           二十四節氣（48 字）＋ table 版面頁
 ├── kangxi_radicals.txt       康熙 214 部首（教育部字形）＋ table 版面頁
 ├── cangjie_roots.txt         倉頡字根（24＋難）＋ table 版面頁
+├── zhuyin_symbols.txt        注音符號 37（聲介韻＋鍵位）＋ table 版面頁
 ├── chinese_numerals.txt      國字大寫數字（19 字）
 ├── zodiac_hours.txt          十二時辰十二生肖（24 字）
 └── solar_system.txt          太陽系天體（25 字）
