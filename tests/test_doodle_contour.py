@@ -177,6 +177,57 @@ def test_5cj_vendor_proxy_and_same_origin_first(client, tmp_path,
     assert any("docs.opencv.org" in l for l in lines)   # CDN 備援仍在
 
 
+def test_5ck_vendor_endpoint_is_sync_def(client):
+    """5ck 回歸鎖：/vendor/opencv.js 必須是同步 def。
+
+    async def＋同步 requests 會在下載 11MB 期間凍住整個
+    event loop（全站無回應）——FastAPI 對同步 def 自動走
+    threadpool，其他請求不受影響。
+    """
+    import inspect
+    from stroke_order.web.server import create_app as _ca
+    app = _ca()
+    eps = [r.endpoint for r in app.routes
+           if getattr(r, "path", "") == "/vendor/opencv.js"]
+    assert eps, "vendor 端點不存在"
+    assert not inspect.iscoroutinefunction(eps[0])
+
+
+def test_5ck_startup_prewarm_registered():
+    """5ck：startup 掛鉤存在（真啟動時背景預熱 opencv.js）。"""
+    from stroke_order.web.server import create_app as _ca
+    app = _ca()
+    names = [getattr(f, "__name__", "") for f in app.router.on_startup]
+    assert any("prewarm" in n for n in names)
+
+
+def test_5ck_vendor_status_observability(client, tmp_path, monkeypatch):
+    """5ck：/vendor/status 回報快取狀態（§8.1 降級可觀察性）。"""
+    vendor = tmp_path / "vendor"
+    vendor.mkdir()
+    monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
+    r = client.get("/vendor/status")
+    assert r.status_code == 200
+    assert r.json() == {"opencv_cached": False, "size": 0}
+
+    fake = b"/* fake */" + b"x" * 1_100_000
+    (vendor / "opencv.js").write_bytes(fake)
+    r = client.get("/vendor/status")
+    assert r.json() == {"opencv_cached": True, "size": len(fake)}
+
+
+def test_5ck_ensure_cached_hits_cache_without_network(tmp_path, monkeypatch):
+    """5ck：快取命中時 _ensure_opencv_cached 不碰網路直接回。"""
+    from stroke_order.web.server import _ensure_opencv_cached
+    vendor = tmp_path / "vendor"
+    vendor.mkdir()
+    fake = vendor / "opencv.js"
+    fake.write_bytes(b"y" * 1_200_000)
+    monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
+    # 若走到網路分支會 import requests 打真連線；快取命中應直接回
+    assert _ensure_opencv_cached() == fake
+
+
 def test_index_has_style_select_and_cdn_fix(client):
     html = client.get("/").text
     assert 'id="dd-server-style"' in html

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import io
 import os
+import threading
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
@@ -584,6 +585,98 @@ def build_mandala_char_loader(
         except Exception:
             return None
     return _loader
+
+
+# ---- Phase 5cj/5ck: OpenCV.js 同源代抓 --------------------------------
+#
+# 5cj：校網防火牆擋外部 CDN → 本伺服器代抓＋落地快取（同源永不被擋）。
+# 5ck：使用者實測仍卡「產生中…」，兩個根因一起修：
+#   ① 原端點 async def ＋ 同步 requests.get —— 下載 11MB 期間整個
+#      event loop 被凍住，全站無回應（最壞 120s×2 來源）。
+#   ② 惰性下載 —— Render 免費 tier 每次部署/喚醒後快取皆空，第一個
+#      使用者要全程陪等。
+# 修法：抓檔邏輯抽到模組層同步函式（threadpool 與背景執行緒共用）、
+# 啟動時背景預熱、串流下載＋原子換檔、/vendor/status 可觀察性。
+
+# 5cl：Render 實測 docs.opencv.org 對資料中心出站回 403（bot 防護；
+# 4.x 還會轉跳 4.13.0 再 403）。改以 npm 鏡像為主源——
+# @techstark/opencv-js 的 dist/opencv.js 是官方 docs.opencv.org/4.9.0
+# 原檔（其 README 明載），bits 相同、CDN 對 hotlink/資料中心友善。
+# docs.opencv.org 降末位備援並補瀏覽器 UA（其 403 疑似 UA 過濾）。
+_OPENCV_SOURCES = (
+    "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0-release.3"
+    "/dist/opencv.js",
+    "https://unpkg.com/@techstark/opencv-js@4.9.0-release.3/dist/opencv.js",
+    "https://docs.opencv.org/4.9.0/opencv.js",
+)
+_OPENCV_FETCH_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/126.0 Safari/537.36"),
+}
+_OPENCV_MIN_BYTES = 1_000_000
+_opencv_fetch_lock = threading.Lock()
+_opencv_prewarm_started = False
+
+
+def _opencv_cache_path() -> Path:
+    vendor_dir = Path(os.environ.get(
+        "STROKE_ORDER_VENDOR_DIR",
+        str(Path.home() / ".stroke-order" / "vendor")))
+    return vendor_dir / "opencv.js"
+
+
+def _ensure_opencv_cached(timeout: float = 90.0) -> Path:
+    """確保 opencv.js 已落地快取；缺檔時同步代抓（可重入）。
+
+    - 快取命中：不進鎖直接回（熱路徑零開銷）。
+    - 缺檔：單一執行緒下載（鎖防預熱與端點重複抓），串流寫入
+      .part 暫存檔、驗尺寸後原子 replace——絕不 serve 半檔。
+    """
+    cache = _opencv_cache_path()
+    if cache.is_file() and cache.stat().st_size >= _OPENCV_MIN_BYTES:
+        return cache
+    import requests as _rq
+    with _opencv_fetch_lock:
+        if cache.is_file() and cache.stat().st_size >= _OPENCV_MIN_BYTES:
+            return cache                    # 等鎖期間別人已抓完
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        last_err: Optional[Exception] = None
+        for url in _OPENCV_SOURCES:
+            try:
+                with _rq.get(url, timeout=(10, timeout), stream=True,
+                             headers=_OPENCV_FETCH_HEADERS) as r:
+                    r.raise_for_status()
+                    tmp = cache.with_name("opencv.js.part")
+                    size = 0
+                    with open(tmp, "wb") as f:
+                        for chunk in r.iter_content(1 << 16):
+                            f.write(chunk)
+                            size += len(chunk)
+                    if size < _OPENCV_MIN_BYTES:
+                        raise ValueError(f"opencv.js 過小：{size}B")
+                    tmp.replace(cache)
+                    return cache
+            except Exception as e:          # noqa: BLE001 — 逐源重試
+                last_err = e
+        raise RuntimeError(f"opencv.js 代抓失敗：{last_err}")
+
+
+def _prewarm_opencv_cache() -> None:
+    """5ck：啟動時背景預熱（daemon thread；失敗不影響服務，
+    端點屆時會在 threadpool 內補抓）。每個行程只啟動一次。"""
+    global _opencv_prewarm_started
+    if _opencv_prewarm_started or os.environ.get("STROKE_ORDER_NO_PREFETCH"):
+        return
+    _opencv_prewarm_started = True
+
+    def _job() -> None:
+        try:
+            _ensure_opencv_cached()
+        except Exception:                   # noqa: BLE001 — 預熱盡力而為
+            pass
+
+    threading.Thread(target=_job, name="opencv-prewarm", daemon=True).start()
 
 
 def create_app() -> FastAPI:
@@ -2209,42 +2302,43 @@ def create_app() -> FastAPI:
 
     # ------ 塗鴉模式 (doodle) ------------------------------------------
 
-    @app.get("/vendor/opencv.js")
-    async def vendor_opencv():
-        """Phase 5cj：OpenCV.js 同源代理＋落地快取。
+    async def _startup_prewarm_opencv():    # pragma: no cover — 真啟動才跑
+        """5ck：真伺服器啟動（uvicorn）即背景預抓 opencv.js。
 
-        校園/企業防火牆常擋外部網域（docs.opencv.org 被靜默丟包
-        時瀏覽器連 onerror 都等不到）。改由本伺服器代抓：使用者
-        已經連得上本站，同源載入永不被擋；Render 出站不受使用者
-        端網路限制。首次請求下載約 11MB 並快取（免費 tier home
-        目錄 ephemeral，每次部署後首個請求重抓一次）。
+        TestClient 不進 context manager 不觸發 startup——測試零干擾。
+        直接掛 router.on_startup（@app.on_event 已 deprecated，
+        每次 create_app 都會吐警告——測試噪音）。
         """
-        import requests as _rq
-        vendor_dir = Path(os.environ.get(
-            "STROKE_ORDER_VENDOR_DIR",
-            str(Path.home() / ".stroke-order" / "vendor")))
-        cache = vendor_dir / "opencv.js"
-        if not cache.is_file() or cache.stat().st_size < 1_000_000:
-            vendor_dir.mkdir(parents=True, exist_ok=True)
-            last_err: Optional[Exception] = None
-            for url in ("https://docs.opencv.org/4.9.0/opencv.js",
-                        "https://docs.opencv.org/4.x/opencv.js"):
-                try:
-                    r = _rq.get(url, timeout=120)
-                    r.raise_for_status()
-                    if len(r.content) < 1_000_000:
-                        raise ValueError(f"opencv.js 過小：{len(r.content)}B")
-                    cache.write_bytes(r.content)
-                    last_err = None
-                    break
-                except Exception as e:      # noqa: BLE001 — 逐源重試
-                    last_err = e
-            if last_err is not None:
-                raise HTTPException(
-                    502, detail=f"伺服器代抓 opencv.js 失敗：{last_err}")
+        _prewarm_opencv_cache()
+
+    app.router.on_startup.append(_startup_prewarm_opencv)
+
+    @app.get("/vendor/opencv.js")
+    def vendor_opencv():
+        """Phase 5cj/5ck：OpenCV.js 同源代理＋落地快取。
+
+        5cj：校園/企業防火牆擋外部網域（docs.opencv.org 被靜默
+        丟包時瀏覽器連 onerror 都等不到）→ 本伺服器代抓，同源
+        載入永不被擋。
+        5ck：改「同步 def」——FastAPI 自動丟 threadpool，缺檔補抓
+        時不再凍住 event loop（原 async def＋同步 requests 會讓
+        全站無回應）。啟動預熱後此處通常直接命中快取。
+        """
+        try:
+            cache = _ensure_opencv_cached()
+        except Exception as e:              # noqa: BLE001
+            raise HTTPException(
+                502, detail=f"伺服器代抓 opencv.js 失敗：{e}")
         return FileResponse(
             cache, media_type="text/javascript",
             headers={"Cache-Control": "public, max-age=604800"})
+
+    @app.get("/vendor/status")
+    def vendor_status():
+        """5ck：快取可觀察性（PRINCIPLES §8.1）——預熱狀態一眼可查。"""
+        cache = _opencv_cache_path()
+        size = cache.stat().st_size if cache.is_file() else 0
+        return {"opencv_cached": size >= _OPENCV_MIN_BYTES, "size": size}
 
     @app.post("/api/doodle")
     async def doodle(

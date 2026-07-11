@@ -581,10 +581,14 @@ async function renderInBrowser(file, opts) {
 // 5cj：使用者校網實測 docs.opencv.org 被防火牆靜默丟包（連
 // onerror 都等不到）——首位改「同源」：本伺服器 /vendor/opencv.js
 // 代抓＋快取，使用者連得上本站就載得到引擎；外部 CDN 降為備援。
+// 5cl：第二位加 jsDelivr 鏡像——@techstark/opencv-js 的
+// dist/opencv.js 是官方 4.9.0 原檔；校網擋 docs.opencv.org 時
+// cdn.jsdelivr.net 常是放行的。
 var OPENCV_CDN_URLS = [
   "/vendor/opencv.js",
+  "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0-release.3" +
+    "/dist/opencv.js",
   "https://docs.opencv.org/4.9.0/opencv.js",
-  "https://docs.opencv.org/4.x/opencv.js",
 ];
 var OPENCV_CDN_URL = OPENCV_CDN_URLS[0];   // 向後相容（測試引用）
 var _cvPromise = null;
@@ -830,7 +834,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=151";   // 5cj cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=152";   // 5cl cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;
