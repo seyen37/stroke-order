@@ -31,7 +31,13 @@ services:
     # failure logs a warning but does NOT abort the build — the app's
     # existing fallback paths keep the site functional.
     # See scripts/render_fetch_fonts.sh for implementation details.
-    buildCommand: pip install -e ".[web]" && STROKE_ORDER_FONTS_DEST=/opt/render/project/src/.fonts bash scripts/render_fetch_fonts.sh
+    # 5cq: fetch_vendor.py bakes opencv.js / opentype.min.js (~10.5 MB)
+    # into the checkout at build time — runtime then has ZERO external
+    # network dependency for /vendor/* (startup prewarm hits the baked
+    # cache immediately). Same graceful-failure policy as fonts: a
+    # download failure logs a warning but does not abort the build
+    # (the /vendor endpoint keeps its lazy re-fetch fallback).
+    buildCommand: pip install -e ".[web]" && STROKE_ORDER_FONTS_DEST=/opt/render/project/src/.fonts bash scripts/render_fetch_fonts.sh && STROKE_ORDER_VENDOR_DIR=/opt/render/project/src/.vendor python scripts/fetch_vendor.py
     startCommand: uvicorn stroke_order.web.server:app --host 0.0.0.0 --port $PORT
 
     healthCheckPath: /api/health     # /api/health 回 {"ok": true}
@@ -56,6 +62,13 @@ services:
         value: /opt/render/project/src/.fonts/song-fonts/edusong_Unicode.ttf
       - key: STROKE_ORDER_KAISHU_FONT_FILE
         value: /opt/render/project/src/.fonts/kaishu-fonts/edukai.ttf
+
+      # ---- Vendor JS (5cq) — must match buildCommand's fetch_vendor dest --
+      # Runtime reads the baked opencv.js / opentype.min.js from the git
+      # checkout path written at build time; without this the server would
+      # fall back to ~/.stroke-order/vendor (empty) and re-fetch at runtime.
+      - key: STROKE_ORDER_VENDOR_DIR
+        value: /opt/render/project/src/.vendor
 
       # ---- Gallery (5g) auth ----
       # AUTH_SECRET 用 Render 自動產生 32-byte 隨機值，永不外洩

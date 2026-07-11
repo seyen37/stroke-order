@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.20.4/dist/index.js"></script>
   <!-- 5cj: ?v= cache-busting — 舊快取 JS 會殘留死 CDN 位址 -->
-  <script src="/static/doodle_engine.js?v=154"></script>
+  <script src="/static/doodle_engine.js?v=155"></script>
   <style>
     :root {
       --bg: #fafafa;
@@ -936,10 +936,13 @@
     </div>
     <div class="row">
       <label>處理引擎</label>
+      <!-- 5cp：預設伺服器——校園/受管理電腦實測 opencv.js 大型
+           腳本在正式執行管道會被環境層卡死（同 bytes 於 blob
+           worker 正常），伺服器輪廓向量化（5ch）快又穩 -->
       <select id="dd-engine">
-        <option value="browser" selected>瀏覽器（掃描線速寫，即時預覽）</option>
-        <option value="opencv">OpenCV（輪廓向量化，首次載入約 8MB）</option>
-        <option value="server">伺服器</option>
+        <option value="server" selected>伺服器（輪廓向量化，快速穩定）</option>
+        <option value="browser">瀏覽器（掃描線速寫，即時預覽）</option>
+        <option value="opencv">OpenCV（輪廓向量化，實驗性；部分受管理電腦載入受阻會自動改用伺服器）</option>
       </select>
       <span style="margin-left:8px;color:var(--muted);font-size:11px;">
         瀏覽器/OpenCV 引擎在本機處理、調參即時更新；亦可參考
@@ -4881,7 +4884,15 @@ async function renderDoodle() {
   statusEl.textContent = "產生中…";
   downloadEl.style.display = "none";
 
-  const engineVal = document.getElementById("dd-engine").value;
+  let engineVal = document.getElementById("dd-engine").value;
+  // 5cp：opencv 本 session 失敗過 → 直接用伺服器，不再讓使用者
+  // 等看門狗（受管理電腦的環境層會卡死大型腳本執行）
+  let opencvSkipped = false;
+  if (engineVal === "opencv" &&
+      sessionStorage.getItem("dd-opencv-broken")) {
+    engineVal = "server";
+    opencvSkipped = true;
+  }
   const mod = window.DoodleEngine;
   // Phase 5ca/5cb: 前端引擎（browser / opencv）統一路由，失敗退回伺服器
   const clientEng = (engineVal !== "server" && mod &&
@@ -4898,14 +4909,23 @@ async function renderDoodle() {
         res = await mod.renderVia(engineVal, file, opts);
         engineNote = clientEng.label +
           (res.via === "worker" ? "・Worker" : "");
+        if (engineVal === "opencv") {
+          sessionStorage.removeItem("dd-opencv-broken");   // 5cp：成功洗白
+        }
       } catch (e) {
         console.warn("client doodle engine failed, falling back:", e);
+        if (engineVal === "opencv") {
+          sessionStorage.setItem("dd-opencv-broken", "1"); // 5cp：記失敗
+        }
         res = await renderDoodleViaServer(file, opts);
-        engineNote = `${clientEng.label}失敗，已改用伺服器`;
+        engineNote = `${clientEng.label}失敗，已改用伺服器` +
+          "（本次瀏覽期間將自動沿用伺服器引擎）";
       }
     } else {
       res = await renderDoodleViaServer(file, opts);
-      engineNote = "伺服器引擎";
+      engineNote = opencvSkipped
+        ? "伺服器引擎（OpenCV 先前載入失敗，本次瀏覽期間自動改用）"
+        : "伺服器引擎";
     }
     if (seq !== ddRenderSeq) return;   // 有更新的一輪在跑，丟棄本輪
     const svg = res.svg;

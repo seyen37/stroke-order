@@ -269,6 +269,44 @@ def test_5cm_fetch_eval_watchdog_absolutized(client):
     assert "clearStall" in js
 
 
+def test_5cp_server_default_and_opencv_failure_memory(client):
+    """5cp：受管理電腦環境層會卡死大型腳本執行（同 bytes 於 blob
+    worker 正常）——體驗保底三件：預設伺服器引擎、OpenCV 標實驗性、
+    session 失敗記憶自動改用伺服器。"""
+    html = client.get("/").text
+    assert '<option value="server" selected>' in html      # 預設伺服器
+    assert "實驗性" in html                                 # opencv 降實驗
+    assert 'sessionStorage.getItem("dd-opencv-broken")' in html
+    assert 'sessionStorage.setItem("dd-opencv-broken"' in html
+    js = client.get("/static/doodle_engine.js").text
+    assert "worker 逾時無回應（30s）" in js                 # 看門狗收緊
+
+
+def test_5cq_fetch_vendor_build_script(tmp_path, monkeypatch):
+    """5cq：build-time 燒入——腳本復用 _ensure_vendor_cached、
+    render.yaml 的 buildCommand 與 runtime env 指向同一路徑。
+    （植入合法尺寸假檔＝快取命中，不打真網路。）"""
+    import importlib.util
+    from pathlib import Path as _P
+    root = _P(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location(
+        "fetch_vendor", root / "scripts" / "fetch_vendor.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    vendor = tmp_path / "baked"
+    vendor.mkdir()
+    (vendor / "opencv.js").write_bytes(b"x" * 1_100_000)
+    (vendor / "opentype.min.js").write_bytes(b"y" * 150_000)
+    monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
+    assert mod.main([]) == 0                 # 快取命中、graceful 回 0
+
+    ry = (root / "render.yaml").read_text("utf-8")
+    assert "scripts/fetch_vendor.py" in ry               # build 端
+    assert "STROKE_ORDER_VENDOR_DIR" in ry               # runtime 端
+    assert "/opt/render/project/src/.vendor" in ry       # 同一路徑
+
+
 def test_5ck_ensure_cached_hits_cache_without_network(tmp_path, monkeypatch):
     """5ck：快取命中時 _ensure_opencv_cached 不碰網路直接回。"""
     from stroke_order.web.server import _ensure_opencv_cached

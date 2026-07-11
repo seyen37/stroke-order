@@ -907,7 +907,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=154";   // 5co cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=155";   // 5cp cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;
@@ -963,9 +963,11 @@ async function renderVia(engineId, file, opts) {
       var id = ++_msgSeq;
       var w = _getWorker();
       return await new Promise(function (resolve, reject) {
-        // 5cm：進度看門狗——90 秒沒有任何訊息（進度或收尾）就視為
-        // worker 懸掛（實測校網 silent-drop 會讓載入端永久卡住而無
-        // 例外），terminate 後回主執行緒降級。每收到一則訊息重計時。
+        // 5cm：進度看門狗——沒有任何訊息（進度或收尾）就視為 worker
+        // 懸掛（實測校網 silent-drop／受管理電腦環境層會讓執行端永久
+        // 卡住而無例外），terminate 後回主執行緒降級。每收到一則訊息
+        // 重計時。5cp：90s → 30s（正常各階段間隔實測 < 3s，30s 已是
+        // 極保守；受管理電腦上使用者不該等超過半分鐘）。
         var stall = null;
         function bump() {
           if (stall) clearTimeout(stall);
@@ -974,8 +976,8 @@ async function renderVia(engineId, file, opts) {
             _workerBroken = true;
             try { _worker && _worker.terminate(); } catch (e2) { /* noop */ }
             _worker = null;
-            reject(new Error("worker 逾時無回應（90s）"));
-          }, 90000);
+            reject(new Error("worker 逾時無回應（30s）"));
+          }, 30000);
         }
         function clearStall() { if (stall) clearTimeout(stall); }
         bump();

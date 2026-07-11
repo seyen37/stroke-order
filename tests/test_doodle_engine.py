@@ -48,9 +48,11 @@ def test_index_has_engine_selector(client):
     html = client.get("/").text
     assert 'id="dd-engine"' in html
     assert '/static/doodle_engine.js' in html
-    # browser 為預設引擎；server 為備援選項
-    assert 'value="browser" selected' in html
-    assert 'value="server"' in html
+    # 5cp：server 為預設（受管理電腦環境層卡死大型腳本執行）；
+    # browser/opencv 仍為選項
+    assert 'value="server" selected' in html
+    assert 'value="browser"' in html
+    assert 'value="opencv"' in html
 
 
 def test_index_links_vectorline(client):
