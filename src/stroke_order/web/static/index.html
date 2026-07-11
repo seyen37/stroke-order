@@ -1512,6 +1512,8 @@
       <button id="st-dl-svg" type="button">⤓ SVG (engrave)</button>
       <button id="st-dl-pdf" type="button" title="列印樣張 / 客戶確認用">⤓ PDF</button>
       <button id="st-dl-gcode" type="button">⤓ G-code (laser)</button>
+      <button id="st-dl-dxf" type="button"
+              title="CUT(紅)=邊框、ENGRAVE(黑)=陰刻字輪廓或陽刻掃描線；LightBurn / Beam Studio 直接匯入">⤓ 分層 DXF</button>
       <span id="st-status" style="margin-left:10px;color:var(--muted);font-size:12px;"></span>
     </div>
 
@@ -6702,6 +6704,7 @@ function stampInit() {
   $("st-dl-svg").onclick   = () => stampDownload("svg");
   $("st-dl-pdf").onclick   = () => stampDownload("pdf");
   $("st-dl-gcode").onclick = () => stampDownload("gcode");
+  $("st-dl-dxf").onclick   = () => stampDownload("dxf");   // 5bs
   $("st-deco-add").onclick = stampAddDecoration;
   // 12m-1 patch r5: applyDefaults 必須先於 capacity 註冊到 st-preset.change
   // 否則 capacity 拿 stale w/h 發 fetch，跟 applyDefaults 末尾 call 的 fetch
@@ -7520,6 +7523,7 @@ async function stampDownload(format) {
     // 12b-4: format → file extension（svg/pdf/gcode 三選一）
     const ext = format === "svg" ? "svg"
               : format === "pdf" ? "pdf"
+              : format === "dxf" ? "dxf"
               : "gcode";
     a.download = `stamp.${ext}`;
     document.body.appendChild(a);

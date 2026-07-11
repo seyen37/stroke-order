@@ -2292,62 +2292,44 @@ def render_stamp_svg(
     )
 
 
-def render_stamp_gcode(
+def _stamp_polylines(
     text: str,
     char_loader: CharLoader,
     *,
-    preset: StampPreset = "square_name",
-    stamp_width_mm: float = 25.0,
-    stamp_height_mm: float = 25.0,
-    char_size_mm: float = 10.0,
+    preset: StampPreset,
+    stamp_width_mm: float,
+    stamp_height_mm: float,
+    char_size_mm: float,
     show_border: bool = True,
     double_border: bool = False,
     double_gap_mm: float = 0.8,
     border_padding_mm: float = 0.8,
-    decorations: list[SvgDecoration] = None,
-    feed: float = 1500.0,
-    laser_power: int = 255,
-    laser_on: str = None,
-    laser_off: str = "M5",
-    engrave_mode: EngraveMode = "concave",
-    line_pitch_mm: float = 0.1,
     layout_5char: str = "2plus3",
     layout_2char: str = "horizontal",
     layout_official_short_col=("right",),
     char_offsets: list[tuple[float, float]] = None,
-    # Phase 12m-1: oval structured fields (mirror of render_stamp_svg)
     oval_arc_top: str = "",
     oval_arc_bottom: str = "",
     oval_body_lines: list[str] = None,
     oval_body_bold: list[bool] = None,
-    oval_decoration: str = "plum",
-    oval_sawtooth: bool = False,
-    # Phase 12m-7: tax_invoice 上方標題 / 縣市
     oval_top_title: str = "",
     oval_location: str = "",
     oval_location_position: str = "bottom",
-    # Phase 12m-7 r26: 圓戳章 (round) 單圓周模式
     round_continuous_arc: bool = False,
-    # Phase 12m-7 r31: 動態 body slot overrides
     body_slot_overrides: dict = None,
-    # Phase 12m-7 r39: 職名章 (rectangle_title) 結構化欄位
     rect_left_line1: str = "",
     rect_left_line2: str = "",
     rect_right: str = "",
     rect_left_2rows: bool = False,
-) -> str:
-    """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
-    by default; override ``laser_on`` / ``laser_off`` for diode-laser
-    firmwares that use ``M106``/``M107`` etc.
+) -> dict:
+    """5bs: 印章幾何收集器 — G-code 與分層 DXF 共用的單一真相.
 
-    ``engrave_mode`` (Phase 12c)：
-    - ``"concave"``（陰刻、預設）：雷射沿字 outline 走，字凹下
-    - ``"convex"``（陽刻）：雷射光柵掃描鋪滿『字外』背景區域，字凸出。
-      ``line_pitch_mm`` 控制掃描密度（0.05 細緻 / 0.10 標準 / 0.20 粗略）。
+    Returns::
+
+        {"borders":       [list[(x, y)], ...],   # 邊框（閉合，首點不重複）
+         "char_outlines": [list[(x, y)], ...],   # 字 outline（bbox 拉伸後）
+         "inset":         (left, top, right, bottom)}  # 陽刻掃描邊界
     """
-    if laser_on is None:
-        laser_on = f"M3 S{laser_power}"
-    decorations = decorations or []
     oval_body_lines = oval_body_lines or []
 
     def _load_chars(s: str) -> list[Character]:
@@ -2414,24 +2396,13 @@ def render_stamp_gcode(
         rect_left_2rows=bool(rect_left_2rows),
     )
 
-    out: list[str] = [
-        "; --- stroke-order stamp G-code (laser engrave) ---",
-        f"; preset={preset}  stamp={stamp_width_mm}x{stamp_height_mm}mm  "
-        f"char={char_size_mm}mm  show_border={show_border}",
-        "G21 ; mm",
-        "G90 ; absolute",
-        laser_off,
-    ]
-
+    borders: list[list[tuple[float, float]]] = []
     if show_border:
         for shape in _stamp_border_polys(
             preset, stamp_width_mm, stamp_height_mm,
             double_border=double_border, double_gap_mm=double_gap_mm,
         ):
-            poly = _ensure_polygon(shape)
-            out.extend(_polygon_to_gcode_path(
-                poly, feed, laser_on, laser_off,
-            ))
+            borders.append(list(_ensure_polygon(shape).vertices))
 
     # G-code 採 **bbox-based** non-uniform scale（與 SVG render 對齊）：
     # 字 outline bbox 撐滿 (w_mm, h_mm) cell，bbox 中心對到 (cx_mm, cy_mm)。
@@ -2482,6 +2453,108 @@ def render_stamp_gcode(
             if len(pts_mm) >= 2:
                 char_polylines_mm.append(pts_mm)
 
+    inset = border_padding_mm + (double_gap_mm if double_border else 0)
+    return {
+        "borders": borders,
+        "char_outlines": char_polylines_mm,
+        "inset": (inset, inset,
+                  stamp_width_mm - inset, stamp_height_mm - inset),
+    }
+
+
+def render_stamp_gcode(
+    text: str,
+    char_loader: CharLoader,
+    *,
+    preset: StampPreset = "square_name",
+    stamp_width_mm: float = 25.0,
+    stamp_height_mm: float = 25.0,
+    char_size_mm: float = 10.0,
+    show_border: bool = True,
+    double_border: bool = False,
+    double_gap_mm: float = 0.8,
+    border_padding_mm: float = 0.8,
+    decorations: list[SvgDecoration] = None,
+    feed: float = 1500.0,
+    laser_power: int = 255,
+    laser_on: str = None,
+    laser_off: str = "M5",
+    engrave_mode: EngraveMode = "concave",
+    line_pitch_mm: float = 0.1,
+    layout_5char: str = "2plus3",
+    layout_2char: str = "horizontal",
+    layout_official_short_col=("right",),
+    char_offsets: list[tuple[float, float]] = None,
+    # Phase 12m-1: oval structured fields (mirror of render_stamp_svg)
+    oval_arc_top: str = "",
+    oval_arc_bottom: str = "",
+    oval_body_lines: list[str] = None,
+    oval_body_bold: list[bool] = None,
+    oval_decoration: str = "plum",
+    oval_sawtooth: bool = False,
+    # Phase 12m-7: tax_invoice 上方標題 / 縣市
+    oval_top_title: str = "",
+    oval_location: str = "",
+    oval_location_position: str = "bottom",
+    # Phase 12m-7 r26: 圓戳章 (round) 單圓周模式
+    round_continuous_arc: bool = False,
+    # Phase 12m-7 r31: 動態 body slot overrides
+    body_slot_overrides: dict = None,
+    # Phase 12m-7 r39: 職名章 (rectangle_title) 結構化欄位
+    rect_left_line1: str = "",
+    rect_left_line2: str = "",
+    rect_right: str = "",
+    rect_left_2rows: bool = False,
+) -> str:
+    """G-code for a laser engraver. ``M3 S{laser_power}`` at full power
+    by default; override ``laser_on`` / ``laser_off`` for diode-laser
+    firmwares that use ``M106``/``M107`` etc.
+
+    ``engrave_mode`` (Phase 12c)：
+    - ``"concave"``（陰刻、預設）：雷射沿字 outline 走，字凹下
+    - ``"convex"``（陽刻）：雷射光柵掃描鋪滿『字外』背景區域，字凸出。
+      ``line_pitch_mm`` 控制掃描密度（0.05 細緻 / 0.10 標準 / 0.20 粗略）。
+    """
+    if laser_on is None:
+        laser_on = f"M3 S{laser_power}"
+    decorations = decorations or []
+    oval_body_lines = oval_body_lines or []
+
+    geo = _stamp_polylines(
+        text, char_loader,
+        preset=preset, stamp_width_mm=stamp_width_mm,
+        stamp_height_mm=stamp_height_mm, char_size_mm=char_size_mm,
+        show_border=show_border, double_border=double_border,
+        double_gap_mm=double_gap_mm, border_padding_mm=border_padding_mm,
+        layout_5char=layout_5char, layout_2char=layout_2char,
+        layout_official_short_col=layout_official_short_col,
+        char_offsets=char_offsets,
+        oval_arc_top=oval_arc_top, oval_arc_bottom=oval_arc_bottom,
+        oval_body_lines=oval_body_lines, oval_body_bold=oval_body_bold,
+        oval_top_title=oval_top_title, oval_location=oval_location,
+        oval_location_position=oval_location_position,
+        round_continuous_arc=round_continuous_arc,
+        body_slot_overrides=body_slot_overrides,
+        rect_left_line1=rect_left_line1, rect_left_line2=rect_left_line2,
+        rect_right=rect_right, rect_left_2rows=rect_left_2rows,
+    )
+
+    out: list[str] = [
+        "; --- stroke-order stamp G-code (laser engrave) ---",
+        f"; preset={preset}  stamp={stamp_width_mm}x{stamp_height_mm}mm  "
+        f"char={char_size_mm}mm  show_border={show_border}",
+        "G21 ; mm",
+        "G90 ; absolute",
+        laser_off,
+    ]
+
+    for border_pts in geo["borders"]:
+        out.extend(_polygon_to_gcode_path(
+            Polygon(vertices=border_pts), feed, laser_on, laser_off,
+        ))
+
+    char_polylines_mm = geo["char_outlines"]
+
     if engrave_mode == "convex":
         # 陽刻：scanline 鋪滿『字外』背景；字 outline 不單獨雕（會被光柵
         # 自動處理，雷射在字內 OFF）
@@ -2492,11 +2565,7 @@ def render_stamp_gcode(
                 poly = poly + [poly[0]]
             closed_polys.append(poly)
         # 內框邊界 = 外框 - border_padding（雙邊框時再 - double_gap）
-        inset = border_padding_mm + (double_gap_mm if double_border else 0)
-        b_left = inset
-        b_right = stamp_width_mm - inset
-        b_top = inset
-        b_bottom = stamp_height_mm - inset
+        b_left, b_top, b_right, b_bottom = geo["inset"]
         from .engrave import scanline_engrave_gcode
         scan_lines, stats = scanline_engrave_gcode(
             closed_polys,
@@ -2608,3 +2677,97 @@ __all__ = [
     "render_stamp_gcode",
     "stamp_capacity",
 ]
+
+
+def render_stamp_dxf(
+    text: str,
+    char_loader: CharLoader,
+    *,
+    preset: StampPreset = "square_name",
+    stamp_width_mm: float = 25.0,
+    stamp_height_mm: float = 25.0,
+    char_size_mm: float = 10.0,
+    show_border: bool = True,
+    double_border: bool = False,
+    double_gap_mm: float = 0.8,
+    border_padding_mm: float = 0.8,
+    decorations: list[SvgDecoration] = None,
+    engrave_mode: EngraveMode = "concave",
+    line_pitch_mm: float = 0.1,
+    layout_5char: str = "2plus3",
+    layout_2char: str = "horizontal",
+    layout_official_short_col=("right",),
+    char_offsets: list[tuple[float, float]] = None,
+    oval_arc_top: str = "",
+    oval_arc_bottom: str = "",
+    oval_body_lines: list[str] = None,
+    oval_body_bold: list[bool] = None,
+    oval_decoration: str = "plum",
+    oval_sawtooth: bool = False,
+    oval_top_title: str = "",
+    oval_location: str = "",
+    oval_location_position: str = "bottom",
+    round_continuous_arc: bool = False,
+    body_slot_overrides: dict = None,
+    rect_left_line1: str = "",
+    rect_left_line2: str = "",
+    rect_right: str = "",
+    rect_left_2rows: bool = False,
+) -> str:
+    """5bs: 印章分層 DXF R12 匯出.
+
+    - CUT（紅）＝邊框（單框或雙框）
+    - ENGRAVE（黑）＝陰刻時為字 outline 迴圈；陽刻時為光柵掃描
+      hatch 線段（與 G-code 同一收集器，line_pitch_mm 控密度）
+
+    ``decorations`` / ``oval_decoration`` / ``oval_sawtooth`` 為 SVG
+    專屬視覺元素，DXF 與 G-code 同樣不含（簽名保留以便 **common
+    直接展開）。
+    """
+    from .dxf import DxfPolyline, layers_to_dxf
+
+    geo = _stamp_polylines(
+        text, char_loader,
+        preset=preset, stamp_width_mm=stamp_width_mm,
+        stamp_height_mm=stamp_height_mm, char_size_mm=char_size_mm,
+        show_border=show_border, double_border=double_border,
+        double_gap_mm=double_gap_mm, border_padding_mm=border_padding_mm,
+        layout_5char=layout_5char, layout_2char=layout_2char,
+        layout_official_short_col=layout_official_short_col,
+        char_offsets=char_offsets,
+        oval_arc_top=oval_arc_top, oval_arc_bottom=oval_arc_bottom,
+        oval_body_lines=oval_body_lines, oval_body_bold=oval_body_bold,
+        oval_top_title=oval_top_title, oval_location=oval_location,
+        oval_location_position=oval_location_position,
+        round_continuous_arc=round_continuous_arc,
+        body_slot_overrides=body_slot_overrides,
+        rect_left_line1=rect_left_line1, rect_left_line2=rect_left_line2,
+        rect_right=rect_right, rect_left_2rows=rect_left_2rows,
+    )
+    cut = [DxfPolyline(list(pts), closed=True) for pts in geo["borders"]]
+
+    engrave: list = []
+    if engrave_mode == "convex":
+        closed_polys = []
+        for poly in geo["char_outlines"]:
+            if poly[0] != poly[-1]:
+                poly = poly + [poly[0]]
+            closed_polys.append(poly)
+        from .engrave import scanline_segments
+        b_left, b_top, b_right, b_bottom = geo["inset"]
+        segments, _stats = scanline_segments(
+            closed_polys,
+            border_left=b_left, border_right=b_right,
+            border_top=b_top, border_bottom=b_bottom,
+            line_pitch=line_pitch_mm,
+        )
+        for x_start, y, x_end in segments:
+            engrave.append(DxfPolyline([(x_start, y), (x_end, y)]))
+    else:  # concave
+        for pts in geo["char_outlines"]:
+            if len(pts) > 2 and pts[0] == pts[-1]:
+                engrave.append(DxfPolyline(list(pts[:-1]), closed=True))
+            else:
+                engrave.append(DxfPolyline(list(pts), closed=False))
+
+    return layers_to_dxf([("CUT", cut), ("ENGRAVE", engrave)])

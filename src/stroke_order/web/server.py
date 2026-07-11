@@ -2869,7 +2869,8 @@ def create_app() -> FastAPI:
         "^(square_name|round_name|square_official|round|oval|"
         "tax_invoice|rectangle_title)$"
     )
-    _STAMP_FORMAT_PATTERN = "^(svg|gcode|pdf)$"
+    # 5bs: "dxf" — layered DXF R12（CUT=邊框 / ENGRAVE=陰刻輪廓或陽刻 hatch）
+    _STAMP_FORMAT_PATTERN = "^(svg|gcode|pdf|dxf)$"
     _STAMP_ENGRAVE_PATTERN = "^(concave|convex)$"
     _STAMP_LAYOUT5_PATTERN = "^(3plus2|2plus3)$"
     _STAMP_LAYOUT2_PATTERN = "^(horizontal|vertical)$"
@@ -2903,10 +2904,10 @@ def create_app() -> FastAPI:
     @app.post("/api/stamp")
     async def stamp_post(req: StampPostRequest):
         from ..exporters.stamp import (
-            render_stamp_svg, render_stamp_gcode,
+            render_stamp_svg, render_stamp_gcode, render_stamp_dxf,
         )
         from ..exporters.patch import SvgDecoration
-        if req.format not in ("svg", "gcode", "pdf"):
+        if req.format not in ("svg", "gcode", "pdf", "dxf"):
             raise HTTPException(422, detail=f"unknown format {req.format!r}")
 
         def loader(ch: str):
@@ -3016,6 +3017,12 @@ def create_app() -> FastAPI:
             return Response(content=pdf_bytes, media_type="application/pdf",
                             headers={"Content-Disposition":
                                      _content_disposition("stamp", "pdf")})
+        if req.format == "dxf":
+            # 5bs: CUT=邊框、ENGRAVE=陰刻輪廓或陽刻 hatch 掃描段
+            dxf = render_stamp_dxf(**common, line_pitch_mm=req.line_pitch_mm)
+            return Response(content=dxf, media_type="image/vnd.dxf",
+                            headers={"Content-Disposition":
+                                     _content_disposition("stamp_layers", "dxf")})
         gc = render_stamp_gcode(
             **common, feed=req.feed, laser_power=req.laser_power,
             line_pitch_mm=req.line_pitch_mm,

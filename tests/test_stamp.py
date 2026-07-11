@@ -1688,3 +1688,70 @@ def test_oval_arc_chars_uniform_spacing_bottom():
         dists.append(_math.hypot(dx, dy))
     ratio = max(dists) / min(dists)
     assert ratio < 1.05, f"bottom distances not uniform: ratio={ratio:.3f}"
+
+
+# ---------------------------------------------------------------------------
+# 5bs: 印章分層 DXF（CUT=邊框 / ENGRAVE=陰刻輪廓或陽刻 hatch 段）
+# ---------------------------------------------------------------------------
+
+
+def test_5bs_scanline_segments_matches_gcode_stats():
+    """收集器與 gcode 發射器對同一輸入回報一致的統計。"""
+    from stroke_order.exporters.engrave import (
+        scanline_segments, scanline_engrave_gcode,
+    )
+    square = [[(5, 5), (15, 5), (15, 15), (5, 15), (5, 5)]]
+    kw = dict(border_left=1.0, border_right=24.0,
+              border_top=1.0, border_bottom=24.0, line_pitch=0.5)
+    segments, s_stats = scanline_segments(square, **kw)
+    _lines, g_stats = scanline_engrave_gcode(square, **kw)
+    assert s_stats["on_segments"] == g_stats["on_segments"] == len(segments)
+    assert s_stats["scan_lines"] == g_stats["scan_lines"]
+    assert abs(s_stats["total_cut_mm"] - g_stats["total_cut_mm"]) < 1e-9
+    # 中段掃描線應被字形方塊切成兩段（左右背景）
+    mid = [seg for seg in segments if abs(seg[1] - 10.0) < 0.26]
+    assert any(len([s for s in segments if s[1] == y]) == 2
+               for _x0, y, _x1 in mid)
+
+
+def test_5bs_dxf_concave_outline_loops(stub_loader):
+    from stroke_order.exporters.stamp import render_stamp_dxf
+    doc = render_stamp_dxf("永", stub_loader, preset="square_name",
+                           engrave_mode="concave")
+    assert "2\nCUT\n" in doc and "2\nENGRAVE\n" in doc
+    assert doc.count("0\nPOLYLINE\n") >= 2       # 邊框 + 至少一條字輪廓
+    assert "70\n1\n" in doc                       # 閉合迴圈存在
+
+
+def test_5bs_dxf_convex_hatch_segments(stub_loader):
+    from stroke_order.exporters.stamp import render_stamp_dxf
+    doc = render_stamp_dxf("永", stub_loader, preset="square_name",
+                           engrave_mode="convex", line_pitch_mm=0.5)
+    n = doc.count("0\nPOLYLINE\n")
+    assert n > 20                                  # hatch 掃描段成群
+    # pitch 加倍 → 段數約減半（粗略上界檢查）
+    doc2 = render_stamp_dxf("永", stub_loader, preset="square_name",
+                            engrave_mode="convex", line_pitch_mm=1.0)
+    assert doc2.count("0\nPOLYLINE\n") < n
+
+
+def test_5bs_dxf_no_border(stub_loader):
+    from stroke_order.exporters.stamp import render_stamp_dxf
+    a = render_stamp_dxf("永", stub_loader, show_border=True)
+    b = render_stamp_dxf("永", stub_loader, show_border=False)
+    assert a.count("0\nPOLYLINE\n") == b.count("0\nPOLYLINE\n") + 1
+
+
+def test_5bs_api_stamp_dxf(client):
+    r = client.get("/api/stamp?text=吉&preset=square_name&format=dxf")
+    assert r.status_code == 200
+    assert "dxf" in r.headers.get("content-disposition", "")
+    assert r.text.startswith("0\nSECTION")
+    assert "2\nCUT\n" in r.text and "2\nENGRAVE\n" in r.text
+
+
+def test_5bs_api_stamp_dxf_convex(client):
+    r = client.get("/api/stamp?text=吉&preset=square_name&format=dxf"
+                   "&engrave_mode=convex&line_pitch_mm=0.5")
+    assert r.status_code == 200
+    assert r.text.count("0\nPOLYLINE\n") > 20

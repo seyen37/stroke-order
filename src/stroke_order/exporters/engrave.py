@@ -51,6 +51,67 @@ def scanline_intersections(
     return xs
 
 
+def scanline_segments(
+    polygons: list[list[tuple[float, float]]],
+    *,
+    border_left: float, border_right: float,
+    border_top: float, border_bottom: float,
+    line_pitch: float = 0.1,
+    boustrophedon: bool = True,
+) -> tuple[list[tuple[float, float, float]], dict]:
+    """5bs: 陽刻光柵掃描的幾何收集器 — G-code 與 DXF 共用的單一真相.
+
+    Returns:
+        (segments, stats) — segments 是 ``(x_start, y, x_end)`` 清單，
+        保留 boustrophedon 之字形順序（奇偶行反向）；stats 含
+        scan_lines / on_segments / total_cut_mm。
+    """
+    segments: list[tuple[float, float, float]] = []
+    n_lines = 0
+    n_segments = 0
+    total_cut_mm = 0.0
+    direction_l_to_r = True
+
+    y = border_top
+    while y <= border_bottom:
+        xs = scanline_intersections(polygons, y)
+        # Even-odd rule：在 [border_left, border_right] 內，
+        # boundary 序列分區 ON/OFF 交替（從外圍 ON 開始）
+        in_range = [x for x in xs if border_left < x < border_right]
+        boundary = [border_left] + in_range + [border_right]
+        # 區段索引偶數 (0, 2, 4...) = ON（背景），奇數 = OFF（字內）
+        on_segments = []
+        for i in range(len(boundary) - 1):
+            if i % 2 == 0:  # ON
+                seg_l, seg_r = boundary[i], boundary[i + 1]
+                if seg_r > seg_l:  # 跳過零長度（可能來自浮點誤差）
+                    on_segments.append((seg_l, seg_r))
+
+        if not on_segments:
+            y += line_pitch
+            continue
+
+        # Boustrophedon: 奇偶行反向減少空跑
+        if boustrophedon and not direction_l_to_r:
+            on_segments = [(b, a) for (a, b) in reversed(on_segments)]
+
+        for x_start, x_end in on_segments:
+            segments.append((x_start, y, x_end))
+            n_segments += 1
+            total_cut_mm += abs(x_end - x_start)
+        n_lines += 1
+        if boustrophedon:
+            direction_l_to_r = not direction_l_to_r
+        y += line_pitch
+
+    stats = {
+        "scan_lines": n_lines,
+        "on_segments": n_segments,
+        "total_cut_mm": total_cut_mm,
+    }
+    return segments, stats
+
+
 def scanline_engrave_gcode(
     polygons: list[list[tuple[float, float]]],
     *,
@@ -87,54 +148,27 @@ def scanline_engrave_gcode(
         f"{laser_off} ; laser off (initial)",
     ]
 
-    n_lines = 0
-    n_segments = 0
-    total_cut_mm = 0.0
-    direction_l_to_r = True
-
-    y = border_top
-    while y <= border_bottom:
-        xs = scanline_intersections(polygons, y)
-        # Even-odd rule：在 [border_left, border_right] 內，
-        # boundary 序列分區 ON/OFF 交替（從外圍 ON 開始）
-        in_range = [x for x in xs if border_left < x < border_right]
-        boundary = [border_left] + in_range + [border_right]
-        # 區段索引偶數 (0, 2, 4...) = ON（背景），奇數 = OFF（字內）
-        on_segments = []
-        for i in range(len(boundary) - 1):
-            if i % 2 == 0:  # ON
-                seg_l, seg_r = boundary[i], boundary[i + 1]
-                if seg_r > seg_l:  # 跳過零長度（可能來自浮點誤差）
-                    on_segments.append((seg_l, seg_r))
-
-        if not on_segments:
-            y += line_pitch
-            continue
-
-        # Boustrophedon: 奇偶行反向減少空跑
-        if boustrophedon and not direction_l_to_r:
-            on_segments = [(b, a) for (a, b) in reversed(on_segments)]
-
-        for x_start, x_end in on_segments:
-            lines.append(f"G0 X{x_start:.3f} Y{y:.3f}")
-            lines.append(f"{laser_on} S{laser_power}")
-            lines.append(f"G1 X{x_end:.3f} F{feed:.0f}")
-            lines.append(laser_off)
-            n_segments += 1
-            total_cut_mm += abs(x_end - x_start)
-        n_lines += 1
-        if boustrophedon:
-            direction_l_to_r = not direction_l_to_r
-        y += line_pitch
+    segments, seg_stats = scanline_segments(
+        polygons,
+        border_left=border_left, border_right=border_right,
+        border_top=border_top, border_bottom=border_bottom,
+        line_pitch=line_pitch, boustrophedon=boustrophedon,
+    )
+    for x_start, y, x_end in segments:
+        lines.append(f"G0 X{x_start:.3f} Y{y:.3f}")
+        lines.append(f"{laser_on} S{laser_power}")
+        lines.append(f"G1 X{x_end:.3f} F{feed:.0f}")
+        lines.append(laser_off)
 
     lines.append(f"{laser_off} ; final laser off")
 
     stats = {
-        "scan_lines": n_lines,
-        "on_segments": n_segments,
+        "scan_lines": seg_stats["scan_lines"],
+        "on_segments": seg_stats["on_segments"],
         "gcode_lines": len(lines),
-        "total_cut_mm": total_cut_mm,
-        "estimated_min": total_cut_mm / feed if feed > 0 else 0.0,
+        "total_cut_mm": seg_stats["total_cut_mm"],
+        "estimated_min": (seg_stats["total_cut_mm"] / feed
+                          if feed > 0 else 0.0),
     }
     return lines, stats
 
