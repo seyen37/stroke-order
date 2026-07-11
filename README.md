@@ -1,10 +1,10 @@
 # stroke-order
 
 [![CI](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml/badge.svg)](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-1557%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-1567%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![license](https://img.shields.io/badge/license-MIT-yellow)
-![version](https://img.shields.io/badge/version-0.14.137-orange)
+![version](https://img.shields.io/badge/version-0.14.138-orange)
 
 ## 🌟 核心願景
 
@@ -38,7 +38,7 @@
 
 ---
 
-## 目前版本：0.14.136 (Phase 1 → 5bp + Phase A 組件分析器 + zentangle 6z)
+## 目前版本：0.14.138 (Phase 1 → 5bq + Phase A 組件分析器 + zentangle 6z)
 
 > **Web UI 9 模式**：單字 / 字帖 / 筆記 / 信紙 / 稿紙 / 塗鴉 / 文字雲 / **筆順練習** (5d) / **公眾分享庫** (5g)。
 >
@@ -49,6 +49,8 @@
 > **抄經模式・科普教育** (5bo) — 第 8 分類，9 部 preset：元素週期表（118 元素）、九九乘法表、二十四節氣、康熙 214 部首、倉頡字根、注音符號、國字大寫數字、十二時辰生肖、太陽系天體；前六者附 `page_type=table` 版面頁（週期表 18×7＋鑭錒系 / 乘法口訣下三角 / 節氣四季帶 / 部首畫數分帶 / 倉頡四類鍵位 / 注音聲介韻＋鍵位），PDF 匯出自動附頁。
 >
 > **打包經文** (5bp) — 53 部 builtin 文本隨 repo 散布（`data/sutras/`，使用者檔優先），部署與新安裝開箱即用；來源與授權見 [SOURCES.md](src/stroke_order/data/sutras/SOURCES.md)。
+>
+> **分層 DXF** (5bq) — 布章模式匯出 CUT／ENGRAVE／WRITE 三層 DXF R12（自寫 writer 零依賴），LightBurn／Beam Studio 直接匯入指派功率。
 >
 > **1557 個單元測試**全部通過。
 
