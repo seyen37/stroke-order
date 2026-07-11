@@ -987,14 +987,94 @@ Implementation 層（phase decision logs）
 
 ---
 
+## 8. 跨引擎／降級／前端化原則（2026-07-11 5bt→5ch 新增）
+
+> 單日十輪（塗鴉三引擎前端化＋部首教學路線＋三個實體製造修復）
+> 沉澱。詳細脈絡見
+> `decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`。
+
+### 8.1 降級階梯必須配可觀察性
+
+三層降級（Worker → 主執行緒 → 伺服器）讓 OpenCV 引擎 CDN 死連結
+潛伏兩輪——主引擎全滅，體驗上「還能用」。fallback 觸發時必須在
+UI 可見（狀態列標注引擎與失敗原因）、console 留 warn；「優雅降級」
+若無人看見，等於故障被制度化。
+
+### 8.2 外部資源 pin 完必須實測，修好後寫成清單重試
+
+pin CDN 版號是憑記憶寫的（4.10.0 → 實測 404）。規則：任何外部
+URL 寫進 code 前先實測 200；單點 pin 一律升級成有序清單重試
+（pinned 優先、latest 備援），錯誤訊息帶上實際嘗試的 URL。
+
+### 8.3 改任何預設值，第一動作是 grep 全部測試
+
+5bp 學過（packaged sutras 改變 fixture 前提）、5ch 再犯（contour
+成預設 → 兩個舊斷言紅）。機械規則：`grep -r 舊行為關鍵字 tests/`
+在動手前做，不是紅燈後做。
+
+### 8.4 瀏覽器可見 ≠ 光柵管線可見
+
+布章字形在瀏覽器「看得到」是反鋸齒的假象——0.003mm 髮絲線進
+cairosvg/雷切軟體直接消失。凡描邊元素進 scale transform，必問
+「有效 mm 線寬是多少」；驗證用像素級光柵測試（暗像素計數），
+不用肉眼看瀏覽器。
+
+### 8.5 幾何演算法：合成形狀測試先行（本日三度救場）
+
+橫條/L 形/圓環/方形這類「答案可手算」的合成案例，在寫演算法
+「之前」就寫成測試。實績：骨架追蹤對角冗餘邊（L 形碎 4 段）、
+閉環 RDP 退化基線（方形塌縮成空）、centerline 重複段——三個
+肉眼幾乎不可見、雷射會多切一刀的 bug 全在第一次執行就被抓。
+
+### 8.6 閉環 RDP 的退化基線陷阱（具體技法）
+
+閉環首尾同點 → RDP 基線長度 0 → 所有點距離 0 → 全環塌縮。
+正解：取距起點最遠的點為錨，拆成兩條開放折線分別簡化再接回。
+（骨架/輪廓/任何 loop 簡化皆適用。）
+
+### 8.7 像素圖形的對角鄰接要修剪
+
+8-連通骨架/邊界在轉角與階梯處，對角連接與正交路徑並存 → 假交叉
+點、重複段。規則：對角邊若存在正交「墊腳石」即為冗餘，建圖時
+修剪；配合「邊訪問」而非「點訪問」去重。
+
+### 8.8 沙箱與 Windows 檔案的單向紀律（事故級教訓）
+
+沙箱 bash 寫 mount 會截斷 Windows 權威檔（server.py 事故：斷點
+`tr` 恰為合法名稱表達式 → import 不報錯、create_app 靜默回
+None → 406 測試同因齊死）。紀律：**改 Windows 檔一律 Edit/Write
+檔案工具；沙箱 bash 只讀**；且剛寫完的檔沙箱視圖可能是舊快照，
+驗證一律走檔案工具（Grep/Read），沙箱功能驗證用 heredoc 重建
+副本。
+
+### 8.9 可插拔註冊表 > 分支 if——一張表吃五輪演進
+
+5ca 的 `DoodleEngines` 註冊表（id/label/available()/render()
+統一介面）讓後續 opencv（5cb）、Worker 卸載（5cf）、centerline
+（5cg）全是「掛進來」而非「改架構」。與 5bo 的 table-page
+renderer registry 同款哲學：**新能力＝新註冊項，零重構**。
+
+### 8.10 使用者的雙盲實測是最高價值測試
+
+1616 個綠燈攔不到「CDN 網址打錯」——只在真實瀏覽器發生。
+使用者拿同一張照片跑兩個工具的對照截圖，一次逼出兩個根因
+（5ch）。每輪收工訊息應主動給「實機驗收動線」（去哪裡、按
+什麼、應該看到什麼），把使用者變成最後一道測試防線。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
   - [`2026-05-04_05_session_log_r28-r29k.md`](journal/2026-05-04_05_session_log_r28-r29k.md)
-  - [`2026-05-06_session_log.md`](journal/2026-05-06_session_log.md)（本日）
+  - [`2026-05-06_session_log.md`](journal/2026-05-06_session_log.md)
+  - [`WORK_LOG_2026-07-11.md`](WORK_LOG_2026-07-11.md)（5bt→5ch
+    十輪＋救援全記錄，含收官總結）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
-  - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（**本日 phase 6z spike**）
+  - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
+  - [`2026-07-11_5bo_educational_category.md`](decisions/2026-07-11_5bo_educational_category.md)（科普教育分類）
+  - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
   - `2026-05-06_r29-r29k_principles.md`（在 personal-playbook repo，跨 ref 案例 §B.15-B.23）
@@ -1004,4 +1084,4 @@ Implementation 層（phase decision logs）
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）。兩者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收）。三者互補。
