@@ -57,3 +57,33 @@ def test_index_links_vectorline(client):
     """REF_ANALYSIS_VECTORLINE 社群互連項：塗鴉模式導流描線工坊。"""
     html = client.get("/").text
     assert "vector-line.vercel.app" in html
+
+
+# ---------------------------------------------------------------------------
+# Phase 5cb — OpenCV.js 引擎
+# ---------------------------------------------------------------------------
+
+def test_5cb_opencv_engine_registered(client):
+    body = client.get("/static/doodle_engine.js").text
+    assert "opencv:" in body
+    assert "loadOpenCV" in body
+    assert "renderInOpenCV" in body
+    # CDN 惰性載入且版本 pin 死（可重現性）
+    assert "https://docs.opencv.org/4.10.0/opencv.js" in body
+
+
+def test_5cb_opencv_pipeline_symbols(client):
+    """輪廓管線關鍵步驟鎖定：二值化→去斑→輪廓→簡化。"""
+    body = client.get("/static/doodle_engine.js").text
+    for sym in ("adaptiveThreshold", "morphologyEx", "findContours",
+                "approxPolyDP", "Canny", "contoursToSvg"):
+        assert sym in body, f"doodle_engine.js 缺少 opencv 管線符號 {sym}"
+
+
+def test_5cb_index_has_opencv_option_and_params(client):
+    html = client.get("/").text
+    assert 'value="opencv"' in html
+    assert 'id="dd-cv-params"' in html
+    for pid in ("dd-cv-mode", "dd-cv-block", "dd-cv-c", "dd-cv-invert",
+                "dd-cv-simplify", "dd-cv-minarea", "dd-cv-maxside"):
+        assert f'id="{pid}"' in html, f"index.html 缺少 OpenCV 參數 {pid}"

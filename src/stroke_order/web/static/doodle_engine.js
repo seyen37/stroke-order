@@ -1,11 +1,18 @@
 /* ============================================================
- * doodle_engine.js — Phase 5ca 塗鴉模式前端化
+ * doodle_engine.js — Phase 5ca/5cb 塗鴉模式前端化
  *
- * 在瀏覽器內復刻 exporters/doodle.py 的完整管線，讓調參即時
+ * 在瀏覽器內把「圖片 → 線稿 SVG」整段管線前端化，調參即時
  * 預覽、圖片不出本機。核心為純函式（吃 TypedArray），瀏覽器與
  * node 皆可執行 —— node 端用於與 Python 實作做 parity 驗證。
  *
- * 管線（與 Python 一一對應）：
+ * 引擎表 DoodleEngines：
+ *   browser — 5ca：復刻 exporters/doodle.py 的簡筆畫管線
+ *   opencv  — 5cb：OpenCV.js WASM（CDN 惰性載入），自適應二值化
+ *             ＋形態學去斑＋輪廓抽取＋approxPolyDP 簡化，
+ *             高解析（預設 1000px）平滑線稿
+ *   server  — POST /api/doodle（保底／API 相容）
+ *
+ * browser 管線與 Python 的對應：
  *   grayscale      ← PIL convert("L")   （Pillow L24 定點公式）
  *   autocontrast   ← ImageOps.autocontrast(cutoff=2)
  *   findEdges      ← ImageFilter.FIND_EDGES（3×3 Laplacian，邊界複製）
@@ -13,9 +20,6 @@
  *   contentBbox    ← _content_bbox      （auto_crop 去空白）
  *   peelBorder     ← _peel_border       （auto_crop 剝外框）
  *   buildDoodleSvg ← render_doodle_svg  （同結構 SVG，mm 契約一致）
- *
- * 引擎表 DoodleEngines：browser（本檔）/ server（POST /api/doodle）。
- * Phase 5cb 預計掛入 opencv（OpenCV.js WASM，VectorLine 等級品質）。
  * ============================================================ */
 (function (root) {
 "use strict";
@@ -220,20 +224,11 @@ function xmlEscape(s) {
                   .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** render_doodle_svg 的組裝段：吃已備妥的灰階（已 autocontrast），
- *  產出與 Python 同結構的 SVG 字串（mm 實體尺寸契約一致）。 */
-function buildDoodleSvg(gray, w, h, opts) {
+/* ---- SVG 共用幾何（5cb 抽出，供 browser／opencv 兩引擎共用；
+ *      數學與 Python render_doodle_svg 完全一致） ---- */
+function canvasGeom(w, h, opts) {
   var canvasWidthMm = opts.canvasWidthMm || 150.0;
-  var threshold = opts.threshold === undefined ? 50 : opts.threshold;
-  var lineColor = opts.lineColor || "#222";
-  var lineWidth = opts.lineWidth === undefined ? 0.4 : opts.lineWidth;
-  var background = opts.background || "white";
   var marginMm = opts.marginMm === undefined ? 10.0 : opts.marginMm;
-  var annotations = opts.annotations || [];
-
-  var edges = findEdges(gray, w, h);
-  var runs = rleRows(edges, w, h, threshold);
-
   var aspect = h / w;
   var innerW = canvasWidthMm - 2 * marginMm;
   var innerH = innerW * aspect;
@@ -244,18 +239,52 @@ function buildDoodleSvg(gray, w, h, opts) {
     var availH = canvasHeightMm - 2 * marginMm;
     if (innerH > availH) { innerH = availH; innerW = innerH / aspect; }
   }
-  var sx = innerW / w, sy = innerH / h;
+  return {
+    canvasWidthMm: canvasWidthMm, canvasHeightMm: canvasHeightMm,
+    marginMm: marginMm, sx: innerW / w, sy: innerH / h,
+  };
+}
 
-  var parts = [
-    '<svg xmlns="http://www.w3.org/2000/svg" ' +
-    'viewBox="0 0 ' + canvasWidthMm + ' ' + canvasHeightMm + '" ' +
-    'width="' + canvasWidthMm + 'mm" height="' + canvasHeightMm + 'mm">'
-  ];
-  parts.push('<rect x="0" y="0" width="' + canvasWidthMm +
-             '" height="' + canvasHeightMm +
-             '" fill="' + xmlEscape(background) + '"/>');
-  parts.push('<g transform="translate(' + marginMm + ',' + marginMm + ')" ' +
-             'stroke="' + xmlEscape(lineColor) + '" fill="none" ' +
+function svgHeader(g, background) {
+  return ['<svg xmlns="http://www.w3.org/2000/svg" ' +
+          'viewBox="0 0 ' + g.canvasWidthMm + ' ' + g.canvasHeightMm + '" ' +
+          'width="' + g.canvasWidthMm + 'mm" height="' +
+          g.canvasHeightMm + 'mm">',
+          '<rect x="0" y="0" width="' + g.canvasWidthMm +
+          '" height="' + g.canvasHeightMm +
+          '" fill="' + xmlEscape(background || "white") + '"/>'];
+}
+
+function annotationsSvg(annotations) {
+  if (!annotations || !annotations.length) return "";
+  var ann = ['<g class="annotations" font-family="sans-serif">'];
+  for (var a = 0; a < annotations.length; a++) {
+    var an = annotations[a];
+    if (!an.text) continue;
+    ann.push('<text x="' + an.x_mm + '" y="' + an.y_mm +
+             '" font-size="' + (an.size_mm === undefined ? 3.0 : an.size_mm) +
+             '" fill="' + xmlEscape(an.color || "#666") + '">' +
+             xmlEscape(an.text) + '</text>');
+  }
+  ann.push("</g>");
+  return ann.join("");
+}
+
+/** render_doodle_svg 的組裝段：吃已備妥的灰階（已 autocontrast），
+ *  產出與 Python 同結構的 SVG 字串（mm 實體尺寸契約一致）。 */
+function buildDoodleSvg(gray, w, h, opts) {
+  var threshold = opts.threshold === undefined ? 50 : opts.threshold;
+  var lineColor = opts.lineColor || "#222";
+  var lineWidth = opts.lineWidth === undefined ? 0.4 : opts.lineWidth;
+
+  var edges = findEdges(gray, w, h);
+  var runs = rleRows(edges, w, h, threshold);
+  var g = canvasGeom(w, h, opts);
+  var sx = g.sx, sy = g.sy;
+
+  var parts = svgHeader(g, opts.background);
+  parts.push('<g transform="translate(' + g.marginMm + ',' + g.marginMm +
+             ')" stroke="' + xmlEscape(lineColor) + '" fill="none" ' +
              'stroke-width="' + lineWidth + '" stroke-linecap="round">');
   for (var i = 0; i < runs.length; i++) {
     var y = runs[i][0], xs = runs[i][1], xe = runs[i][2];
@@ -271,21 +300,36 @@ function buildDoodleSvg(gray, w, h, opts) {
     }
   }
   parts.push("</g>");
-  if (annotations.length) {
-    var ann = ['<g class="annotations" font-family="sans-serif">'];
-    for (var a = 0; a < annotations.length; a++) {
-      var an = annotations[a];
-      if (!an.text) continue;
-      ann.push('<text x="' + an.x_mm + '" y="' + an.y_mm +
-               '" font-size="' + (an.size_mm === undefined ? 3.0 : an.size_mm) +
-               '" fill="' + xmlEscape(an.color || "#666") + '">' +
-               xmlEscape(an.text) + '</text>');
+  parts.push(annotationsSvg(opts.annotations));  // 空註解 → 空字串
+  parts.push("</svg>");
+  return parts.join("\n");
+}
+
+/** 5cb：輪廓折線 → SVG。polys = [{points:[[x,y],…], closed:bool}]，
+ *  座標為處理解析度像素；畫布幾何與 buildDoodleSvg 同一套 mm 契約。 */
+function contoursToSvg(polys, w, h, opts) {
+  var lineColor = opts.lineColor || "#222";
+  var lineWidth = opts.lineWidth === undefined ? 0.4 : opts.lineWidth;
+  var g = canvasGeom(w, h, opts);
+  var parts = svgHeader(g, opts.background);
+  parts.push('<g transform="translate(' + g.marginMm + ',' + g.marginMm +
+             ')" stroke="' + xmlEscape(lineColor) + '" fill="none" ' +
+             'stroke-width="' + lineWidth + '" stroke-linecap="round" ' +
+             'stroke-linejoin="round">');
+  for (var i = 0; i < polys.length; i++) {
+    var pts = polys[i].points;
+    if (pts.length < 2) continue;
+    var d = ["M", (pts[0][0] * g.sx).toFixed(2) + "," +
+                  (pts[0][1] * g.sy).toFixed(2)];
+    for (var j = 1; j < pts.length; j++) {
+      d.push("L", (pts[j][0] * g.sx).toFixed(2) + "," +
+                  (pts[j][1] * g.sy).toFixed(2));
     }
-    ann.push("</g>");
-    parts.push(ann.join(""));
-  } else {
-    parts.push("");   // Python 端空註解仍 join 一個空字串
+    if (polys[i].closed) d.push("Z");
+    parts.push('<path d="' + d.join(" ") + '"/>');
   }
+  parts.push("</g>");
+  parts.push(annotationsSvg(opts.annotations));
   parts.push("</svg>");
   return parts.join("\n");
 }
@@ -296,15 +340,18 @@ function buildDoodleSvg(gray, w, h, opts) {
 
 var _cache = {file: null, bitmap: null, gray: null, w: 0, h: 0};
 
+function _makeCanvas(w, h) {
+  if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(w, h);
+  var c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  return c;
+}
+
 async function _decode(file) {
   if (_cache.file === file && _cache.bitmap) return _cache;
   var bitmap = await createImageBitmap(file);
   var w = bitmap.width, h = bitmap.height;
-  var cv = (typeof OffscreenCanvas !== "undefined")
-    ? new OffscreenCanvas(w, h)
-    : (function () { var c = document.createElement("canvas");
-                     c.width = w; c.height = h; return c; })();
-  var ctx = cv.getContext("2d", {willReadFrequently: true});
+  var ctx = _makeCanvas(w, h).getContext("2d", {willReadFrequently: true});
   ctx.fillStyle = "#fff";                 // RGBA 壓平到白底
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(bitmap, 0, 0);
@@ -314,34 +361,30 @@ async function _decode(file) {
   return _cache;
 }
 
-/** 瀏覽器引擎主入口。opts 對齊 /api/doodle 的表單欄位。 */
-async function renderInBrowser(file, opts) {
-  var t0 = performance.now();
+/** 裁切＋縮圖到 maxSide，回傳 {imageData, w, h}（白底壓平）。 */
+async function _cropAndScale(file, opts, maxSide) {
   var dec = await _decode(file);
   var box = autoCropBox(dec.gray, dec.w, dec.h,
                         !!opts.autoCropWhitespace, !!opts.autoCropBorder);
   var cw = box[2] - box[0], ch = box[3] - box[1];
-
-  // 縮圖：int(w*scale)，僅縮不放，與 Python _prepare 一致
-  var maxSide = opts.maxSidePx || 200;
   var scale = maxSide / Math.max(cw, ch);
   var tw = cw, th = ch;
   if (scale < 1.0) { tw = Math.trunc(cw * scale); th = Math.trunc(ch * scale); }
-
-  var cv = (typeof OffscreenCanvas !== "undefined")
-    ? new OffscreenCanvas(tw, th)
-    : (function () { var c = document.createElement("canvas");
-                     c.width = tw; c.height = th; return c; })();
-  var ctx = cv.getContext("2d", {willReadFrequently: true});
+  var ctx = _makeCanvas(tw, th).getContext("2d", {willReadFrequently: true});
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";     // 近似 LANCZOS
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, tw, th);
   ctx.drawImage(dec.bitmap, box[0], box[1], cw, ch, 0, 0, tw, th);
-  var rgba = ctx.getImageData(0, 0, tw, th).data;
+  return {imageData: ctx.getImageData(0, 0, tw, th), w: tw, h: th};
+}
 
-  var gray = autocontrast(grayscale(rgba, tw, th), 2);
-  var svg = buildDoodleSvg(gray, tw, th, {
+/** browser 引擎主入口。opts 對齊 /api/doodle 的表單欄位。 */
+async function renderInBrowser(file, opts) {
+  var t0 = performance.now();
+  var s = await _cropAndScale(file, opts, opts.maxSidePx || 200);
+  var gray = autocontrast(grayscale(s.imageData.data, s.w, s.h), 2);
+  var svg = buildDoodleSvg(gray, s.w, s.h, {
     canvasWidthMm: opts.canvasWidthMm,
     threshold: opts.threshold,
     lineColor: opts.lineColor,
@@ -352,7 +395,125 @@ async function renderInBrowser(file, opts) {
 }
 
 /* ------------------------------------------------------------
- * 引擎表（Phase 5cb 將掛入 opencv 引擎）
+ * 5cb：OpenCV.js 引擎（CDN 惰性載入）
+ * ------------------------------------------------------------ */
+
+var OPENCV_CDN_URL = "https://docs.opencv.org/4.10.0/opencv.js";
+var _cvPromise = null;
+
+/** 惰性載入 OpenCV.js（僅載一次；相容 promise 型與
+ *  onRuntimeInitialized 型兩種官方初始化介面）。 */
+function loadOpenCV(onStatus) {
+  if (_cvPromise) return _cvPromise;
+  _cvPromise = new Promise(function (resolve, reject) {
+    if (typeof document === "undefined") {
+      reject(new Error("OpenCV 引擎僅支援瀏覽器環境"));
+      return;
+    }
+    if (onStatus) onStatus("首次載入 OpenCV.js（約 8MB，之後走快取）…");
+    var tag = document.createElement("script");
+    tag.src = OPENCV_CDN_URL;
+    tag.async = true;
+    tag.onerror = function () {
+      _cvPromise = null;   // 下次可重試
+      reject(new Error("OpenCV.js 載入失敗（CDN 無法連線）"));
+    };
+    tag.onload = function () {
+      var cv = root.cv;
+      if (cv && typeof cv.then === "function") {
+        cv.then(function (m) { root.cv = m; resolve(m); }, reject);
+      } else if (cv && cv.Mat) {
+        resolve(cv);
+      } else if (cv) {
+        cv.onRuntimeInitialized = function () { resolve(cv); };
+      } else {
+        reject(new Error("OpenCV.js 載入後未取得 cv 物件"));
+      }
+    };
+    document.head.appendChild(tag);
+  });
+  return _cvPromise;
+}
+
+/** opencv 引擎主入口。cvOpts：
+ *  mode("outline"|"canny") / blockSize / c / invert /
+ *  simplifyPx / minArea / maxProcSide */
+async function renderInOpenCV(file, opts) {
+  var t0 = performance.now();
+  var cv = await loadOpenCV(opts.onStatus);
+  var cvo = opts.cv || {};
+  var mode = cvo.mode || "outline";
+  var maxProcSide = cvo.maxProcSide || 1000;
+  var s = await _cropAndScale(file, opts, maxProcSide);
+
+  var src = cv.matFromImageData(s.imageData);
+  var gray = new cv.Mat();
+  var bin = new cv.Mat();
+  var contours = new cv.MatVector();
+  var hierarchy = new cv.Mat();
+  var kernel = null;
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, gray, new cv.Size(3, 3), 0);   // 輕度降噪
+
+    if (mode === "canny") {
+      var thr = opts.threshold === undefined ? 50 : opts.threshold;
+      cv.Canny(gray, bin, thr, thr * 3);
+    } else {
+      var bs = Math.max(3, (cvo.blockSize || 25) | 1);   // 強制奇數
+      var C = cvo.c === undefined ? 10 : cvo.c;
+      cv.adaptiveThreshold(
+        gray, bin, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cvo.invert ? cv.THRESH_BINARY : cv.THRESH_BINARY_INV, bs, C);
+      kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+      cv.morphologyEx(bin, bin, cv.MORPH_OPEN, kernel);  // 去斑
+    }
+
+    cv.findContours(bin, contours, hierarchy,
+                    cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    var closed = mode !== "canny";
+    var minArea = cvo.minArea === undefined ? 30 : cvo.minArea;
+    var eps = cvo.simplifyPx === undefined ? 1.5 : cvo.simplifyPx;
+    var polys = [];
+    for (var i = 0; i < contours.size(); i++) {
+      var cnt = contours.get(i);
+      var keep = closed
+        ? cv.contourArea(cnt) >= minArea
+        : cv.arcLength(cnt, false) >= minArea;   // canny：以長度濾雜訊
+      if (keep) {
+        var use = cnt;
+        var approx = null;
+        if (eps > 0) {
+          approx = new cv.Mat();
+          cv.approxPolyDP(cnt, approx, eps, closed);
+          use = approx;
+        }
+        var pts = [];
+        for (var j = 0; j < use.data32S.length; j += 2) {
+          pts.push([use.data32S[j], use.data32S[j + 1]]);
+        }
+        if (pts.length >= 2) polys.push({points: pts, closed: closed});
+        if (approx) approx.delete();
+      }
+      cnt.delete();
+    }
+    var svg = contoursToSvg(polys, s.w, s.h, {
+      canvasWidthMm: opts.canvasWidthMm,
+      lineColor: opts.lineColor,
+      lineWidth: opts.lineWidth,
+      annotations: opts.annotations,
+    });
+    return {svg: svg, ms: performance.now() - t0};
+  } finally {
+    src.delete(); gray.delete(); bin.delete();
+    contours.delete(); hierarchy.delete();
+    if (kernel) kernel.delete();
+  }
+}
+
+/* ------------------------------------------------------------
+ * 引擎表
  * ------------------------------------------------------------ */
 
 var DoodleEngines = {
@@ -364,6 +525,16 @@ var DoodleEngines = {
       return typeof createImageBitmap !== "undefined";
     },
     render: renderInBrowser,
+  },
+  opencv: {
+    id: "opencv",
+    label: "OpenCV（輪廓向量化）",
+    live: true,
+    available: function () {
+      return typeof document !== "undefined" &&
+             typeof createImageBitmap !== "undefined";
+    },
+    render: renderInOpenCV,
   },
   server: {
     id: "server",
@@ -397,7 +568,9 @@ var DoodleEngines = {
 
 var api = {
   DoodleEngines: DoodleEngines,
-  // 純函式核心（node parity 測試用）
+  OPENCV_CDN_URL: OPENCV_CDN_URL,
+  loadOpenCV: loadOpenCV,
+  // 純函式核心（node parity／單元測試用）
   grayscale: grayscale,
   autocontrast: autocontrast,
   findEdges: findEdges,
@@ -406,6 +579,8 @@ var api = {
   peelBorder: peelBorder,
   autoCropBox: autoCropBox,
   buildDoodleSvg: buildDoodleSvg,
+  contoursToSvg: contoursToSvg,
+  canvasGeom: canvasGeom,
 };
 
 if (typeof module !== "undefined" && module.exports) {

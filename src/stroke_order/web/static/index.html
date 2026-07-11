@@ -916,13 +916,32 @@
       <label>處理引擎</label>
       <select id="dd-engine">
         <option value="browser" selected>瀏覽器（即時預覽，不上傳圖片）</option>
+        <option value="opencv">OpenCV（輪廓向量化，首次載入約 8MB）</option>
         <option value="server">伺服器</option>
       </select>
       <span style="margin-left:8px;color:var(--muted);font-size:11px;">
-        瀏覽器引擎在本機處理、調參即時更新；進階向量化可用
+        瀏覽器/OpenCV 引擎在本機處理、調參即時更新；亦可參考
         <a href="https://vector-line.vercel.app" target="_blank"
            rel="noopener">描線工坊 VectorLine</a>
       </span>
+    </div>
+    <div class="row" id="dd-cv-params" style="display:none;">
+      <label>OpenCV</label>
+      <select id="dd-cv-mode">
+        <option value="outline" selected>輪廓（描外形，雷切友善）</option>
+        <option value="canny">邊緣（Canny，沿用邊緣門檻）</option>
+      </select>
+      <label style="margin-left:8px;" title="自適應二值化區塊大小（奇數）">區塊</label>
+      <input id="dd-cv-block" type="number" value="25" min="3" max="99" step="2" style="width:60px;">
+      <label style="margin-left:8px;" title="二值化常數 C（越大越乾淨、越易斷線）">C</label>
+      <input id="dd-cv-c" type="number" value="10" min="-20" max="20" style="width:55px;">
+      <label style="margin-left:8px;"><input type="checkbox" id="dd-cv-invert"> 反相</label>
+      <label style="margin-left:8px;" title="RDP 節點簡化強度（px，0=不簡化）">簡化</label>
+      <input id="dd-cv-simplify" type="number" value="1.5" min="0" max="10" step="0.1" style="width:60px;">
+      <label style="margin-left:8px;" title="忽略小於此面積（輪廓）/長度（邊緣）的雜點">去斑</label>
+      <input id="dd-cv-minarea" type="number" value="30" min="0" max="500" style="width:60px;">
+      <label style="margin-left:8px;" title="處理解析度（最長邊 px），越高線稿越平滑">解析度</label>
+      <input id="dd-cv-maxside" type="number" value="1000" min="200" max="2000" step="100" style="width:70px;">
     </div>
     <div class="row" title="上傳後自動處理原圖，不影響原始檔案">
       <label>自動裁切</label>
@@ -4640,6 +4659,16 @@ function collectDoodleOpts() {
     autoCropWhitespace: document.getElementById("dd-crop-whitespace").checked,
     autoCropBorder: document.getElementById("dd-crop-border").checked,
     annotations: collectDoodleAnnotations(),
+    // Phase 5cb: OpenCV 引擎參數
+    cv: {
+      mode: document.getElementById("dd-cv-mode").value,
+      blockSize: parseInt(document.getElementById("dd-cv-block").value, 10),
+      c: parseInt(document.getElementById("dd-cv-c").value, 10),
+      invert: document.getElementById("dd-cv-invert").checked,
+      simplifyPx: parseFloat(document.getElementById("dd-cv-simplify").value),
+      minArea: parseFloat(document.getElementById("dd-cv-minarea").value),
+      maxProcSide: parseInt(document.getElementById("dd-cv-maxside").value, 10),
+    },
   };
 }
 
@@ -4682,19 +4711,22 @@ async function renderDoodle() {
 
   const engineVal = document.getElementById("dd-engine").value;
   const mod = window.DoodleEngine;
-  const useBrowser = engineVal === "browser" && mod &&
-                     mod.DoodleEngines.browser.available();
+  // Phase 5ca/5cb: 前端引擎（browser / opencv）統一路由，失敗退回伺服器
+  const clientEng = (engineVal !== "server" && mod &&
+                     mod.DoodleEngines[engineVal] &&
+                     mod.DoodleEngines[engineVal].available())
+    ? mod.DoodleEngines[engineVal] : null;
+  opts.onStatus = (msg) => { statusEl.textContent = msg; };
   try {
     let res, engineNote;
-    if (useBrowser) {
+    if (clientEng) {
       try {
-        res = await mod.DoodleEngines.browser.render(file, opts);
-        engineNote = "瀏覽器引擎";
+        res = await clientEng.render(file, opts);
+        engineNote = clientEng.label;
       } catch (e) {
-        // Phase 5ca: 瀏覽器引擎失敗 → 自動退回伺服器
-        console.warn("browser doodle engine failed, falling back:", e);
+        console.warn("client doodle engine failed, falling back:", e);
         res = await renderDoodleViaServer(file, opts);
-        engineNote = "瀏覽器引擎失敗，已改用伺服器";
+        engineNote = `${clientEng.label}失敗，已改用伺服器`;
       }
     } else {
       res = await renderDoodleViaServer(file, opts);
@@ -4725,23 +4757,36 @@ async function renderDoodle() {
 }
 document.getElementById("dd-render").onclick = renderDoodle;
 
-// Phase 5ca: 瀏覽器引擎下參數改動即時重算（debounce 150ms）
+// Phase 5ca/5cb: 前端引擎下參數改動即時重算（debounce 150ms）
 let ddLiveTimer = null;
 function ddLiveRerender() {
-  if (document.getElementById("dd-engine").value !== "browser") return;
+  if (document.getElementById("dd-engine").value === "server") return;
   const f = document.getElementById("dd-image");
   if (!f.files || !f.files[0]) return;
   clearTimeout(ddLiveTimer);
   ddLiveTimer = setTimeout(renderDoodle, 150);
 }
-["dd-width", "dd-max-side", "dd-threshold", "dd-color", "dd-linewidth"]
+["dd-width", "dd-max-side", "dd-threshold", "dd-color", "dd-linewidth",
+ "dd-cv-block", "dd-cv-c", "dd-cv-simplify", "dd-cv-minarea",
+ "dd-cv-maxside"]
   .forEach(id => document.getElementById(id)
     .addEventListener("input", ddLiveRerender));
-["dd-crop-whitespace", "dd-crop-border", "dd-image", "dd-engine"]
+["dd-crop-whitespace", "dd-crop-border", "dd-image", "dd-engine",
+ "dd-cv-mode", "dd-cv-invert"]
   .forEach(id => document.getElementById(id)
     .addEventListener("change", ddLiveRerender));
 document.getElementById("dd-annotations")
   .addEventListener("input", ddLiveRerender);
+
+// Phase 5cb: 引擎切換時同步 OpenCV 參數列顯示
+function ddSyncEngineUi() {
+  const v = document.getElementById("dd-engine").value;
+  document.getElementById("dd-cv-params").style.display =
+    v === "opencv" ? "" : "none";
+}
+document.getElementById("dd-engine")
+  .addEventListener("change", ddSyncEngineUi);
+ddSyncEngineUi();
 
 // ============================================================
 // WordArt (文字雲) mode
