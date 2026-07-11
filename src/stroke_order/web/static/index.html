@@ -977,8 +977,8 @@
     <div class="row">
       <label>畫布寬 (mm)</label>
       <input id="dd-width" type="number" value="150" min="40" max="300" style="width:80px;">
-      <label style="margin-left:12px;">最大像素</label>
-      <input id="dd-max-side" type="number" value="200" min="50" max="500" style="width:80px;">
+      <label style="margin-left:12px;" title="伺服器/瀏覽器引擎的處理解析度（最長邊 px）；輪廓向量建議 ≥400">最大像素</label>
+      <input id="dd-max-side" type="number" value="500" min="50" max="1000" style="width:80px;">
       <label style="margin-left:12px;">邊緣門檻</label>
       <input id="dd-threshold" type="number" value="50" min="10" max="200" style="width:80px;">
     </div>
@@ -4759,16 +4759,27 @@ async function renderDoodle() {
     }
     if (seq !== ddRenderSeq) return;   // 有更新的一輪在跑，丟棄本輪
     const svg = res.svg;
-    previewEl.innerHTML = svg;
-    const innerSvg = previewEl.querySelector("svg");
-    if (innerSvg) { innerSvg.style.maxWidth = "100%"; innerSvg.style.height = "auto"; }
-    // Phase 5s: save the doodle SVG for import into notebook zones
-    lastDoodleSvg = svg;
-    statusEl.textContent = `OK · ${(svg.length / 1024).toFixed(1)} KB ` +
-      `· ${engineNote} ${res.ms.toFixed(0)}ms ` +
-      `· 可切到「筆記模式」按「⬅ 匯入塗鴉」把向量塞進塗鴉區`;
+    // Phase 5ci: 預覽一律走 <img src=blob>——照片向量化可達數千條
+    // path，innerHTML 直塞會建幾萬個 SVG DOM 節點、凍結主執行緒
+    // 數十秒（實測 renderer frozen 40s）；<img> 由瀏覽器光柵化，
+    // 不建 DOM，任何大小都順
     const blob = new Blob([svg], {type: "image/svg+xml"});
     const url = URL.createObjectURL(blob);
+    previewEl.innerHTML = "";
+    const im = document.createElement("img");
+    im.src = url;
+    im.alt = "塗鴉預覽";
+    im.style.maxWidth = "100%";
+    im.style.height = "auto";
+    previewEl.appendChild(im);
+    // Phase 5s: save the doodle SVG for import into notebook zones
+    lastDoodleSvg = svg;
+    const pathNote = res.paths ? `・路徑 ${res.paths} 條` : "";
+    const heavyNote = (res.paths > 3000 || svg.length > 2_000_000)
+      ? "（量大：雷切前建議調高「去斑」或降低解析度）" : "";
+    statusEl.textContent = `OK · ${(svg.length / 1024).toFixed(1)} KB ` +
+      `· ${engineNote}${pathNote} ${res.ms.toFixed(0)}ms ${heavyNote}` +
+      `· 可切到「筆記模式」按「⬅ 匯入塗鴉」把向量塞進塗鴉區`;
     downloadEl.href = url;
     downloadEl.setAttribute("download", "doodle.svg");
     downloadEl.textContent = "⤓ 下載 SVG";

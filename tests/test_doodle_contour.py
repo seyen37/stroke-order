@@ -134,6 +134,25 @@ def test_api_doodle_rejects_bad_style(client):
     assert r.status_code == 422
 
 
+def test_5ci_responsiveness_fixes(client):
+    """5ci：使用者複驗回報「OpenCV 無回應／解析度差」的三項修復。"""
+    html = client.get("/").text
+    # ① 解析度：UI 預設 200 → 500（contour 在 200px 上描是糊的）
+    assert 'id="dd-max-side" type="number" value="500"' in html
+    # ② 巨量 SVG 不再 innerHTML 直塞（renderer frozen 40s 實測）——
+    #    預覽改 <img src=blob> 光柵顯示
+    assert "塗鴉預覽" in html
+    assert 'im.src = url' in html
+    js = client.get("/static/doodle_engine.js").text
+    # ③ 可觀察性：載入講清楚要等多久＋各階段進度
+    assert "10~60 秒" in js
+    assert "解碼與縮圖…" in js
+    assert "二值化與輪廓抽取…" in js
+    assert "條路徑）…" in js
+    # ④ 大照片快徑：無裁切時跳過全解析度灰階
+    assert "needCrop" in js
+
+
 def test_index_has_style_select_and_cdn_fix(client):
     html = client.get("/").text
     assert 'id="dd-server-style"' in html

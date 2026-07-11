@@ -507,8 +507,9 @@ function _makeCanvas(w, h) {
 }
 
 async function _decode(file) {
-  if (_cache.file === file && _cache.bitmap) return _cache;
-  var bitmap = await createImageBitmap(file);
+  if (_cache.file === file && _cache.bitmap && _cache.gray) return _cache;
+  var bitmap = (_cache.file === file && _cache.bitmap)
+    ? _cache.bitmap : await createImageBitmap(file);
   var w = bitmap.width, h = bitmap.height;
   var ctx = _makeCanvas(w, h).getContext("2d", {willReadFrequently: true});
   ctx.fillStyle = "#fff";                 // RGBA 壓平到白底
@@ -520,11 +521,28 @@ async function _decode(file) {
   return _cache;
 }
 
-/** 裁切＋縮圖到 maxSide，回傳 {imageData, w, h}（白底壓平）。 */
+/** 裁切＋縮圖到 maxSide，回傳 {imageData, w, h}（白底壓平）。
+ *
+ *  5ci 快徑：未勾自動裁切時，直接把 bitmap 縮到目標大小——
+ *  跳過全解析度 getImageData（4000px 照片＝64MB buffer）與
+ *  16M 像素灰階迴圈，大照片省數秒且不佔記憶體。 */
 async function _cropAndScale(file, opts, maxSide) {
-  var dec = await _decode(file);
-  var box = autoCropBox(dec.gray, dec.w, dec.h,
-                        !!opts.autoCropWhitespace, !!opts.autoCropBorder);
+  var needCrop = !!opts.autoCropWhitespace || !!opts.autoCropBorder;
+  var box, srcW, srcH, bitmap;
+  if (needCrop) {
+    var dec = await _decode(file);
+    bitmap = dec.bitmap;
+    box = autoCropBox(dec.gray, dec.w, dec.h,
+                      !!opts.autoCropWhitespace, !!opts.autoCropBorder);
+  } else {
+    bitmap = (_cache.file === file && _cache.bitmap)
+      ? _cache.bitmap : await createImageBitmap(file);
+    if (_cache.file !== file) {
+      _cache = {file: file, bitmap: bitmap, gray: null,
+                w: bitmap.width, h: bitmap.height};
+    }
+    box = [0, 0, bitmap.width, bitmap.height];
+  }
   var cw = box[2] - box[0], ch = box[3] - box[1];
   var scale = maxSide / Math.max(cw, ch);
   var tw = cw, th = ch;
@@ -534,7 +552,7 @@ async function _cropAndScale(file, opts, maxSide) {
   ctx.imageSmoothingQuality = "high";     // 近似 LANCZOS
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, tw, th);
-  ctx.drawImage(dec.bitmap, box[0], box[1], cw, ch, 0, 0, tw, th);
+  ctx.drawImage(bitmap, box[0], box[1], cw, ch, 0, 0, tw, th);
   return {imageData: ctx.getImageData(0, 0, tw, th), w: tw, h: th};
 }
 
@@ -587,7 +605,10 @@ function _resolveCv(resolve, reject) {
 function _loadCvFromUrl(url, onStatus) {
   return new Promise(function (resolve, reject) {
     if (onStatus) {
-      onStatus("首次載入 OpenCV.js（約 8MB，之後走快取）… " + url);
+      // 5ci：講清楚「會等多久」——首次下載＋WASM 編譯視網速
+      // 可達數十秒，沒有這句就是「無回應」體感
+      onStatus("下載＋編譯 OpenCV.js（首次約 8MB，視網速需 10~60 秒，" +
+               "之後走快取）… " + url);
     }
     if (typeof importScripts === "function") {      // Worker（5cf）
       try {
@@ -640,7 +661,9 @@ async function renderInOpenCV(file, opts) {
   var cvo = opts.cv || {};
   var mode = cvo.mode || "outline";
   var maxProcSide = cvo.maxProcSide || 1000;
+  if (opts.onStatus) opts.onStatus("解碼與縮圖…");
   var s = await _cropAndScale(file, opts, maxProcSide);
+  if (opts.onStatus) opts.onStatus("二值化與輪廓抽取…");
 
   var src = cv.matFromImageData(s.imageData);
   var gray = new cv.Mat();
@@ -722,13 +745,16 @@ async function renderInOpenCV(file, opts) {
       }
       cnt.delete();
     }
+    if (opts.onStatus) {
+      opts.onStatus("組裝 SVG（" + polys.length + " 條路徑）…");
+    }
     var svg = contoursToSvg(polys, s.w, s.h, {
       canvasWidthMm: opts.canvasWidthMm,
       lineColor: opts.lineColor,
       lineWidth: opts.lineWidth,
       annotations: opts.annotations,
     });
-    return {svg: svg, ms: performance.now() - t0};
+    return {svg: svg, ms: performance.now() - t0, paths: polys.length};
   } finally {
     src.delete(); gray.delete(); bin.delete();
     contours.delete(); hierarchy.delete();
@@ -825,8 +851,11 @@ function _getWorker() {
       return;
     }
     _pending.delete(m.id);
-    if (m.ok) p.resolve({svg: m.svg, ms: m.ms, via: "worker"});
-    else p.reject(new Error(m.error || "worker render failed"));
+    if (m.ok) {
+      p.resolve({svg: m.svg, ms: m.ms, paths: m.paths, via: "worker"});
+    } else {
+      p.reject(new Error(m.error || "worker render failed"));
+    }
   };
   _worker.onerror = function (e) {
     _workerBroken = true;                      // 之後一律主執行緒直跑

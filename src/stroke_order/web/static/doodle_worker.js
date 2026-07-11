@@ -30,7 +30,8 @@ self.onmessage = async function (ev) {
       throw new Error("engine unavailable in worker: " + m.engine);
     }
     var res = await eng.render(m.file, opts);
-    self.postMessage({id: m.id, ok: true, svg: res.svg, ms: res.ms});
+    self.postMessage({id: m.id, ok: true, svg: res.svg, ms: res.ms,
+                      paths: res.paths});
   } catch (e) {
     self.postMessage({
       id: m.id, ok: false,
