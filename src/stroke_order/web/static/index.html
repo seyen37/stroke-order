@@ -429,7 +429,17 @@
         <option value="lishu">隸書</option>
         <option value="bold">粗楷（純濾鏡）</option>
         <option value="seal_script">篆書（崇羲）</option>
+        <option value="userfont">自訂字型（本機 TTF/OTF，不上傳）</option>
       </select>
+      <span id="grid-font-file-wrap" style="display:none;">
+        <input type="file" id="grid-font-file" accept=".ttf,.otf,.woff"
+               style="display:none">
+        <button type="button" id="grid-font-pick" class="secondary"
+                onclick="document.getElementById('grid-font-file').click()"
+                title="字型檔僅在瀏覽器內解析，不會上傳；輸出請依字型授權自用">選字型檔…</button>
+        <span id="grid-font-name"
+              style="color:var(--muted);font-size:12px;"></span>
+      </span>
       <label style="margin-left:16px;"
              title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
       <select id="grid-cns-mode">
@@ -3200,7 +3210,10 @@ function gridParams() {
     ghost_copies: g("grid-ghost"),
     blank_copies: g("grid-blank"),
     direction: g("grid-direction"),
-    style: g("grid-font-style"),
+    // 5cn：自訂字型是純前端概念——伺服器照楷書出版面（字形會被
+    // 前端整格替換），API 不需要認識 userfont
+    style: g("grid-font-style") === "userfont"
+      ? "kaishu" : g("grid-font-style"),
     cns_outline_mode: g("grid-cns-mode"),
   });
   return p.toString();
@@ -3228,12 +3241,41 @@ async function renderGrid() {
     }
     statusEl.textContent = `OK · SVG ${(svg.length / 1024).toFixed(1)} KB`;
     // Wire up the 3 download links
-    document.getElementById("grid-download-svg").href =
-      `${API_BASE}/api/grid?${qs}&format=svg&download=true`;
-    document.getElementById("grid-download-gcode").href =
-      `${API_BASE}/api/grid?${qs}&format=gcode&download=true`;
-    document.getElementById("grid-download-json").href =
-      `${API_BASE}/api/grid?${qs}&format=json&download=true`;
+    const dlSvg = document.getElementById("grid-download-svg");
+    const dlGcode = document.getElementById("grid-download-gcode");
+    const dlJson = document.getElementById("grid-download-json");
+    dlSvg.href = `${API_BASE}/api/grid?${qs}&format=svg&download=true`;
+    dlSvg.removeAttribute("download");
+    dlGcode.href = `${API_BASE}/api/grid?${qs}&format=gcode&download=true`;
+    dlJson.href = `${API_BASE}/api/grid?${qs}&format=json&download=true`;
+    dlGcode.style.display = "";
+    dlJson.style.display = "";
+
+    // Phase 5cn：自訂字型——前端逐格注入（字型檔不上傳；伺服器只出
+    // 版面與格線，字形整格替換成使用者字型的外框 path）
+    if (document.getElementById("grid-font-style").value === "userfont") {
+      if (!gridUserFont) {
+        statusEl.textContent =
+          "請先按「選字型檔…」載入本機 TTF/OTF，再產生字帖";
+      } else {
+        const inner = previewEl.querySelector("svg");
+        const n = injectUserFontIntoGrid(inner);
+        const clone = inner.cloneNode(true);
+        clone.removeAttribute("style");
+        const blob = new Blob(
+          [new XMLSerializer().serializeToString(clone)],
+          {type: "image/svg+xml"});
+        dlSvg.href = URL.createObjectURL(blob);
+        dlSvg.setAttribute("download", "grid_userfont.svg");
+        // G-code / JSON 是筆順軌跡輸出——字型只有外框、無筆順，
+        // 描紅列印階段先隱藏（機器軌跡＝下一階段骨架化）
+        dlGcode.style.display = "none";
+        dlJson.style.display = "none";
+        statusEl.textContent =
+          `OK · 自訂字型「${gridUserFontName}」已套用 ${n} 格` +
+          "（字型檔僅在瀏覽器處理、未上傳；輸出請依字型授權自用列印）";
+      }
+    }
     dlGroup.style.display = "inline";
   } catch (e) {
     statusEl.textContent = "";
@@ -3242,6 +3284,113 @@ async function renderGrid() {
   }
 }
 document.getElementById("grid-render").onclick = renderGrid;
+
+// ------------------------------------------------------------------
+// Phase 5cn：自訂字型（瀏覽器端）——TTF/OTF 檔案僅在本機解析，
+// 伺服器零版權風險。opentype.js 走 /vendor 同源代理（校網免疫）。
+// ------------------------------------------------------------------
+let gridUserFont = null;
+let gridUserFontName = "";
+let _opentypeP = null;
+
+function loadOpentype() {
+  if (window.opentype) return Promise.resolve(window.opentype);
+  if (_opentypeP) return _opentypeP;
+  _opentypeP = new Promise((res, rej) => {
+    const tag = document.createElement("script");
+    const timer = setTimeout(() => {          // silent-drop 防火牆保險
+      tag.onload = tag.onerror = null;
+      _opentypeP = null;
+      rej(new Error("opentype.js 載入逾時（20s）"));
+    }, 20000);
+    tag.src = "/vendor/opentype.min.js";
+    tag.onload = () => { clearTimeout(timer); res(window.opentype); };
+    tag.onerror = () => {
+      clearTimeout(timer);
+      _opentypeP = null;
+      rej(new Error("opentype.js 載入失敗"));
+    };
+    document.head.appendChild(tag);
+  });
+  return _opentypeP;
+}
+
+async function gridLoadUserFontFile(file) {
+  const statusEl = document.getElementById("grid-status");
+  try {
+    statusEl.textContent = "解析字型檔…";
+    const ot = await loadOpentype();
+    gridUserFont = ot.parse(await file.arrayBuffer());
+    gridUserFontName = file.name;
+    document.getElementById("grid-font-name").textContent =
+      `已載入：${file.name}`;
+    statusEl.textContent =
+      "字型已載入（僅在瀏覽器處理，未上傳）。按「產生字帖」套用。";
+  } catch (e) {
+    gridUserFont = null;
+    gridUserFontName = "";
+    document.getElementById("grid-font-name").textContent = "";
+    statusEl.textContent = `字型解析失敗：${e.message}`;
+  }
+}
+
+/** 把使用者字型逐格注入字帖 SVG。回傳注入格數。
+ *  cell 定位靠 grid.py 的 data-char / data-cell-style 標記；
+ *  格線（.guides）保留、伺服器字形整組移除後放字型外框 path。 */
+function injectUserFontIntoGrid(svgRoot) {
+  if (!svgRoot || !gridUserFont) return 0;
+  const upem = gridUserFont.unitsPerEm || 1000;
+  const scale = 2048 / upem;
+  const baseY = (gridUserFont.ascender || upem * 0.88) * scale;
+  const NS = "http://www.w3.org/2000/svg";
+  let n = 0;
+  svgRoot.querySelectorAll("g[data-char]").forEach((cell) => {
+    const ch = cell.getAttribute("data-char");
+    const style = cell.getAttribute("data-cell-style") || "outline";
+    cell.querySelectorAll(":scope > g:not(.guides)")
+        .forEach((g) => g.remove());
+    if (style === "blank" || !ch) return;
+    // 全形字 advance ≈ em；半形字置中補位
+    const adv = gridUserFont.getAdvanceWidth(ch, 2048);
+    const x = Math.max(0, (2048 - adv) / 2);
+    const d = gridUserFont.getPath(ch, x, baseY, 2048).toPathData(1);
+    if (!d) return;
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "userfont");
+    if (style === "ghost") {
+      g.setAttribute("fill", "#e0e0e0");
+    } else if (style === "trace") {
+      g.setAttribute("fill", "none");
+      g.setAttribute("stroke", "#c22");
+      g.setAttribute("stroke-width", "14");
+    } else {                       // outline / filled → 墨跡
+      g.setAttribute("fill", "#222");
+    }
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", d);
+    g.appendChild(path);
+    cell.appendChild(g);
+    n++;
+  });
+  return n;
+}
+
+document.getElementById("grid-font-style").addEventListener("change", (ev) => {
+  const wrap = document.getElementById("grid-font-file-wrap");
+  if (ev.target.value === "userfont") {
+    wrap.style.display = "inline";
+    if (!gridUserFont) {
+      document.getElementById("grid-font-file").click();
+    }
+  } else {
+    wrap.style.display = "none";
+  }
+});
+document.getElementById("grid-font-file").addEventListener("change", (ev) => {
+  if (ev.target.files && ev.target.files[0]) {
+    gridLoadUserFontFile(ev.target.files[0]);
+  }
+});
 
 // Phase 5j: auto-derive ghost/blank from cols (user can still manually override)
 // Rule: cols=1 → (0,0); cols=2 → (1,0); cols≥3 → (1, cols-2).

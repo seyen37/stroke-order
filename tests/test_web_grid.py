@@ -38,6 +38,48 @@ def test_grid_download_sets_attachment_header(client):
     assert "filename*=UTF-8''" in cd
 
 
+# ----- Phase 5cn：自訂字型（瀏覽器端）--------------------------------------
+
+
+def test_5cn_grid_cells_carry_data_attributes(client):
+    """5cn：每格 <g> 帶 data-char / data-cell-style——前端注入定位用。"""
+    r = client.get("/api/grid?chars=永日&cols=3")
+    svg = r.text
+    # 2 字 × 3 層（主字/ghost/blank）＝ 6 格，各帶 data-char
+    assert svg.count('data-char="永"') == 3
+    assert svg.count('data-char="日"') == 3
+    assert svg.count('data-cell-style="ghost"') == 2
+    assert svg.count('data-cell-style="blank"') == 2
+
+
+def test_5cn_vendor_opentype_proxy(client, tmp_path, monkeypatch):
+    """5cn：opentype.min.js 走同源代抓（植假快取，不打真網路）。"""
+    vendor = tmp_path / "vendor"
+    vendor.mkdir()
+    fake = b"/* fake opentype */" + b"y" * 150_000
+    (vendor / "opentype.min.js").write_bytes(fake)
+    monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
+    r = client.get("/vendor/opentype.min.js")
+    assert r.status_code == 200
+    assert r.content == fake
+    assert "max-age" in r.headers.get("cache-control", "")
+    # status 一併回報 opentype 快取狀態
+    st = client.get("/vendor/status").json()
+    assert st["opentype_cached"] is True
+    assert st["opentype_size"] == len(fake)
+
+
+def test_5cn_index_userfont_ui_and_injection(client):
+    """5cn：字帖模式自訂字型 UI＋前端注入層存在。"""
+    html = client.get("/").text
+    assert 'value="userfont"' in html
+    assert 'id="grid-font-file"' in html
+    assert "injectUserFontIntoGrid" in html
+    assert "/vendor/opentype.min.js" in html
+    assert "XMLSerializer" in html            # 注入後的 SVG 走 blob 下載
+    assert "未上傳" in html                   # 隱私/版權說明
+
+
 def test_grid_various_guide_styles(client):
     for guide in ("tian", "mi", "hui", "plain", "none"):
         r = client.get(f"/api/grid?chars=永&guide={guide}")

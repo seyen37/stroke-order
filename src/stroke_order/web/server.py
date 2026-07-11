@@ -615,68 +615,93 @@ _OPENCV_FETCH_HEADERS = {
                    "Chrome/126.0 Safari/537.36"),
 }
 _OPENCV_MIN_BYTES = 1_000_000
-_opencv_fetch_lock = threading.Lock()
+
+# 5cn：opentype.js（MIT）——「自訂字型」瀏覽器端解析 TTF/OTF 用。
+# 同一套同源代抓管線（校網/防火牆免疫、零執行期外網依賴給前端）。
+_OPENTYPE_SOURCES = (
+    "https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js",
+    "https://unpkg.com/opentype.js@1.3.4/dist/opentype.min.js",
+)
+_OPENTYPE_MIN_BYTES = 100_000
+_vendor_fetch_lock = threading.Lock()
 _opencv_prewarm_started = False
 
 
-def _opencv_cache_path() -> Path:
+def _vendor_cache_path(fname: str) -> Path:
     vendor_dir = Path(os.environ.get(
         "STROKE_ORDER_VENDOR_DIR",
         str(Path.home() / ".stroke-order" / "vendor")))
-    return vendor_dir / "opencv.js"
+    return vendor_dir / fname
 
 
-def _ensure_opencv_cached(timeout: float = 90.0) -> Path:
-    """確保 opencv.js 已落地快取；缺檔時同步代抓（可重入）。
+def _opencv_cache_path() -> Path:
+    return _vendor_cache_path("opencv.js")
+
+
+def _ensure_vendor_cached(fname: str, sources: tuple[str, ...],
+                          min_bytes: int, timeout: float = 90.0) -> Path:
+    """確保 vendor 檔已落地快取；缺檔時同步代抓（可重入）。
 
     - 快取命中：不進鎖直接回（熱路徑零開銷）。
     - 缺檔：單一執行緒下載（鎖防預熱與端點重複抓），串流寫入
       .part 暫存檔、驗尺寸後原子 replace——絕不 serve 半檔。
     """
-    cache = _opencv_cache_path()
-    if cache.is_file() and cache.stat().st_size >= _OPENCV_MIN_BYTES:
+    cache = _vendor_cache_path(fname)
+    if cache.is_file() and cache.stat().st_size >= min_bytes:
         return cache
     import requests as _rq
-    with _opencv_fetch_lock:
-        if cache.is_file() and cache.stat().st_size >= _OPENCV_MIN_BYTES:
+    with _vendor_fetch_lock:
+        if cache.is_file() and cache.stat().st_size >= min_bytes:
             return cache                    # 等鎖期間別人已抓完
         cache.parent.mkdir(parents=True, exist_ok=True)
         last_err: Optional[Exception] = None
-        for url in _OPENCV_SOURCES:
+        for url in sources:
             try:
                 with _rq.get(url, timeout=(10, timeout), stream=True,
                              headers=_OPENCV_FETCH_HEADERS) as r:
                     r.raise_for_status()
-                    tmp = cache.with_name("opencv.js.part")
+                    tmp = cache.with_name(fname + ".part")
                     size = 0
                     with open(tmp, "wb") as f:
                         for chunk in r.iter_content(1 << 16):
                             f.write(chunk)
                             size += len(chunk)
-                    if size < _OPENCV_MIN_BYTES:
-                        raise ValueError(f"opencv.js 過小：{size}B")
+                    if size < min_bytes:
+                        raise ValueError(f"{fname} 過小：{size}B")
                     tmp.replace(cache)
                     return cache
             except Exception as e:          # noqa: BLE001 — 逐源重試
                 last_err = e
-        raise RuntimeError(f"opencv.js 代抓失敗：{last_err}")
+        raise RuntimeError(f"{fname} 代抓失敗：{last_err}")
+
+
+def _ensure_opencv_cached(timeout: float = 90.0) -> Path:
+    return _ensure_vendor_cached(
+        "opencv.js", _OPENCV_SOURCES, _OPENCV_MIN_BYTES, timeout)
+
+
+def _ensure_opentype_cached(timeout: float = 90.0) -> Path:
+    return _ensure_vendor_cached(
+        "opentype.min.js", _OPENTYPE_SOURCES, _OPENTYPE_MIN_BYTES, timeout)
 
 
 def _prewarm_opencv_cache() -> None:
     """5ck：啟動時背景預熱（daemon thread；失敗不影響服務，
-    端點屆時會在 threadpool 內補抓）。每個行程只啟動一次。"""
+    端點屆時會在 threadpool 內補抓）。每個行程只啟動一次。
+    5cn：一併預熱 opentype.min.js。"""
     global _opencv_prewarm_started
     if _opencv_prewarm_started or os.environ.get("STROKE_ORDER_NO_PREFETCH"):
         return
     _opencv_prewarm_started = True
 
     def _job() -> None:
-        try:
-            _ensure_opencv_cached()
-        except Exception:                   # noqa: BLE001 — 預熱盡力而為
-            pass
+        for fn in (_ensure_opencv_cached, _ensure_opentype_cached):
+            try:
+                fn()
+            except Exception:               # noqa: BLE001 — 預熱盡力而為
+                pass
 
-    threading.Thread(target=_job, name="opencv-prewarm", daemon=True).start()
+    threading.Thread(target=_job, name="vendor-prewarm", daemon=True).start()
 
 
 def create_app() -> FastAPI:
@@ -2333,12 +2358,28 @@ def create_app() -> FastAPI:
             cache, media_type="text/javascript",
             headers={"Cache-Control": "public, max-age=604800"})
 
+    @app.get("/vendor/opentype.min.js")
+    def vendor_opentype():
+        """5cn：opentype.js（MIT）同源代理——自訂字型前端解析用。"""
+        try:
+            cache = _ensure_opentype_cached()
+        except Exception as e:              # noqa: BLE001
+            raise HTTPException(
+                502, detail=f"伺服器代抓 opentype.min.js 失敗：{e}")
+        return FileResponse(
+            cache, media_type="text/javascript",
+            headers={"Cache-Control": "public, max-age=604800"})
+
     @app.get("/vendor/status")
     def vendor_status():
         """5ck：快取可觀察性（PRINCIPLES §8.1）——預熱狀態一眼可查。"""
         cache = _opencv_cache_path()
         size = cache.stat().st_size if cache.is_file() else 0
-        return {"opencv_cached": size >= _OPENCV_MIN_BYTES, "size": size}
+        ot = _vendor_cache_path("opentype.min.js")
+        ot_size = ot.stat().st_size if ot.is_file() else 0
+        return {"opencv_cached": size >= _OPENCV_MIN_BYTES, "size": size,
+                "opentype_cached": ot_size >= _OPENTYPE_MIN_BYTES,
+                "opentype_size": ot_size}
 
     @app.post("/api/doodle")
     async def doodle(

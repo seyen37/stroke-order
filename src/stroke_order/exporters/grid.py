@@ -204,7 +204,12 @@ def render_grid_svg(
                 row = tier_idx
             tx = col * EM_SIZE
             ty = row * EM_SIZE
-            out.append(f'<g transform="translate({tx},{ty})">')
+            # 5cn：cell 定位標記——「自訂字型」前端注入需要知道每格
+            # 是哪個字、哪種格式樣（純屬性、視覺零變化）
+            esc = (ch.char.replace("&", "&amp;").replace("<", "&lt;")
+                          .replace('"', "&quot;"))
+            out.append(f'<g transform="translate({tx},{ty})" '
+                       f'data-char="{esc}" data-cell-style="{style}">')
             out.append(f'  {guide_svg}')
             out.append(f'  {_cell_content(ch, style)}')
             out.append("</g>")

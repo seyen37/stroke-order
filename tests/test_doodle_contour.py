@@ -211,12 +211,14 @@ def test_5ck_vendor_status_observability(client, tmp_path, monkeypatch):
     monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
     r = client.get("/vendor/status")
     assert r.status_code == 200
-    assert r.json() == {"opencv_cached": False, "size": 0}
+    body = r.json()
+    assert body["opencv_cached"] is False and body["size"] == 0
 
     fake = b"/* fake */" + b"x" * 1_100_000
     (vendor / "opencv.js").write_bytes(fake)
-    r = client.get("/vendor/status")
-    assert r.json() == {"opencv_cached": True, "size": len(fake)}
+    body = client.get("/vendor/status").json()
+    assert body["opencv_cached"] is True and body["size"] == len(fake)
+    assert "opentype_cached" in body            # 5cn：一併觀察 opentype
 
 
 def test_5cl_fetch_sources_datacenter_friendly(client):
