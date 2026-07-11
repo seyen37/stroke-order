@@ -117,3 +117,29 @@ def test_5cf_engine_has_worker_offload(client):
 def test_5cf_index_routes_through_render_via(client):
     html = client.get("/").text
     assert "mod.renderVia(engineVal, file, opts)" in html
+
+
+# ---------------------------------------------------------------------------
+# Phase 5cg — centerline 骨架化
+# ---------------------------------------------------------------------------
+
+
+def test_5cg_engine_has_skeleton_trio(client):
+    """三件組純函式（node 功能測試把關演算法正確性；此處鎖符號）。"""
+    body = client.get("/static/doodle_engine.js").text
+    for sym in ("zhangSuenThin", "traceCenterlines", "rdpSimplify"):
+        assert sym in body, f"doodle_engine.js 缺少 {sym}"
+    # 對角修剪（假交叉點的關鍵修正）與骨架化進度回報
+    assert "對角" in body
+    assert "骨架化中" in body
+
+
+def test_5cg_centerline_mode_wired(client):
+    """centerline 走二值化＋去斑後的骨架分支，輸出開放路徑。"""
+    body = client.get("/static/doodle_engine.js").text
+    assert 'mode === "centerline"' in body
+
+
+def test_5cg_index_has_centerline_option(client):
+    html = client.get("/").text
+    assert 'value="centerline"' in html

@@ -335,6 +335,165 @@ function contoursToSvg(polys, w, h, opts) {
 }
 
 /* ------------------------------------------------------------
+ * 5cg：centerline 骨架化三件組（純函式；OpenCV.js 標準版無
+ * ximgproc.thinning，自刻 Zhang-Suen——品質優於 erode 迴圈法）
+ * ------------------------------------------------------------ */
+
+/** Zhang-Suen 細線化。bin：0/1 Uint8Array（不改動原陣列），
+ *  回傳 1px 寬骨架（0/1）。maxIter 為保險上限。 */
+function zhangSuenThin(bin, w, h, maxIter) {
+  maxIter = maxIter || 500;
+  var img = Uint8Array.from(bin);
+  var kill = [];
+  for (var iter = 0; iter < maxIter; iter++) {
+    var changed = false;
+    for (var step = 0; step < 2; step++) {
+      kill.length = 0;
+      for (var y = 1; y < h - 1; y++) {
+        for (var x = 1; x < w - 1; x++) {
+          var c = y * w + x;
+          if (!img[c]) continue;
+          var p2 = img[c - w],     p3 = img[c - w + 1],
+              p4 = img[c + 1],     p5 = img[c + w + 1],
+              p6 = img[c + w],     p7 = img[c + w - 1],
+              p8 = img[c - 1],     p9 = img[c - w - 1];
+          var B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+          if (B < 2 || B > 6) continue;
+          var A = ((p2 === 0 && p3 === 1) ? 1 : 0) +
+                  ((p3 === 0 && p4 === 1) ? 1 : 0) +
+                  ((p4 === 0 && p5 === 1) ? 1 : 0) +
+                  ((p5 === 0 && p6 === 1) ? 1 : 0) +
+                  ((p6 === 0 && p7 === 1) ? 1 : 0) +
+                  ((p7 === 0 && p8 === 1) ? 1 : 0) +
+                  ((p8 === 0 && p9 === 1) ? 1 : 0) +
+                  ((p9 === 0 && p2 === 1) ? 1 : 0);
+          if (A !== 1) continue;
+          if (step === 0) {
+            if (p2 * p4 * p6 !== 0 || p4 * p6 * p8 !== 0) continue;
+          } else {
+            if (p2 * p4 * p8 !== 0 || p2 * p6 * p8 !== 0) continue;
+          }
+          kill.push(c);
+        }
+      }
+      if (kill.length) {
+        changed = true;
+        for (var i = 0; i < kill.length; i++) img[kill[i]] = 0;
+      }
+    }
+    if (!changed) break;
+  }
+  return img;
+}
+
+/** 1px 骨架 → 折線集合（圖論版）。
+ *
+ *  兩個關鍵：
+ *  1. **對角修剪**：對角鄰接若存在正交「墊腳石」（同列或同行的
+ *     中繼像素）即為冗餘邊——不剪會在轉角/階梯處製造假交叉點，
+ *     把一條線碎成多段還畫出重複段。
+ *  2. **邊訪問**：以「邊」為訪問單位（而非像素），天然去重；
+ *     deg≠2 的節點（端點/交叉點）為路徑斷點，殘餘未訪問邊
+ *     即純環。
+ *
+ *  回傳 [[[x,y],…], …]；環的首尾同點。 */
+function traceCenterlines(skel, w, h) {
+  var N = w * h;
+  var adj = new Array(N);                 // c → [鄰居 c…]（修剪後）
+  var y, x, c, k;
+  for (y = 0; y < h; y++) {
+    for (x = 0; x < w; x++) {
+      c = y * w + x;
+      if (!skel[c]) continue;
+      var lst = [];
+      for (var dy = -1; dy <= 1; dy++) {
+        for (var dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          var nx = x + dx, ny = y + dy;
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+          if (!skel[ny * w + nx]) continue;
+          if (dx && dy) {                  // 對角：有墊腳石就修剪
+            if (skel[y * w + nx] || skel[ny * w + x]) continue;
+          }
+          lst.push(ny * w + nx);
+        }
+      }
+      adj[c] = lst;
+    }
+  }
+  var seen = new Set();                    // 邊 key：min*N + max
+  function ekey(a, b) { return a < b ? a * N + b : b * N + a; }
+  function toXY(cc) { return [cc % w, (cc / w) | 0]; }
+
+  function walk(start, next) {
+    var pts = [toXY(start), toXY(next)];
+    seen.add(ekey(start, next));
+    var prev = start, cur = next;
+    while (adj[cur].length === 2) {
+      var nxt = adj[cur][0] === prev ? adj[cur][1] : adj[cur][0];
+      if (seen.has(ekey(cur, nxt))) break; // 環回到起點
+      seen.add(ekey(cur, nxt));
+      pts.push(toXY(nxt));
+      prev = cur; cur = nxt;
+    }
+    return pts;
+  }
+
+  var paths = [];
+  // Pass 1：從端點/交叉點（deg≠2）出發
+  for (c = 0; c < N; c++) {
+    if (!adj[c] || adj[c].length === 2) continue;
+    for (k = 0; k < adj[c].length; k++) {
+      if (seen.has(ekey(c, adj[c][k]))) continue;
+      paths.push(walk(c, adj[c][k]));
+    }
+  }
+  // Pass 2：純環（全 deg==2、邊未訪問）
+  for (c = 0; c < N; c++) {
+    if (!adj[c] || adj[c].length !== 2) continue;
+    if (seen.has(ekey(c, adj[c][0])) && seen.has(ekey(c, adj[c][1]))) {
+      continue;
+    }
+    var nb = seen.has(ekey(c, adj[c][0])) ? adj[c][1] : adj[c][0];
+    var loop = walk(c, nb);
+    if (loop.length >= 3) {
+      loop.push(toXY(c));                  // 閉合回起點
+      paths.push(loop);
+    }
+  }
+  return paths;
+}
+
+/** 純 JS Ramer–Douglas–Peucker 折線簡化（迭代式，避免深遞迴）。 */
+function rdpSimplify(pts, eps) {
+  if (eps <= 0 || pts.length < 3) return pts;
+  var keep = new Uint8Array(pts.length);
+  keep[0] = 1; keep[pts.length - 1] = 1;
+  var stack = [[0, pts.length - 1]];
+  while (stack.length) {
+    var seg = stack.pop();
+    var s = seg[0], e = seg[1];
+    var ax = pts[s][0], ay = pts[s][1];
+    var bx = pts[e][0], by = pts[e][1];
+    var dx = bx - ax, dy = by - ay;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1e-12;
+    var maxD = -1, maxI = -1;
+    for (var i = s + 1; i < e; i++) {
+      var d = Math.abs(dy * pts[i][0] - dx * pts[i][1] +
+                       bx * ay - by * ax) / len;
+      if (d > maxD) { maxD = d; maxI = i; }
+    }
+    if (maxD > eps) {
+      keep[maxI] = 1;
+      stack.push([s, maxI], [maxI, e]);
+    }
+  }
+  var out = [];
+  for (var j = 0; j < pts.length; j++) if (keep[j]) out.push(pts[j]);
+  return out;
+}
+
+/* ------------------------------------------------------------
  * 瀏覽器 adapter：File → 解碼 → auto_crop → 縮圖 → 核心管線
  * ------------------------------------------------------------ */
 
@@ -484,6 +643,34 @@ async function renderInOpenCV(file, opts) {
         cvo.invert ? cv.THRESH_BINARY : cv.THRESH_BINARY_INV, bs, C);
       kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
       cv.morphologyEx(bin, bin, cv.MORPH_OPEN, kernel);  // 去斑
+    }
+
+    if (mode === "centerline") {
+      // 5cg：骨架化中心線——雷射每條線只走一次（outline 會沿筆畫
+      // 兩側各切一刀）。Zhang-Suen 在高解析下計算量大，由 5cf 的
+      // Worker 承接；這裡照樣回報進度。
+      if (opts.onStatus) opts.onStatus("骨架化中…（中心線模式）");
+      var b01 = new Uint8Array(s.w * s.h);
+      var bd = bin.data;
+      for (var bi = 0; bi < b01.length; bi++) b01[bi] = bd[bi] ? 1 : 0;
+      var skel = zhangSuenThin(b01, s.w, s.h);
+      var traced = traceCenterlines(skel, s.w, s.h);
+      var minLen = cvo.minArea === undefined ? 30 : cvo.minArea;
+      var eps2 = cvo.simplifyPx === undefined ? 1.5 : cvo.simplifyPx;
+      var cpolys = [];
+      for (var ti = 0; ti < traced.length; ti++) {
+        var tp = traced[ti];
+        if (tp.length < 2 || tp.length < minLen) continue;
+        cpolys.push({points: eps2 > 0 ? rdpSimplify(tp, eps2) : tp,
+                     closed: false});
+      }
+      var csvg = contoursToSvg(cpolys, s.w, s.h, {
+        canvasWidthMm: opts.canvasWidthMm,
+        lineColor: opts.lineColor,
+        lineWidth: opts.lineWidth,
+        annotations: opts.annotations,
+      });
+      return {svg: csvg, ms: performance.now() - t0};
     }
 
     cv.findContours(bin, contours, hierarchy,
@@ -680,6 +867,10 @@ var api = {
   buildDoodleSvg: buildDoodleSvg,
   contoursToSvg: contoursToSvg,
   canvasGeom: canvasGeom,
+  // 5cg centerline 三件組
+  zhangSuenThin: zhangSuenThin,
+  traceCenterlines: traceCenterlines,
+  rdpSimplify: rdpSimplify,
 };
 
 if (typeof module !== "undefined" && module.exports) {
