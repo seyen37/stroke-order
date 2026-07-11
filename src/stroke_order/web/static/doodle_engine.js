@@ -675,11 +675,20 @@ function _loadCvFromUrl(url, onStatus) {
       // 可達數十秒，沒有這句就是「無回應」體感
       onStatus("下載＋編譯 OpenCV.js（首次約 10MB，之後走快取）… " + url);
     }
-    if (typeof document === "undefined") {           // Worker（5cf/5cm）
+    if (typeof document === "undefined") {           // Worker（5cf/5cm/5co）
+      // 5co：fetch 只當「看門狗＋進度＋HTTP 快取暖身」（可逾時、
+      // 可觀察；擋掉 silent-drop 防火牆的永久懸掛），實際執行改回
+      // importScripts(絕對 URL)——5cm 的 10MB 間接 eval 在引擎情境
+      // 實測會 CPU 懸掛（Chrome 解剖：同字串 inline eval 216ms、
+      // 引擎內直跑無限卡；absolute importScripts 全日 4/4 穩定）。
+      // fetch 成功後 importScripts 讀同 URL＝快取命中，不再碰網路。
       _fetchScript(url, onStatus).then(function (code) {
         try {
+          if (code.length < 1_000_000) {
+            throw new Error("opencv.js 過小：" + code.length);
+          }
           if (onStatus) onStatus("編譯 OpenCV.js（WASM 初始化）…");
-          (0, eval)(code);                           // 間接 eval → 全域
+          importScripts(url);
           _resolveCv(resolve, reject);
         } catch (e) { reject(e); }
       }, reject);
@@ -898,7 +907,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=153";   // 5cm cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=154";   // 5co cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;

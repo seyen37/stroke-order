@@ -16,7 +16,7 @@
 /* eslint-env worker */
 "use strict";
 
-importScripts("/static/doodle_engine.js?v=153");   // 5cm cache-bust
+importScripts("/static/doodle_engine.js?v=154");   // 5co cache-bust
 
 self.onmessage = async function (ev) {
   var m = ev.data || {};

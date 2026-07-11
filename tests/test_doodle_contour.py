@@ -258,9 +258,12 @@ def test_5cm_fetch_eval_watchdog_absolutized(client):
     js = client.get("/static/doodle_engine.js").text
     assert "var _ORIGIN" in js
     assert '_ORIGIN + "/vendor/opencv.js"' in js        # ① 絕對化
-    assert "_fetchScript" in js                          # ② fetch 載入
-    assert "(0, eval)(code)" in js                       # ② 間接 eval
+    assert "_fetchScript" in js                          # ② fetch 看門狗
     assert "OPENCV_FETCH_STALL_MS" in js                 # ② chunk 逾時
+    # ②' 5co：執行改回 importScripts（快取命中）——10MB 間接 eval
+    #    在引擎情境實測 CPU 懸掛，禁止回歸
+    assert "importScripts(url)" in js
+    assert "(0, eval)(code)" not in js
     assert "OpenCV.js 載入逾時" in js                    # ③ script tag 逾時
     assert "worker 逾時無回應" in js                     # ③ 看門狗
     assert "clearStall" in js
