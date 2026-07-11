@@ -74,6 +74,7 @@ def character_to_svg(
     track_color: str = "#c00",
     width_px: int | None = 300,
     height_px: int | None = 300,
+    size_mm: float | None = None,
 ) -> str:
     """
     Render a single Character to a standalone SVG document.
@@ -108,10 +109,15 @@ def character_to_svg(
 
     n = len(char.strokes)
     size_attrs = ""
-    if width_px is not None:
-        size_attrs += f' width="{width_px}"'
-    if height_px is not None:
-        size_attrs += f' height="{height_px}"'
+    if size_mm is not None:
+        # 5bt (mm audit): 實體尺寸模式 — 給雷切/繪圖軟體匯入用。
+        # viewBox 維持 EM 2048，width/height 標定物理大小。
+        size_attrs += f' width="{size_mm:g}mm" height="{size_mm:g}mm"'
+    else:
+        if width_px is not None:
+            size_attrs += f' width="{width_px}"'
+        if height_px is not None:
+            size_attrs += f' height="{height_px}"'
 
     out: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" '

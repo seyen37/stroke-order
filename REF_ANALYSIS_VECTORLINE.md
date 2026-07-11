@@ -64,6 +64,8 @@
       印章 hatch 填充線待下一輪）
 - [x] 印章模式接分層 DXF（2026-07-11 Phase 5bs：scanline_segments
       收集器＋_stamp_polylines 幾何抽取；陰刻輪廓／陽刻 hatch 雙模式）
-- [ ] audit：plotter SVG 的 mm 實體尺寸與 viewBox 是否全模式一致
+- [x] audit：plotter SVG 的 mm 實體尺寸與 viewBox 是否全模式一致
+      （2026-07-11 Phase 5bt：抓到印章全 preset 縮 2.4-3.5% 實體尺寸
+      bug 並修復；export 加選配 size_mm；14 項契約測試鎖定全站）
 - [ ] 塗鴉模式雷雕情境：試把我們的 SVG 丟進它的 workflow 反向驗證相容性
 - [ ] 社群層面：同為台灣開源 maker 工具，可互相連結（它的 hashtag 生態與我們重疊）

@@ -2182,11 +2182,16 @@ def render_stamp_svg(
                           and preset in ("oval", "tax_invoice", "round")) else 0.0)
     vb_pad = max(stroke_width * max_stroke_mult / 2,
                  sawtooth_extra + stroke_width * 0.5)
+    # 5bt (mm audit): width/height 必須等於 viewBox 實際跨度，維持
+    # 1 user unit = 1 mm——否則雷切軟體匯入時整體縮 viewBox/width 倍
+    # （舊版 25mm 章匯入變 24.4mm）。描邊 pad 是額外墨寬，物理上
+    # 本來就比章面大一點。
     svg_open = (
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'viewBox="{-vb_pad:.3f} {-vb_pad:.3f} '
         f'{stamp_width_mm + 2 * vb_pad:.3f} {stamp_height_mm + 2 * vb_pad:.3f}" '
-        f'width="{stamp_width_mm:.3f}mm" height="{stamp_height_mm:.3f}mm" '
+        f'width="{stamp_width_mm + 2 * vb_pad:.3f}mm" '
+        f'height="{stamp_height_mm + 2 * vb_pad:.3f}mm" '
         f'shape-rendering="geometricPrecision">'
     )
 

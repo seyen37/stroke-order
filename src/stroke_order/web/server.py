@@ -2372,12 +2372,16 @@ def create_app() -> FastAPI:
         rainbow: bool = Query(False),
         char_size: float = Query(20.0, gt=0.1, le=200.0),
         feed_rate: int = Query(3000, gt=0, le=50000),
+        # 5bt (mm audit): 選配實體尺寸——雷切/繪圖軟體以 mm 匯入。
+        # 省略時維持既有 300px 行為（Web 預覽相容）。
+        size_mm: Optional[float] = Query(None, gt=0.1, le=500.0),
     ):
         c, _r, _ = _load(char, source, hook_policy)
 
         if format == "svg":
             payload = character_to_svg(
-                c, mode=mode, show_numbers=show_numbers, rainbow=rainbow
+                c, mode=mode, show_numbers=show_numbers, rainbow=rainbow,
+                size_mm=size_mm,
             )
             return Response(
                 content=payload,
