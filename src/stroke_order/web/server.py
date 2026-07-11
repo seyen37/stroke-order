@@ -2726,7 +2726,8 @@ def create_app() -> FastAPI:
         "arch_top|arch_bottom|banner_left|banner_right)$"
     )
     _PATCH_TEXTPOS_PATTERN = "^(center|top|bottom|on_arc)$"
-    _PATCH_FORMAT_PATTERN = "^(svg|gcode_cut|gcode_write)$"
+    # 5bq: "dxf" — layered DXF R12 (CUT/ENGRAVE/WRITE) for laser software
+    _PATCH_FORMAT_PATTERN = "^(svg|gcode_cut|gcode_write|dxf)$"
 
     @app.get("/api/patch/capacity")
     async def patch_capacity_endpoint(
@@ -2757,9 +2758,9 @@ def create_app() -> FastAPI:
         and a single base64-embedded SVG decoration easily blows past."""
         from ..exporters.patch import (
             render_patch_svg, render_patch_gcode_cut,
-            render_patch_gcode_write, SvgDecoration,
+            render_patch_gcode_write, render_patch_dxf, SvgDecoration,
         )
-        if req.format not in ("svg", "gcode_cut", "gcode_write"):
+        if req.format not in ("svg", "gcode_cut", "gcode_write", "dxf"):
             raise HTTPException(422, detail=f"unknown format {req.format!r}")
 
         def loader(ch: str):
@@ -2803,6 +2804,14 @@ def create_app() -> FastAPI:
             return Response(content=svg, media_type="image/svg+xml",
                             headers={"Content-Disposition":
                                      _content_disposition("patch", "svg")})
+        if req.format == "dxf":
+            # 5bq: layered DXF R12 — CUT/ENGRAVE/WRITE, one file.
+            # Decorations are SVG fragments and not representable (same
+            # limitation as G-code).
+            dxf = render_patch_dxf(**common)
+            return Response(content=dxf, media_type="image/vnd.dxf",
+                            headers={"Content-Disposition":
+                                     _content_disposition("patch_layers", "dxf")})
         if req.format == "gcode_cut":
             gc = render_patch_gcode_cut(**common, decorations=decorations)
             return Response(content=gc, media_type="text/plain; charset=utf-8",

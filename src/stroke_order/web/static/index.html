@@ -1064,6 +1064,8 @@
       <button id="pt-dl-svg" type="button">⤓ SVG (cut + write)</button>
       <button id="pt-dl-cut" type="button">⤓ G-code (裁字)</button>
       <button id="pt-dl-write" type="button">⤓ G-code (寫字)</button>
+      <button id="pt-dl-dxf" type="button"
+              title="CUT(紅)=外框、ENGRAVE(黑)=字輪廓、WRITE(藍)=筆跡中心線；LightBurn / Beam Studio 直接匯入">⤓ 分層 DXF</button>
       <span id="pt-status" style="margin-left:10px;color:var(--muted);font-size:12px;"></span>
     </div>
 
@@ -6520,6 +6522,7 @@ function patchInit() {
   $("pt-dl-svg").onclick   = () => patchDownload("svg");
   $("pt-dl-cut").onclick   = () => patchDownload("gcode_cut");
   $("pt-dl-write").onclick = () => patchDownload("gcode_write");
+  $("pt-dl-dxf").onclick   = () => patchDownload("dxf");   // 5bq
   $("pt-deco-add").onclick = patchAddDecoration;
   // Capacity hint live-updates
   ["pt-preset", "pt-w", "pt-h", "pt-charsize",
@@ -6667,6 +6670,7 @@ async function patchDownload(format) {
     const a = document.createElement("a");
     a.href = url;
     const ext = format === "svg" ? "svg"
+              : format === "dxf" ? "dxf"
               : format === "gcode_cut" ? "cut.gcode" : "write.gcode";
     a.download = `patch.${ext}`;
     document.body.appendChild(a);

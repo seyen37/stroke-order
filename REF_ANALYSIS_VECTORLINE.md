@@ -59,7 +59,10 @@
 
 ## 六、行動項候選（不承諾，待排優先序）
 
-- [ ] exporters 增加分層 DXF（對齊印章/雷雕產品線）
+- [x] exporters 增加分層 DXF（2026-07-11 Phase 5bq：`exporters/dxf.py`
+      自寫 R12 writer 零依賴＋布章 CUT/ENGRAVE/WRITE 三層匯出；
+      印章 hatch 填充線待下一輪）
+- [ ] 印章模式接分層 DXF（雕刻填充線抽 polyline）
 - [ ] audit：plotter SVG 的 mm 實體尺寸與 viewBox 是否全模式一致
 - [ ] 塗鴉模式雷雕情境：試把我們的 SVG 丟進它的 workflow 反向驗證相容性
 - [ ] 社群層面：同為台灣開源 maker 工具，可互相連結（它的 hashtag 生態與我們重疊）

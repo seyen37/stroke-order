@@ -615,6 +615,101 @@ def _transform_pt(x: float, y: float,
     return x2 + tx, y2 + ty
 
 
+# ---------------------------------------------------------------------------
+# 5bq: geometry collector — the single source of truth consumed by the
+# G-code emitter below AND the layered DXF exporter (render_patch_dxf).
+# Coordinates are mm in SVG-like space (Y down); emitters flip as needed.
+# ---------------------------------------------------------------------------
+
+
+def _patch_polylines(
+    text: str,
+    char_loader: CharLoader,
+    *,
+    preset: PatchPreset,
+    patch_width_mm: float,
+    patch_height_mm: float,
+    char_size_mm: float,
+    text_position: TextPosition,
+    tile_rows: int,
+    tile_cols: int,
+    tile_gap_mm: float,
+    show_border: bool = True,
+) -> list[dict]:
+    """Collect per-tile polylines for the patch.
+
+    Returns one dict per tile::
+
+        {"tile": (row, col),
+         "border":        list[(x, y)] | None,   # closed loop (start not repeated)
+         "char_outlines": list[list[(x, y)]],    # sampled stroke-outline loops
+         "write_tracks":  list[list[(x, y)]]}    # open centreline pen tracks
+    """
+    chars: list[Character] = []
+    for ch in text:
+        if ch.isspace():
+            continue
+        c = char_loader(ch)
+        if c is None:
+            continue
+        chars.append(c)
+
+    poly = _ensure_polygon(_build_patch_shape(
+        preset, patch_width_mm, patch_height_mm,
+    ))
+    positions = _layout_text_positions(
+        len(chars), preset, text_position,
+        patch_width_mm, patch_height_mm, char_size_mm, poly,
+    )
+    rows = max(1, int(tile_rows))
+    cols = max(1, int(tile_cols))
+    cell_w = patch_width_mm + tile_gap_mm
+    cell_h = patch_height_mm + tile_gap_mm
+    scale = char_size_mm / EM_SIZE
+    half = char_size_mm / 2.0
+
+    tiles: list[dict] = []
+    for r in range(rows):
+        for c_ in range(cols):
+            tx = c_ * cell_w
+            ty = r * cell_h
+            border = None
+            if show_border:
+                border = [(x + tx, y + ty) for x, y in poly.vertices]
+            char_outlines: list[list[tuple[float, float]]] = []
+            write_tracks: list[list[tuple[float, float]]] = []
+            for c, (cx, cy, rot) in zip(chars, positions):
+                local_origin_x = cx + tx - half
+                local_origin_y = cy + ty - half
+                for stroke in c.strokes:
+                    if stroke.outline:
+                        pts_em = _outline_to_polyline(stroke)
+                        if pts_em:
+                            pts_mm = [
+                                _transform_pt(px, py,
+                                              local_origin_x, local_origin_y,
+                                              scale, half, half, rot)
+                                for px, py in pts_em
+                            ]
+                            if len(pts_mm) >= 2:
+                                char_outlines.append(pts_mm)
+                    track = stroke.smoothed_track or stroke.raw_track
+                    if track and len(track) >= 2:
+                        write_tracks.append([
+                            _transform_pt(p.x, p.y,
+                                          local_origin_x, local_origin_y,
+                                          scale, half, half, rot)
+                            for p in track
+                        ])
+            tiles.append({
+                "tile": (r, c_),
+                "border": border,
+                "char_outlines": char_outlines,
+                "write_tracks": write_tracks,
+            })
+    return tiles
+
+
 def _patch_gcode_payload(
     text: str,
     char_loader: CharLoader,
@@ -635,27 +730,16 @@ def _patch_gcode_payload(
     pen_up: str,
     show_border: bool = True,
 ) -> str:
-    chars: list[Character] = []
-    for ch in text:
-        if ch.isspace():
-            continue
-        c = char_loader(ch)
-        if c is None:
-            continue
-        chars.append(c)
-
-    poly = _ensure_polygon(_build_patch_shape(
-        preset, patch_width_mm, patch_height_mm,
-    ))
-    positions = _layout_text_positions(
-        len(chars), preset, text_position,
-        patch_width_mm, patch_height_mm, char_size_mm, poly,
+    tiles = _patch_polylines(
+        text, char_loader,
+        preset=preset, patch_width_mm=patch_width_mm,
+        patch_height_mm=patch_height_mm, char_size_mm=char_size_mm,
+        text_position=text_position, tile_rows=tile_rows,
+        tile_cols=tile_cols, tile_gap_mm=tile_gap_mm,
+        show_border=show_border,
     )
-
     rows = max(1, int(tile_rows))
     cols = max(1, int(tile_cols))
-    cell_w = patch_width_mm + tile_gap_mm
-    cell_h = patch_height_mm + tile_gap_mm
 
     feed = feed_cut if layer == "cut" else feed_write
     label = "cut (patch outline + char outlines + decorations)" \
@@ -670,86 +754,40 @@ def _patch_gcode_payload(
     out.append("G90 ; absolute")
     out.append(pen_up)
 
-    for r in range(rows):
-        for c_ in range(cols):
-            tx = c_ * cell_w
-            ty = r * cell_h
-            if layer == "cut":
-                # 1. patch outline (skipped when show_border=False — user
-                # plans to add custom border in their design tool).
-                if show_border:
-                    shifted = Polygon(vertices=[
-                        (x + tx, y + ty) for x, y in poly.vertices
-                    ])
-                    out.append(f"; tile ({r},{c_}) patch outline")
-                    out.extend(_polygon_to_gcode_path(
-                        shifted, feed, pen_down, pen_up,
-                    ))
-                # 2. char outlines (sample to polylines)
-                scale = char_size_mm / EM_SIZE
-                half = char_size_mm / 2.0
-                for c, (cx, cy, rot) in zip(chars, positions):
-                    for stroke in c.strokes:
-                        if not stroke.outline:
-                            continue
-                        pts_em = _outline_to_polyline(stroke)
-                        if not pts_em:
-                            continue
-                        # Same translate-rotate-scale as SVG layer.
-                        local_origin_x = cx + tx - half
-                        local_origin_y = cy + ty - half
-                        pts_mm: list[tuple[float, float]] = []
-                        for px, py in pts_em:
-                            mx, my = _transform_pt(
-                                px, py,
-                                local_origin_x, local_origin_y,
-                                scale, half, half, rot,
-                            )
-                            pts_mm.append((mx, my))
-                        if len(pts_mm) < 2:
-                            continue
-                        x0, y0 = pts_mm[0]
-                        out.append(f"G0 X{x0:.3f} Y{y0:.3f}")
-                        out.append(pen_down)
-                        out.append("G4 P150")
-                        for px, py in pts_mm[1:]:
-                            out.append(f"G1 X{px:.3f} Y{py:.3f} F{feed}")
-                        out.append("G4 P150")
-                        out.append(pen_up)
-                # 3. decorations are SVG fragments — G-code conversion is
-                #    out of scope (would need a full SVG path interpreter);
-                #    leave a trailer note instead so the operator knows.
-                if decorations:
-                    out.append(
-                        f"; tile ({r},{c_}) — {len(decorations)} decoration(s) "
-                        "skipped in G-code (use SVG download for those)"
-                    )
-            else:  # write
-                scale = char_size_mm / EM_SIZE
-                half = char_size_mm / 2.0
-                for c, (cx, cy, rot) in zip(chars, positions):
-                    for stroke in c.strokes:
-                        track = stroke.smoothed_track or stroke.raw_track
-                        if len(track) < 2:
-                            continue
-                        local_origin_x = cx + tx - half
-                        local_origin_y = cy + ty - half
-                        pts_mm: list[tuple[float, float]] = []
-                        for p in track:
-                            mx, my = _transform_pt(
-                                p.x, p.y,
-                                local_origin_x, local_origin_y,
-                                scale, half, half, rot,
-                            )
-                            pts_mm.append((mx, my))
-                        x0, y0 = pts_mm[0]
-                        out.append(f"G0 X{x0:.3f} Y{y0:.3f}")
-                        out.append(pen_down)
-                        out.append("G4 P150")
-                        for px, py in pts_mm[1:]:
-                            out.append(f"G1 X{px:.3f} Y{py:.3f} F{feed}")
-                        out.append("G4 P150")
-                        out.append(pen_up)
+    def _emit_open_path(pts_mm) -> None:
+        x0, y0 = pts_mm[0]
+        out.append(f"G0 X{x0:.3f} Y{y0:.3f}")
+        out.append(pen_down)
+        out.append("G4 P150")
+        for px, py in pts_mm[1:]:
+            out.append(f"G1 X{px:.3f} Y{py:.3f} F{feed}")
+        out.append("G4 P150")
+        out.append(pen_up)
+
+    for t in tiles:
+        r, c_ = t["tile"]
+        if layer == "cut":
+            # 1. patch outline (skipped when show_border=False — user
+            # plans to add custom border in their design tool).
+            if t["border"] is not None:
+                out.append(f"; tile ({r},{c_}) patch outline")
+                out.extend(_polygon_to_gcode_path(
+                    Polygon(vertices=t["border"]), feed, pen_down, pen_up,
+                ))
+            # 2. char outlines (sampled to polylines by the collector)
+            for pts_mm in t["char_outlines"]:
+                _emit_open_path(pts_mm)
+            # 3. decorations are SVG fragments — G-code conversion is
+            #    out of scope (would need a full SVG path interpreter);
+            #    leave a trailer note instead so the operator knows.
+            if decorations:
+                out.append(
+                    f"; tile ({r},{c_}) — {len(decorations)} decoration(s) "
+                    "skipped in G-code (use SVG download for those)"
+                )
+        else:  # write
+            for pts_mm in t["write_tracks"]:
+                _emit_open_path(pts_mm)
 
     out.append(pen_up)
     out.append("; done")
@@ -867,3 +905,54 @@ __all__ = [
     "render_patch_gcode_write",
     "patch_capacity",
 ]
+
+
+def render_patch_dxf(
+    text: str,
+    char_loader: CharLoader,
+    *,
+    preset: PatchPreset = "rectangle",
+    patch_width_mm: float = 80.0,
+    patch_height_mm: float = 40.0,
+    char_size_mm: float = 18.0,
+    text_position: TextPosition = "center",
+    tile_rows: int = 1,
+    tile_cols: int = 1,
+    tile_gap_mm: float = 5.0,
+    show_border: bool = True,
+) -> str:
+    """5bq: layered DXF R12 export (VectorLine convention).
+
+    Layers: CUT (red) = patch outline, ENGRAVE (black) = sampled char
+    outlines, WRITE (blue) = centreline pen tracks. Laser users import
+    into LightBurn / Beam Studio and assign per-layer power; plotter
+    users take the WRITE layer. Decorations (SVG fragments) are not
+    representable — same limitation as the G-code path.
+    """
+    from .dxf import DxfPolyline, layers_to_dxf
+
+    tiles = _patch_polylines(
+        text, char_loader,
+        preset=preset, patch_width_mm=patch_width_mm,
+        patch_height_mm=patch_height_mm, char_size_mm=char_size_mm,
+        text_position=text_position, tile_rows=tile_rows,
+        tile_cols=tile_cols, tile_gap_mm=tile_gap_mm,
+        show_border=show_border,
+    )
+    cut: list[DxfPolyline] = []
+    engrave: list[DxfPolyline] = []
+    write: list[DxfPolyline] = []
+    for t in tiles:
+        if t["border"]:
+            cut.append(DxfPolyline(list(t["border"]), closed=True))
+        for pts in t["char_outlines"]:
+            # sampled outlines return to their start point — mark closed
+            # and drop the duplicate final vertex for a clean loop.
+            if len(pts) > 2 and pts[0] == pts[-1]:
+                engrave.append(DxfPolyline(list(pts[:-1]), closed=True))
+            else:
+                engrave.append(DxfPolyline(list(pts), closed=False))
+        for pts in t["write_tracks"]:
+            write.append(DxfPolyline(list(pts), closed=False))
+    return layers_to_dxf([("CUT", cut), ("ENGRAVE", engrave),
+                          ("WRITE", write)])
