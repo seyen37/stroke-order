@@ -283,3 +283,64 @@ def test_api_patch_invalid_preset_rejected(client):
 def test_api_patch_invalid_format_rejected(client):
     r = client.get("/api/patch?preset=rectangle&text=A&format=pdf")
     assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# 5br: auto-fit char size / spacing — overlap bug fix
+# ---------------------------------------------------------------------------
+
+
+def test_5br_four_big_chars_do_not_overlap():
+    """回報場景：80mm 布章塞 4 個 22mm 字，字心距 12mm < 字寬 → 重疊。"""
+    from stroke_order.exporters.patch import (
+        _layout_text_positions, _build_patch_shape, _ensure_polygon,
+        _CHAR_GAP_RATIO,
+    )
+    poly = _ensure_polygon(_build_patch_shape("rectangle", 80.0, 40.0))
+    positions, eff = _layout_text_positions(
+        4, "rectangle", "center", 80.0, 40.0, 22.0, poly)
+    assert eff < 22.0                        # 自動縮字
+    xs = [x for x, _y, _r in positions]
+    for a, b in zip(xs, xs[1:]):
+        assert b - a >= eff * _CHAR_GAP_RATIO - 1e-6   # 字心距 ≥ 字寬×gap
+    # 全部留在布章內（含半字寬）
+    assert xs[0] - eff / 2 >= 0 and xs[-1] + eff / 2 <= 80.0
+    # 置中
+    assert abs((xs[0] + xs[-1]) / 2 - 40.0) < 1e-6
+
+
+def test_5br_roomy_layout_unchanged():
+    """空間充裕時（2 字 18mm/80mm）維持原本的均勻鋪排位置。"""
+    from stroke_order.exporters.patch import (
+        _layout_text_positions, _build_patch_shape, _ensure_polygon,
+    )
+    poly = _ensure_polygon(_build_patch_shape("rectangle", 80.0, 40.0))
+    positions, eff = _layout_text_positions(
+        2, "rectangle", "center", 80.0, 40.0, 18.0, poly)
+    assert eff == 18.0                       # 不縮字
+    # 舊公式：margin=9, usable=80-18-18=44, x0=18 → 18, 62
+    xs = [x for x, _y, _r in positions]
+    assert xs == pytest.approx([18.0, 62.0])
+
+
+def test_5br_single_char_centered_unchanged():
+    from stroke_order.exporters.patch import (
+        _layout_text_positions, _build_patch_shape, _ensure_polygon,
+    )
+    poly = _ensure_polygon(_build_patch_shape("rectangle", 80.0, 40.0))
+    positions, _eff = _layout_text_positions(
+        1, "rectangle", "center", 80.0, 40.0, 22.0, poly)
+    assert positions == [(40.0, 20.0, 0.0)]
+
+
+def test_5br_on_arc_spacing_clamped():
+    from stroke_order.exporters.patch import (
+        _layout_text_positions, _build_patch_shape, _ensure_polygon,
+        _CHAR_GAP_RATIO,
+    )
+    poly = _ensure_polygon(_build_patch_shape("arch_top", 80.0, 40.0))
+    positions, eff = _layout_text_positions(
+        5, "arch_top", "on_arc", 80.0, 40.0, 20.0, poly)
+    xs = sorted(x for x, _y, _r in positions)
+    for a, b in zip(xs, xs[1:]):
+        assert b - a >= eff * _CHAR_GAP_RATIO - 1e-6

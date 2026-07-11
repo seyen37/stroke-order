@@ -175,6 +175,25 @@ def _polygon_to_svg_path(poly: Polygon) -> str:
     return f"{head} {tail} Z"
 
 
+#: 5br: minimum centre-to-centre spacing as a multiple of char size —
+#: 1.0 would be edge-to-edge; 1.08 leaves a small visual gap.
+_CHAR_GAP_RATIO = 1.08
+
+
+def _fit_char_size(n_chars: int, patch_w_mm: float,
+                   char_size_mm: float) -> float:
+    """5br: largest char size (≤ requested) at which ``n_chars`` glyphs
+    plus gaps and edge margins fit the patch width.
+
+    Fixes the overlap bug where e.g. 4 × 22 mm chars were squeezed into
+    an 80 mm patch (centre spacing 12 mm < glyph width 22 mm).
+    """
+    if n_chars <= 0:
+        return char_size_mm
+    max_eff = patch_w_mm / (n_chars * _CHAR_GAP_RATIO + 0.3)
+    return min(char_size_mm, max_eff)
+
+
 def _layout_text_positions(
     n_chars: int,
     preset: PatchPreset,
@@ -183,18 +202,24 @@ def _layout_text_positions(
     patch_h_mm: float,
     char_size_mm: float,
     poly: Polygon,
-) -> list[tuple[float, float, float]]:
-    """Return ``[(cx_mm, cy_mm, rotation_deg), ...]`` for each char.
+) -> tuple[list[tuple[float, float, float]], float]:
+    """Return ``([(cx_mm, cy_mm, rotation_deg), ...], eff_char_size_mm)``.
 
     - ``center`` / ``top`` / ``bottom`` — straight horizontal row.
     - ``on_arc`` — for arch_top / arch_bottom presets, distribute along
       the inner arc curvature; for any other preset falls through to
       ``center``.
+
+    5br: ``eff_char_size_mm`` is the auto-fitted glyph size (see
+    :func:`_fit_char_size`); centre spacing is clamped to at least
+    ``eff × _CHAR_GAP_RATIO`` so glyphs can never overlap. Callers must
+    draw glyphs at the returned effective size.
     """
     if n_chars <= 0:
-        return []
+        return [], char_size_mm
     if position == "on_arc" and preset not in ("arch_top", "arch_bottom"):
         position = "center"
+    eff = _fit_char_size(n_chars, patch_w_mm, char_size_mm)
 
     if position == "on_arc":
         # Drop the chars along the chord at the patch's vertical centre,
@@ -204,9 +229,12 @@ def _layout_text_positions(
         cx0 = patch_w_mm / 2.0
         cy0 = patch_h_mm / 2.0
         # Effective chord width (≈ patch width) divided by N chars.
-        usable = patch_w_mm - char_size_mm * 1.2
+        usable = patch_w_mm - eff * 1.2
         spacing = usable / max(n_chars - 1, 1) if n_chars > 1 else 0
-        x0 = cx0 - usable / 2.0
+        # 5br: never tighter than one glyph width + gap.
+        if n_chars > 1:
+            spacing = max(spacing, eff * _CHAR_GAP_RATIO)
+        x0 = cx0 - spacing * max(n_chars - 1, 0) / 2.0
         # Approximate radius from arch curvature (use bbox heights).
         # Apex offset = sagitta_inner ≈ curvature*hh; we move chars up
         # toward the apex for arch_top, down for arch_bottom.
@@ -225,7 +253,7 @@ def _layout_text_positions(
             if preset == "arch_bottom":
                 alpha_deg = -alpha_deg
             slots.append((x, cy0 + offset, alpha_deg))
-        return slots
+        return slots, eff
 
     # Straight horizontal row.
     cy_map = {
@@ -235,13 +263,16 @@ def _layout_text_positions(
     }
     cy = cy_map.get(position, patch_h_mm / 2.0)
     if n_chars == 1:
-        return [(patch_w_mm / 2.0, cy, 0.0)]
-    # Even spacing; clamp so chars stay inside the patch with margin.
-    margin = char_size_mm * 0.5
-    usable = max(patch_w_mm - 2 * margin - char_size_mm, char_size_mm)
-    spacing = usable / (n_chars - 1)
-    x0 = margin + char_size_mm / 2.0
-    return [(x0 + i * spacing, cy, 0.0) for i in range(n_chars)]
+        return [(patch_w_mm / 2.0, cy, 0.0)], eff
+    # Even spread across the usable width — but never tighter than one
+    # glyph width + gap (5br), so glyphs cannot overlap. The row is then
+    # re-centred; when the spread is roomy this reproduces the previous
+    # margin-based positions exactly.
+    margin = eff * 0.5
+    usable = max(patch_w_mm - 2 * margin - eff, eff)
+    spacing = max(usable / (n_chars - 1), eff * _CHAR_GAP_RATIO)
+    x0 = (patch_w_mm - spacing * (n_chars - 1)) / 2.0
+    return [(x0 + i * spacing, cy, 0.0) for i in range(n_chars)], eff
 
 
 def _char_cut_paths(c: Character, x_mm: float, y_mm: float,
@@ -466,7 +497,7 @@ def render_patch_svg(
         preset, patch_width_mm, patch_height_mm,
     ))
     poly_path_d = _polygon_to_svg_path(poly)
-    positions = _layout_text_positions(
+    positions, eff_char_size = _layout_text_positions(
         len(chars), preset, text_position,
         patch_width_mm, patch_height_mm, char_size_mm, poly,
     )
@@ -477,10 +508,10 @@ def render_patch_svg(
     if poly_path_d and show_border:
         cut_inner.append(f'<path class="patch-outline" d="{poly_path_d}"/>')
     for c, (x, y, rot) in zip(chars, positions):
-        cs = _char_cut_paths(c, x, y, char_size_mm, rot)
+        cs = _char_cut_paths(c, x, y, eff_char_size, rot)
         if cs:
             cut_inner.append(cs)
-        ws = _char_write_polylines(c, x, y, char_size_mm, rot)
+        ws = _char_write_polylines(c, x, y, eff_char_size, rot)
         if ws:
             write_inner.append(ws)
     for d in decorations:
@@ -657,7 +688,7 @@ def _patch_polylines(
     poly = _ensure_polygon(_build_patch_shape(
         preset, patch_width_mm, patch_height_mm,
     ))
-    positions = _layout_text_positions(
+    positions, eff_char_size = _layout_text_positions(
         len(chars), preset, text_position,
         patch_width_mm, patch_height_mm, char_size_mm, poly,
     )
@@ -665,8 +696,8 @@ def _patch_polylines(
     cols = max(1, int(tile_cols))
     cell_w = patch_width_mm + tile_gap_mm
     cell_h = patch_height_mm + tile_gap_mm
-    scale = char_size_mm / EM_SIZE
-    half = char_size_mm / 2.0
+    scale = eff_char_size / EM_SIZE
+    half = eff_char_size / 2.0
 
     tiles: list[dict] = []
     for r in range(rows):
