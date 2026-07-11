@@ -59,9 +59,14 @@ def stub_loader():
 
 @pytest.fixture
 def temp_sutra_dir(monkeypatch):
-    """Override STROKE_ORDER_SUTRA_DIR to a fresh temp dir per test."""
+    """Override STROKE_ORDER_SUTRA_DIR to a fresh temp dir per test.
+
+    5bp: also disables the packaged-text fallback so the classic
+    "not loaded until a file is dropped in" behaviour stays observable.
+    """
     with tempfile.TemporaryDirectory() as td:
         monkeypatch.setenv("STROKE_ORDER_SUTRA_DIR", td)
+        monkeypatch.setenv("STROKE_ORDER_PACKAGED_SUTRAS", "0")
         yield Path(td)
 
 
@@ -2277,3 +2282,52 @@ def test_5bw_mixed_loader_emits_both_groups():
     svg = render_sutra_page(["甲", "乙"], char_loader=mixed_loader)
     assert 'id="sutra-trace"' in svg
     assert 'id="sutra-trace-skeleton"' in svg
+
+
+# ---------------------------------------------------------------------------
+# 5bp: packaged builtin texts (repo-shipped fallback)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def packaged_enabled_dir(monkeypatch):
+    """Fresh empty sutra dir with the packaged fallback ACTIVE."""
+    with tempfile.TemporaryDirectory() as td:
+        monkeypatch.setenv("STROKE_ORDER_SUTRA_DIR", td)
+        monkeypatch.setenv("STROKE_ORDER_PACKAGED_SUTRAS", "1")
+        yield Path(td)
+
+
+def test_5bp_packaged_fallback_loads_without_user_files(packaged_enabled_dir):
+    from stroke_order.sutras import is_loaded, load_text
+    assert is_loaded("heart_sutra")
+    t = load_text("heart_sutra")
+    assert t and "觀自在菩薩" in t
+
+
+def test_5bp_all_builtins_packaged_except_macarthur(packaged_enabled_dir):
+    """CI guard: every builtin except the copyright-excluded one ships a
+    packaged text. Future presets must add their .txt or join the
+    exclusion list in data/sutras/SOURCES.md."""
+    from stroke_order.sutras import is_loaded
+    excluded = {"macarthur_prayer"}
+    for key in BUILTIN_SUTRAS:
+        if key in excluded:
+            assert not is_loaded(key), key
+        else:
+            assert is_loaded(key), f"{key} missing packaged text"
+
+
+def test_5bp_user_file_wins_over_packaged(packaged_enabled_dir):
+    from stroke_order.sutras import builtin_dir, load_text
+    bd = builtin_dir()
+    bd.mkdir(parents=True, exist_ok=True)
+    (bd / "heart_sutra.txt").write_text("使用者版本", encoding="utf-8")
+    assert load_text("heart_sutra") == "使用者版本"
+
+
+def test_5bp_env_disable_restores_not_loaded(temp_sutra_dir):
+    """temp_sutra_dir sets STROKE_ORDER_PACKAGED_SUTRAS=0 — nothing is
+    loaded from the package."""
+    from stroke_order.sutras import is_loaded
+    assert not is_loaded("heart_sutra")

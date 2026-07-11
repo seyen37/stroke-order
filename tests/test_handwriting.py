@@ -38,9 +38,15 @@ def client():
 
 @pytest.fixture
 def temp_sutra_dir(monkeypatch):
-    """Override sutra dir + drop a small heart_sutra.txt into it."""
+    """Override sutra dir + drop a small heart_sutra.txt into it.
+
+    5bp: packaged-text fallback disabled so "not loaded" tests keep
+    observing the classic filesystem-only behaviour (same as the
+    fixture in test_sutra.py).
+    """
     with tempfile.TemporaryDirectory() as td:
         monkeypatch.setenv("STROKE_ORDER_SUTRA_DIR", td)
+        monkeypatch.setenv("STROKE_ORDER_PACKAGED_SUTRAS", "0")
         (Path(td) / "heart_sutra.txt").write_text(
             "觀自在菩薩，行深般若波羅蜜多時。",
             encoding="utf-8",

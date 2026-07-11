@@ -1048,12 +1048,27 @@ def _strip_text(raw: str) -> str:
     return "".join(ch for ch in raw if not ch.isspace())
 
 
+# 5bp: packaged texts — shipped inside the wheel / repo so deployments
+# (Render) and fresh installs work out of the box with zero setup.
+# User files in the sutra dir always win; set the env var to "0" to
+# disable the fallback entirely (tests do this to keep the "not loaded"
+# behaviour observable).
+_ENV_PACKAGED = "STROKE_ORDER_PACKAGED_SUTRAS"
+_PACKAGED_DIR = Path(__file__).parent / "data" / "sutras" / "builtin"
+
+
+def _packaged_enabled() -> bool:
+    return os.environ.get(_ENV_PACKAGED, "1") != "0"
+
+
 def _resolve_builtin_path(info: SutraInfo) -> Optional[Path]:
     """Locate a builtin's text file, supporting the legacy flat layout.
 
     Search order:
-    1. ``<sutras>/builtin/<filename>``  (preferred)
+    1. ``<sutras>/builtin/<filename>``  (preferred — user files win)
     2. ``<sutras>/<filename>``          (legacy flat — pre-5bb)
+    3. packaged ``stroke_order/data/sutras/builtin/<filename>`` (5bp,
+       unless STROKE_ORDER_PACKAGED_SUTRAS=0)
     """
     nested = builtin_dir() / info.filename
     if nested.exists():
@@ -1061,6 +1076,10 @@ def _resolve_builtin_path(info: SutraInfo) -> Optional[Path]:
     flat = default_sutra_dir() / info.filename
     if flat.exists():
         return flat
+    if _packaged_enabled():
+        packaged = _PACKAGED_DIR / info.filename
+        if packaged.exists():
+            return packaged
     return None
 
 
