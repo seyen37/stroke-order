@@ -344,3 +344,62 @@ def test_5br_on_arc_spacing_clamped():
     xs = sorted(x for x, _y, _r in positions)
     for a, b in zip(xs, xs[1:]):
         assert b - a >= eff * _CHAR_GAP_RATIO - 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Phase 5cc — 髮絲線修正：scale transform 下的 stroke-width 補償
+# ---------------------------------------------------------------------------
+
+import re
+
+
+def _glyph_group_widths(svg: str) -> list[tuple[float, float]]:
+    """抓出所有「帶 scale transform 的字形群組」的 (scale, stroke_width)。"""
+    out = []
+    for m in re.finditer(
+            r'<g transform="[^"]*scale\(([\d.]+)(?:,[\d.]+)?\)"'
+            r' stroke-width="([\d.]+)"', svg):
+        out.append((float(m.group(1)), float(m.group(2))))
+    return out
+
+
+def test_5cc_glyph_stroke_width_compensates_scale(stub_loader):
+    """內層字形群組 stroke-width × scale ≈ 外層 mm 線寬。
+
+    否則有效線寬 = 0.3 × (22/2048) ≈ 0.003mm 髮絲線 —— cairosvg
+    光柵化後直接隱形（瀏覽器靠反鋸齒勉強看得到，假象）。"""
+    svg = render_patch_svg("福氣", stub_loader, patch_width_mm=80,
+                           patch_height_mm=40, char_size_mm=22,
+                           cut_width=0.3, write_width=0.5)
+    pairs = _glyph_group_widths(svg)
+    # cut 2 字 + write 2 字 = 4 個補償群組
+    assert len(pairs) == 4
+    effective = sorted(round(s * w, 3) for s, w in pairs)
+    assert effective[:2] == [0.3, 0.3]      # cut 層有效線寬
+    assert effective[2:] == [0.5, 0.5]      # write 層有效線寬
+
+
+def test_5cc_no_param_output_has_no_inner_width(stub_loader):
+    """不傳 stroke_width_mm 時輸出不變 —— 保護 8 個填色型消費者
+    （印章／六張表格頁）零回歸。"""
+    from stroke_order.exporters.patch import _char_cut_paths
+    frag = _char_cut_paths(stub_loader("福"), 10.0, 10.0, 22.0)
+    assert "stroke-width" not in frag
+
+
+def test_5cc_cairosvg_glyph_actually_visible(stub_loader):
+    """E2E：cairosvg 光柵化後字形區必須有暗像素（修正前為 0）。"""
+    cairosvg = pytest.importorskip("cairosvg")
+    import io
+    import numpy as np
+    from PIL import Image
+
+    svg = render_patch_svg("福", stub_loader, patch_width_mm=80,
+                           patch_height_mm=40, char_size_mm=22)
+    png = cairosvg.svg2png(bytestring=svg.encode(), dpi=96,
+                           background_color="white")
+    img = np.array(Image.open(io.BytesIO(png)).convert("L"))
+    H, W = img.shape
+    inner = img[int(H * 0.2):int(H * 0.8), int(W * 0.2):int(W * 0.8)]
+    dark = int((inner < 128).sum())
+    assert dark > 50, f"字形區暗像素僅 {dark} —— 髮絲線退化"

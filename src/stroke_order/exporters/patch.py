@@ -276,12 +276,20 @@ def _layout_text_positions(
 
 
 def _char_cut_paths(c: Character, x_mm: float, y_mm: float,
-                    size_mm: float, rotation_deg: float = 0.0) -> str:
+                    size_mm: float, rotation_deg: float = 0.0,
+                    stroke_width_mm: Optional[float] = None) -> str:
     """Embed a Character's outlines as <path> elements at (x, y).
 
     Uniform scale (width = height = size_mm). For non-uniform stretch
     (e.g. stamp 3-字 traditional layout where surname is elongated),
     use :func:`_char_cut_paths_stretched`.
+
+    Phase 5cc: ``stroke_width_mm`` — 給「描邊型」消費者（布章 cut 線）
+    用的線寬補償。外層群組的 stroke-width 會被這裡的 scale(1/93~1/118)
+    一起縮小成髮絲線（cairosvg 光柵化直接隱形；瀏覽器靠反鋸齒勉強可
+    見）。給值時在內層 g 以 EM 座標補回 stroke-width = w/scale，讓
+    有效線寬回到 w mm。填色型消費者（印章／表格頁）不受 stroke-width
+    影響，維持 None 即可（輸出位元組不變）。
     """
     scale = size_mm / EM_SIZE
     # SVG transform: translate to centre, then rotate, then scale,
@@ -300,7 +308,11 @@ def _char_cut_paths(c: Character, x_mm: float, y_mm: float,
             parts.append(f'<path d="{d}"/>')
     if not parts:
         return ""
-    return f'<g transform="{" ".join(tform_parts)}">{"".join(parts)}</g>'
+    sw = ""
+    if stroke_width_mm is not None and scale > 0:
+        sw = f' stroke-width="{stroke_width_mm / scale:.2f}"'
+    return (f'<g transform="{" ".join(tform_parts)}"{sw}>'
+            f'{"".join(parts)}</g>')
 
 
 def _char_outline_bbox_em(c: Character) -> Optional[tuple]:
@@ -346,7 +358,8 @@ def _char_outline_bbox_full_em(
 
 def _char_cut_paths_stretched(c: Character, cx_mm: float, cy_mm: float,
                               w_mm: float, h_mm: float,
-                              rotation_deg: float = 0.0) -> str:
+                              rotation_deg: float = 0.0,
+                              stroke_width_mm: Optional[float] = None) -> str:
     """Like :func:`_char_cut_paths` but with **bbox-based** non-uniform
     scale: the outline's actual bbox is scaled to fill (w_mm, h_mm) and
     centred on (cx_mm, cy_mm).
@@ -395,12 +408,24 @@ def _char_cut_paths_stretched(c: Character, cx_mm: float, cy_mm: float,
             parts.append(f'<path d="{d}"/>')
     if not parts:
         return ""
-    return f'<g transform="{" ".join(tform_parts)}">{"".join(parts)}</g>'
+    sw = ""
+    if stroke_width_mm is not None and scale_x > 0 and scale_y > 0:
+        # 非等比縮放下無法精確補償，取幾何平均近似（Phase 5cc）
+        import math
+        sw = (f' stroke-width='
+              f'"{stroke_width_mm / math.sqrt(scale_x * scale_y):.2f}"')
+    return (f'<g transform="{" ".join(tform_parts)}"{sw}>'
+            f'{"".join(parts)}</g>')
 
 
 def _char_write_polylines(c: Character, x_mm: float, y_mm: float,
-                          size_mm: float, rotation_deg: float = 0.0) -> str:
-    """Embed a Character's raw_tracks as <polyline> for the writer."""
+                          size_mm: float, rotation_deg: float = 0.0,
+                          stroke_width_mm: Optional[float] = None) -> str:
+    """Embed a Character's raw_tracks as <polyline> for the writer.
+
+    Phase 5cc: ``stroke_width_mm`` 同 :func:`_char_cut_paths` —— 補償
+    scale transform 對外層 stroke-width 的縮小。
+    """
     scale = size_mm / EM_SIZE
     half = size_mm / 2.0
     tform_parts = [f"translate({x_mm - half:.3f},{y_mm - half:.3f})"]
@@ -417,7 +442,11 @@ def _char_write_polylines(c: Character, x_mm: float, y_mm: float,
             parts.append(f'<polyline points="{pts}"/>')
     if not parts:
         return ""
-    return f'<g transform="{" ".join(tform_parts)}">{"".join(parts)}</g>'
+    sw = ""
+    if stroke_width_mm is not None and scale > 0:
+        sw = f' stroke-width="{stroke_width_mm / scale:.2f}"'
+    return (f'<g transform="{" ".join(tform_parts)}"{sw}>'
+            f'{"".join(parts)}</g>')
 
 
 def _decoration_svg(d: SvgDecoration) -> str:
@@ -508,10 +537,14 @@ def render_patch_svg(
     if poly_path_d and show_border:
         cut_inner.append(f'<path class="patch-outline" d="{poly_path_d}"/>')
     for c, (x, y, rot) in zip(chars, positions):
-        cs = _char_cut_paths(c, x, y, eff_char_size, rot)
+        # Phase 5cc: 傳入線寬讓內層群組補償 scale——否則有效線寬變
+        # cut_width×(size/2048) ≈ 0.003mm 髮絲線（cairosvg 下隱形）
+        cs = _char_cut_paths(c, x, y, eff_char_size, rot,
+                             stroke_width_mm=cut_width)
         if cs:
             cut_inner.append(cs)
-        ws = _char_write_polylines(c, x, y, eff_char_size, rot)
+        ws = _char_write_polylines(c, x, y, eff_char_size, rot,
+                                   stroke_width_mm=write_width)
         if ws:
             write_inner.append(ws)
     for d in decorations:
