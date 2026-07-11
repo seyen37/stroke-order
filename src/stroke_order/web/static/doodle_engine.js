@@ -401,10 +401,38 @@ async function renderInBrowser(file, opts) {
 var OPENCV_CDN_URL = "https://docs.opencv.org/4.10.0/opencv.js";
 var _cvPromise = null;
 
+/** cv 物件初始化收尾（promise 型／onRuntimeInitialized 型皆相容）。 */
+function _resolveCv(resolve, reject) {
+  var cv = root.cv;
+  if (cv && typeof cv.then === "function") {
+    cv.then(function (m) { root.cv = m; resolve(m); }, reject);
+  } else if (cv && cv.Mat) {
+    resolve(cv);
+  } else if (cv) {
+    cv.onRuntimeInitialized = function () { resolve(cv); };
+  } else {
+    reject(new Error("OpenCV.js 載入後未取得 cv 物件"));
+  }
+}
+
 /** 惰性載入 OpenCV.js（僅載一次；相容 promise 型與
- *  onRuntimeInitialized 型兩種官方初始化介面）。 */
+ *  onRuntimeInitialized 型兩種官方初始化介面）。
+ *  Phase 5cf：Worker 環境走 importScripts，主執行緒走 script tag。 */
 function loadOpenCV(onStatus) {
   if (_cvPromise) return _cvPromise;
+  if (typeof importScripts === "function") {        // Worker（5cf）
+    _cvPromise = new Promise(function (resolve, reject) {
+      try {
+        if (onStatus) onStatus("首次載入 OpenCV.js（約 8MB，之後走快取）…");
+        importScripts(OPENCV_CDN_URL);
+        _resolveCv(resolve, reject);
+      } catch (e) {
+        _cvPromise = null;   // 下次可重試
+        reject(e);
+      }
+    });
+    return _cvPromise;
+  }
   _cvPromise = new Promise(function (resolve, reject) {
     if (typeof document === "undefined") {
       reject(new Error("OpenCV 引擎僅支援瀏覽器環境"));
@@ -418,18 +446,7 @@ function loadOpenCV(onStatus) {
       _cvPromise = null;   // 下次可重試
       reject(new Error("OpenCV.js 載入失敗（CDN 無法連線）"));
     };
-    tag.onload = function () {
-      var cv = root.cv;
-      if (cv && typeof cv.then === "function") {
-        cv.then(function (m) { root.cv = m; resolve(m); }, reject);
-      } else if (cv && cv.Mat) {
-        resolve(cv);
-      } else if (cv) {
-        cv.onRuntimeInitialized = function () { resolve(cv); };
-      } else {
-        reject(new Error("OpenCV.js 載入後未取得 cv 物件"));
-      }
-    };
+    tag.onload = function () { _resolveCv(resolve, reject); };
     document.head.appendChild(tag);
   });
   return _cvPromise;
@@ -531,7 +548,9 @@ var DoodleEngines = {
     label: "OpenCV（輪廓向量化）",
     live: true,
     available: function () {
-      return typeof document !== "undefined" &&
+      // 5cf：主執行緒（有 document）或 Worker（有 importScripts）皆可
+      return (typeof document !== "undefined" ||
+              typeof importScripts === "function") &&
              typeof createImageBitmap !== "undefined";
     },
     render: renderInOpenCV,
@@ -566,10 +585,90 @@ var DoodleEngines = {
   },
 };
 
+/* ------------------------------------------------------------
+ * 5cf：Web Worker 卸載 —— renderVia() 統一入口
+ *
+ * 降級階梯：Worker 可用 → worker 跑（主執行緒零卡頓）；
+ * Worker 建立/執行失敗 → 主執行緒直跑（5ca/5cb 引擎原地可用）；
+ * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
+ * ------------------------------------------------------------ */
+
+var WORKER_URL = "/static/doodle_worker.js";
+var _worker = null;
+var _workerBroken = false;
+var _msgSeq = 0;
+var _pending = new Map();
+
+function workerSupported() {
+  return !_workerBroken &&
+         typeof Worker !== "undefined" &&
+         typeof OffscreenCanvas !== "undefined" &&
+         typeof document !== "undefined";     // 只在主執行緒開 worker
+}
+
+function _getWorker() {
+  if (_worker) return _worker;
+  _worker = new Worker(WORKER_URL);
+  _worker.onmessage = function (ev) {
+    var m = ev.data || {};
+    var p = _pending.get(m.id);
+    if (!p) return;
+    if (m.status !== undefined) {              // 進度轉發（如 opencv 載入）
+      if (p.onStatus) p.onStatus(m.status);
+      return;
+    }
+    _pending.delete(m.id);
+    if (m.ok) p.resolve({svg: m.svg, ms: m.ms, via: "worker"});
+    else p.reject(new Error(m.error || "worker render failed"));
+  };
+  _worker.onerror = function (e) {
+    _workerBroken = true;                      // 之後一律主執行緒直跑
+    _pending.forEach(function (p) {
+      p.reject(new Error("worker error: " + (e && e.message || e)));
+    });
+    _pending.clear();
+    try { _worker.terminate(); } catch (_e) { /* noop */ }
+    _worker = null;
+  };
+  return _worker;
+}
+
+/** 統一渲染入口：優先 Worker，失敗回主執行緒。
+ *  回傳 {svg, ms, via: "worker"|"main"}。 */
+async function renderVia(engineId, file, opts) {
+  var eng = DoodleEngines[engineId];
+  if (!eng) throw new Error("unknown doodle engine: " + engineId);
+  if (engineId !== "server" && workerSupported()) {
+    try {
+      var id = ++_msgSeq;
+      var w = _getWorker();
+      return await new Promise(function (resolve, reject) {
+        _pending.set(id, {resolve: resolve, reject: reject,
+                          onStatus: opts.onStatus});
+        var send = {};                         // function 欄位不可 clone
+        for (var k in opts) {
+          if (typeof opts[k] !== "function") send[k] = opts[k];
+        }
+        w.postMessage({id: id, engine: engineId, file: file, opts: send});
+      });
+    } catch (e) {
+      if (typeof console !== "undefined") {
+        console.warn("doodle worker fallback to main thread:", e);
+      }
+    }
+  }
+  var direct = await eng.render(file, opts);
+  direct.via = "main";
+  return direct;
+}
+
 var api = {
   DoodleEngines: DoodleEngines,
   OPENCV_CDN_URL: OPENCV_CDN_URL,
+  WORKER_URL: WORKER_URL,
   loadOpenCV: loadOpenCV,
+  renderVia: renderVia,
+  workerSupported: workerSupported,
   // 純函式核心（node parity／單元測試用）
   grayscale: grayscale,
   autocontrast: autocontrast,

@@ -87,3 +87,33 @@ def test_5cb_index_has_opencv_option_and_params(client):
     for pid in ("dd-cv-mode", "dd-cv-block", "dd-cv-c", "dd-cv-invert",
                 "dd-cv-simplify", "dd-cv-minarea", "dd-cv-maxside"):
         assert f'id="{pid}"' in html, f"index.html 缺少 OpenCV 參數 {pid}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 5cf — Web Worker 卸載
+# ---------------------------------------------------------------------------
+
+
+def test_5cf_worker_shell_serves(client):
+    r = client.get("/static/doodle_worker.js")
+    assert r.status_code == 200
+    body = r.text
+    assert 'importScripts("/static/doodle_engine.js")' in body
+    assert "self.onmessage" in body
+    # message 協定三態：status／ok:true／ok:false
+    assert "status: msg" in body
+    assert "ok: true" in body and "ok: false" in body
+
+
+def test_5cf_engine_has_worker_offload(client):
+    body = client.get("/static/doodle_engine.js").text
+    assert "renderVia" in body
+    assert "workerSupported" in body
+    assert '"/static/doodle_worker.js"' in body
+    # loadOpenCV 的 Worker 分支（importScripts 取代 script tag）
+    assert "importScripts(OPENCV_CDN_URL)" in body
+
+
+def test_5cf_index_routes_through_render_via(client):
+    html = client.get("/").text
+    assert "mod.renderVia(engineVal, file, opts)" in html

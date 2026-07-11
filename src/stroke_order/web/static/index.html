@@ -4732,8 +4732,11 @@ async function renderDoodle() {
     let res, engineNote;
     if (clientEng) {
       try {
-        res = await clientEng.render(file, opts);
-        engineNote = clientEng.label;
+        // Phase 5cf: renderVia 統一入口——優先 Worker（主執行緒不卡），
+        // Worker 失敗自動回主執行緒直跑
+        res = await mod.renderVia(engineVal, file, opts);
+        engineNote = clientEng.label +
+          (res.via === "worker" ? "・Worker" : "");
       } catch (e) {
         console.warn("client doodle engine failed, falling back:", e);
         res = await renderDoodleViaServer(file, opts);
