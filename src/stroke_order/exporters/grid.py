@@ -102,6 +102,71 @@ def _cell_content(char: Character, style: CellStyle) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# Phase 5cu: 注音欄（字格右側 2:1 窄欄，注音符號可描紅）
+# ---------------------------------------------------------------------------
+
+#: 注音欄寬（EM 座標）——沿用稿紙模式「字:注音 = 2:1」慣例
+ZHUYIN_STRIP_EM: int = EM_SIZE // 2
+
+#: 聲調記號手作 polyline（200×200 box；一聲不標、輕聲為點）。
+#: 幾何極簡＝機器可寫；不用 <text>（CJK/符號描邊鐵則）。
+_ZY_TONE_TRACKS: dict[str, list[list[tuple[int, int]]]] = {
+    "ˊ": [[(40, 160), (160, 40)]],
+    "ˇ": [[(30, 50), (100, 160), (170, 50)]],
+    "ˋ": [[(40, 40), (160, 160)]],
+}
+_ZY_TONE_CHARS = "ˊˇˋ˙ˉ"
+
+
+def _zhuyin_strip(sym_str: str, zhuyin_chars: dict[str, Character],
+                  style: CellStyle) -> str:
+    """Render one 注音欄 strip (viewport ``ZHUYIN_STRIP_EM × EM_SIZE``).
+
+    符號經 ``_cell_content`` 渲染——描紅/淡灰/紅軌跡樣式全數繼承，
+    「注音也能練筆順」。``blank`` 層只畫外框（學生自行填寫）。
+    """
+    w = ZHUYIN_STRIP_EM
+    parts = ['<g class="zhuyin">',
+             f'<rect x="0" y="0" width="{w}" height="{EM_SIZE}" '
+             f'fill="none" stroke="#cccccc" stroke-width="8"/>']
+    tone = next((c for c in sym_str if c in _ZY_TONE_CHARS), "")
+    syms = [c for c in sym_str if c in zhuyin_chars]
+    y0 = float(EM_SIZE)
+    total_h = 0.0
+    if syms and style != "blank":
+        sym_h = EM_SIZE / max(len(syms), 2)
+        s = min(float(w), sym_h) * 0.92
+        total_h = sym_h * len(syms)
+        y0 = (EM_SIZE - total_h) / 2
+        scale = s / EM_SIZE
+        for i, c in enumerate(syms):
+            x = (w - s) / 2
+            y = y0 + i * sym_h + (sym_h - s) / 2
+            parts.append(
+                f'<g transform="translate({x:.1f},{y:.1f}) '
+                f'scale({scale:.6f})">'
+                f'{_cell_content(zhuyin_chars[c], style)}</g>')
+    if tone and style != "blank":
+        color = "#e0e0e0" if style == "ghost" else (
+            "#c22" if style in ("trace", "filled") else "#222")
+        if tone == "˙":                      # 輕聲：點，置頂
+            cx_, cy_ = w / 2, max(90.0, y0 - 120)
+            parts.append(f'<circle cx="{cx_:.1f}" cy="{cy_:.1f}" r="36" '
+                         f'fill="{color}"/>')
+        elif tone in _ZY_TONE_TRACKS:        # 二三四聲：右側
+            tx_ = w - 230
+            ty_ = min(EM_SIZE - 220, y0 + total_h - 120)
+            for track in _ZY_TONE_TRACKS[tone]:
+                pts = " ".join(f"{tx_ + px},{ty_ + py}" for px, py in track)
+                parts.append(f'<polyline points="{pts}" fill="none" '
+                             f'stroke="{color}" stroke-width="28" '
+                             f'stroke-linecap="round" '
+                             f'stroke-linejoin="round"/>')
+    parts.append("</g>")
+    return "".join(parts)
+
+
 def render_grid_svg(
     chars: list[Character],
     *,
@@ -113,6 +178,10 @@ def render_grid_svg(
     blank_copies: Optional[int] = None,
     direction: Literal["horizontal", "vertical"] = "horizontal",
     repeat_per_char: int = 1,   # kept for back-compat; no longer affects layout
+    # 5cu：注音欄——zhuyin_map 由前端算好傳入（伺服器零字典依賴），
+    # zhuyin_chars 為符號 Character 表（server 以 char_loader 載入）
+    zhuyin_map: Optional[dict[str, str]] = None,
+    zhuyin_chars: Optional[dict[str, Character]] = None,
 ) -> str:
     """
     Render a 字帖-style worksheet SVG with **tier-based** layout (Phase 5j).
@@ -179,15 +248,22 @@ def render_grid_svg(
         grid_cols = N
         grid_rows = num_tiers
 
-    total_w_em = grid_cols * EM_SIZE
+    # 5cu：注音欄開啟時每格加寬為「字格＋右側窄欄」（2:1）
+    zy_on = zhuyin_map is not None
+    zhuyin_chars = zhuyin_chars or {}
+    pair_w = EM_SIZE + (ZHUYIN_STRIP_EM if zy_on else 0)
+
+    total_w_em = grid_cols * pair_w
     total_h_em = grid_rows * EM_SIZE
-    total_w_px = grid_cols * cell_size_px
+    total_w_px = round(grid_cols * cell_size_px * pair_w / EM_SIZE)
     total_h_px = grid_rows * cell_size_px
 
     out: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{total_w_px}" height="{total_h_px}" '
-        f'viewBox="0 0 {total_w_em} {total_h_em}">'
+        f'viewBox="0 0 {total_w_em} {total_h_em}" '
+        # 5cu：前端（5cs G-code 組裝等）需要知道格距——EM 座標
+        f'data-pair-em="{pair_w}">'
     ]
     out.append(f'<rect x="0" y="0" width="{total_w_em}" '
                f'height="{total_h_em}" fill="white"/>')
@@ -202,7 +278,7 @@ def render_grid_svg(
             else:
                 col = char_idx
                 row = tier_idx
-            tx = col * EM_SIZE
+            tx = col * pair_w
             ty = row * EM_SIZE
             # 5cn：cell 定位標記——「自訂字型」前端注入需要知道每格
             # 是哪個字、哪種格式樣（純屬性、視覺零變化）
@@ -213,6 +289,10 @@ def render_grid_svg(
             out.append(f'  {guide_svg}')
             out.append(f'  {_cell_content(ch, style)}')
             out.append("</g>")
+            if zy_on:
+                sym = zhuyin_map.get(ch.char, "")
+                out.append(f'<g transform="translate({tx + EM_SIZE},{ty})">'
+                           f'{_zhuyin_strip(sym, zhuyin_chars, style)}</g>')
     out.append("</svg>")
     return "\n".join(out)
 

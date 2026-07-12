@@ -2495,6 +2495,11 @@ def create_app() -> FastAPI:
         # tracing practice; users opt in for Mingti/Lishu/Bold variants).
         style: str = Query("kaishu", pattern=_STYLE_PATTERN),
         cns_outline_mode: str = Query("skip", pattern=_CNS_MODE_PATTERN),
+        # 5cu：注音欄——「字:注音,字:注音」由前端算好傳入（pinyin-pro
+        # ＋規則轉換表），伺服器零字典依賴；參數存在即開欄
+        zhuyin_map: Optional[str] = Query(
+            None, max_length=800,
+            description="注音欄映射，格式：字:ㄅㄆㄇˊ,字:…（前端供給）"),
     ):
         """Render a 字帖 for multiple characters in SVG / G-code / JSON.
 
@@ -2567,6 +2572,27 @@ def create_app() -> FastAPI:
                             headers=headers)
 
         # format == "svg" (default)
+        # 5cu：注音欄——解析映射並載入符號 Character（37 符有筆順
+        # 資料，經標準 _load 走 char_loader；載不到的符號靜默跳過）
+        zmap: Optional[dict[str, str]] = None
+        zchars: dict = {}
+        if zhuyin_map is not None:
+            zmap = {}
+            for pair in zhuyin_map.split(","):
+                if ":" not in pair:
+                    continue
+                k, v = pair.split(":", 1)
+                if k:
+                    zmap[k] = v
+            for val in zmap.values():
+                for sym in val:
+                    if sym in zchars or sym in "ˊˇˋ˙ˉ":
+                        continue
+                    try:
+                        zc, _r2, _2 = _load(sym, source, hook_policy)
+                        zchars[sym] = zc
+                    except HTTPException:
+                        continue
         svg = render_grid_svg(
             loaded, cols=cols, guide=guide,
             cell_style=cell_style, cell_size_px=cell_size,
@@ -2574,6 +2600,8 @@ def create_app() -> FastAPI:
             blank_copies=blank_copies,   # None → auto
             direction=direction,  # type: ignore
             repeat_per_char=repeat,
+            zhuyin_map=zmap,
+            zhuyin_chars=zchars,
         )
         if download:
             headers["Content-Disposition"] = _content_disposition(

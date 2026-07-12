@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.20.4/dist/index.js"></script>
   <!-- 5cj: ?v= cache-busting — 舊快取 JS 會殘留死 CDN 位址 -->
-  <script src="/static/doodle_engine.js?v=158"></script>
+  <script src="/static/doodle_engine.js?v=159"></script>
   <style>
     :root {
       --bg: #fafafa;
@@ -447,6 +447,9 @@
         <option value="trace">描輪廓</option>
         <option value="skeleton">骨架化</option>
       </select>
+      <label style="margin-left:16px;"
+             title="字格右側加注音窄欄（2:1）。注音符號有完整筆順資料，跟著層樣式描紅——注音也能練筆順。讀音由瀏覽器以詞境自動判定（破音字取常用讀音）">
+        <input type="checkbox" id="grid-zhuyin"> 注音欄（描紅）</label>
     </div>
     <div class="row">
       <label title="總層數 = 主字 + ghost + blank；每層 N 格 (N = 輸入字數)">練習層數</label>
@@ -3201,6 +3204,73 @@ document.querySelectorAll('input[name="mode"]').forEach(r =>
 // ============================================================
 // Grid (字帖) mode
 // ============================================================
+// ------------------------------------------------------------------
+// Phase 5cu：拼音 → 注音（確定性規則轉換）
+// pinyin-pro（已全域載入）出「拼音＋調號」，這裡查表轉注音——
+// 語言知識留在前端，伺服器零字典依賴（同 5cn 架構哲學）。
+// ------------------------------------------------------------------
+const ZY_WHOLE = {zhi:"ㄓ",chi:"ㄔ",shi:"ㄕ",ri:"ㄖ",zi:"ㄗ",ci:"ㄘ",si:"ㄙ",
+  yi:"ㄧ",ya:"ㄧㄚ",yo:"ㄧㄛ",ye:"ㄧㄝ",yao:"ㄧㄠ",you:"ㄧㄡ",yan:"ㄧㄢ",
+  yin:"ㄧㄣ",yang:"ㄧㄤ",ying:"ㄧㄥ",yong:"ㄩㄥ",
+  wu:"ㄨ",wa:"ㄨㄚ",wo:"ㄨㄛ",wai:"ㄨㄞ",wei:"ㄨㄟ",wan:"ㄨㄢ",wen:"ㄨㄣ",
+  wang:"ㄨㄤ",weng:"ㄨㄥ",
+  yu:"ㄩ",yue:"ㄩㄝ",yuan:"ㄩㄢ",yun:"ㄩㄣ"};
+const ZY_INIT = {b:"ㄅ",p:"ㄆ",m:"ㄇ",f:"ㄈ",d:"ㄉ",t:"ㄊ",n:"ㄋ",l:"ㄌ",
+  g:"ㄍ",k:"ㄎ",h:"ㄏ",j:"ㄐ",q:"ㄑ",x:"ㄒ",zh:"ㄓ",ch:"ㄔ",sh:"ㄕ",
+  r:"ㄖ",z:"ㄗ",c:"ㄘ",s:"ㄙ"};
+const ZY_FIN = {a:"ㄚ",o:"ㄛ",e:"ㄜ",ai:"ㄞ",ei:"ㄟ",ao:"ㄠ",ou:"ㄡ",
+  an:"ㄢ",en:"ㄣ",ang:"ㄤ",eng:"ㄥ",er:"ㄦ",
+  i:"ㄧ",ia:"ㄧㄚ",ie:"ㄧㄝ",iao:"ㄧㄠ",iu:"ㄧㄡ",ian:"ㄧㄢ",in:"ㄧㄣ",
+  iang:"ㄧㄤ",ing:"ㄧㄥ",iong:"ㄩㄥ",
+  u:"ㄨ",ua:"ㄨㄚ",uo:"ㄨㄛ",uai:"ㄨㄞ",ui:"ㄨㄟ",uan:"ㄨㄢ",un:"ㄨㄣ",
+  uang:"ㄨㄤ",ong:"ㄨㄥ",
+  v:"ㄩ",ve:"ㄩㄝ",van:"ㄩㄢ",vn:"ㄩㄣ"};
+const ZY_TONE = {"1": "", "2": "ˊ", "3": "ˇ", "4": "ˋ", "0": "˙", "5": "˙"};
+
+function pinyinToZhuyin(pyNum) {
+  const m = /^([a-zv]+)([0-9])?$/.exec(
+    String(pyNum).toLowerCase().replace(/ü/g, "v").trim());
+  if (!m) return "";
+  const syl = m[1];
+  const tone = ZY_TONE[m[2] || "1"] ?? "";
+  if (ZY_WHOLE[syl]) return ZY_WHOLE[syl] + tone;
+  let init = "", rest = syl;
+  if (syl.length >= 2 && ZY_INIT[syl.slice(0, 2)]) {   // zh/ch/sh
+    init = syl.slice(0, 2); rest = syl.slice(2);
+  } else if (ZY_INIT[syl[0]]) {
+    init = syl[0]; rest = syl.slice(1);
+  }
+  if ("jqx".includes(init) && rest[0] === "u") {       // jqx 後 u = ü
+    rest = "v" + rest.slice(1);
+  }
+  const fin = rest === "" ? "" : ZY_FIN[rest];
+  if (fin === undefined) return "";
+  return (ZY_INIT[init] || "") + fin + tone;
+}
+
+/** 整串詞境轉換（破音字取 pinyin-pro 詞境判定）→ "字:注音,…" */
+function gridZhuyinMap(chars) {
+  if (typeof window.pinyinPro === "undefined") return "";
+  const cs = [...chars];
+  let arr = [];
+  try {
+    arr = pinyinPro.pinyin(chars, {toneType: "num", type: "array", v: true});
+  } catch (e) { arr = []; }
+  const aligned = arr.length === cs.length;
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < cs.length; i++) {
+    const ch = cs[i];
+    if (seen.has(ch) || !/[㐀-鿿]/.test(ch)) continue;
+    seen.add(ch);
+    let py = aligned ? arr[i]
+      : pinyinPro.pinyin(ch, {toneType: "num", v: true});
+    const zy = pinyinToZhuyin(py);
+    if (zy) out.push(ch + ":" + zy);
+  }
+  return out.join(",");
+}
+
 function gridParams() {
   const g = (id) => document.getElementById(id).value;
   const p = new URLSearchParams({
@@ -3221,6 +3291,10 @@ function gridParams() {
       ? "kaishu" : g("grid-font-style"),
     cns_outline_mode: g("grid-cns-mode"),
   });
+  // 5cu：注音欄——前端算好映射傳給伺服器（參數存在即開欄）
+  if (document.getElementById("grid-zhuyin").checked) {
+    p.set("zhuyin_map", gridZhuyinMap(g("grid-chars")));
+  }
   return p.toString();
 }
 
@@ -3245,6 +3319,11 @@ async function renderGrid() {
       innerSvg.style.height = "auto";
     }
     statusEl.textContent = `OK · SVG ${(svg.length / 1024).toFixed(1)} KB`;
+    if (document.getElementById("grid-zhuyin").checked) {
+      // 5cu v1：注音欄只進 SVG——伺服器 G-code/JSON 版面不含注音欄
+      statusEl.textContent +=
+        "（含注音欄描紅；G-code/JSON 為主字版面、不含注音）";
+    }
     // Wire up the 3 download links
     const dlSvg = document.getElementById("grid-download-svg");
     const dlGcode = document.getElementById("grid-download-gcode");
@@ -3448,6 +3527,9 @@ function gridUserFontGcode(svgRoot) {
   const penUp = "M5", penDown = "M3 S90", dwellMs = 150;
   const ox = 10.0, oy = 10.0;
   const scaleMm = cellMm / EM;
+  // 5cu：注音欄開啟時格距變寬（data-pair-em），X 向距同步縮放
+  const pairEm = parseFloat(svgRoot.getAttribute("data-pair-em") || "") || EM;
+  const xPitchMm = cellMm * pairEm / EM;
   const direction = document.getElementById("grid-direction").value;
   const cells = [];
   svgRoot.querySelectorAll("g[data-char]").forEach((cell) => {
@@ -3457,7 +3539,7 @@ function gridUserFontGcode(svgRoot) {
       .exec(cell.getAttribute("transform") || "");
     if (!m) return;
     cells.push({ch: cell.getAttribute("data-char"),
-                col: Math.round(parseFloat(m[1]) / EM),
+                col: Math.round(parseFloat(m[1]) / pairEm),
                 row: Math.round(parseFloat(m[2]) / EM)});
   });
   cells.sort((a, b) => direction === "vertical"
@@ -3474,7 +3556,7 @@ function gridUserFontGcode(svgRoot) {
   out.push(`G4 P${dwellMs}`);
   out.push(`G0 X${ox.toFixed(3)} Y${oy.toFixed(3)} F${travel} ; home`);
   for (const cell of cells) {
-    const cxMm = ox + cell.col * cellMm;
+    const cxMm = ox + cell.col * xPitchMm;   // 5cu：X 向用 pair 距
     const cyMm = oy + cell.row * cellMm;
     out.push("");
     out.push(`; --- cell (${cell.row},${cell.col}): ${cell.ch} ---`);

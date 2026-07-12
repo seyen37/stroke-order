@@ -106,6 +106,24 @@ def test_5ct_notebook_letter_userfont_ui(client):
     assert html.count('=== "userfont"') >= 5
 
 
+def test_5cu_grid_zhuyin_api_and_ui(client):
+    """5cu：/api/grid zhuyin_map 參數（前端供給、伺服器零字典）＋
+    UI 轉換表/checkbox/格距標記存在。"""
+    r = client.get("/api/grid?chars=永&zhuyin_map=永:ㄩㄥˇ")
+    assert r.status_code == 200
+    assert 'class="zhuyin"' in r.text
+    assert 'data-pair-em="3072"' in r.text
+    r0 = client.get("/api/grid?chars=永")
+    assert 'data-pair-em="2048"' in r0.text           # 不帶參數＝原版面
+
+    html = client.get("/").text
+    assert 'id="grid-zhuyin"' in html
+    assert "pinyinToZhuyin" in html
+    assert "gridZhuyinMap" in html
+    assert "ZY_WHOLE" in html and "ZY_FIN" in html
+    assert "data-pair-em" in html                     # 5cs gcode 格距修正
+
+
 def test_grid_various_guide_styles(client):
     for guide in ("tian", "mi", "hui", "plain", "none"):
         r = client.get(f"/api/grid?chars=永&guide={guide}")

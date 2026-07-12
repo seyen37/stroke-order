@@ -46,6 +46,26 @@ def test_auto_tier_counts_cols_6():
 # ----- render_grid_svg basic ----------------------------------------------
 
 
+def test_5cu_zhuyin_strip_layout(source):
+    """5cu：注音欄——pair 版面（2:1）、每層一條 strip、聲調 polyline、
+    關閉時版面與既有契約完全不變。"""
+    chars = _prep(source, "永")
+    stand_in = _prep(source, "一")[0]   # 借真字當符號 stand-in（結構測試）
+    svg = render_grid_svg(
+        chars, cols=3,
+        zhuyin_map={"永": "ㄩㄥˇ"},
+        zhuyin_chars={"ㄩ": stand_in, "ㄥ": stand_in},
+    )
+    assert 'data-pair-em="3072"' in svg              # EM + EM/2
+    assert svg.count('class="zhuyin"') == 3          # 三層各一條（blank 空欄）
+    assert "polyline" in svg                          # ˇ 聲調手作軌跡
+    assert 'viewBox="0 0 3072' in svg                 # 1 字 × pair 寬
+
+    svg0 = render_grid_svg(chars, cols=1)
+    assert 'data-pair-em="2048"' in svg0              # 關閉＝原版面
+    assert 'class="zhuyin"' not in svg0
+
+
 def test_grid_returns_valid_xml(source):
     chars = _prep(source, "永日")
     svg = render_grid_svg(chars, cols=2, guide="tian")
