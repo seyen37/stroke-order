@@ -47,6 +47,7 @@ echo.
 echo === done. last 3 commits: ===
 git log --oneline -3
 echo.
-echo Reminder: update README badges (tests count from pytest above,
-echo           version badge to 0.14.134).
+echo Reminder: README badges must match THIS run's pytest output
+echo           (tests count) and pyproject.toml (version). Copy the
+echo           actual numbers -- never use expected/estimated values.
 pause
