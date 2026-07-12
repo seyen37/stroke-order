@@ -1139,6 +1139,56 @@ build 時下載進 git checkout 路徑（非 ephemeral home）、runtime
 README badges、commit 訊息的測試數，一律抄全量 pytest 的
 實際輸出，不用預期值。
 
+## 10. 架構紅利與功能線原則（2026-07-12 5cr→5cu 新增）
+
+> 自訂字型能力線收束（描紅→機器軌跡→擴模式）＋注音欄開張的
+> 單日沉澱。詳細脈絡見
+> `decisions/2026-07-12_5cr_5cu_userfont_zhuyin.md`。
+
+### 10.1 分層的價值在第二個消費者出現時兌現
+
+「伺服器管版面、前端管字形」設計時只有字帖一個消費者；擴到
+筆記/信紙時發現共用 page.py 渲染器——一處加錨點、多模式生效、
+注入器零修改（5ct）。評估分層是否正確，看第二個消費者接上時
+要改多少：接近零＝分對了。
+
+### 10.2 語言知識在前端、排版渲染在伺服器
+
+自訂字型（5cn：字型檔不出本機）與注音欄（5cu：zhuyin_map
+由前端 pinyin-pro＋規則表算好傳入）同構——伺服器不認識
+「字型」「讀音」這些領域概念，只吃排版參數。好處：零新依賴、
+零版權/資料風險、破音字修正這類互動留在有 UI 的那端。
+
+### 10.3 fallback 目的地不可與失敗層共享病灶
+
+worker 懸掛的機器，主執行緒直跑同樣懸掛——而主執行緒一凍
+timer 全停、看門狗徹底失效＝整頁凍死（5cr，使用者本機伺服器
+實測）。降級要跳過「與失敗層同病因」的層，直達確定安全的層
+（伺服器端）。§9.5 的補遺正式成條：看門狗只保護還有事件迴圈
+的層。
+
+### 10.4 前端幾何出貨前用 node 假 DOM 做座標級驗證
+
+G-code 組裝（5cs）與版面數學（5cu）都在 node 用 stub DOM＋
+已知輸入斷言到小數點（flip_y、格位移、ghost 跳過、pair 寬）。
+瀏覽器手測看得出「有沒有東西」，看不出「座標對不對」；幾何
+錯誤到了雷切/寫字機才爆炸，成本最高。
+
+### 10.5 語言資料用規則生成、不用窮舉；留意標準分岔
+
+拼音→注音是確定性規則（聲母/韻母/整音節表＋jqx+ü 特例，
+33 樣本驗證），不需要 400 音節窮舉表。但**讀音標準有兩套**：
+pinyin-pro＝大陸體系，台灣以教育部「一字多音審定表」為準
+（垃圾/液類字不同）——凡引語言函式庫，先問它的標準是哪套、
+與目標受眾的落差在哪，落差表列成行動項。
+
+### 10.6 生態參考的最高價值是「組合技」
+
+IVS 注音字型（開源免商用）餵進自訂字型＋注音欄同紙＝
+「看印刷注音、練筆順注音」，零開發成本的新能力（REF 增補）。
+讀參考資料時主動找「他們的產出能不能當我們的輸入」——
+互補位比競爭位值錢。
+
 ---
 
 ## 7. 索引
@@ -1148,11 +1198,14 @@ README badges、commit 訊息的測試數，一律抄全量 pytest 的
   - [`2026-05-06_session_log.md`](journal/2026-05-06_session_log.md)
   - [`WORK_LOG_2026-07-11.md`](WORK_LOG_2026-07-11.md)（5bt→5cq
     全日兩弧十七輪＋救援全記錄，含雙收官總結）
+  - [`WORK_LOG_2026-07-12.md`](WORK_LOG_2026-07-12.md)（5cr→5cu
+    自訂字型全能力線＋注音欄＋REF IVS 增補）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
   - [`2026-07-11_5bo_educational_category.md`](decisions/2026-07-11_5bo_educational_category.md)（科普教育分類）
   - [`2026-07-11_5ck_5cq_opencv_delivery_userfont.md`](decisions/2026-07-11_5ck_5cq_opencv_delivery_userfont.md)（OpenCV 交付鏈五層根因＋自訂字型，對應 §9）
+  - [`2026-07-12_5cr_5cu_userfont_zhuyin.md`](decisions/2026-07-12_5cr_5cu_userfont_zhuyin.md)（自訂字型全能力線＋注音欄，對應 §10）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
