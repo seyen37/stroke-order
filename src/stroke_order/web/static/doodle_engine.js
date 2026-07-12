@@ -907,7 +907,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=155";   // 5cp cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=156";   // 5cr cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;
@@ -993,6 +993,14 @@ async function renderVia(engineId, file, opts) {
     } catch (e) {
       if (typeof console !== "undefined") {
         console.warn("doodle worker fallback to main thread:", e);
+      }
+      if (engineId === "opencv") {
+        // 5cr：opencv 不退主執行緒——會讓 worker 懸掛的機器
+        // （環境層卡大型腳本執行），主執行緒執行同樣懸掛；而主
+        // 執行緒一凍，timer 全停、看門狗無效，等於整頁凍死
+        // （使用者本機伺服器實測「網頁無回應」）。直接把錯誤
+        // 拋給 UI 層退伺服器引擎＋記 sessionStorage 失敗記憶。
+        throw e;
       }
     }
   }

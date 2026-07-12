@@ -280,6 +280,9 @@ def test_5cp_server_default_and_opencv_failure_memory(client):
     assert 'sessionStorage.setItem("dd-opencv-broken"' in html
     js = client.get("/static/doodle_engine.js").text
     assert "worker 逾時無回應（30s）" in js                 # 看門狗收緊
+    # 5cr：opencv 禁止主執行緒 fallback——主執行緒懸掛時 timer 全停
+    # （看門狗無效）＝整頁凍死；worker 失敗直接拋給 UI 退伺服器
+    assert "opencv 不退主執行緒" in js
 
 
 def test_5cq_fetch_vendor_build_script(tmp_path, monkeypatch):
