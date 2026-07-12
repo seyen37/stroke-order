@@ -94,6 +94,18 @@ def test_5cs_userfont_gcode_pipeline(client):
     assert "grid_userfont.gcode" in html       # blob 下載檔名
 
 
+def test_5ct_notebook_letter_userfont_ui(client):
+    """5ct：筆記/信紙自訂字型 UI＋共用注入/下載接線存在。"""
+    html = client.get("/").text
+    # 三個模式的字型選單都有 userfont 選項（grid + nb + lt）
+    assert html.count('<option value="userfont">') == 3
+    assert "ufPageDownloads" in html                  # 頁面型下載接線
+    assert 'ufPageDownloads("nb"' in html
+    assert 'ufPageDownloads("lt"' in html
+    # 伺服器只認標準 style——userfont 由前端映射為 kaishu
+    assert html.count('=== "userfont"') >= 5
+
+
 def test_grid_various_guide_styles(client):
     for guide in ("tian", "mi", "hui", "plain", "none"):
         r = client.get(f"/api/grid?chars=永&guide={guide}")

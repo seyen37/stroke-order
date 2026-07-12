@@ -44,6 +44,21 @@ def test_notebook_small_preset(loader):
     assert "<svg" in svg and "</svg>" in svg
 
 
+def test_5ct_page_char_groups_carry_data_attributes(loader):
+    """5ct：page 型 SVG（notebook/letter 共用 _char_svg）每字群組帶
+    data-char / data-cell-style——自訂字型前端注入的定位錨點。"""
+    pages = flow_notebook("永日", loader, preset="small")
+    svg = render_notebook_page_svg(pages[0], cell_style="ghost")
+    assert svg.count('data-char="永"') == 1
+    assert svg.count('data-char="日"') == 1
+    assert 'data-cell-style="ghost"' in svg
+
+    lpages = flow_letter("永", loader, preset="A5")
+    lsvg = render_letter_page_svg(lpages[0], cell_style="outline")
+    assert 'data-char="永"' in lsvg
+    assert 'data-cell-style="outline"' in lsvg
+
+
 def test_notebook_paginates_on_overflow(loader):
     # Long text on small paper should span pages
     long = "一" * 200

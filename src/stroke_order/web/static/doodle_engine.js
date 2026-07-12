@@ -907,7 +907,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=157";   // 5cs cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=158";   // 5ct cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;

@@ -258,7 +258,13 @@ def _char_svg(pc: PlacedChar, cell_style: CellStyle = "outline") -> str:
     def _width(s, default: float) -> float:
         return s.pen_size if s.pen_size is not None else default
 
-    parts = [f'<g transform="{transform}">']
+    # 5ct：自訂字型前端注入錨點（純屬性、視覺零變化）——
+    # notebook / letter 等 page 型模式共用；群組內為 EM 2048 座標
+    # （transform 已含 mm 縮放），前端注入字型 path 免再換算
+    esc = (pc.char.char.replace("&", "&amp;").replace("<", "&lt;")
+                       .replace('"', "&quot;"))
+    parts = [f'<g transform="{transform}" '
+             f'data-char="{esc}" data-cell-style="{cell_style}">']
     if cell_style in ("ghost", "outline"):
         color = "#d5d5d5" if cell_style == "ghost" else "#222"
         # Split into outline-backed and track-only groups so we pick the
