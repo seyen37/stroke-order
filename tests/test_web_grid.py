@@ -80,6 +80,20 @@ def test_5cn_index_userfont_ui_and_injection(client):
     assert "未上傳" in html                   # 隱私/版權說明
 
 
+def test_5cs_userfont_gcode_pipeline(client):
+    """5cs：自訂字型機器軌跡——前端骨架化＋G-code 組裝存在，
+    輸出慣例與 render_grid_gcode 對齊、明示非筆順。"""
+    html = client.get("/").text
+    assert "fontCharTracks" in html            # 光柵化→骨架化→EM 軌跡
+    assert "gridUserFontGcode" in html         # G-code 組裝
+    assert "zhangSuenThin" in html             # 復用 5cg 三件組
+    assert "traceCenterlines" in html
+    assert "G21 ; mm" in html                  # 慣例對齊
+    assert "M3 S90" in html
+    assert "非教育部筆順" in html              # 誠實標注（§8 能力邊界）
+    assert "grid_userfont.gcode" in html       # blob 下載檔名
+
+
 def test_grid_various_guide_styles(client):
     for guide in ("tian", "mi", "hui", "plain", "none"):
         r = client.get(f"/api/grid?chars=永&guide={guide}")
