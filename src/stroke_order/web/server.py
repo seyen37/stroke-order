@@ -1526,6 +1526,95 @@ def create_app() -> FastAPI:
             )
         return Response(content=body, media_type=mime, headers=headers)
 
+    # ------ Phase 5dc: 鏤空字／噴漆字模 (stencil / cutout) ----------------
+
+    @app.get("/api/stencil")
+    def api_stencil(
+        chars: str = Query(..., min_length=1, max_length=12),
+        kind: str = Query("stencil", pattern="^(stencil|cutout)$",
+                          description="stencil=噴漆模板（板留、字挖掉、"
+                                      "孔洞鑿白橋）；cutout=鏤空字（字即"
+                                      "本體、斷件補連筋/掛邊框）"),
+        source: str = Query("moe_kaishu"),
+        char_height_mm: float = Query(50.0, ge=10, le=300),
+        bridge_width_mm: float = Query(2.0, ge=0.5, le=10),
+        bridge_count: int = Query(4, ge=2, le=4),
+        bold_mm: float = Query(0.0, ge=0, le=5),
+        spacing_mm: float = Query(5.0, ge=0, le=100),
+        frame: bool = Query(True, description="cutout 限定：外掛邊框"),
+        frame_width_mm: float = Query(4.0, ge=1, le=20),
+        format: str = Query("svg", pattern="^(svg|dxf|gcode)$"),
+        download: bool = Query(False),
+    ):
+        """5dc：雷切/噴漆字模。同步 def——光柵幾何運算走 threadpool
+        （5ck 教訓：async def 內跑重活會凍 event loop）。"""
+        from ..exporters import zentangle as _zt
+        from ..exporters.stencil import (
+            render_stencil_dxf, render_stencil_gcode, render_stencil_svg,
+            stencil_geometry,
+        )
+        if source not in _zt.SOURCE_REGISTRY:
+            raise HTTPException(422, detail=f"unknown source: {source}")
+        char_polys = []
+        loaded_chars: list[str] = []
+        missing: list[str] = []
+        for ch in chars:
+            if ch.isspace():
+                continue
+            try:
+                polys = _zt.extract_outline_polylines(ch, source=source)
+            except Exception:                  # noqa: BLE001 — 缺字/缺字型
+                missing.append(ch)
+                continue
+            if polys:
+                char_polys.append(polys)
+                loaded_chars.append(ch)
+            else:
+                missing.append(ch)
+        if not char_polys:
+            raise HTTPException(
+                400, detail=f"無可用字形（skipped: {missing!r}）——"
+                            f"請確認字型檔已安裝或換資料源")
+        loops, w_mm, h_mm, stats = stencil_geometry(
+            char_polys, kind=kind,                     # type: ignore[arg-type]
+            char_height_mm=char_height_mm,
+            bridge_width_mm=bridge_width_mm,
+            bridge_count=bridge_count,
+            bold_mm=bold_mm, spacing_mm=spacing_mm,
+            frame=frame, frame_width_mm=frame_width_mm,
+        )
+        basename = "".join(loaded_chars) + (
+            "_噴漆字模" if kind == "stencil" else "_鏤空字")
+        headers = {
+            "X-Stencil-Loops": str(stats.get("cut_loops", 0)),
+            "X-Stencil-Holes": str(stats.get("holes_bridged", -1)),
+            "X-Stencil-Components": str(stats.get("components_before", -1)),
+            "X-Stencil-Skipped": str(len(missing)),
+        }
+        if format == "dxf":
+            body = render_stencil_dxf(loops)
+            if download:
+                headers["Content-Disposition"] = _content_disposition(
+                    basename, "dxf")
+            return Response(content=body,
+                            media_type="application/dxf",
+                            headers=headers)
+        if format == "gcode":
+            body = render_stencil_gcode(loops, height_mm=h_mm)
+            if download:
+                headers["Content-Disposition"] = _content_disposition(
+                    basename, "gcode")
+            return Response(content=body,
+                            media_type="text/plain; charset=utf-8",
+                            headers=headers)
+        svg = render_stencil_svg(loops, w_mm, h_mm,
+                                 kind=kind)          # type: ignore[arg-type]
+        if download:
+            headers["Content-Disposition"] = _content_disposition(
+                basename, "svg")
+        return Response(content=svg, media_type="image/svg+xml",
+                        headers=headers)
+
     # ------ 稿紙模式 (manuscript) ---------------------------------------
 
     @app.get("/api/manuscript/capacity")

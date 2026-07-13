@@ -172,6 +172,8 @@
       布章模式 <span style="color:var(--muted);font-size:12px;">(裁切機/寫字機 SVG+G-code)</span></label>
     <label><input type="radio" name="mode" value="stamp">
       印章模式 <span style="color:var(--muted);font-size:12px;">(雷射雕刻木印 SVG+G-code)</span></label>
+    <label><input type="radio" name="mode" value="stencil">
+      鏤空字模式 <span style="color:var(--muted);font-size:12px;">(噴漆字模/連筋字 SVG+DXF+G-code)</span></label>
     <label><input type="radio" name="mode" value="sutra">
       抄經模式 <span style="color:var(--muted);font-size:12px;">(A4 橫式描紅 SVG)</span></label>
     <label><input type="radio" name="mode" value="wordart">
@@ -1167,6 +1169,78 @@
      印章模式 (stamp) — Phase 5ay
      雷射雕刻木印：5 種傳統印章 preset
      ============================================================ -->
+<!-- Phase 5dc：鏤空字／噴漆字模 -->
+<main id="stencil-view" style="display:none;">
+  <section class="card" style="grid-column: 1 / -1;">
+    <h2>鏤空字設定（雷射切割／噴漆字模）</h2>
+    <div class="row">
+      <label>文字</label>
+      <input id="sc-chars" type="text" value="明圖界" maxlength="12"
+             style="width:220px;">
+      <label style="margin-left:16px;"
+             title="噴漆字模＝板留下、字挖掉，封閉孔洞（口日回中心）自動鑿白橋接回大板；鏤空字＝字即本體，斷開筆畫自動補連筋、可掛邊框">子模式</label>
+      <select id="sc-kind">
+        <option value="stencil" selected>噴漆字模（板留、字挖掉）</option>
+        <option value="cutout">鏤空字（字即本體＋連筋）</option>
+      </select>
+      <label style="margin-left:16px;">字型</label>
+      <select id="sc-source">
+        <option value="moe_kaishu" selected>教育部楷書</option>
+        <option value="moe_song">教育部宋體</option>
+        <option value="moe_lishu">教育部隸書</option>
+        <option value="cns_kai">CNS 楷書</option>
+        <option value="chongxi_seal">崇羲篆書</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>字高 (mm)</label>
+      <input id="sc-height" type="number" value="50" min="10" max="300"
+             step="5" style="width:80px;">
+      <label style="margin-left:16px;"
+             title="橋接/連筋的結構寬度。壓克力等脆性材料建議加寬防斷裂；木/金屬薄板可用細橋。破字時調大此值">橋寬 (mm)</label>
+      <input id="sc-bridgew" type="number" value="2" min="0.5" max="10"
+             step="0.5" style="width:80px;">
+      <label style="margin-left:16px;" title="每個孔洞的橋接方向數（噴漆字模用）">橋數</label>
+      <select id="sc-bridgen">
+        <option value="4" selected>4（十字）</option>
+        <option value="2">2（上下）</option>
+      </select>
+      <label style="margin-left:16px;"
+             title="路徑向外擴張，補償雷射光斑損耗（Kerf）或噴漆擴散；破字時可稍加粗">加粗 (mm)</label>
+      <input id="sc-bold" type="number" value="0" min="0" max="5"
+             step="0.25" style="width:80px;">
+    </div>
+    <div class="row">
+      <label>字距 (mm)</label>
+      <input id="sc-spacing" type="number" value="5" min="0" max="100"
+             step="1" style="width:80px;">
+      <label style="margin-left:16px;"
+             title="鏤空字限定：四周加材料邊框，切完整組掛在框上">
+        <input type="checkbox" id="sc-frame" checked> 邊框（鏤空字）</label>
+      <label style="margin-left:12px;">框寬 (mm)</label>
+      <input id="sc-frame-w" type="number" value="4" min="1" max="20"
+             step="1" style="width:70px;">
+      <button id="sc-render" class="primary" style="margin-left:16px;">產生</button>
+      <span id="sc-status" style="color:var(--muted);"></span>
+    </div>
+    <div class="row" style="background:#fff8f0;border-left:3px solid #c96;
+         padding:4px 10px;border-radius:3px;font-size:12px;color:#864;">
+      ⚠ 橋接為幾何運算，繁體字結構複雜——上機前務必放大檢查路徑；
+      遇「破字」請調大橋寬或加粗。
+    </div>
+  </section>
+  <section class="card" style="grid-column: 1 / -1;">
+    <h2>預覽</h2>
+    <div id="sc-preview" style="overflow:auto;background:#f4f4f4;
+         padding:10px;border-radius:4px;"></div>
+    <div class="row" id="sc-download-group" style="display:none;margin-top:8px;">
+      <a id="sc-dl-svg" class="dl" href="#">⤓ SVG (切割路徑)</a>
+      <a id="sc-dl-dxf" class="dl" href="#" style="margin-left:12px;">⤓ DXF (CUT 層)</a>
+      <a id="sc-dl-gcode" class="dl" href="#" style="margin-left:12px;">⤓ G-code</a>
+    </div>
+  </section>
+</main>
+
 <main id="stamp-view" style="display:none;">
   <section class="card" style="grid-column: 1 / -1;">
     <h2>印章設定（雷射雕刻）</h2>
@@ -3200,6 +3274,7 @@ const views = {
   doodle:     document.getElementById("doodle-view"),
   patch:      document.getElementById("patch-view"),     // Phase 5ax
   stamp:      document.getElementById("stamp-view"),     // Phase 5ay
+  stencil:    document.getElementById("stencil-view"),   // Phase 5dc
   sutra:      document.getElementById("sutra-view"),     // Phase 5az
   wordart:    document.getElementById("wordart-view"),
   mandala:    document.getElementById("mandala-view"),  // Phase 5b r4
@@ -3213,6 +3288,65 @@ document.querySelectorAll('input[name="mode"]').forEach(r =>
     }
   })
 );
+
+// ============================================================
+// Stencil (鏤空字/噴漆字模) mode — Phase 5dc
+// ============================================================
+function scParams() {
+  const g = (id) => document.getElementById(id).value;
+  return new URLSearchParams({
+    chars: g("sc-chars"),
+    kind: g("sc-kind"),
+    source: g("sc-source"),
+    char_height_mm: g("sc-height"),
+    bridge_width_mm: g("sc-bridgew"),
+    bridge_count: g("sc-bridgen"),
+    bold_mm: g("sc-bold"),
+    spacing_mm: g("sc-spacing"),
+    frame: document.getElementById("sc-frame").checked ? "true" : "false",
+    frame_width_mm: g("sc-frame-w"),
+  }).toString();
+}
+
+async function renderStencil() {
+  const statusEl = document.getElementById("sc-status");
+  const previewEl = document.getElementById("sc-preview");
+  const dlGroup = document.getElementById("sc-download-group");
+  statusEl.textContent = "產生中…（幾何運算約數秒）";
+  dlGroup.style.display = "none";
+  const qs = scParams();
+  try {
+    const r = await fetch(`${API_BASE}/api/stencil?${qs}&format=svg`);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({detail: r.statusText}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const svg = await r.text();
+    previewEl.innerHTML = svg;
+    const inner = previewEl.querySelector("svg");
+    if (inner) { inner.style.maxWidth = "100%"; inner.style.height = "auto"; }
+    const loops = r.headers.get("x-stencil-loops") || "?";
+    const holes = r.headers.get("x-stencil-holes");
+    const comps = r.headers.get("x-stencil-comps") ||
+                  r.headers.get("x-stencil-components");
+    const kind = document.getElementById("sc-kind").value;
+    let note = kind === "stencil"
+      ? `孔洞橋接 ${holes} 處` : `原始元件 ${comps} 塊已連筋`;
+    statusEl.textContent =
+      `OK · 切割環 ${loops} 條 · ${note} · 上機前請放大檢查`;
+    document.getElementById("sc-dl-svg").href =
+      `${API_BASE}/api/stencil?${qs}&format=svg&download=true`;
+    document.getElementById("sc-dl-dxf").href =
+      `${API_BASE}/api/stencil?${qs}&format=dxf&download=true`;
+    document.getElementById("sc-dl-gcode").href =
+      `${API_BASE}/api/stencil?${qs}&format=gcode&download=true`;
+    dlGroup.style.display = "";
+  } catch (e) {
+    statusEl.textContent = "失敗：" + e.message;
+  }
+}
+document.getElementById("sc-render")
+  .addEventListener("click", renderStencil);
 
 // ============================================================
 // Grid (字帖) mode
