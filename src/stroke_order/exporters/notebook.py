@@ -169,6 +169,7 @@ def flow_notebook(
     lines_per_page: Optional[int] = None,
     first_line_offset_mm: Optional[float] = None,
     zones: Optional[list[dict]] = None,
+    zhuyin: bool = False,
 ) -> list[Page]:
     """
     Lay text into notebook pages with the chosen preset. Returns list[Page].
@@ -194,6 +195,10 @@ def flow_notebook(
         first_line_offset_mm=first_line_offset_mm,
         zones=zones,
     )
+    if zhuyin:
+        # 5cz：pair cell（2:1）——字方格＋右側注音欄；只改格寬，
+        # flow/分頁/容量計算全自動正確（layouts.py 零改動）
+        layout.char_width_mm = layout.line_height_mm * 1.5
     pages = flow_text(text, layout, char_loader, direction=direction,
                       first_line_offset_mm=first_line_offset_mm)
     if annotations and pages:
@@ -207,6 +212,8 @@ def render_notebook_page_svg(
     cell_style: CellStyle = "ghost",
     draw_border: bool = True,
     show_page_number: bool = True,
+    zhuyin_map=None,
+    zhuyin_chars=None,
 ) -> str:
     """
     Render one notebook page as SVG.
@@ -214,12 +221,17 @@ def render_notebook_page_svg(
     Defaults to ``cell_style='ghost'`` (faint grey character for tracing
     practice) — this is the most common notebook use case: the student
     traces over the printed character.
+
+    5cz：``zhuyin_map`` 存在時每格為 pair（須配 ``flow_notebook``
+    的 ``zhuyin=True`` 加寬格寬）。
     """
     return render_page_svg(
         page,
         cell_style=cell_style,
         draw_border=draw_border,
         show_page_number=show_page_number,
+        zhuyin_map=zhuyin_map,
+        zhuyin_chars=zhuyin_chars,
     )
 
 

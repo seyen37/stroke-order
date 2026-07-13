@@ -353,6 +353,10 @@ def render_page_svg(
     show_page_number: bool = True,
     show_zones: bool = True,
     show_grid: bool = True,
+    # 5cz：注音欄——zhuyin_map 存在時每格為 pair（字方格＋右側 1/2h
+    # 注音欄；layout.char_width_mm 須由 flow 端加寬為 1.5×line_height）
+    zhuyin_map: Optional[dict[str, "object"]] = None,
+    zhuyin_chars: Optional[dict] = None,
 ) -> str:
     """Render one Page into a standalone SVG string (unit = mm).
 
@@ -360,6 +364,10 @@ def render_page_svg(
     defined by ``layout.grid_style`` is omitted from the output. The
     layout itself is preserved — useful for a "pure text" view without
     mutating the layout spec.
+
+    5cz：``zhuyin_map`` 存在時，每個 PlacedChar 的字形壓回左側方格
+    （h×h），右側掛注音欄 strip（幾何復用 grid._zhuyin_layout 單一
+    真相源——描紅樣式、5cv 調號位置全數繼承）。
     """
     layout = page.layout
     W, H = layout.size.width_mm, layout.size.height_mm
@@ -388,9 +396,28 @@ def render_page_svg(
             parts.append(z)
     # characters
     if page.chars:
+        zy_on = zhuyin_map is not None
+        if zy_on:
+            from dataclasses import replace as _dc_replace
+
+            from .grid import _zhuyin_strip
         parts.append('<g class="chars">')
         for pc in page.chars:
-            parts.append(_char_svg(pc, cell_style=cell_style))
+            if zy_on:
+                # 5cz：字形壓回左側方格；注音欄掛右側（EM 座標經
+                # scale(h/EM) 縮到 mm——strip 內容零改動全復用）
+                h = pc.height_mm
+                parts.append(_char_svg(
+                    _dc_replace(pc, width_mm=h), cell_style=cell_style))
+                sym = str(zhuyin_map.get(pc.char.char, ""))
+                sc = h / EM_SIZE
+                parts.append(
+                    f'<g transform="translate({pc.x_mm + h},{pc.y_mm}) '
+                    f'scale({sc:.6f})">'
+                    f'{_zhuyin_strip(sym, zhuyin_chars or {}, cell_style)}'
+                    f'</g>')
+            else:
+                parts.append(_char_svg(pc, cell_style=cell_style))
         parts.append("</g>")
     # Phase 5ai: SVG <text> fallback for characters with no stroke data
     # (e.g. emoji, rare symbols not in any loaded source). Rendered below

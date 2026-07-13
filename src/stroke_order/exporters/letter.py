@@ -136,6 +136,7 @@ def flow_letter(
     direction: WritingDirection = "horizontal",
     first_line_offset_mm: Optional[float] = None,
     lines_per_page: Optional[int] = None,
+    zhuyin: bool = False,
 ) -> list[Page]:
     """
     Lay out a letter.
@@ -162,6 +163,10 @@ def flow_letter(
         first_line_offset_mm=first_line_offset_mm,
         lines_per_page=lines_per_page,
     )
+    if zhuyin:
+        # 5cz：pair cell（2:1）——字方格＋右側注音欄（同 notebook；
+        # 署名/日期 <text> 元素不受格寬影響）
+        layout.char_width_mm = layout.line_height_mm * 1.5
     pages = flow_text(text, layout, char_loader, direction=direction,
                       first_line_offset_mm=first_line_offset_mm)
     if annotations and pages:
@@ -400,6 +405,9 @@ def render_letter_page_svg(
     title_size_mm: Optional[float] = None,
     signature_size_mm: Optional[float] = None,
     date_size_mm: Optional[float] = None,
+    # 5cz：注音欄（須配 flow_letter 的 zhuyin=True 加寬格寬）
+    zhuyin_map=None,
+    zhuyin_chars=None,
 ) -> str:
     """
     Render one letter page.
@@ -420,6 +428,8 @@ def render_letter_page_svg(
         show_page_number=show_page_number,
         show_zones=False,
         show_grid=show_grid,
+        zhuyin_map=zhuyin_map,
+        zhuyin_chars=zhuyin_chars,
     )
     layout = page.layout
     extras: list[str] = []

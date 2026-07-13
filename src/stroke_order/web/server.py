@@ -315,6 +315,37 @@ class CoverageRecommendRequest(BaseModel):
     top_k: int = 5
 
 
+def _parse_zhuyin_map(zhuyin_map: Optional[str], source: str,
+                      hook_policy: str) -> tuple[Optional[dict], dict]:
+    """5cz：解析「字:注音,字:注音」映射並載入符號 Character。
+
+    5cu 起的共用邏輯——grid（SVG＋G-code）、notebook、letter 三處
+    消費，抽成單一 helper。聲調記號（手作 polyline）與載不到的
+    符號靜默跳過。回傳 ``(zmap, zchars)``；``zhuyin_map=None`` 時
+    ``zmap=None``（＝功能關閉）。
+    """
+    zmap: Optional[dict] = None
+    zchars: dict = {}
+    if zhuyin_map is not None:
+        zmap = {}
+        for pair in zhuyin_map.split(","):
+            if ":" not in pair:
+                continue
+            k, v = pair.split(":", 1)
+            if k:
+                zmap[k] = v
+        for val in zmap.values():
+            for sym in val:
+                if sym in zchars or sym in "ˊˇˋ˙ˉ":
+                    continue
+                try:
+                    zc, _r2, _2 = _load(sym, source, hook_policy)
+                    zchars[sym] = zc
+                except HTTPException:
+                    continue
+    return zmap, zchars
+
+
 def _content_disposition(basename: str, ext: str) -> str:
     """RFC 5987-compliant attachment header supporting Unicode filenames."""
     ascii_fallback = f"char.{ext}"  # plain ASCII for old clients
@@ -1084,6 +1115,9 @@ def create_app() -> FastAPI:
             description="Phase 5al: how to render CNS-font fallback chars "
                         "(skip/trace/skeleton)",
         ),
+        # 5cz：注音欄——「字:注音,…」前端供給（同 5cu 字帖）；
+        # 參數存在即開欄（pair 2:1 格寬）。SVG 先行、gcode/json v2
+        zhuyin_map: Optional[str] = Query(None, max_length=8000),
     ):
         from ..exporters.notebook import (
             flow_notebook, render_notebook_page_svg,
@@ -1114,6 +1148,8 @@ def create_app() -> FastAPI:
             except _json.JSONDecodeError:
                 raise HTTPException(422, detail="invalid zones_json")
 
+        zmap, zchars = _parse_zhuyin_map(zhuyin_map, source, hook_policy)
+
         pages = flow_notebook(
             text, loader, preset=preset, grid_style=grid_style,  # type: ignore
             line_height_mm=line_height_mm, margin_mm=margin_mm,
@@ -1127,6 +1163,7 @@ def create_app() -> FastAPI:
             lines_per_page=lines_per_page,
             first_line_offset_mm=first_line_offset_mm,
             zones=zones_list,
+            zhuyin=zmap is not None,
         )
         cap_headers = {
             "X-Capacity-Per-Page":
@@ -1163,7 +1200,10 @@ def create_app() -> FastAPI:
                 raise HTTPException(
                     404, detail=f"page {page} not found; only {len(pages)} pages"
                 )
-            svg = render_notebook_page_svg(pages[page - 1], cell_style=cell_style)
+            svg = render_notebook_page_svg(pages[page - 1],
+                                           cell_style=cell_style,
+                                           zhuyin_map=zmap,
+                                           zhuyin_chars=zchars)
             headers = {}
             if download:
                 headers["Content-Disposition"] = _content_disposition(
@@ -1173,7 +1213,9 @@ def create_app() -> FastAPI:
                             headers=headers)
 
         def _render(p):
-            return render_notebook_page_svg(p, cell_style=cell_style)
+            return render_notebook_page_svg(p, cell_style=cell_style,
+                                            zhuyin_map=zmap,
+                                            zhuyin_chars=zchars)
 
         body, mime, ext = render_pages_as_single_or_zip(
             pages, _render, filename_prefix="notebook-page"
@@ -1359,6 +1401,8 @@ def create_app() -> FastAPI:
             "skip", pattern=_CNS_MODE_PATTERN,
             description="Phase 5al: CNS-font fallback render mode",
         ),
+        # 5cz：注音欄（同 notebook；SVG 先行、gcode/json v2）
+        zhuyin_map: Optional[str] = Query(None, max_length=8000),
     ):
         from ..exporters.letter import (
             flow_letter, render_letter_page_svg,
@@ -1381,6 +1425,8 @@ def create_app() -> FastAPI:
             except HTTPException:
                 return None
 
+        zmap, zchars = _parse_zhuyin_map(zhuyin_map, source, hook_policy)
+
         pages = flow_letter(
             text, loader, preset=preset,  # type: ignore
             line_height_mm=line_height_mm,
@@ -1398,6 +1444,7 @@ def create_app() -> FastAPI:
             direction=direction,  # type: ignore
             first_line_offset_mm=first_line_offset_mm,
             lines_per_page=lines_per_page,
+            zhuyin=zmap is not None,
         )
         cap_headers = {"X-Capacity-Per-Page":
                        str(layout_capacity(pages[0].layout,
@@ -1437,6 +1484,8 @@ def create_app() -> FastAPI:
                 p, cell_style=cell_style,
                 decorative_border=decorative_border,
                 show_grid=show_grid,
+                zhuyin_map=zmap,
+                zhuyin_chars=zchars,
             )
 
         if page is not None:
@@ -2539,28 +2588,9 @@ def create_app() -> FastAPI:
         basename = "".join(c.char for c in loaded) + "_字帖"
         headers: dict[str, str] = {}
 
-        # 5cu：注音欄——解析映射並載入符號 Character（37 符有筆順
-        # 資料，經標準 _load 走 char_loader；載不到的符號靜默跳過）。
-        # 5cy：提到分支之前——SVG 與 G-code 共用（注音也能機器寫）
-        zmap: Optional[dict[str, str]] = None
-        zchars: dict = {}
-        if zhuyin_map is not None:
-            zmap = {}
-            for pair in zhuyin_map.split(","):
-                if ":" not in pair:
-                    continue
-                k, v = pair.split(":", 1)
-                if k:
-                    zmap[k] = v
-            for val in zmap.values():
-                for sym in val:
-                    if sym in zchars or sym in "ˊˇˋ˙ˉ":
-                        continue
-                    try:
-                        zc, _r2, _2 = _load(sym, source, hook_policy)
-                        zchars[sym] = zc
-                    except HTTPException:
-                        continue
+        # 5cu：注音欄——SVG 與 G-code（5cy）共用；解析抽 5cz 共用
+        # helper（grid/notebook/letter 三消費者）
+        zmap, zchars = _parse_zhuyin_map(zhuyin_map, source, hook_policy)
 
         if format == "gcode":
             body = render_grid_gcode(

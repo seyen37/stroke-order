@@ -598,6 +598,9 @@
         <option value="trace">trace (紅軌跡)</option>
         <option value="blank">blank (空格)</option>
       </select>
+      <label style="margin-left:12px;"
+             title="每格加右側注音窄欄（2:1）——教育部審定音、注音跟著格式樣描紅。開啟後每行字數減少（格寬 1.5 倍）">
+        <input type="checkbox" id="nb-zhuyin"> 注音欄</label>
       <label style="margin-left:12px;" title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書（trace/filled 模式最能看出差異）；粗楷為純濾鏡">字型風格</label>
       <select id="nb-style">
         <option value="kaishu" selected>楷書（原版，預設）</option>
@@ -782,6 +785,9 @@
         <option value="trace">trace</option>
         <option value="ghost">ghost</option>
       </select>
+      <label style="margin-left:12px;"
+             title="每格加右側注音窄欄（2:1）——教育部審定音。開啟後每行字數減少（格寬 1.5 倍）">
+        <input type="checkbox" id="lt-zhuyin"> 注音欄</label>
       <label style="margin-left:12px;" title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型，未授權時 fallback 到濾鏡或楷書；粗楷為純濾鏡（不需授權）">字型風格</label>
       <select id="lt-style">
         <option value="kaishu" selected>楷書（原版，預設）</option>
@@ -3771,6 +3777,10 @@ function nbBuildParams(forCapacity = false) {
       ? "kaishu" : g("nb-style"));
     params.set("cns_outline_mode", g("nb-cns-mode"));
     params.set("source", g("nb-source"));
+    // 5cz：注音欄——前端算好映射（教育部審定音查表），參數存在即開
+    if (document.getElementById("nb-zhuyin").checked) {
+      params.set("zhuyin_map", gridZhuyinMap(g("nb-text")));
+    }
   }
   return params;
 }
@@ -4202,6 +4212,8 @@ async function renderNotebook(pageN = null) {
   downloadEl.style.display = "none";
   document.getElementById("nb-download-group").style.display = "none";
 
+  // 5cz：注音開啟時先確保台灣讀音表載妥（同 5cw 字帖）
+  if (document.getElementById("nb-zhuyin").checked) await ensureZhuyinTw();
   const params = nbBuildParams(false);
   if (pageN !== null) params.set("page", String(pageN));
 
@@ -4821,6 +4833,10 @@ function ltBuildParams(forCapacity = false) {
     params.set("show_grid",
                document.getElementById("lt-hide-grid").checked ? "false" : "true");
     params.set("source", g("lt-source"));
+    // 5cz：注音欄（同 notebook）
+    if (document.getElementById("lt-zhuyin").checked) {
+      params.set("zhuyin_map", gridZhuyinMap(g("lt-text")));
+    }
   }
   return params;
 }
@@ -4909,6 +4925,8 @@ async function renderLetter(pageN = null) {
   downloadEl.style.display = "none";
   document.getElementById("lt-download-group").style.display = "none";
 
+  // 5cz：注音開啟時先確保台灣讀音表載妥（同 5cw 字帖）
+  if (document.getElementById("lt-zhuyin").checked) await ensureZhuyinTw();
   const params = ltBuildParams(false);
   if (pageN !== null) params.set("page", String(pageN));
 
