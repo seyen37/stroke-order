@@ -2802,9 +2802,17 @@
       <span style="font-weight:bold;color:var(--muted);">區段編輯</span>
       <span id="zentangle-region-buttons"
             style="display:inline-flex;flex-wrap:wrap;gap:6px;"></span>
+      <!-- 5df-4: 切分模式 + 切分線顯示開關 -->
+      <button id="zentangle-split-toggle" type="button"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;margin-left:6px;"
+              title="開啟後在同一區段內點兩點，沿直線把區段剖成兩半">✂ 切分</button>
+      <label style="font-size:12px;color:var(--muted);cursor:pointer;">
+        <input id="zentangle-split-lines" type="checkbox" checked> 顯示切分線
+      </label>
       <span style="color:var(--muted);font-size:11px;">
-        ⓘ 5df-3: 空心填充/背景鑲嵌模式點 canvas 選區段（虛線框）→ 圖樣鈕換圖樣、
-        「留白」清空、⬆⬇⬅➡ 轉朝向；未選區段時方向鍵＝透視、點空白取消選取
+        ⓘ 5df-3/4: 空心填充/背景鑲嵌模式點 canvas 選區段（虛線框）→ 圖樣鈕換圖樣、
+        「留白」清空、⬆⬇⬅➡ 轉朝向；未選區段時方向鍵＝透視、點空白取消選取。
+        ✂ 切分＝同區段點兩點剖成兩半（繼承原圖樣、可再切）；淡虛線可勾選隱藏
       </span>
     </div>
     <!-- 6z-2c: 紙磚旋轉 inline 控件 — 8 preset 按鈕 + slider 微調 + 立即回正 / 上次角度 -->
@@ -10087,7 +10095,7 @@ async function renderCnsDecomposition(char) {
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，
      舊快取的 zentangle.js 不認得區段模型，改版時同步 bump。 -->
-<script type="module" src="/static/zentangle/zentangle.js?v=176"></script>
+<script type="module" src="/static/zentangle/zentangle.js?v=177"></script>
 
 </body>
 </html>

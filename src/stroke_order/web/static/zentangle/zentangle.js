@@ -34,6 +34,7 @@ import {
   assignRandomTangles,
   pickDensity,
   resolveRegionAt,
+  splitRegionByLine,
 } from "./regions.mjs";
 import {
   applyPseudo3DToSpecs,
@@ -156,6 +157,16 @@ let _selectedRegionId = null;
 // 5df-3: 選中高亮樣式（canvas 不吃 CSS var，用字面色）。
 const REGION_HILITE_COLOR = "#c33";
 const REGION_HILITE_DASH = [6, 4];
+
+// 5df-4: 切分狀態（per-session）。
+//   _splitMode    : ✂ 切分模式開關——開著時 canvas 點擊走兩點切分流程
+//   _splitFirstPt : 第一點 {x, y, regionId}（tile-local）；null = 未定
+//   _showSplitLines: 淡虛線顯示全部區段分界（可隱藏）
+let _splitMode = false;
+let _splitFirstPt = null;
+let _showSplitLines = true;
+const SPLIT_LINE_COLOR = "#bbb";
+const SPLIT_LINE_DASH = [4, 4];
 
 // 6z-3.5: user-placed tangle units (per-session, per Q5=B mirror policy).
 // Each entry: {tangle: "crescent_moon"|"florz", cx, cy} in TILE-LOCAL px.
@@ -418,6 +429,7 @@ function currentMappedContours() {
 function regenerateRegions() {
   _regions = [];
   _selectedRegionId = null;   // 5df-3: 區段換批、選取失效
+  _splitFirstPt = null;       // 5df-4: 切分中點也失效（模式維持）
   const mode = _config?.mode;
   if (mode !== "hollow" && mode !== "bg") return;
   const keys = listTangles().map((t) => t.key);
@@ -481,14 +493,13 @@ function drawRegionLayer(mappedContours) {
     if (!region.tangle) continue;                         // 5df-3: 留白區段
     if (region.kind === "glyph" && !glyphPath) continue;  // 字形未載入
     _ctx.save();
-    const bandPath = new Path2D();
-    bandPath.rect(region.band.x, region.band.y,
-                  region.band.w, region.band.h);
+    // 5df-4: 切分後的區段用 poly clip；原生區段用 band 矩形。
+    const shapePath = regionShapePath(region);
     if (region.kind === "glyph") {
       _ctx.clip(glyphPath, "evenodd");
-      _ctx.clip(bandPath);
+      _ctx.clip(shapePath);
     } else {
-      _ctx.clip(bandPath);
+      _ctx.clip(shapePath);
       if (bgHolePath) _ctx.clip(bgHolePath, "evenodd");
     }
     const specs = buildTangleOriented(
@@ -496,6 +507,17 @@ function drawRegionLayer(mappedContours) {
       region.orientation
     );
     renderTangleSpecs(_ctx, specs);
+    _ctx.restore();
+  }
+  // 5df-4: 區段分界淡虛線（可隱藏；畫在圖樣上、高亮下）。
+  if (_showSplitLines) {
+    _ctx.save();
+    _ctx.strokeStyle = SPLIT_LINE_COLOR;
+    _ctx.lineWidth = 1;
+    _ctx.setLineDash(SPLIT_LINE_DASH);
+    for (const region of _regions) {
+      _ctx.stroke(regionShapePath(region));
+    }
     _ctx.restore();
   }
   // 5df-3: 選中區段高亮（虛線框、畫在圖樣之上、不受 clip）。
@@ -506,11 +528,35 @@ function drawRegionLayer(mappedContours) {
       _ctx.strokeStyle = REGION_HILITE_COLOR;
       _ctx.lineWidth = 1.5;
       _ctx.setLineDash(REGION_HILITE_DASH);
-      _ctx.strokeRect(sel.band.x, sel.band.y, sel.band.w, sel.band.h);
+      _ctx.stroke(regionShapePath(sel));
       _ctx.restore();
     }
   }
+  // 5df-4: 切分第一點標記。
+  if (_splitFirstPt) {
+    _ctx.save();
+    _ctx.fillStyle = REGION_HILITE_COLOR;
+    _ctx.beginPath();
+    _ctx.arc(_splitFirstPt.x, _splitFirstPt.y, 4, 0, Math.PI * 2);
+    _ctx.fill();
+    _ctx.restore();
+  }
   _ctx.restore();
+}
+
+/** 5df-4 — 區段形狀 Path2D：poly（切分後）或 band 矩形（原生）。 */
+function regionShapePath(region) {
+  const p = new Path2D();
+  if (Array.isArray(region.poly) && region.poly.length >= 3) {
+    p.moveTo(region.poly[0][0], region.poly[0][1]);
+    for (let i = 1; i < region.poly.length; i++) {
+      p.lineTo(region.poly[i][0], region.poly[i][1]);
+    }
+    p.closePath();
+  } else {
+    p.rect(region.band.x, region.band.y, region.band.w, region.band.h);
+  }
+  return p;
 }
 
 // ---------------------------------------------------------------------------
@@ -533,14 +579,94 @@ function clickToTileLocal(e, canvas) {
   return viewportToTileLocal(viewX, viewY);
 }
 
-/** canvas 點選分流：hollow/bg → 選區段；pure → 6z-3.5 手放 unit。 */
+/** canvas 點選分流：hollow/bg → 切分或選區段；pure → 6z-3.5 手放 unit。 */
 function onCanvasClick(e, canvas) {
   const mode = _config?.mode;
   if (mode === "hollow" || mode === "bg") {
+    if (_splitMode) {
+      const pt = clickToTileLocal(e, canvas);
+      if (pt) handleSplitClick(pt);
+      return;
+    }
     selectRegionAtClick(e, canvas);
     return;
   }
   placeUnitAtClick(e, canvas);
+}
+
+/**
+ * 5df-4 — 兩點切分流程：第一點定錨（同區段內）、第二點執行剖分。
+ * 剖出的兩半繼承原圖樣/朝向、以 poly 記形狀（可再切＝多代切分）。
+ */
+function handleSplitClick(pt) {
+  const [x, y] = pt;
+  const region = resolveRegionAt(_regions, currentMappedContours(), x, y);
+  if (!_splitFirstPt) {
+    if (!region) {
+      setStatus("切分：請點在某個區段內定第一點", true);
+      return;
+    }
+    _splitFirstPt = {x, y, regionId: region.id};
+    redrawAll();
+    setStatus(`切分：第一點已定（區段 ${region.id}）——同區段內點第二點`);
+    return;
+  }
+  if (!region || region.id !== _splitFirstPt.regionId) {
+    _splitFirstPt = null;
+    redrawAll();
+    setStatus("切分：兩點要落在同一個區段內——已重設，請重點第一點", true);
+    return;
+  }
+  const idx = _regions.findIndex((r) => r.id === region.id);
+  const res = splitRegionByLine(
+    region, [_splitFirstPt.x, _splitFirstPt.y], [x, y]);
+  _splitFirstPt = null;
+  if (!res.ok || idx < 0) {
+    redrawAll();
+    setStatus(`切分失敗：${res.reason || "區段不存在"}`, true);
+    return;
+  }
+  // 原位替換＝保持疊序（z-order）不變。
+  _regions.splice(idx, 1, ...res.parts);
+  _selectedRegionId = null;
+  redrawAll();
+  setStatus(
+    `切分完成：${region.id} → ${res.parts[0].id}＋${res.parts[1].id}` +
+    "（兩半繼承原圖樣；退出切分模式後可分別點選改圖樣/朝向）"
+  );
+}
+
+/** 5df-4 — 切分模式開關（開啟時清除選取，避免兩套點擊語意打架）。 */
+function setSplitMode(on) {
+  _splitMode = on;
+  _splitFirstPt = null;
+  if (on) _selectedRegionId = null;
+  const btn = document.getElementById("zentangle-split-toggle");
+  if (btn) {
+    btn.style.background = on ? REGION_HILITE_COLOR : "#fafaf8";
+    btn.style.color = on ? "#fff" : "#444";
+    btn.style.borderColor = on ? REGION_HILITE_COLOR : "var(--border)";
+  }
+  redrawAll();
+  setStatus(
+    on
+      ? "✂ 切分模式：同一區段內點兩點、沿直線剖成兩半（再按 ✂ 退出）"
+      : "已退出切分模式（點選區段編輯）"
+  );
+}
+
+function wireSplitControls() {
+  const btn = document.getElementById("zentangle-split-toggle");
+  if (btn) btn.addEventListener("click", () => setSplitMode(!_splitMode));
+  const chk = document.getElementById("zentangle-split-lines");
+  if (chk) {
+    chk.checked = _showSplitLines;
+    chk.addEventListener("change", () => {
+      _showSplitLines = chk.checked;
+      redrawAll();
+      setStatus(_showSplitLines ? "切分線 → 顯示（淡虛線）" : "切分線 → 隱藏");
+    });
+  }
 }
 
 function selectRegionAtClick(e, canvas) {
@@ -1142,6 +1268,8 @@ function wireTangleControls() {
   }
   // 5df-3: 區段編輯圖樣鈕列（從 registry 動態生成）。
   buildRegionToolbar();
+  // 5df-4: 切分模式 + 切分線顯示開關。
+  wireSplitControls();
   // 6z-3.5: REPEAT_3 / R 鍵 → 3x repeat last unit along _lastDirection.
   _actionHandlers["repeat-3"] = repeatLast3;
   _actionHandlers["repeat-fill"] = repeatLast3;  // 6z-3.5 fallback; R2 「到底」 留 6z-3.5.X

@@ -298,9 +298,23 @@ export function pointInGlyph(mappedContours, x, y) {
 }
 
 /**
+ * 5df-4 — 點是否在區段內：有自訂切分 poly 的區段用多邊形判斷，
+ * 純矩形區段用 band 判斷（單一函式＝選取與切分共用）。
+ */
+export function pointInRegion(region, x, y) {
+  if (Array.isArray(region.poly)) {
+    return pointInPolygon(x, y, region.poly);
+  }
+  const {band} = region;
+  return x >= band.x && x <= band.x + band.w &&
+         y >= band.y && y <= band.y + band.h;
+}
+
+/**
  * 5df-3 — 遮罩感知的區段命中：只選「點真的落在該區段可見墨區」的
  * 區段——glyph 區段要求點在字形內、bg 區段要求點在字形外。
  * 疊序上層（陣列後者）優先，與 hitTestRegions 一致。
+ * 5df-4：有 poly 的區段（切分後）用多邊形判斷。
  *
  * @param {Array} regions
  * @param {Array|null} mappedContours - 字形未載入時傳 null：
@@ -314,9 +328,7 @@ export function resolveRegionAt(regions, mappedContours, x, y) {
   const inGlyph = hasGlyph ? pointInGlyph(mappedContours, x, y) : false;
   for (let i = regions.length - 1; i >= 0; i--) {
     const r = regions[i];
-    const {band} = r;
-    if (x < band.x || x > band.x + band.w ||
-        y < band.y || y > band.y + band.h) continue;
+    if (!pointInRegion(r, x, y)) continue;
     if (r.kind === "glyph") {
       if (!hasGlyph || !inGlyph) continue;
       return r;
@@ -326,4 +338,97 @@ export function resolveRegionAt(regions, mappedContours, x, y) {
     return r;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// 5df-4 — 自訂切分（點到點直線把區段剖成兩半）
+// ---------------------------------------------------------------------------
+//
+// 資料模型擴充：region 可帶選配 `poly`（tile-local 頂點陣列）＝自訂
+// 切分後的形狀；band 同步更新為 poly 的 bbox（圖樣生成仍吃矩形 area，
+// 渲染端 clip 換成 poly path、圖樣不外漏）。無 poly ＝原生矩形區段。
+
+/** Shoelace 面積（絕對值）。 */
+export function polygonArea(poly) {
+  if (!Array.isArray(poly) || poly.length < 3) return 0;
+  let s = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    s += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1];
+  }
+  return Math.abs(s) / 2;
+}
+
+/** 區段的形狀多邊形：poly 或 band 四角（順時針）。 */
+export function regionPolygon(region) {
+  if (Array.isArray(region.poly)) return region.poly;
+  const {x, y, w, h} = region.band;
+  return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+}
+
+/**
+ * Sutherland–Hodgman 半平面裁剪：保留「線 A→B 的 keepSign 側」。
+ * side(P) = cross(B−A, P−A)；keepSign=+1 保留 side≥0、−1 保留 side≤0。
+ * 凸多邊形進、凸多邊形出（矩形/切分後的半塊都是凸的）。
+ */
+export function clipPolygonByLine(poly, ax, ay, bx, by, keepSign) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const side = (p) => (dx * (p[1] - ay) - dy * (p[0] - ax)) * keepSign;
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const cur = poly[i];
+    const nxt = poly[(i + 1) % poly.length];
+    const sc = side(cur);
+    const sn = side(nxt);
+    if (sc >= 0) out.push(cur);
+    if ((sc > 0 && sn < 0) || (sc < 0 && sn > 0)) {
+      const t = sc / (sc - sn);
+      out.push([
+        cur[0] + (nxt[0] - cur[0]) * t,
+        cur[1] + (nxt[1] - cur[1]) * t,
+      ]);
+    }
+  }
+  return out;
+}
+
+// 切太偏產生細條的守門：任一半面積 < 原面積 2% 視為沒切到。
+const MIN_SPLIT_AREA_RATIO = 0.02;
+
+/**
+ * 5df-4 — 沿 A→B 延伸直線把區段剖成兩半。
+ *
+ * 兩半繼承 kind / tangle / orientation（使用者切完再各自改）；
+ * band 更新為各自 poly 的 bbox；id 預設父 id 加 a/b 後綴（父 id
+ * 移出清單、後綴可巢狀＝天然唯一）。
+ *
+ * @returns {{ok: true, parts: [object, object]} |
+ *           {ok: false, reason: string}}
+ */
+export function splitRegionByLine(region, a, b, opts = {}) {
+  const [ax, ay] = a;
+  const [bx, by] = b;
+  if (Math.hypot(bx - ax, by - ay) < 4) {
+    return {ok: false, reason: "兩點太近，無法定義切分線"};
+  }
+  const poly = regionPolygon(region);
+  const total = polygonArea(poly);
+  if (total <= 0) return {ok: false, reason: "區段退化（面積為零）"};
+  const p1 = clipPolygonByLine(poly, ax, ay, bx, by, +1);
+  const p2 = clipPolygonByLine(poly, ax, ay, bx, by, -1);
+  const minArea = total * (opts.minAreaRatio ?? MIN_SPLIT_AREA_RATIO);
+  if (p1.length < 3 || p2.length < 3 ||
+      polygonArea(p1) < minArea || polygonArea(p2) < minArea) {
+    return {ok: false, reason: "切分線沒有穿過區段（或切出的細條太窄）"};
+  }
+  const [idA, idB] = opts.ids || [`${region.id}a`, `${region.id}b`];
+  const mk = (id, p) => ({
+    id,
+    kind: region.kind,
+    band: polyBbox(p) || region.band,
+    poly: p,
+    tangle: region.tangle,
+    orientation: region.orientation,
+  });
+  return {ok: true, parts: [mk(idA, p1), mk(idB, p2)]};
 }

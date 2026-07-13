@@ -17,6 +17,11 @@ import {
   hitTestRegions,
   pointInGlyph,
   resolveRegionAt,
+  pointInRegion,
+  polygonArea,
+  regionPolygon,
+  clipPolygonByLine,
+  splitRegionByLine,
 } from "../src/stroke_order/web/static/zentangle/regions.mjs";
 import {
   listTangles,
@@ -272,6 +277,90 @@ test("5df-3: resolveRegionAt 疊區取後者（與 hitTestRegions 一致）", ()
   ];
   assert.equal(resolveRegionAt(regions, glyph, 200, 200)?.id, "g1");
   assert.equal(resolveRegionAt(regions, glyph, 50, 50)?.id, "g0");
+});
+
+// ---------- 5df-4: 切分幾何 ----------
+
+test("5df-4: polygonArea shoelace（矩形/三角形）", () => {
+  assert.equal(polygonArea([[0, 0], [100, 0], [100, 50], [0, 50]]), 5000);
+  assert.equal(polygonArea([[0, 0], [100, 0], [0, 100]]), 5000);
+  assert.equal(polygonArea([[0, 0], [1, 1]]), 0);
+});
+
+test("5df-4: regionPolygon——原生 band 四角、poly 直取", () => {
+  const r = {id: "r0", band: {x: 10, y: 20, w: 100, h: 50}};
+  assert.deepEqual(regionPolygon(r),
+                   [[10, 20], [110, 20], [110, 70], [10, 70]]);
+  const tri = [[0, 0], [10, 0], [0, 10]];
+  assert.equal(regionPolygon({band: r.band, poly: tri}), tri);
+});
+
+test("5df-4: clipPolygonByLine 半平面——垂直線切矩形", () => {
+  const sq = [[0, 0], [100, 0], [100, 100], [0, 100]];
+  const left = clipPolygonByLine(sq, 40, -10, 40, 110, -1);
+  const right = clipPolygonByLine(sq, 40, -10, 40, 110, +1);
+  assert.ok(Math.abs(polygonArea(left) - 4000) < 1e-6 ||
+            Math.abs(polygonArea(left) - 6000) < 1e-6);
+  assert.ok(Math.abs(polygonArea(left) + polygonArea(right) - 10000) < 1e-6,
+            "兩半面積守恆");
+});
+
+test("5df-4: splitRegionByLine 垂直切——面積守恆、繼承圖樣/朝向、id 後綴", () => {
+  const r = {id: "r2", kind: "glyph", band: {x: 0, y: 0, w: 200, h: 100},
+             tangle: "bales", orientation: "right"};
+  const res = splitRegionByLine(r, [80, 10], [80, 90]);
+  assert.ok(res.ok);
+  const [a, b] = res.parts;
+  assert.equal(a.id, "r2a");
+  assert.equal(b.id, "r2b");
+  for (const p of res.parts) {
+    assert.equal(p.kind, "glyph");
+    assert.equal(p.tangle, "bales");
+    assert.equal(p.orientation, "right");
+    assert.ok(Array.isArray(p.poly) && p.poly.length >= 3);
+  }
+  const total = polygonArea(regionPolygon(a)) + polygonArea(regionPolygon(b));
+  assert.ok(Math.abs(total - 200 * 100) < 1e-6, "面積守恆");
+  // band 同步為各自 poly 的 bbox。
+  assert.ok(a.band.w < 200 && b.band.w < 200);
+});
+
+test("5df-4: splitRegionByLine 斜切三角守恆＋二代再切", () => {
+  const r = {id: "r0", kind: "bg", band: {x: 0, y: 0, w: 100, h: 100},
+             tangle: "flux", orientation: "up"};
+  const res = splitRegionByLine(r, [0, 0], [100, 100]);   // 對角線
+  assert.ok(res.ok);
+  const [a, b] = res.parts;
+  assert.ok(Math.abs(polygonArea(a.poly) - 5000) < 1e-6);
+  assert.ok(Math.abs(polygonArea(b.poly) - 5000) < 1e-6);
+  // 二代切分：切三角形的半塊仍守恆。
+  const res2 = splitRegionByLine(a, [50, 10], [50, 90]);
+  assert.ok(res2.ok);
+  assert.equal(res2.parts[0].id, `${a.id}a`);
+  const t2 = polygonArea(res2.parts[0].poly) + polygonArea(res2.parts[1].poly);
+  assert.ok(Math.abs(t2 - 5000) < 1e-6, "二代面積守恆");
+});
+
+test("5df-4: splitRegionByLine 守門——兩點太近/沒穿過/細條拒絕", () => {
+  const r = {id: "r0", kind: "bg", band: {x: 0, y: 0, w: 100, h: 100},
+             tangle: "tipple", orientation: "up"};
+  assert.ok(!splitRegionByLine(r, [50, 50], [51, 51]).ok, "兩點太近");
+  assert.ok(!splitRegionByLine(r, [200, 0], [200, 100]).ok, "線在區段外");
+  assert.ok(!splitRegionByLine(r, [0.5, -10], [0.6, 110]).ok,
+            "貼邊細條 < 2% 面積");
+});
+
+test("5df-4: pointInRegion/resolveRegionAt poly 感知——切分後各半可各自命中", () => {
+  const glyph = [square(0, 0, 200)];
+  const r = {id: "r0", kind: "glyph", band: {x: 0, y: 0, w: 200, h: 200},
+             tangle: "florz", orientation: "up"};
+  const {parts} = splitRegionByLine(r, [100, -10], [100, 210]);
+  assert.ok(pointInRegion(parts[0], 150, 100) !==
+            pointInRegion(parts[1], 150, 100), "兩半互斥");
+  const regions = parts;
+  const hitL = resolveRegionAt(regions, glyph, 50, 100);
+  const hitR = resolveRegionAt(regions, glyph, 150, 100);
+  assert.ok(hitL && hitR && hitL.id !== hitR.id, "左右各命中一半");
 });
 
 // ---------- 鐵則整合：區段帶餵 buildTangleOriented 全部界內 ----------
