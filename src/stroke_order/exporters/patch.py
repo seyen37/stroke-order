@@ -285,6 +285,7 @@ def _layout_text_positions(
     patch_h_mm: float,
     char_size_mm: float,
     poly: Polygon,
+    auto_size: bool = False,
 ) -> tuple[list[tuple[float, float, float]], float]:
     """Return ``([(cx_mm, cy_mm, rotation_deg), ...], eff_char_size_mm)``.
 
@@ -303,6 +304,13 @@ def _layout_text_positions(
     if position == "on_arc" and preset not in ("arch_top", "arch_bottom"):
         position = "center"
     eff = _fit_char_size(n_chars, patch_w_mm, char_size_mm)
+    if auto_size:
+        # 5de：auto 字級——起點改「造型 bbox 對角尺度」，由
+        # _fit_row_to_shape 從大往下收斂到最大可容字級：字少自動
+        # 放大（1 字可近乎填滿造型高）、字多自動縮小。使用者的
+        # char_size_mm 在 auto 模式不設上限（僅非 auto 生效）。
+        bb = poly.bbox()
+        eff = max(bb[2] - bb[0], bb[3] - bb[1], _MIN_CHAR_MM)
 
     if position == "on_arc":
         # 5dd：拱形弦位的可用寬度也改走造型感知（舊版用 bbox 全寬，
@@ -581,6 +589,7 @@ def render_patch_svg(
     cut_width: float = 0.3,
     write_width: float = 0.3,
     show_border: bool = True,           # Phase 5ay
+    auto_size: bool = False,            # 5de：auto 字級
 ) -> str:
     """Render a patch (or tiled grid of identical patches) as two-layer SVG."""
     decorations = decorations or []
@@ -600,6 +609,7 @@ def render_patch_svg(
     positions, eff_char_size = _layout_text_positions(
         len(chars), preset, text_position,
         patch_width_mm, patch_height_mm, char_size_mm, poly,
+        auto_size=auto_size,
     )
 
     # Build single-patch fragments (cut + write) referenced from each tile.
@@ -770,6 +780,7 @@ def _patch_polylines(
     tile_cols: int,
     tile_gap_mm: float,
     show_border: bool = True,
+    auto_size: bool = False,            # 5de：auto 字級
 ) -> list[dict]:
     """Collect per-tile polylines for the patch.
 
@@ -795,6 +806,7 @@ def _patch_polylines(
     positions, eff_char_size = _layout_text_positions(
         len(chars), preset, text_position,
         patch_width_mm, patch_height_mm, char_size_mm, poly,
+        auto_size=auto_size,
     )
     rows = max(1, int(tile_rows))
     cols = max(1, int(tile_cols))
@@ -864,6 +876,7 @@ def _patch_gcode_payload(
     pen_down: str,
     pen_up: str,
     show_border: bool = True,
+    auto_size: bool = False,
 ) -> str:
     tiles = _patch_polylines(
         text, char_loader,
@@ -871,7 +884,7 @@ def _patch_gcode_payload(
         patch_height_mm=patch_height_mm, char_size_mm=char_size_mm,
         text_position=text_position, tile_rows=tile_rows,
         tile_cols=tile_cols, tile_gap_mm=tile_gap_mm,
-        show_border=show_border,
+        show_border=show_border, auto_size=auto_size,
     )
     rows = max(1, int(tile_rows))
     cols = max(1, int(tile_cols))
@@ -946,6 +959,7 @@ def render_patch_gcode_cut(
     pen_down: str = "M3 S90",
     pen_up: str = "M5",
     show_border: bool = True,              # Phase 5ay
+    auto_size: bool = False,               # 5de
 ) -> str:
     """G-code for the cut layer (patch outline + char outlines)."""
     return _patch_gcode_payload(
@@ -956,7 +970,7 @@ def render_patch_gcode_cut(
         tile_rows=tile_rows, tile_cols=tile_cols, tile_gap_mm=tile_gap_mm,
         feed_cut=feed, feed_write=feed,
         pen_down=pen_down, pen_up=pen_up,
-        show_border=show_border,
+        show_border=show_border, auto_size=auto_size,
     )
 
 
@@ -975,6 +989,7 @@ def render_patch_gcode_write(
     feed: float = 3000.0,                  # write feed (fast)
     pen_down: str = "M3 S90",
     pen_up: str = "M5",
+    auto_size: bool = False,               # 5de
 ) -> str:
     """G-code for the write layer (char raw_track polylines)."""
     return _patch_gcode_payload(
@@ -984,7 +999,7 @@ def render_patch_gcode_write(
         text_position=text_position, decorations=[],
         tile_rows=tile_rows, tile_cols=tile_cols, tile_gap_mm=tile_gap_mm,
         feed_cut=feed, feed_write=feed,
-        pen_down=pen_down, pen_up=pen_up,
+        pen_down=pen_down, pen_up=pen_up, auto_size=auto_size,
     )
 
 
@@ -1055,6 +1070,7 @@ def render_patch_dxf(
     tile_cols: int = 1,
     tile_gap_mm: float = 5.0,
     show_border: bool = True,
+    auto_size: bool = False,               # 5de
 ) -> str:
     """5bq: layered DXF R12 export (VectorLine convention).
 
@@ -1072,7 +1088,7 @@ def render_patch_dxf(
         patch_height_mm=patch_height_mm, char_size_mm=char_size_mm,
         text_position=text_position, tile_rows=tile_rows,
         tile_cols=tile_cols, tile_gap_mm=tile_gap_mm,
-        show_border=show_border,
+        show_border=show_border, auto_size=auto_size,
     )
     cut: list[DxfPolyline] = []
     engrave: list[DxfPolyline] = []

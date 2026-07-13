@@ -103,6 +103,9 @@ class PatchDecorationSpec(BaseModel):
 
 
 class PatchPostRequest(BaseModel):
+    # 5de：auto 字級——字少自動放大、字多自動縮小（造型感知，
+    # 見 patch._fit_row_to_shape）；False＝沿用 char_size_mm 上限
+    auto_size: bool = False
     text: str = ""
     preset: str = "rectangle"
     patch_width_mm: float = 80.0
@@ -3185,6 +3188,7 @@ def create_app() -> FastAPI:
             tile_rows=req.tile_rows, tile_cols=req.tile_cols,
             tile_gap_mm=req.tile_gap_mm,
             show_border=req.show_border,                      # Phase 5ay
+            auto_size=req.auto_size,                          # 5de
         )
 
         if req.format == "svg":
@@ -3237,9 +3241,11 @@ def create_app() -> FastAPI:
         page_height_mm: float = Query(297.0, ge=50, le=600),
         format: str = Query("svg", pattern=_PATCH_FORMAT_PATTERN),
         show_border: bool = Query(True),                       # Phase 5ay
+        auto_size: bool = Query(False, description="5de：auto 字級"),
     ):
         """GET variant — no decorations (use POST for those)."""
         req = PatchPostRequest(
+            auto_size=auto_size,
             text=text, preset=preset,
             patch_width_mm=patch_width_mm,
             patch_height_mm=patch_height_mm,

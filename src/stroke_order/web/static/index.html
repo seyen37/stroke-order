@@ -1073,6 +1073,9 @@
       <input id="pt-h" type="number" value="40" min="10" max="500" step="5" style="width:70px;">
       <label style="margin-left:12px;">字大小 (mm)</label>
       <input id="pt-charsize" type="number" value="22" min="2" max="200" step="1" style="width:70px;">
+      <label style="margin-left:12px;"
+             title="依造型自動決定最大可容字級：字少自動放大（單字可近乎填滿）、字多自動縮小；勾選時左側字大小僅供未勾選時使用">
+        <input type="checkbox" id="pt-auto-size" checked> 自動字級</label>
     </div>
 
     <div class="row">
@@ -7518,6 +7521,8 @@ function patchBuildBody(format) {
     tile_cols: parseInt($("pt-cols")),
     tile_gap_mm: parseFloat($("pt-gap")),
     show_border: $$("pt-show-border")?.checked !== false,
+    // 5de：auto 字級——字少自動放大、字多自動縮小（造型感知）
+    auto_size: $$("pt-auto-size")?.checked === true,
     decorations: PATCH.decorations,
     format,
   };

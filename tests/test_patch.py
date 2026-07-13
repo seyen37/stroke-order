@@ -373,13 +373,13 @@ def _pt_in_poly(px, py, verts):
 
 
 def _assert_glyphs_inside(preset, position, n_chars,
-                          w=80.0, h=40.0, size=18.0):
+                          w=80.0, h=40.0, size=18.0, auto=False):
     from stroke_order.exporters.patch import (
         _build_patch_shape, _ensure_polygon, _layout_text_positions,
     )
     poly = _ensure_polygon(_build_patch_shape(preset, w, h))
     positions, eff = _layout_text_positions(
-        n_chars, preset, position, w, h, size, poly)
+        n_chars, preset, position, w, h, size, poly, auto_size=auto)
     assert len(positions) == n_chars
     for cx, cy, _rot in positions:
         for dx in (-0.5, 0.5):
@@ -422,6 +422,44 @@ def test_5dd_on_arc_inside_arch_presets():
     """拱形 on_arc 弦位也走造型感知（舊版用 bbox 全寬會溢出）。"""
     for preset in ("arch_top", "arch_bottom"):
         _assert_glyphs_inside(preset, "on_arc", 4)
+
+
+# ---------------------------------------------------------------------------
+# 5de: auto 字級——字少自動放大、字多自動縮小（造型感知）
+# ---------------------------------------------------------------------------
+
+
+def test_5de_auto_size_scales_up_and_down():
+    """1 字 auto 應遠大於 18mm 請求值（放大）；8 字 auto 應更小（縮小）。"""
+    from stroke_order.exporters.patch import (
+        _build_patch_shape, _ensure_polygon, _layout_text_positions,
+    )
+    poly = _ensure_polygon(_build_patch_shape("rectangle", 80.0, 40.0))
+    _p1, eff1 = _layout_text_positions(
+        1, "rectangle", "center", 80.0, 40.0, 18.0, poly, auto_size=True)
+    _p8, eff8 = _layout_text_positions(
+        8, "rectangle", "center", 80.0, 40.0, 18.0, poly, auto_size=True)
+    assert eff1 > 18.0          # 字少 → 放大（不再被請求值卡住）
+    assert eff8 < eff1          # 字多 → 縮小
+    assert eff8 >= 3.0          # 下限
+
+
+def test_5de_auto_size_inside_every_preset():
+    """auto 字級在全部造型、1/2/8 字下仍全數包覆。"""
+    for preset in _ALL_PRESETS:
+        for n in (1, 2, 8):
+            _assert_glyphs_inside(preset, "center", n, auto=True)
+
+
+def test_5de_auto_off_respects_requested_cap():
+    """auto 關閉（API 預設）＝維持既有語意：字級 ≤ 請求值。"""
+    from stroke_order.exporters.patch import (
+        _build_patch_shape, _ensure_polygon, _layout_text_positions,
+    )
+    poly = _ensure_polygon(_build_patch_shape("rectangle", 80.0, 40.0))
+    _p, eff = _layout_text_positions(
+        1, "rectangle", "center", 80.0, 40.0, 18.0, poly)
+    assert eff == 18.0
 
 
 # ---------------------------------------------------------------------------
