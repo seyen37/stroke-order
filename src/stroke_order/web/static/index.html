@@ -2795,6 +2795,18 @@
         ⓘ 6z-3.5 user-place: 先選 tangle → 點 canvas 放第一個 → 再點 → R/E 鍵 repeat 3 次沿方向
       </span>
     </div>
+    <!-- 5df-3: 區段編輯鈕列 — hollow/bg 模式點 canvas 選區段後編輯。
+         按鈕由 zentangle.js buildRegionToolbar() 從 tangle registry 動態生成
+         （單一事實源；新圖樣入 registry 即現身，HTML 不用改）。 -->
+    <div class="row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;">
+      <span style="font-weight:bold;color:var(--muted);">區段編輯</span>
+      <span id="zentangle-region-buttons"
+            style="display:inline-flex;flex-wrap:wrap;gap:6px;"></span>
+      <span style="color:var(--muted);font-size:11px;">
+        ⓘ 5df-3: 空心填充/背景鑲嵌模式點 canvas 選區段（虛線框）→ 圖樣鈕換圖樣、
+        「留白」清空、⬆⬇⬅➡ 轉朝向；未選區段時方向鍵＝透視、點空白取消選取
+      </span>
+    </div>
     <!-- 6z-2c: 紙磚旋轉 inline 控件 — 8 preset 按鈕 + slider 微調 + 立即回正 / 上次角度 -->
     <div class="row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
       <span style="font-weight:bold;color:var(--muted);">紙磚旋轉</span>
@@ -10075,7 +10087,7 @@ async function renderCnsDecomposition(char) {
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，
      舊快取的 zentangle.js 不認得區段模型，改版時同步 bump。 -->
-<script type="module" src="/static/zentangle/zentangle.js?v=175"></script>
+<script type="module" src="/static/zentangle/zentangle.js?v=176"></script>
 
 </body>
 </html>

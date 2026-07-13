@@ -266,8 +266,7 @@ export function pickDensity(band) {
 
 /**
  * 5df-3 預留 hit-test：回傳「點落在哪個區段的 band 內」（後者優先＝
- * 渲染疊序的最上層）。glyph 區段還需 DOM 端 ctx.isPointInPath 確認
- * 點真的在字形內——這裡是純幾何層，不碰 canvas。
+ * 渲染疊序的最上層）。純矩形判斷；字形遮罩感知版見 resolveRegionAt。
  *
  * @returns {object|null} region or null
  */
@@ -279,6 +278,52 @@ export function hitTestRegions(regions, x, y) {
         y >= band.y && y <= band.y + band.h) {
       return regions[i];
     }
+  }
+  return null;
+}
+
+/**
+ * 5df-3 — 點是否在「字形內」（evenodd 跨 contour：被奇數個 contour
+ * 包住＝字形墨面；孔洞內＝偶數＝字形外）。與渲染端 clip(glyphPath,
+ * "evenodd") 同語意，但純幾何、node 可測（不依賴 ctx.isPointInPath）。
+ */
+export function pointInGlyph(mappedContours, x, y) {
+  if (!Array.isArray(mappedContours)) return false;
+  let count = 0;
+  for (const poly of mappedContours) {
+    if (!Array.isArray(poly) || poly.length < 3) continue;
+    if (pointInPolygon(x, y, poly)) count += 1;
+  }
+  return count % 2 === 1;
+}
+
+/**
+ * 5df-3 — 遮罩感知的區段命中：只選「點真的落在該區段可見墨區」的
+ * 區段——glyph 區段要求點在字形內、bg 區段要求點在字形外。
+ * 疊序上層（陣列後者）優先，與 hitTestRegions 一致。
+ *
+ * @param {Array} regions
+ * @param {Array|null} mappedContours - 字形未載入時傳 null：
+ *        glyph 區段一律不可選、bg 區段退成純 band 判斷。
+ * @returns {object|null}
+ */
+export function resolveRegionAt(regions, mappedContours, x, y) {
+  if (!Array.isArray(regions)) return null;
+  const hasGlyph =
+    Array.isArray(mappedContours) && mappedContours.length > 0;
+  const inGlyph = hasGlyph ? pointInGlyph(mappedContours, x, y) : false;
+  for (let i = regions.length - 1; i >= 0; i--) {
+    const r = regions[i];
+    const {band} = r;
+    if (x < band.x || x > band.x + band.w ||
+        y < band.y || y > band.y + band.h) continue;
+    if (r.kind === "glyph") {
+      if (!hasGlyph || !inGlyph) continue;
+      return r;
+    }
+    // bg：字形墨面不算背景（字形未載入＝全部算背景）。
+    if (inGlyph) continue;
+    return r;
   }
   return null;
 }

@@ -15,6 +15,8 @@ import {
   assignRandomTangles,
   pickDensity,
   hitTestRegions,
+  pointInGlyph,
+  resolveRegionAt,
 } from "../src/stroke_order/web/static/zentangle/regions.mjs";
 import {
   listTangles,
@@ -218,6 +220,58 @@ test("5df-2: hitTestRegions 命中/落空/上層優先（5df-3 預留）", () =>
   assert.equal(hitTestRegions(regions, 100, 100).id, "r1");  // 疊區取後者
   assert.equal(hitTestRegions(regions, 10, 10).id, "r0");
   assert.equal(hitTestRegions(regions, 500, 500), null);
+});
+
+// ---------- 5df-3: pointInGlyph / resolveRegionAt（選取遮罩） ----------
+
+test("5df-3: pointInGlyph evenodd——墨面 true、孔洞 false、字外 false", () => {
+  const glyph = [square(0, 0, 200), square(50, 50, 100)];   // 口型
+  assert.ok(pointInGlyph(glyph, 25, 100), "外框與孔之間＝墨面");
+  assert.ok(!pointInGlyph(glyph, 100, 100), "孔洞內＝非墨面");
+  assert.ok(!pointInGlyph(glyph, 300, 300), "字外");
+  assert.ok(!pointInGlyph(null, 10, 10), "無字形防禦");
+});
+
+test("5df-3: resolveRegionAt glyph 區段要求點在字形內", () => {
+  const glyph = [square(0, 0, 200), square(50, 50, 100)];
+  const regions = [
+    {id: "r0", kind: "glyph", band: {x: 0, y: 0, w: 200, h: 200}},
+  ];
+  assert.equal(resolveRegionAt(regions, glyph, 25, 100)?.id, "r0");
+  assert.equal(resolveRegionAt(regions, glyph, 100, 100), null,
+               "band 內但落在孔洞＝不可選");
+  assert.equal(resolveRegionAt(regions, glyph, 300, 300), null);
+});
+
+test("5df-3: resolveRegionAt bg 區段要求點在字形外（孔洞算背景）", () => {
+  const glyph = [square(60, 60, 80), square(80, 80, 40)];   // 小口型置中
+  const regions = [
+    {id: "b0", kind: "bg", band: {x: 0, y: 0, w: 200, h: 200}},
+  ];
+  assert.equal(resolveRegionAt(regions, glyph, 10, 10)?.id, "b0");
+  assert.equal(resolveRegionAt(regions, glyph, 70, 100), null,
+               "字形墨面不算背景");
+  assert.equal(resolveRegionAt(regions, glyph, 100, 100)?.id, "b0",
+               "孔洞內＝背景（與渲染端 evenodd 同語意）");
+});
+
+test("5df-3: resolveRegionAt 字形未載入——glyph 不可選、bg 退純 band", () => {
+  const regions = [
+    {id: "g0", kind: "glyph", band: {x: 0, y: 0, w: 100, h: 100}},
+    {id: "b0", kind: "bg", band: {x: 100, y: 0, w: 100, h: 100}},
+  ];
+  assert.equal(resolveRegionAt(regions, null, 50, 50), null);
+  assert.equal(resolveRegionAt(regions, null, 150, 50)?.id, "b0");
+});
+
+test("5df-3: resolveRegionAt 疊區取後者（與 hitTestRegions 一致）", () => {
+  const glyph = [square(0, 0, 400)];
+  const regions = [
+    {id: "g0", kind: "glyph", band: {x: 0, y: 0, w: 400, h: 400}},
+    {id: "g1", kind: "glyph", band: {x: 100, y: 100, w: 200, h: 200}},
+  ];
+  assert.equal(resolveRegionAt(regions, glyph, 200, 200)?.id, "g1");
+  assert.equal(resolveRegionAt(regions, glyph, 50, 50)?.id, "g0");
 });
 
 // ---------- 鐵則整合：區段帶餵 buildTangleOriented 全部界內 ----------

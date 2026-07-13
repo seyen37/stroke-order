@@ -33,6 +33,7 @@ import {
   computeBgRegions,
   assignRandomTangles,
   pickDensity,
+  resolveRegionAt,
 } from "./regions.mjs";
 import {
   applyPseudo3DToSpecs,
@@ -146,6 +147,15 @@ const TANGLE_LINE_WIDTH = 1;
 // 每次「產生」（renderOutline）或切模式/紙磚尺寸時重抽（隨機填充）。
 // 5df-3 互動編輯會直接改單一 region 的 tangle / orientation。
 let _regions = [];
+
+// 5df-3: 選中的區段 id（per-session；重抽即清空——區段換了一批、舊
+// 選取沒有意義）。null = 未選取。方向鍵情境切換靠這個判斷：
+// 有選中 → ⬆⬇⬅➡ 歸區段朝向；未選中 → 維持 6z-5a 透視（QODA 定案）。
+let _selectedRegionId = null;
+
+// 5df-3: 選中高亮樣式（canvas 不吃 CSS var，用字面色）。
+const REGION_HILITE_COLOR = "#c33";
+const REGION_HILITE_DASH = [6, 4];
 
 // 6z-3.5: user-placed tangle units (per-session, per Q5=B mirror policy).
 // Each entry: {tangle: "crescent_moon"|"florz", cx, cy} in TILE-LOCAL px.
@@ -407,6 +417,7 @@ function currentMappedContours() {
  */
 function regenerateRegions() {
   _regions = [];
+  _selectedRegionId = null;   // 5df-3: 區段換批、選取失效
   const mode = _config?.mode;
   if (mode !== "hollow" && mode !== "bg") return;
   const keys = listTangles().map((t) => t.key);
@@ -467,6 +478,7 @@ function drawRegionLayer(mappedContours) {
   _ctx.lineJoin = "round";
   _ctx.lineCap = "round";
   for (const region of _regions) {
+    if (!region.tangle) continue;                         // 5df-3: 留白區段
     if (region.kind === "glyph" && !glyphPath) continue;  // 字形未載入
     _ctx.save();
     const bandPath = new Path2D();
@@ -486,7 +498,126 @@ function drawRegionLayer(mappedContours) {
     renderTangleSpecs(_ctx, specs);
     _ctx.restore();
   }
+  // 5df-3: 選中區段高亮（虛線框、畫在圖樣之上、不受 clip）。
+  if (_selectedRegionId !== null) {
+    const sel = _regions.find((r) => r.id === _selectedRegionId);
+    if (sel) {
+      _ctx.save();
+      _ctx.strokeStyle = REGION_HILITE_COLOR;
+      _ctx.lineWidth = 1.5;
+      _ctx.setLineDash(REGION_HILITE_DASH);
+      _ctx.strokeRect(sel.band.x, sel.band.y, sel.band.w, sel.band.h);
+      _ctx.restore();
+    }
+  }
   _ctx.restore();
+}
+
+// ---------------------------------------------------------------------------
+// 5df-3 — 區段互動編輯（點選 / 圖樣鈕列 / 留白 / 方向鍵情境切換）
+// ---------------------------------------------------------------------------
+
+function selectedRegion() {
+  if (_selectedRegionId === null) return null;
+  return _regions.find((r) => r.id === _selectedRegionId) || null;
+}
+
+/** click event → tile-local [x, y]（CSS 縮放＋旋轉/pan 反變換）。 */
+function clickToTileLocal(e, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return null;
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const viewX = (e.clientX - rect.left) * scaleX;
+  const viewY = (e.clientY - rect.top) * scaleY;
+  return viewportToTileLocal(viewX, viewY);
+}
+
+/** canvas 點選分流：hollow/bg → 選區段；pure → 6z-3.5 手放 unit。 */
+function onCanvasClick(e, canvas) {
+  const mode = _config?.mode;
+  if (mode === "hollow" || mode === "bg") {
+    selectRegionAtClick(e, canvas);
+    return;
+  }
+  placeUnitAtClick(e, canvas);
+}
+
+function selectRegionAtClick(e, canvas) {
+  const pt = clickToTileLocal(e, canvas);
+  if (!pt) return;
+  const region = resolveRegionAt(
+    _regions, currentMappedContours(), pt[0], pt[1]);
+  if (!region) {
+    if (_selectedRegionId !== null) {
+      _selectedRegionId = null;
+      redrawAll();
+      setStatus("已取消選取");
+    }
+    return;
+  }
+  _selectedRegionId = region.id;
+  redrawAll();
+  const tangleLabel = region.tangle
+    ? (TANGLES[region.tangle]?.label || region.tangle)
+    : "留白";
+  setStatus(
+    `已選區段 ${region.id}（${region.kind === "glyph" ? "字內" : "背景"}）` +
+    `· ${tangleLabel} · 朝向 ${region.orientation}` +
+    "——圖樣鈕換圖樣、⬆⬇⬅➡ 轉朝向、點空白取消"
+  );
+}
+
+/** 圖樣鈕列：改選中區段的 tangle（null = 留白）。 */
+function setRegionTangle(key) {
+  const r = selectedRegion();
+  if (!r) {
+    setStatus("先點 canvas 選一個區段（空心填充/背景鑲嵌模式）", true);
+    return;
+  }
+  if (key !== null && !TANGLES[key]) {
+    setStatus(`未知 tangle: ${key}`, true);
+    return;
+  }
+  r.tangle = key;
+  redrawAll();
+  setStatus(
+    key ? `區段 ${r.id} 圖樣 → ${TANGLES[key].label}` : `區段 ${r.id} → 留白`
+  );
+}
+
+/** 方向鍵（情境切換的「選中」分支）：改選中區段朝向。 */
+function setRegionOrientation(dir) {
+  const r = selectedRegion();
+  if (!r) return false;
+  r.orientation = dir;
+  redrawAll();
+  const labels = {up: "上", right: "右", down: "下", left: "左"};
+  setStatus(`區段 ${r.id} 朝向 → ${labels[dir] || dir}`);
+  return true;
+}
+
+/** 動態生成圖樣鈕列（registry 單一事實源——新圖樣入 registry 即現身）。 */
+function buildRegionToolbar() {
+  const host = document.getElementById("zentangle-region-buttons");
+  if (!host) return;
+  host.innerHTML = "";
+  const mk = (label, key, title) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "zt-region-btn";
+    btn.textContent = label;
+    btn.title = title;
+    btn.style.cssText =
+      "padding:3px 8px;border:1px solid var(--border);border-radius:3px;" +
+      "background:#fafaf8;cursor:pointer;font-size:12px;";
+    btn.addEventListener("click", () => setRegionTangle(key));
+    host.appendChild(btn);
+  };
+  for (const t of listTangles()) {
+    mk(t.label, t.key, `選中區段換成 ${t.label}`);
+  }
+  mk("留白", null, "清空選中區段的圖樣");
 }
 
 /**
@@ -1004,11 +1135,13 @@ function wireTangleControls() {
   });
   // 6z-1E ACTION wiring → register real handler (replaces stub fallback).
   _actionHandlers["cycle-tangle"] = cycleTangle;
-  // 6z-3.5: canvas left-click → place tangle unit at click point.
+  // 6z-3.5 / 5df-3: canvas left-click → 分流（pure 放 unit、hollow/bg 選區段）。
   const canvas = document.getElementById("zentangle-canvas");
   if (canvas) {
-    canvas.addEventListener("click", (e) => placeUnitAtClick(e, canvas));
+    canvas.addEventListener("click", (e) => onCanvasClick(e, canvas));
   }
+  // 5df-3: 區段編輯圖樣鈕列（從 registry 動態生成）。
+  buildRegionToolbar();
   // 6z-3.5: REPEAT_3 / R 鍵 → 3x repeat last unit along _lastDirection.
   _actionHandlers["repeat-3"] = repeatLast3;
   _actionHandlers["repeat-fill"] = repeatLast3;  // 6z-3.5 fallback; R2 「到底」 留 6z-3.5.X
@@ -1094,9 +1227,12 @@ function wirePseudo3DControls() {
   // 「無透視」 button.
   const clearBtn = document.getElementById("zentangle-p3d-clear");
   if (clearBtn) clearBtn.addEventListener("click", clearPerspective);
-  // ↑↓←→ Arrow 鍵 ACTION → setPerspectiveDir (translate via KEY_DIR_TO_PSEUDO3D).
-  // (6z-1E KEY_MAP already dispatches PSEUDO3D_DIR with arg; we register the handler.)
+  // ↑↓←→ Arrow 鍵 ACTION — 5df-3 情境切換（QODA 使用者定案）：
+  //   有選中區段 → 方向鍵歸區段朝向（keyDir up/right/down/left 恰是
+  //   ORIENTATIONS 字面值，直接透傳）
+  //   未選中     → 維持 6z-5a 透視（KEY_DIR_TO_PSEUDO3D 轉譯）
   _actionHandlers["pseudo3d-dir"] = (keyDir) => {
+    if (_selectedRegionId !== null && setRegionOrientation(keyDir)) return;
     const dir = KEY_DIR_TO_PSEUDO3D[keyDir];
     if (!dir) return;
     setPerspectiveDir(dir);
@@ -1199,15 +1335,10 @@ function placeUnitAtClick(e, canvas) {
     return;
   }
   if (!TANGLES[_activeTangle]) return;
-  // Browser click → canvas px (account for CSS scaling).
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return;
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-  const viewX = (e.clientX - rect.left) * scaleX;
-  const viewY = (e.clientY - rect.top) * scaleY;
-  // Inverse transform → tile-local (so rotation + pan compose naturally).
-  const [tx, ty] = viewportToTileLocal(viewX, viewY);
+  // Browser click → tile-local（5df-3 抽出共用 helper；旋轉/pan 反變換同前）。
+  const pt = clickToTileLocal(e, canvas);
+  if (!pt) return;
+  const [tx, ty] = pt;
   // 6z-5a/b: new units inherit sticky pseudo_3d (depth_dir + curve_mode).
   // Build pseudo_3d only if any sticky field is active — keeps null short-
   // circuit working when neither is set.
