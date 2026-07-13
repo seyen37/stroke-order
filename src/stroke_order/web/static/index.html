@@ -3248,14 +3248,39 @@ function pinyinToZhuyin(pyNum) {
   return (ZY_INIT[init] || "") + fin + tone;
 }
 
-/** 整串詞境轉換（破音字取 pinyin-pro 詞境判定）→ "字:注音,…" */
+// ------------------------------------------------------------------
+// Phase 5cw：台灣讀音（教育部體系）查表優先
+// 資料：McBopomofo（openvanilla，MIT）字級注音庫 21,786 字衍生檔
+// static/zhuyin_tw.json（{"字":"主音|次音|…"}，heterophony 排序決定
+// 破音字預設讀音）；衍生檔入 repo、同源載入＝執行期零外網。
+// pinyin-pro（大陸讀音體系）降級為「表缺字」fallback。
+// ------------------------------------------------------------------
+let zyTwDict = null;      // {字: "主音|次音|…"}（載妥後常駐）
+let zyTwLoading = null;
+function ensureZhuyinTw() {
+  if (zyTwDict) return Promise.resolve(zyTwDict);
+  if (!zyTwLoading) {
+    zyTwLoading = fetch("/static/zhuyin_tw.json?v=163")
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(d => (zyTwDict = d))
+      .catch(() => { zyTwLoading = null; return null; });  // 可重試；走 fallback
+  }
+  return zyTwLoading;
+}
+
+/** 逐字出注音（台灣審定音查表優先、pinyin-pro 近似墊底）→ "字:注音,…" */
 function gridZhuyinMap(chars) {
-  if (typeof window.pinyinPro === "undefined") return "";
   const cs = [...chars];
+  const hasPy = typeof window.pinyinPro !== "undefined";
   let arr = [];
-  try {
-    arr = pinyinPro.pinyin(chars, {toneType: "num", type: "array", v: true});
-  } catch (e) { arr = []; }
+  if (hasPy) {
+    try {
+      arr = pinyinPro.pinyin(chars, {toneType: "num", type: "array", v: true});
+    } catch (e) { arr = []; }
+  }
   const aligned = arr.length === cs.length;
   const out = [];
   const seen = new Set();
@@ -3263,9 +3288,14 @@ function gridZhuyinMap(chars) {
     const ch = cs[i];
     if (seen.has(ch) || !/[㐀-鿿]/.test(ch)) continue;
     seen.add(ch);
-    let py = aligned ? arr[i]
-      : pinyinPro.pinyin(ch, {toneType: "num", v: true});
-    const zy = pinyinToZhuyin(py);
+    let zy = "";
+    if (zyTwDict && zyTwDict[ch]) {
+      zy = zyTwDict[ch].split("|")[0];      // 5cw：教育部體系預設讀音
+    } else if (hasPy) {
+      const py = aligned ? arr[i]
+        : pinyinPro.pinyin(ch, {toneType: "num", v: true});
+      zy = pinyinToZhuyin(py);              // fallback：大陸體系近似
+    }
     if (zy) out.push(ch + ":" + zy);
   }
   return out.join(",");
@@ -3304,6 +3334,8 @@ async function renderGrid() {
   const dlGroup = document.getElementById("grid-download-group");
   statusEl.textContent = "產生中…";
   dlGroup.style.display = "none";
+  // 5cw：注音開啟時先確保台灣讀音表載妥（首次約 450KB，之後快取）
+  if (document.getElementById("grid-zhuyin").checked) await ensureZhuyinTw();
   const qs = gridParams();
   try {
     const r = await fetch(`${API_BASE}/api/grid?${qs}&format=svg`);
@@ -3321,8 +3353,10 @@ async function renderGrid() {
     statusEl.textContent = `OK · SVG ${(svg.length / 1024).toFixed(1)} KB`;
     if (document.getElementById("grid-zhuyin").checked) {
       // 5cu v1：注音欄只進 SVG——伺服器 G-code/JSON 版面不含注音欄
+      // 5cw：標明讀音體系（查表命中＝教育部；表未載入＝拼音近似）
+      const zySrc = zyTwDict ? "教育部審定體系" : "拼音近似（讀音表未載入）";
       statusEl.textContent +=
-        "（含注音欄描紅；G-code/JSON 為主字版面、不含注音）";
+        `（含注音欄描紅・${zySrc}；G-code/JSON 為主字版面、不含注音）`;
     }
     // Wire up the 3 download links
     const dlSvg = document.getElementById("grid-download-svg");
