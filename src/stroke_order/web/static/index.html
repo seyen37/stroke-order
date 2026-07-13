@@ -448,8 +448,15 @@
         <option value="skeleton">骨架化</option>
       </select>
       <label style="margin-left:16px;"
-             title="字格右側加注音窄欄（2:1）。注音符號有完整筆順資料，跟著層樣式描紅——注音也能練筆順。讀音由瀏覽器以詞境自動判定（破音字取常用讀音）">
+             title="字格右側加注音窄欄（2:1）。注音符號有完整筆順資料，跟著層樣式描紅——注音也能練筆順。讀音採教育部體系（McBopomofo 資料）；破音字預設常用讀音、可在下方下拉改選">
         <input type="checkbox" id="grid-zhuyin"> 注音欄（描紅）</label>
+    </div>
+    <!-- Phase 5cx：破音字讀音改選列（勾注音欄且輸入含多音字才顯示） -->
+    <div class="row" id="grid-zhuyin-poly-row" style="display:none;
+         background:#f7f7ff;border-left:3px solid #99c;padding:4px 10px;
+         border-radius:3px;font-size:12px;">
+      <span style="color:var(--muted);">破音字讀音（預設＝教育部常用音，可改選）：</span>
+      <span id="grid-zhuyin-poly"></span>
     </div>
     <div class="row">
       <label title="總層數 = 主字 + ghost + blank；每層 N 格 (N = 輸入字數)">練習層數</label>
@@ -3289,8 +3296,11 @@ function gridZhuyinMap(chars) {
     if (seen.has(ch) || !/[㐀-鿿]/.test(ch)) continue;
     seen.add(ch);
     let zy = "";
-    if (zyTwDict && zyTwDict[ch]) {
-      zy = zyTwDict[ch].split("|")[0];      // 5cw：教育部體系預設讀音
+    const rs = (zyTwDict && zyTwDict[ch]) ? zyTwDict[ch].split("|") : null;
+    if (rs && gridZhuyinChoice[ch] && rs.includes(gridZhuyinChoice[ch])) {
+      zy = gridZhuyinChoice[ch];            // 5cx：使用者改選的破音字讀音
+    } else if (rs) {
+      zy = rs[0];                           // 5cw：教育部體系預設讀音
     } else if (hasPy) {
       const py = aligned ? arr[i]
         : pinyinPro.pinyin(ch, {toneType: "num", v: true});
@@ -3300,6 +3310,55 @@ function gridZhuyinMap(chars) {
   }
   return out.join(",");
 }
+
+// ------------------------------------------------------------------
+// Phase 5cx：破音字下拉修正
+// 表值含 "|" 的字＝多音字，逐字生成下拉（選項＝全部審定讀音、
+// 預設＝主音）；改選記在 gridZhuyinChoice（跨重繪保留），
+// gridZhuyinMap 以「改選 > 主音 > pinyin 近似」優先序取讀音。
+// ------------------------------------------------------------------
+const gridZhuyinChoice = {};   // 字 → 使用者改選的讀音
+async function refreshZhuyinPoly() {
+  const row = document.getElementById("grid-zhuyin-poly-row");
+  const box = document.getElementById("grid-zhuyin-poly");
+  if (!document.getElementById("grid-zhuyin").checked) {
+    row.style.display = "none";
+    return;
+  }
+  const dict = await ensureZhuyinTw();
+  if (!dict) { row.style.display = "none"; return; }
+  box.innerHTML = "";
+  const seen = new Set();
+  for (const ch of document.getElementById("grid-chars").value) {
+    if (seen.has(ch) || !/[㐀-鿿]/.test(ch)) continue;
+    seen.add(ch);
+    const rs = (dict[ch] || "").split("|");
+    if (rs.length < 2) continue;
+    const label = document.createElement("label");
+    label.style.marginLeft = "8px";
+    label.textContent = ch + " ";
+    const sel = document.createElement("select");
+    for (const r of rs) {
+      const o = document.createElement("option");
+      o.value = r;
+      o.textContent = r;
+      sel.appendChild(o);
+    }
+    if (gridZhuyinChoice[ch] && rs.includes(gridZhuyinChoice[ch])) {
+      sel.value = gridZhuyinChoice[ch];
+    }
+    sel.addEventListener("change", () => {
+      gridZhuyinChoice[ch] = sel.value;
+    });
+    label.appendChild(sel);
+    box.appendChild(label);
+  }
+  row.style.display = box.children.length ? "" : "none";
+}
+document.getElementById("grid-zhuyin")
+  .addEventListener("change", refreshZhuyinPoly);
+document.getElementById("grid-chars")
+  .addEventListener("input", refreshZhuyinPoly);
 
 function gridParams() {
   const g = (id) => document.getElementById(id).value;
@@ -3335,7 +3394,11 @@ async function renderGrid() {
   statusEl.textContent = "產生中…";
   dlGroup.style.display = "none";
   // 5cw：注音開啟時先確保台灣讀音表載妥（首次約 450KB，之後快取）
-  if (document.getElementById("grid-zhuyin").checked) await ensureZhuyinTw();
+  // 5cx：並同步破音字下拉列（帶入／程式改字後 input 事件不會觸發）
+  if (document.getElementById("grid-zhuyin").checked) {
+    await ensureZhuyinTw();
+    await refreshZhuyinPoly();
+  }
   const qs = gridParams();
   try {
     const r = await fetch(`${API_BASE}/api/grid?${qs}&format=svg`);
