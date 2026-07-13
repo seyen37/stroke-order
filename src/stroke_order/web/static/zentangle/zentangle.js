@@ -24,9 +24,16 @@ import {
 import {
   TANGLES,
   buildTangle,
+  buildTangleOriented,
   renderTangleSpecs,
   listTangles,
 } from "./tangle.mjs";
+import {
+  computeGlyphRegions,
+  computeBgRegions,
+  assignRandomTangles,
+  pickDensity,
+} from "./regions.mjs";
 import {
   applyPseudo3DToSpecs,
   isValidDepthDir,
@@ -132,6 +139,13 @@ const TANGLE_DENSITY = "medium";  // 6z-3 MVP fixed; future: tie to L3 cycle / r
 const TANGLE_STROKE = "#444";
 const TANGLE_FILL = "#444";
 const TANGLE_LINE_WIDTH = 1;
+
+// 5df-2: 區段模型（per-session, NOT persisted）。
+// regions = [{id, kind: "glyph"|"bg", band, tangle, orientation}]
+// hollow（空心填充）→ glyph 區段；bg（背景鑲嵌）→ bg 區段。
+// 每次「產生」（renderOutline）或切模式/紙磚尺寸時重抽（隨機填充）。
+// 5df-3 互動編輯會直接改單一 region 的 tangle / orientation。
+let _regions = [];
 
 // 6z-3.5: user-placed tangle units (per-session, per Q5=B mirror policy).
 // Each entry: {tangle: "crescent_moon"|"florz", cx, cy} in TILE-LOCAL px.
@@ -361,16 +375,118 @@ function redrawAll() {
   clearCanvas();
   withTileRotation(() => {
     drawTileFrame();
-    if (_cachedContours && contoursAreClosed(_cachedContours)) {
-      const ts = currentTileSize();
-      const tm = currentTileMargin();
-      const bbox = computeBbox(_cachedContours);
-      const mapped = mapContourToTile(_cachedContours, bbox, ts, tm);
+    const mapped = currentMappedContours();
+    if (mapped) {
+      // 5df-2: 區段層墊在字框線之下（outline 蓋在圖樣上、輪廓保持清晰）。
+      drawRegionLayer(mapped);
       drawOutline(mapped);
-      // 6z-3d: tangle layer (clip 在 outline 內，mode=pure 視覺；hollow/bg 暫 fallback)
+      // 6z-3.5: user-placed units（pure 模式主體；hollow/bg 仍可疊加）
       drawTangleLayer(mapped);
+    } else {
+      // 字形未載入時 bg 區段仍可渲染（band clip 不依賴字形）。
+      drawRegionLayer(null);
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// 5df-2 — 區段模型：重抽 + 渲染
+// ---------------------------------------------------------------------------
+
+/** 目前快取字形的 tile-local mapped contours（無快取 → null）。 */
+function currentMappedContours() {
+  if (!_cachedContours || !contoursAreClosed(_cachedContours)) return null;
+  const ts = currentTileSize();
+  const tm = currentTileMargin();
+  return mapContourToTile(_cachedContours, computeBbox(_cachedContours), ts, tm);
+}
+
+/**
+ * 5df-2 — 重抽區段（隨機填充）。hollow → 字形元件帶切分；
+ * bg → 紙磚內框帶/象限。pure 模式維持 6z-3.5 手放 unit 行為、無區段。
+ */
+function regenerateRegions() {
+  _regions = [];
+  const mode = _config?.mode;
+  if (mode !== "hollow" && mode !== "bg") return;
+  const keys = listTangles().map((t) => t.key);
+  if (mode === "bg") {
+    const base = computeBgRegions(currentTileSize(), currentTileMargin());
+    _regions = assignRandomTangles(base, keys);
+    return;
+  }
+  const mapped = currentMappedContours();
+  if (!mapped || mapped.length === 0) return;
+  _regions = assignRandomTangles(computeGlyphRegions(mapped), keys);
+}
+
+/** mapped contours → Path2D（每 contour 一 sub-path、closePath）。 */
+function buildGlyphPath(mappedContours) {
+  const path = new Path2D();
+  for (const poly of mappedContours) {
+    if (!Array.isArray(poly) || poly.length < 3) continue;
+    path.moveTo(poly[0][0], poly[0][1]);
+    for (let i = 1; i < poly.length; i++) {
+      path.lineTo(poly[i][0], poly[i][1]);
+    }
+    path.closePath();
+  }
+  return path;
+}
+
+/**
+ * 5df-2 — 渲染區段層。雙重 clip（設計草稿 ②）：
+ *   glyph: clip(字形 path, evenodd) ∩ clip(band rect)   ← 孔洞自動排除
+ *   bg   : clip(band rect) ∩ clip(大矩形＋字形, evenodd) ← 字形當洞扣掉
+ * 呼叫端保證在 withTileRotation 內（區段存 tile-local 座標、跟磚一起轉）。
+ */
+function drawRegionLayer(mappedContours) {
+  if (_regions.length === 0 || !_ctx) return;
+  const hasGlyph =
+    Array.isArray(mappedContours) && mappedContours.length > 0;
+  const glyphPath = hasGlyph ? buildGlyphPath(mappedContours) : null;
+  // bg 用的「扣字形」path：大矩形 + 字形 contours，evenodd。
+  let bgHolePath = null;
+  if (hasGlyph) {
+    const ts = currentTileSize();
+    bgHolePath = new Path2D();
+    bgHolePath.rect(-ts, -ts, ts * 3, ts * 3);
+    for (const poly of mappedContours) {
+      if (!Array.isArray(poly) || poly.length < 3) continue;
+      bgHolePath.moveTo(poly[0][0], poly[0][1]);
+      for (let i = 1; i < poly.length; i++) {
+        bgHolePath.lineTo(poly[i][0], poly[i][1]);
+      }
+      bgHolePath.closePath();
+    }
+  }
+  _ctx.save();
+  _ctx.strokeStyle = TANGLE_STROKE;
+  _ctx.fillStyle = TANGLE_FILL;
+  _ctx.lineWidth = TANGLE_LINE_WIDTH;
+  _ctx.lineJoin = "round";
+  _ctx.lineCap = "round";
+  for (const region of _regions) {
+    if (region.kind === "glyph" && !glyphPath) continue;  // 字形未載入
+    _ctx.save();
+    const bandPath = new Path2D();
+    bandPath.rect(region.band.x, region.band.y,
+                  region.band.w, region.band.h);
+    if (region.kind === "glyph") {
+      _ctx.clip(glyphPath, "evenodd");
+      _ctx.clip(bandPath);
+    } else {
+      _ctx.clip(bandPath);
+      if (bgHolePath) _ctx.clip(bgHolePath, "evenodd");
+    }
+    const specs = buildTangleOriented(
+      region.tangle, region.band, pickDensity(region.band),
+      region.orientation
+    );
+    renderTangleSpecs(_ctx, specs);
+    _ctx.restore();
+  }
+  _ctx.restore();
 }
 
 /**
@@ -578,6 +694,8 @@ async function renderOutline() {
   // re-draw without re-hitting the server (eliminates slider-drag race + lag,
   // resolves 6z-2 R1 risk).
   _cachedContours = contours;
+  // 5df-2: 每次「產生」重抽區段（隨機填充）。
+  regenerateRegions();
   redrawAll();
   // Status: report what's currently on the canvas (post-mapping count).
   const ts = currentTileSize();
@@ -743,14 +861,17 @@ function wireInlineControls() {
       );
     });
   }
-  // 模式 radio — change → persist; visual diff arrives in 6z-3 (fill phase).
+  // 模式 radio — 5df-2: change → persist + 重抽區段 + redraw。
   document.querySelectorAll('input[name="zentangle-mode"]').forEach((r) => {
     r.addEventListener("change", (e) => {
       commitConfigChange({ mode: e.target.value });
-      // No re-render needed in 6z-1 (no visual diff yet); status reflects.
-      setStatus(
-        `模式 → ${MODE_LABELS[e.target.value]} (視覺差異將在 6z-3 fill phase 啟用)`
-      );
+      regenerateRegions();
+      redrawAll();
+      const hint =
+        e.target.value === "pure"
+          ? "（點 canvas 手放圖樣）"
+          : `（隨機填充 ${_regions.length} 區段；按「產生」重抽）`;
+      setStatus(`模式 → ${MODE_LABELS[e.target.value]}${hint}`);
     });
   });
   // 紙磚尺寸 radio — 6z-2b: change → persist + resize canvas + 6z-2.1 redraw
@@ -759,6 +880,8 @@ function wireInlineControls() {
     r.addEventListener("change", (e) => {
       commitConfigChange({ tileSize: e.target.value });
       resizeCanvasToConfig();
+      // 5df-2: band 存 tile-local px，尺寸變更後座標失效 → 重抽。
+      regenerateRegions();
       redrawAll();
       setStatus(`紙磚尺寸 → ${TILE_LABELS[e.target.value]}`);
     });

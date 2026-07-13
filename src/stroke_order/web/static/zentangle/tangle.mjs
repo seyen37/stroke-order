@@ -58,7 +58,10 @@ export function buildCrescentMoon(area, density = "medium") {
   const spacing = _spacingFor(density);
   const r = spacing * 0.35;
   const specs = [];
-  for (let cy = area.y + spacing; cy < area.y + area.h - 4; cy += spacing) {
+  // 5df-2 鐵則回補：下緣錨點外伸＝dot 中心 cy + r + 6，邊界要含它
+  // （區段窄帶測試抓包——6z-3 舊 builder 未受過界內測試）。
+  for (let cy = area.y + spacing;
+       cy <= area.y + area.h - (r + 8); cy += spacing) {
     for (let cx = area.x + spacing; cx < area.x + area.w - 4; cx += spacing) {
       // Top half-arc (crescent opening downward).
       specs.push({
@@ -99,8 +102,12 @@ export function buildFlorz(area, density = "medium") {
   const petalR = spacing * 0.22;
   const petalOffset = spacing * 0.32;
   const specs = [];
-  for (let cy = area.y + spacing; cy < area.y + area.h - 4; cy += spacing) {
-    for (let cx = area.x + spacing; cx < area.x + area.w - 4; cx += spacing) {
+  // 5df-2 鐵則回補：花瓣中心外伸 petalOffset，四向邊界都要含。
+  const ext = petalOffset + 2;
+  for (let cy = area.y + spacing;
+       cy <= area.y + area.h - ext; cy += spacing) {
+    for (let cx = area.x + spacing;
+         cx <= area.x + area.w - ext; cx += spacing) {
       // 4 petal orbs (N/E/S/W).
       const petals = [
         [cx, cy - petalOffset],
@@ -200,8 +207,10 @@ export function buildTipple(area, density = "medium") {
   if (!area || area.w <= 0 || area.h <= 0) return [];
   const s = _spacingFor(density) * 0.6;
   const specs = [];
-  for (let cy = area.y + s; cy < area.y + area.h - 3; cy += s) {
-    for (let cx = area.x + s; cx < area.x + area.w - 3; cx += s) {
+  // 5df-2 鐵則回補：jitter 外伸 ±0.25s，邊界要含。
+  const jext = s * 0.25 + 3;
+  for (let cy = area.y + s; cy <= area.y + area.h - jext; cy += s) {
+    for (let cx = area.x + s; cx <= area.x + area.w - jext; cx += s) {
       const jx = (_hash01(cx | 0, cy | 0) - 0.5) * s * 0.5;
       const jy = (_hash01(cy | 0, cx | 0) - 0.5) * s * 0.5;
       const r = s * (0.18 + 0.28 * _hash01((cx + cy) | 0, (cx * 3) | 0));
@@ -216,8 +225,10 @@ export function buildBales(area, density = "medium") {
   if (!area || area.w <= 0 || area.h <= 0) return [];
   const s = _spacingFor(density);
   const specs = [];
-  for (let cy = area.y + s; cy < area.y + area.h - 4; cy += s) {
-    for (let cx = area.x + s; cx < area.x + area.w - 4; cx += s) {
+  // 5df-2 鐵則回補：格角錨點外伸 half=0.42s，邊界要含。
+  const bext = s * 0.42 + 2;
+  for (let cy = area.y + s; cy <= area.y + area.h - bext; cy += s) {
+    for (let cx = area.x + s; cx <= area.x + area.w - bext; cx += s) {
       const half = s * 0.42;
       const bow = s * 0.30;
       // 上下左右四條向心弧（quadratic），端點在格角
@@ -293,8 +304,10 @@ export function buildFlux(area, density = "medium") {
   const s = _spacingFor(density);
   const specs = [];
   let flip = false;
-  for (let cy = area.y + s; cy < area.y + area.h - 4; cy += s) {
-    for (let cx = area.x + s; cx < area.x + area.w - 4; cx += s) {
+  // 5df-2 鐵則回補：葉端 0.38s＋控制點 0.34s 外伸，邊界取大者。
+  const fext = s * 0.38 + 2;
+  for (let cy = area.y + s; cy <= area.y + area.h - fext; cy += s) {
+    for (let cx = area.x + s; cx <= area.x + area.w - fext; cx += s) {
       const half = s * 0.38;
       const d = flip ? -1 : 1;                 // 交錯方向＝藤蔓感
       const x1 = cx - half, y1 = cy + half * d;
