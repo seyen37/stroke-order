@@ -2795,25 +2795,76 @@
         ⓘ 6z-3.5 user-place: 先選 tangle → 點 canvas 放第一個 → 再點 → R/E 鍵 repeat 3 次沿方向
       </span>
     </div>
-    <!-- 5df-3: 區段編輯鈕列 — hollow/bg 模式點 canvas 選區段後編輯。
-         按鈕由 zentangle.js buildRegionToolbar() 從 tangle registry 動態生成
-         （單一事實源；新圖樣入 registry 即現身，HTML 不用改）。 -->
-    <div class="row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;">
-      <span style="font-weight:bold;color:var(--muted);">區段編輯</span>
+    <div id="zentangle-config-display"
+         style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">
+    </div>
+    <div id="zentangle-status"
+         style="font-size:12px;color:var(--muted);margin-top:8px;min-height:1.4em;">
+    </div>
+  </section>
+  <section class="card">
+    <h2>紙磚 (600 × 600 px ≈ 9 cm 標準磚)</h2>
+    <!-- 6z-2.2: 4 側邊 pan buttons — 旋轉時邊角超出 viewport 的 quick-peek。
+         按一下：紙磚向反方向移動，露出該側超界區；同側再按：回正中心。 -->
+    <!-- 5dh: 纏繞元素工具列 — 移至紙磚上方；縮圖鈕由 zentangle.js
+         buildRegionToolbar() 從 tangle registry 動態生成（縮圖＝該圖樣
+         builder 直接畫 36px canvas；英文名 hover 才顯示）。 -->
+    <div class="row" style="margin:2px 0 6px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
+      <span style="font-weight:bold;color:var(--muted);">纏繞元素</span>
       <span id="zentangle-region-buttons"
-            style="display:inline-flex;flex-wrap:wrap;gap:6px;"></span>
-      <!-- 5df-4: 切分模式 + 切分線顯示開關 -->
+            style="display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;"></span>
+      <span style="display:inline-flex;gap:4px;margin-left:6px;" title="改變選中區段的圖樣朝向（同鍵盤方向鍵）">
+        <button type="button" class="zt-orient-btn" data-orient="up"
+                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝上">⬆</button>
+        <button type="button" class="zt-orient-btn" data-orient="right"
+                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝右">➡</button>
+        <button type="button" class="zt-orient-btn" data-orient="down"
+                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝下">⬇</button>
+        <button type="button" class="zt-orient-btn" data-orient="left"
+                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝左">⬅</button>
+      </span>
       <button id="zentangle-split-toggle" type="button"
               style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;margin-left:6px;"
-              title="開啟後在同一區段內點兩點，沿直線把區段剖成兩半">✂ 切分</button>
+              title="曲線切割：點起點 → 點終點 → 移動滑鼠調彎曲率 → 雙擊固定切割線">✂ 切分</button>
       <label style="font-size:12px;color:var(--muted);cursor:pointer;">
         <input id="zentangle-split-lines" type="checkbox" checked> 顯示切分線
       </label>
-      <span style="color:var(--muted);font-size:11px;">
-        ⓘ 5df-3/4: 空心填充/背景鑲嵌模式點 canvas 選區段（虛線框）→ 圖樣鈕換圖樣、
-        「留白」清空、⬆⬇⬅➡ 轉朝向；未選區段時方向鍵＝透視、點空白取消選取。
-        ✂ 切分＝同區段點兩點剖成兩半（繼承原圖樣、可再切）；淡虛線可勾選隱藏
-      </span>
+      <button id="zentangle-region-clear" type="button"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
+              title="清空目前模式的纏繞元素（空心/背景切換不清空、按此鈕才清）">清除區段</button>
+    </div>
+    <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:6px;">
+      ⓘ 點紙磚選區段（虛線框）→ 點縮圖換圖樣、⬆➡⬇⬅ 改朝向、「留白」清空該區段；
+      ✂ 切分＝起點 → 終點 → 滑鼠調彎 → 雙擊定案（可再切）；空心/背景切換各自保留
+    </div>
+    <div id="zentangle-canvas-wrap"
+         style="display:grid;justify-content:center;padding:8px;
+                grid-template-columns:auto auto auto;
+                grid-template-rows:auto auto auto;
+                gap:4px;align-items:center;justify-items:center;">
+      <span></span>
+      <button type="button" class="zt-pan-btn" data-pan="top"
+              style="padding:4px 14px;font-size:13px;border:1px solid var(--border);
+                     border-radius:4px;background:#fafaf8;cursor:pointer;"
+              title="露出上邊角（再按一次回正）">↑ 上</button>
+      <span></span>
+      <button type="button" class="zt-pan-btn" data-pan="left"
+              style="padding:8px 10px;font-size:13px;border:1px solid var(--border);
+                     border-radius:4px;background:#fafaf8;cursor:pointer;white-space:nowrap;"
+              title="露出左邊角（再按一次回正）">← 左</button>
+      <canvas id="zentangle-canvas" width="600" height="600"
+              style="max-width:100%;height:auto;border:1px solid var(--border);
+                     background:#fff;"></canvas>
+      <button type="button" class="zt-pan-btn" data-pan="right"
+              style="padding:8px 10px;font-size:13px;border:1px solid var(--border);
+                     border-radius:4px;background:#fafaf8;cursor:pointer;white-space:nowrap;"
+              title="露出右邊角（再按一次回正）">右 →</button>
+      <span></span>
+      <button type="button" class="zt-pan-btn" data-pan="bottom"
+              style="padding:4px 14px;font-size:13px;border:1px solid var(--border);
+                     border-radius:4px;background:#fafaf8;cursor:pointer;"
+              title="露出下邊角（再按一次回正）">↓ 下</button>
+      <span></span>
     </div>
     <!-- 6z-2c: 紙磚旋轉 inline 控件 — 8 preset 按鈕 + slider 微調 + 立即回正 / 上次角度 -->
     <div class="row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
@@ -2898,46 +2949,6 @@
       <span style="color:var(--muted);font-size:11px;margin-left:4px;">
         6z-5c 全 4 軸啟用；同 unit 任選一軸（換軸=覆蓋上次）
       </span>
-    </div>
-    <div id="zentangle-config-display"
-         style="font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;">
-    </div>
-    <div id="zentangle-status"
-         style="font-size:12px;color:var(--muted);margin-top:8px;min-height:1.4em;">
-    </div>
-  </section>
-  <section class="card">
-    <h2>紙磚 (600 × 600 px ≈ 9 cm 標準磚)</h2>
-    <!-- 6z-2.2: 4 側邊 pan buttons — 旋轉時邊角超出 viewport 的 quick-peek。
-         按一下：紙磚向反方向移動，露出該側超界區；同側再按：回正中心。 -->
-    <div id="zentangle-canvas-wrap"
-         style="display:grid;justify-content:center;padding:8px;
-                grid-template-columns:auto auto auto;
-                grid-template-rows:auto auto auto;
-                gap:4px;align-items:center;justify-items:center;">
-      <span></span>
-      <button type="button" class="zt-pan-btn" data-pan="top"
-              style="padding:4px 14px;font-size:13px;border:1px solid var(--border);
-                     border-radius:4px;background:#fafaf8;cursor:pointer;"
-              title="露出上邊角（再按一次回正）">↑ 上</button>
-      <span></span>
-      <button type="button" class="zt-pan-btn" data-pan="left"
-              style="padding:8px 10px;font-size:13px;border:1px solid var(--border);
-                     border-radius:4px;background:#fafaf8;cursor:pointer;white-space:nowrap;"
-              title="露出左邊角（再按一次回正）">← 左</button>
-      <canvas id="zentangle-canvas" width="600" height="600"
-              style="max-width:100%;height:auto;border:1px solid var(--border);
-                     background:#fff;"></canvas>
-      <button type="button" class="zt-pan-btn" data-pan="right"
-              style="padding:8px 10px;font-size:13px;border:1px solid var(--border);
-                     border-radius:4px;background:#fafaf8;cursor:pointer;white-space:nowrap;"
-              title="露出右邊角（再按一次回正）">右 →</button>
-      <span></span>
-      <button type="button" class="zt-pan-btn" data-pan="bottom"
-              style="padding:4px 14px;font-size:13px;border:1px solid var(--border);
-                     border-radius:4px;background:#fafaf8;cursor:pointer;"
-              title="露出下邊角（再按一次回正）">↓ 下</button>
-      <span></span>
     </div>
     <p style="color:var(--muted);font-size:12px;margin-top:8px;">
       <strong>下一步</strong>（後續 sub-phase 解鎖）：紙磚旋轉 (R-stick)、切割 mode (□)、
@@ -10095,7 +10106,7 @@ async function renderCnsDecomposition(char) {
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，
      舊快取的 zentangle.js 不認得區段模型，改版時同步 bump。 -->
-<script type="module" src="/static/zentangle/zentangle.js?v=177"></script>
+<script type="module" src="/static/zentangle/zentangle.js?v=179"></script>
 
 </body>
 </html>

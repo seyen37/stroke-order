@@ -13,7 +13,7 @@ import {
   computeGlyphRegions,
   computeBgRegions,
   assignRandomTangles,
-  pickDensity,
+  pickSpacing,
   hitTestRegions,
   pointInGlyph,
   resolveRegionAt,
@@ -22,9 +22,11 @@ import {
   regionPolygon,
   clipPolygonByLine,
   splitRegionByLine,
+  splitRegionByPolyline,
 } from "../src/stroke_order/web/static/zentangle/regions.mjs";
 import {
   listTangles,
+  buildTangle,
   buildTangleOriented,
   ORIENTATIONS,
 } from "../src/stroke_order/web/static/zentangle/tangle.mjs";
@@ -162,35 +164,19 @@ test("5df-2: 多元件各自切帶、id 全域唯一", () => {
 
 // ---------- computeBgRegions ----------
 
-test("5df-2: computeBgRegions 象限分支 → 4 塊、鋪滿內框", () => {
-  const regions = computeBgRegions(600, 60, {rand: seqRand([0.1])});
-  assert.equal(regions.length, 4);
-  let area = 0;
-  for (const r of regions) {
-    assert.equal(r.kind, "bg");
-    assert.ok(r.band.x >= 60 - 1e-9 && r.band.x + r.band.w <= 540 + 1e-9);
-    assert.ok(r.band.y >= 60 - 1e-9 && r.band.y + r.band.h <= 540 + 1e-9);
-    area += r.band.w * r.band.h;
-  }
-  assert.ok(Math.abs(area - 480 * 480) < 1e-6, "面積守恆＝不重疊不漏縫");
-});
-
-test("5df-2: computeBgRegions 帶分支 → 2~4 帶、方向由 rand 決定", () => {
-  // rand: 0.9(→帶) , 0.99(→4 帶) , 0.1(→水平)
-  const horiz = computeBgRegions(600, 60, {rand: seqRand([0.9, 0.99, 0.1])});
-  assert.equal(horiz.length, 4);
-  for (const r of horiz) assert.equal(r.band.w, 480);   // 橫向滿寬
-  // rand: 0.9(→帶) , 0.0(→2 帶) , 0.9(→垂直)
-  const vert = computeBgRegions(600, 60, {rand: seqRand([0.9, 0.0, 0.9])});
-  assert.equal(vert.length, 2);
-  for (const r of vert) assert.equal(r.band.h, 480);    // 縱向滿高
+test("5dh: computeBgRegions → 單一整區填滿內框（預設自動填滿）", () => {
+  const regions = computeBgRegions(600, 60);
+  assert.equal(regions.length, 1);
+  assert.equal(regions[0].kind, "bg");
+  assert.deepEqual(regions[0].band, {x: 60, y: 60, w: 480, h: 480});
 });
 
 // ---------- assignRandomTangles ----------
 
 test("5df-2: assignRandomTangles 指派合法 tangle＋朝向、不改輸入", () => {
   const keys = listTangles().map((t) => t.key);
-  const base = computeBgRegions(600, 60, {rand: seqRand([0.1])});
+  const base = computeGlyphRegions([square(0, 0, 400)],
+                                   {rand: seqRand([0.99])});  // 4 帶
   const out = assignRandomTangles(base, keys, {rand: seqRand([0.0, 0.3, 0.6, 0.9])});
   assert.equal(out.length, base.length);
   assert.equal(base[0].tangle, undefined, "輸入不被 mutate");
@@ -212,9 +198,15 @@ test("5df-2: assignRandomTangles 空 key 清單 → throw", () => {
 
 // ---------- pickDensity / hitTestRegions ----------
 
-test("5df-2: pickDensity 窄帶 high、寬帶 medium", () => {
-  assert.equal(pickDensity({x: 0, y: 0, w: 300, h: 80}), "high");
-  assert.equal(pickDensity({x: 0, y: 0, w: 300, h: 150}), "medium");
+test("5dh: pickSpacing 連續值——跟區塊縮放、glyph 較密、有上下限", () => {
+  const wide = pickSpacing({x: 0, y: 0, w: 480, h: 480});
+  const mid = pickSpacing({x: 0, y: 0, w: 300, h: 100});
+  const thin = pickSpacing({x: 0, y: 0, w: 300, h: 30});
+  assert.ok(wide >= mid && mid > thin, "區塊越窄 spacing 越小");
+  assert.ok(wide <= 46 && thin >= 9, "上下限夾住");
+  const g = pickSpacing({x: 0, y: 0, w: 300, h: 100}, "glyph");
+  assert.ok(g < mid, "glyph（筆畫區塊）比 bg 密");
+  assert.equal(typeof g, "number");
 });
 
 test("5df-2: hitTestRegions 命中/落空/上層優先（5df-3 預留）", () => {
@@ -363,6 +355,104 @@ test("5df-4: pointInRegion/resolveRegionAt poly 感知——切分後各半可�
   assert.ok(hitL && hitR && hitL.id !== hitR.id, "左右各命中一半");
 });
 
+// ---------- 5dh: splitRegionByPolyline（曲線圍籬剖分） ----------
+
+const _SQ_REGION = () => ({
+  id: "r0", kind: "bg", band: {x: 0, y: 0, w: 100, h: 100},
+  tangle: "bales", orientation: "up",
+});
+
+test("5dh: 直線圍籬與 splitRegionByLine 等價（面積/繼承/id）", () => {
+  const r = _SQ_REGION();
+  const byLine = splitRegionByLine(r, [40, 10], [40, 90]);
+  const byFence = splitRegionByPolyline(
+    r, [[40, -50], [40, 150]]);
+  assert.ok(byLine.ok && byFence.ok);
+  const areas = (res) => res.parts.map((p) => polygonArea(p.poly))
+    .sort((a, b) => a - b);
+  assert.deepEqual(areas(byLine).map(Math.round),
+                   areas(byFence).map(Math.round));   // 4000 / 6000
+  for (const p of byFence.parts) {
+    assert.equal(p.tangle, "bales");
+    assert.equal(p.orientation, "up");
+    assert.ok(p.id === "r0a" || p.id === "r0b");
+  }
+});
+
+test("5dh: 曲線圍籬剖分——面積守恆、彎側較大", () => {
+  const r = _SQ_REGION();
+  // 折線近似向右彎的曲線：x=50 上下貫穿、中段偏到 x=70。
+  const fence = [];
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    const y = -20 + 140 * t;
+    const x = 50 + 20 * Math.sin(Math.PI * t);   // 中段鼓向右
+    fence.push([x, y]);
+  }
+  const res = splitRegionByPolyline(r, fence);
+  assert.ok(res.ok, res.reason);
+  const [a, b] = res.parts;
+  const total = polygonArea(a.poly) + polygonArea(b.poly);
+  assert.ok(Math.abs(total - 10000) < 10, `面積守恆 ${total}`);
+  // 彎向右 → 左半（含鼓出）應大於右半
+  const left = a.poly.some(([x]) => x < 10) ? a : b;
+  const right = left === a ? b : a;
+  assert.ok(polygonArea(left.poly) > polygonArea(right.poly));
+});
+
+test("5dh: 曲率過大來回穿越 → 拒絕（恰 2 交點守門）", () => {
+  const r = _SQ_REGION();
+  // S 形圍籬從上緣進出三次。
+  const fence = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    const x = 10 + 80 * t;
+    const y = 20 - 60 * Math.sin(3 * Math.PI * t);  // 大幅上下擺
+    fence.push([x, y]);
+  }
+  const res = splitRegionByPolyline(r, fence);
+  assert.ok(!res.ok);
+  assert.match(res.reason, /穿越/);
+});
+
+test("5dh: 曲線切出的凹半塊可再直切（面積守恆）", () => {
+  const r = _SQ_REGION();
+  const fence = [];
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    fence.push([50 + 25 * Math.sin(Math.PI * t), -20 + 140 * t]);
+  }
+  const first = splitRegionByPolyline(r, fence);
+  assert.ok(first.ok);
+  // 左半（含鼓出、凹多邊形）再水平直切
+  const concave = first.parts.find((p) => p.poly.some(([x]) => x < 10));
+  const second = splitRegionByLine(concave, [10, 50], [40, 50]);
+  assert.ok(second.ok, second.reason);
+  const t2 = polygonArea(second.parts[0].poly) +
+             polygonArea(second.parts[1].poly);
+  assert.ok(Math.abs(t2 - polygonArea(concave.poly)) < 10,
+            "二代切分面積守恆");
+});
+
+test("5dh: tangle builder 吃數值 spacing——縮圖尺寸界內", () => {
+  const area = {x: 1, y: 1, w: 34, h: 34};
+  for (const {key} of listTangles()) {
+    const specs = buildTangle(key, area, 13);
+    for (const sp of specs) {
+      const pts =
+        sp.type === "line" || sp.type === "s_shape"
+          ? [[sp.x1, sp.y1], [sp.x2, sp.y2]]
+          : sp.type === "curve"
+            ? [[sp.x1, sp.y1], [sp.cx, sp.cy], [sp.x2, sp.y2]]
+            : [[sp.cx, sp.cy]];
+      for (const [x, y] of pts) {
+        assert.ok(x >= 0 && x <= 36, `${key} x=${x}`);
+        assert.ok(y >= 0 && y <= 36, `${key} y=${y}`);
+      }
+    }
+  }
+});
+
 // ---------- 鐵則整合：區段帶餵 buildTangleOriented 全部界內 ----------
 
 test("5df-2: 全 8 圖樣 × 4 朝向在典型區段帶內不越界（鐵則）", () => {
@@ -374,7 +464,7 @@ test("5df-2: 全 8 圖樣 × 4 朝向在典型區段帶內不越界（鐵則）"
   for (const {key} of listTangles()) {
     for (const band of bands) {
       for (const orient of ORIENTATIONS) {
-        const specs = buildTangleOriented(key, band, pickDensity(band), orient);
+        const specs = buildTangleOriented(key, band, pickSpacing(band), orient);
         for (const sp of specs) {
           const pts =
             sp.type === "line" || sp.type === "s_shape"

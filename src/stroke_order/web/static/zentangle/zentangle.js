@@ -32,9 +32,9 @@ import {
   computeGlyphRegions,
   computeBgRegions,
   assignRandomTangles,
-  pickDensity,
+  pickSpacing,
   resolveRegionAt,
-  splitRegionByLine,
+  splitRegionByPolyline,
 } from "./regions.mjs";
 import {
   applyPseudo3DToSpecs,
@@ -158,15 +158,27 @@ let _selectedRegionId = null;
 const REGION_HILITE_COLOR = "#c33";
 const REGION_HILITE_DASH = [6, 4];
 
-// 5df-4: 切分狀態（per-session）。
-//   _splitMode    : ✂ 切分模式開關——開著時 canvas 點擊走兩點切分流程
-//   _splitFirstPt : 第一點 {x, y, regionId}（tile-local）；null = 未定
+// 5df-4/5dh: 切分狀態（per-session）。
+//   _splitMode : ✂ 切分模式開關——開著時 canvas 點擊走切割線流程
+//   _splitState: 三階段曲線切割狀態機（5dh 使用者規格：
+//     點起點 → 移動預覽直線 → 點終點 → 滑鼠調彎曲率 → 雙擊定案）
+//     null                                  = 待起點
+//     {phase:1, a, regionId, hover}         = 已定起點、預覽 a→游標
+//     {phase:2, a, b, ctrl, regionId}       = 已定終點、游標調 ctrl
 //   _showSplitLines: 淡虛線顯示全部區段分界（可隱藏）
 let _splitMode = false;
-let _splitFirstPt = null;
+let _splitState = null;
 let _showSplitLines = true;
 const SPLIT_LINE_COLOR = "#bbb";
 const SPLIT_LINE_DASH = [4, 4];
+
+// 5dh: 區段每模式各存一份——空心/背景切換互不清空（使用者定案：
+// 按「清除區段」才清空）。字形重載使 hollow 失效；紙磚尺寸變更
+// 使兩者都失效（band 是 tile-local px）。
+const _regionStash = {hollow: null, bg: null};
+
+// 5dh: mousemove 預覽用 rAF 節流旗標。
+let _redrawQueued = false;
 
 // 6z-3.5: user-placed tangle units (per-session, per Q5=B mirror policy).
 // Each entry: {tangle: "crescent_moon"|"florz", cx, cy} in TILE-LOCAL px.
@@ -423,24 +435,47 @@ function currentMappedContours() {
 }
 
 /**
- * 5df-2 — 重抽區段（隨機填充）。hollow → 字形元件帶切分；
- * bg → 紙磚內框帶/象限。pure 模式維持 6z-3.5 手放 unit 行為、無區段。
+ * 5df-2/5dh — 取得目前模式的區段。5dh 起每模式各存一份
+ * （_regionStash）：模式切換恢復暫存、互不清空；``force`` 或暫存
+ * 不存在時才重新生成（隨機填充）。pure 模式無區段。
  */
-function regenerateRegions() {
+function ensureRegions({force = false} = {}) {
   _regions = [];
-  _selectedRegionId = null;   // 5df-3: 區段換批、選取失效
-  _splitFirstPt = null;       // 5df-4: 切分中點也失效（模式維持）
+  _selectedRegionId = null;   // 5df-3: 區段換批/換模式、選取失效
+  _splitState = null;         // 5dh: 進行中的切割線也失效（模式維持）
   const mode = _config?.mode;
   if (mode !== "hollow" && mode !== "bg") return;
-  const keys = listTangles().map((t) => t.key);
-  if (mode === "bg") {
-    const base = computeBgRegions(currentTileSize(), currentTileMargin());
-    _regions = assignRandomTangles(base, keys);
+  if (!force && _regionStash[mode]) {
+    _regions = _regionStash[mode];
     return;
   }
-  const mapped = currentMappedContours();
-  if (!mapped || mapped.length === 0) return;
-  _regions = assignRandomTangles(computeGlyphRegions(mapped), keys);
+  const keys = listTangles().map((t) => t.key);
+  if (mode === "bg") {
+    // 5dh: 預設單一整區＝填滿字形以外全部（要細分用 ✂ 切分）。
+    const base = computeBgRegions(currentTileSize(), currentTileMargin());
+    _regions = assignRandomTangles(base, keys);
+  } else {
+    const mapped = currentMappedContours();
+    if (!mapped || mapped.length === 0) return;
+    _regions = assignRandomTangles(computeGlyphRegions(mapped), keys);
+  }
+  _regionStash[mode] = _regions;
+}
+
+/** 5dh — 清除目前模式的區段（使用者定案：按鈕才清空）。 */
+function clearRegions() {
+  const mode = _config?.mode;
+  if (mode !== "hollow" && mode !== "bg") {
+    setStatus("清除區段只作用於空心填充/背景鑲嵌模式", true);
+    return;
+  }
+  _regionStash[mode] = null;
+  _regions = [];
+  _selectedRegionId = null;
+  _splitState = null;
+  redrawAll();
+  setStatus(`已清除${mode === "hollow" ? "空心填充" : "背景鑲嵌"}的` +
+            "纏繞元素——按「載入字框」重新隨機填充");
 }
 
 /** mapped contours → Path2D（每 contour 一 sub-path、closePath）。 */
@@ -502,8 +537,10 @@ function drawRegionLayer(mappedContours) {
       _ctx.clip(shapePath);
       if (bgHolePath) _ctx.clip(bgHolePath, "evenodd");
     }
+    // 5dh: 連續 spacing——元素大小跟著區塊自動調整（筆畫窄元素小）。
     const specs = buildTangleOriented(
-      region.tangle, region.band, pickDensity(region.band),
+      region.tangle, region.band,
+      pickSpacing(region.band, region.kind),
       region.orientation
     );
     renderTangleSpecs(_ctx, specs);
@@ -532,13 +569,30 @@ function drawRegionLayer(mappedContours) {
       _ctx.restore();
     }
   }
-  // 5df-4: 切分第一點標記。
-  if (_splitFirstPt) {
+  // 5dh: 虛擬切割線預覽（三階段：直線預覽 → 曲率調整）。
+  if (_splitState) {
     _ctx.save();
+    _ctx.strokeStyle = REGION_HILITE_COLOR;
     _ctx.fillStyle = REGION_HILITE_COLOR;
+    _ctx.lineWidth = 1.5;
+    _ctx.setLineDash([8, 5]);
+    const st = _splitState;
     _ctx.beginPath();
-    _ctx.arc(_splitFirstPt.x, _splitFirstPt.y, 4, 0, Math.PI * 2);
-    _ctx.fill();
+    if (st.phase === 1 && st.hover) {
+      _ctx.moveTo(st.a[0], st.a[1]);
+      _ctx.lineTo(st.hover[0], st.hover[1]);
+      _ctx.stroke();
+    } else if (st.phase === 2) {
+      _ctx.moveTo(st.a[0], st.a[1]);
+      _ctx.quadraticCurveTo(st.ctrl[0], st.ctrl[1], st.b[0], st.b[1]);
+      _ctx.stroke();
+    }
+    _ctx.setLineDash([]);
+    for (const p of [st.a, st.b].filter(Boolean)) {
+      _ctx.beginPath();
+      _ctx.arc(p[0], p[1], 4, 0, Math.PI * 2);
+      _ctx.fill();
+    }
     _ctx.restore();
   }
   _ctx.restore();
@@ -594,36 +648,114 @@ function onCanvasClick(e, canvas) {
   placeUnitAtClick(e, canvas);
 }
 
+/** rAF 節流的 redrawAll（mousemove 預覽用）。 */
+function queueRedraw() {
+  if (_redrawQueued) return;
+  _redrawQueued = true;
+  requestAnimationFrame(() => {
+    _redrawQueued = false;
+    redrawAll();
+  });
+}
+
+/** 二次貝茲攤平成折線（含兩端沿切線延長 ext px＝保證貫穿區段）。 */
+function flattenQuadExtended(a, ctrl, b, ext, segs = 32) {
+  const pts = [];
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs;
+    const u = 1 - t;
+    pts.push([
+      u * u * a[0] + 2 * u * t * ctrl[0] + t * t * b[0],
+      u * u * a[1] + 2 * u * t * ctrl[1] + t * t * b[1],
+    ]);
+  }
+  // 端點切線方向（t=0: a→ctrl；t=1: ctrl→b）；退化時用 a→b。
+  let d0x = ctrl[0] - a[0], d0y = ctrl[1] - a[1];
+  let d1x = b[0] - ctrl[0], d1y = b[1] - ctrl[1];
+  if (Math.hypot(d0x, d0y) < 1e-6) { d0x = b[0] - a[0]; d0y = b[1] - a[1]; }
+  if (Math.hypot(d1x, d1y) < 1e-6) { d1x = b[0] - a[0]; d1y = b[1] - a[1]; }
+  const n0 = Math.hypot(d0x, d0y) || 1;
+  const n1 = Math.hypot(d1x, d1y) || 1;
+  pts.unshift([a[0] - (d0x / n0) * ext, a[1] - (d0y / n0) * ext]);
+  pts.push([b[0] + (d1x / n1) * ext, b[1] + (d1y / n1) * ext]);
+  return pts;
+}
+
 /**
- * 5df-4 — 兩點切分流程：第一點定錨（同區段內）、第二點執行剖分。
- * 剖出的兩半繼承原圖樣/朝向、以 poly 記形狀（可再切＝多代切分）。
+ * 5dh — 曲線切割三階段（使用者規格）：
+ *   click 1（區段內）→ 定起點，滑鼠移動預覽直線
+ *   click 2（同區段）→ 定終點，滑鼠移動調整彎曲曲率（曲線過游標）
+ *   double-click     → 固定虛擬切割線、執行剖分
  */
 function handleSplitClick(pt) {
   const [x, y] = pt;
   const region = resolveRegionAt(_regions, currentMappedContours(), x, y);
-  if (!_splitFirstPt) {
+  if (!_splitState) {
     if (!region) {
-      setStatus("切分：請點在某個區段內定第一點", true);
+      setStatus("切分：請點在某個區段內定起點", true);
       return;
     }
-    _splitFirstPt = {x, y, regionId: region.id};
+    _splitState = {phase: 1, a: pt, regionId: region.id, hover: null};
     redrawAll();
-    setStatus(`切分：第一點已定（區段 ${region.id}）——同區段內點第二點`);
+    setStatus(`切分：起點已定（區段 ${region.id}）——移動滑鼠預覽、` +
+              "同區段內點終點");
     return;
   }
-  if (!region || region.id !== _splitFirstPt.regionId) {
-    _splitFirstPt = null;
+  if (_splitState.phase === 1) {
+    if (!region || region.id !== _splitState.regionId) {
+      _splitState = null;
+      redrawAll();
+      setStatus("切分：終點要落在同一個區段內——已重設，請重點起點", true);
+      return;
+    }
+    const a = _splitState.a;
+    _splitState = {
+      phase: 2, a, b: pt,
+      ctrl: [(a[0] + x) / 2, (a[1] + y) / 2],   // 初始＝直線
+      regionId: region.id,
+    };
     redrawAll();
-    setStatus("切分：兩點要落在同一個區段內——已重設，請重點第一點", true);
+    setStatus("切分：移動滑鼠調整彎曲曲率（曲線會跟著游標）——" +
+              "雙擊固定切割線");
     return;
   }
-  const idx = _regions.findIndex((r) => r.id === region.id);
-  const res = splitRegionByLine(
-    region, [_splitFirstPt.x, _splitFirstPt.y], [x, y]);
-  _splitFirstPt = null;
-  if (!res.ok || idx < 0) {
+  // phase 2：單擊不動作（雙擊才定案；雙擊自帶的兩次 click 落在這裡）。
+}
+
+/** 5dh — 滑鼠移動：階段 1 預覽直線、階段 2 調整曲率（曲線過游標）。 */
+function handleSplitMove(pt) {
+  if (!_splitState) return;
+  if (_splitState.phase === 1) {
+    _splitState.hover = pt;
+  } else {
+    const {a, b} = _splitState;
+    // 讓曲線在 t=0.5 恰通過游標：ctrl = 2M − (a+b)/2。
+    _splitState.ctrl = [
+      2 * pt[0] - (a[0] + b[0]) / 2,
+      2 * pt[1] - (a[1] + b[1]) / 2,
+    ];
+  }
+  queueRedraw();
+}
+
+/** 5dh — 雙擊定案：攤平曲線＋兩端延長 → 圍籬剖分。 */
+function commitSplit() {
+  if (!_splitState || _splitState.phase !== 2) return;
+  const {a, b, ctrl, regionId} = _splitState;
+  const idx = _regions.findIndex((r) => r.id === regionId);
+  const region = idx >= 0 ? _regions[idx] : null;
+  _splitState = null;
+  if (!region) {
     redrawAll();
-    setStatus(`切分失敗：${res.reason || "區段不存在"}`, true);
+    setStatus("切分失敗：區段不存在", true);
+    return;
+  }
+  const ext = Math.hypot(region.band.w, region.band.h) * 2 + 10;
+  const fence = flattenQuadExtended(a, ctrl, b, ext);
+  const res = splitRegionByPolyline(region, fence);
+  if (!res.ok) {
+    redrawAll();
+    setStatus(`切分失敗：${res.reason}`, true);
     return;
   }
   // 原位替換＝保持疊序（z-order）不變。
@@ -639,7 +771,7 @@ function handleSplitClick(pt) {
 /** 5df-4 — 切分模式開關（開啟時清除選取，避免兩套點擊語意打架）。 */
 function setSplitMode(on) {
   _splitMode = on;
-  _splitFirstPt = null;
+  _splitState = null;
   if (on) _selectedRegionId = null;
   const btn = document.getElementById("zentangle-split-toggle");
   if (btn) {
@@ -650,7 +782,8 @@ function setSplitMode(on) {
   redrawAll();
   setStatus(
     on
-      ? "✂ 切分模式：同一區段內點兩點、沿直線剖成兩半（再按 ✂ 退出）"
+      ? "✂ 切分模式：點起點 → 點終點 → 移動滑鼠調彎 → 雙擊固定" +
+        "（再按 ✂ 退出）"
       : "已退出切分模式（點選區段編輯）"
   );
 }
@@ -665,6 +798,32 @@ function wireSplitControls() {
       _showSplitLines = chk.checked;
       redrawAll();
       setStatus(_showSplitLines ? "切分線 → 顯示（淡虛線）" : "切分線 → 隱藏");
+    });
+  }
+  // 5dh: 清除區段（按鈕才清空——模式切換不清）。
+  const clearBtn = document.getElementById("zentangle-region-clear");
+  if (clearBtn) clearBtn.addEventListener("click", clearRegions);
+  // 5dh: 朝向鈕——直接改選中區段的圖樣朝向（同鍵盤 ⬆⬇⬅➡）。
+  document.querySelectorAll(".zt-orient-btn").forEach((ob) => {
+    ob.addEventListener("click", () => {
+      const dir = ob.dataset.orient;
+      if (!setRegionOrientation(dir)) {
+        setStatus("先點紙磚選一個區段，再按朝向鈕", true);
+      }
+    });
+  });
+  // 5dh: 切割線互動——mousemove 預覽/調彎、dblclick 定案。
+  const canvas = document.getElementById("zentangle-canvas");
+  if (canvas) {
+    canvas.addEventListener("mousemove", (e) => {
+      if (!_splitMode || !_splitState) return;
+      const pt = clickToTileLocal(e, canvas);
+      if (pt) handleSplitMove(pt);
+    });
+    canvas.addEventListener("dblclick", (e) => {
+      if (!_splitMode) return;
+      e.preventDefault();
+      commitSplit();
     });
   }
 }
@@ -723,27 +882,50 @@ function setRegionOrientation(dir) {
   return true;
 }
 
-/** 動態生成圖樣鈕列（registry 單一事實源——新圖樣入 registry 即現身）。 */
+/**
+ * 動態生成圖樣鈕列（registry 單一事實源——新圖樣入 registry 即現身）。
+ * 5dh：按鈕改**元素縮圖**（36px canvas 直接跑該圖樣的 builder），
+ * 英文名移到 title——滑鼠移上去才顯示（tooltip）。
+ */
 function buildRegionToolbar() {
   const host = document.getElementById("zentangle-region-buttons");
   if (!host) return;
   host.innerHTML = "";
-  const mk = (label, key, title) => {
+  const mkBtn = (key, title) => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "zt-region-btn";
-    btn.textContent = label;
-    btn.title = title;
+    btn.title = title;                     // hover 顯示英文名
     btn.style.cssText =
-      "padding:3px 8px;border:1px solid var(--border);border-radius:3px;" +
-      "background:#fafaf8;cursor:pointer;font-size:12px;";
+      "padding:2px;border:1px solid var(--border);border-radius:3px;" +
+      "background:#fff;cursor:pointer;line-height:0;";
     btn.addEventListener("click", () => setRegionTangle(key));
     host.appendChild(btn);
+    return btn;
   };
   for (const t of listTangles()) {
-    mk(t.label, t.key, `選中區段換成 ${t.label}`);
+    const btn = mkBtn(t.key, t.label);
+    const cv = document.createElement("canvas");
+    cv.width = 36;
+    cv.height = 36;
+    const c2 = cv.getContext("2d");
+    if (c2) {
+      c2.strokeStyle = TANGLE_STROKE;
+      c2.fillStyle = TANGLE_FILL;
+      c2.lineWidth = 1;
+      c2.lineJoin = "round";
+      c2.lineCap = "round";
+      // 5dh 數值 spacing：縮圖用小間距讓 36px 內看得到圖樣單元。
+      renderTangleSpecs(c2, buildTangle(t.key, {x: 1, y: 1, w: 34, h: 34}, 13));
+    }
+    btn.appendChild(cv);
   }
-  mk("留白", null, "清空選中區段的圖樣");
+  // 留白鈕維持文字（沒有圖像可縮）。
+  const blank = mkBtn(null, "Blank — 清空選中區段的圖樣");
+  blank.style.cssText =
+    "padding:3px 8px;border:1px solid var(--border);border-radius:3px;" +
+    "background:#fafaf8;cursor:pointer;font-size:12px;height:40px;";
+  blank.textContent = "留白";
 }
 
 /**
@@ -951,8 +1133,9 @@ async function renderOutline() {
   // re-draw without re-hitting the server (eliminates slider-drag race + lag,
   // resolves 6z-2 R1 risk).
   _cachedContours = contours;
-  // 5df-2: 每次「產生」重抽區段（隨機填充）。
-  regenerateRegions();
+  // 5dh: 字形重載 → hollow 區段（依字形切帶）失效重抽；bg 暫存保留。
+  _regionStash.hollow = null;
+  ensureRegions();
   redrawAll();
   // Status: report what's currently on the canvas (post-mapping count).
   const ts = currentTileSize();
@@ -1118,16 +1301,16 @@ function wireInlineControls() {
       );
     });
   }
-  // 模式 radio — 5df-2: change → persist + 重抽區段 + redraw。
+  // 模式 radio — 5dh: change → persist + 恢復該模式暫存（互不清空）。
   document.querySelectorAll('input[name="zentangle-mode"]').forEach((r) => {
     r.addEventListener("change", (e) => {
       commitConfigChange({ mode: e.target.value });
-      regenerateRegions();
+      ensureRegions();
       redrawAll();
       const hint =
         e.target.value === "pure"
           ? "（點 canvas 手放圖樣）"
-          : `（隨機填充 ${_regions.length} 區段；按「產生」重抽）`;
+          : `（${_regions.length} 區段；切換自動保留、「清除區段」才清空）`;
       setStatus(`模式 → ${MODE_LABELS[e.target.value]}${hint}`);
     });
   });
@@ -1137,8 +1320,10 @@ function wireInlineControls() {
     r.addEventListener("change", (e) => {
       commitConfigChange({ tileSize: e.target.value });
       resizeCanvasToConfig();
-      // 5df-2: band 存 tile-local px，尺寸變更後座標失效 → 重抽。
-      regenerateRegions();
+      // 5dh: band 是 tile-local px，尺寸變更 → 兩模式暫存皆失效。
+      _regionStash.hollow = null;
+      _regionStash.bg = null;
+      ensureRegions();
       redrawAll();
       setStatus(`紙磚尺寸 → ${TILE_LABELS[e.target.value]}`);
     });

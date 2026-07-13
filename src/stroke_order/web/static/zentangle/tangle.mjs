@@ -33,6 +33,11 @@ const DENSITY_SPACING = {
 };
 
 function _spacingFor(density) {
+  // 5dh：支援數值 spacing（px）——區段自動調整元素大小
+  //（pickSpacing 依區塊尺寸算連續值）；enum 字串維持原語意。
+  if (typeof density === "number" && Number.isFinite(density) && density > 0) {
+    return density;
+  }
   return DENSITY_SPACING[density] || DENSITY_SPACING.medium;
 }
 

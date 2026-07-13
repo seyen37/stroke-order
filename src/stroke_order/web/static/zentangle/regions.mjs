@@ -187,51 +187,28 @@ export function computeGlyphRegions(mappedContours, opts = {}) {
 }
 
 /**
- * bg 區段：紙磚內框（margin 內）隨機切「帶」或「象限」。
+ * bg 區段：單一整區＝紙磚內框（margin 內）全域。
  * 字形扣除交給渲染端的 evenodd clip——這裡只管矩形佈局。
+ *
+ * 5dh（使用者定案）：背景鑲嵌預設**填滿整個字形以外區域**，
+ * 不再隨機切帶/象限——要細分交給 ✂ 切分工具（splitRegionBy*）。
  *
  * @param {number} tileSize - 紙磚 px（正方形）
  * @param {number} margin - 內縮 px
- * @param {{rand?: () => number}} opts
+ * @param {{rand?: () => number}} _opts - 保留簽名相容（不再使用）
  * @returns {Array<{id, kind: "bg", band}>}
  */
-export function computeBgRegions(tileSize, margin, opts = {}) {
-  const rand = opts.rand || Math.random;
-  const inner = {
-    x: margin,
-    y: margin,
-    w: tileSize - 2 * margin,
-    h: tileSize - 2 * margin,
-  };
-  let bands;
-  if (rand() < 0.5) {
-    // 象限：4 塊 2×2。
-    const hw = inner.w / 2;
-    const hh = inner.h / 2;
-    bands = [
-      {x: inner.x, y: inner.y, w: hw, h: hh},
-      {x: inner.x + hw, y: inner.y, w: inner.w - hw, h: hh},
-      {x: inner.x, y: inner.y + hh, w: hw, h: inner.h - hh},
-      {x: inner.x + hw, y: inner.y + hh, w: inner.w - hw, h: inner.h - hh},
-    ];
-  } else {
-    // 帶：2~4 帶；方向由 rand 決定（內框是正方形、長軸無從偏好）。
-    const n = 2 + Math.floor(rand() * 3);
-    const horizontal = rand() < 0.5;
-    bands = [];
-    for (let i = 0; i < n; i++) {
-      const t0 = i / n;
-      const t1 = (i + 1) / n;
-      bands.push(
-        horizontal
-          ? {x: inner.x, y: inner.y + inner.h * t0,
-             w: inner.w, h: inner.h * (t1 - t0)}
-          : {x: inner.x + inner.w * t0, y: inner.y,
-             w: inner.w * (t1 - t0), h: inner.h}
-      );
-    }
-  }
-  return bands.map((band, i) => ({id: `r${i}`, kind: "bg", band}));
+export function computeBgRegions(tileSize, margin, _opts = {}) {
+  return [{
+    id: "r0",
+    kind: "bg",
+    band: {
+      x: margin,
+      y: margin,
+      w: tileSize - 2 * margin,
+      h: tileSize - 2 * margin,
+    },
+  }];
 }
 
 /**
@@ -257,11 +234,15 @@ export function assignRandomTangles(regions, tangleKeys, opts = {}) {
 }
 
 /**
- * 帶尺寸 → 密度：窄帶用 high（間距 28px）才塞得進圖樣，
- * 寬帶用 medium。單一純函式＝SVG 匯出等未來消費者共用。
+ * 5dh 帶尺寸 → 連續 spacing（px）：元素大小跟著區塊自動調整，
+ * 取代 5df-2 的兩檔密度。glyph 區段（筆畫區塊）用較密的除數
+ * ——筆畫窄、元素要跟著縮才看得見；bg 區段用較疏。
+ * 單一純函式＝渲染與縮圖等消費者共用。
  */
-export function pickDensity(band) {
-  return Math.min(band.w, band.h) < 100 ? "high" : "medium";
+export function pickSpacing(band, kind = "bg") {
+  const s = Math.min(band.w, band.h);
+  const spacing = kind === "glyph" ? s / 4.5 : s / 3.2;
+  return Math.max(9, Math.min(46, spacing));
 }
 
 /**
@@ -395,31 +376,101 @@ export function clipPolygonByLine(poly, ax, ay, bx, by, keepSign) {
 // 切太偏產生細條的守門：任一半面積 < 原面積 2% 視為沒切到。
 const MIN_SPLIT_AREA_RATIO = 0.02;
 
+/** 線段交點：a→b（參數 t）與 c→d（參數 s）；不相交回傳 null。 */
+function _segIntersect(a, b, c, d) {
+  const rx = b[0] - a[0];
+  const ry = b[1] - a[1];
+  const sx = d[0] - c[0];
+  const sy = d[1] - c[1];
+  const denom = rx * sy - ry * sx;
+  if (Math.abs(denom) < 1e-12) return null;
+  const qx = c[0] - a[0];
+  const qy = c[1] - a[1];
+  const t = (qx * sy - qy * sx) / denom;
+  const s = (qx * ry - qy * rx) / denom;
+  if (t < -1e-9 || t > 1 + 1e-9 || s < -1e-9 || s > 1 + 1e-9) return null;
+  return {t, s, pt: [a[0] + rx * t, a[1] + ry * t]};
+}
+
 /**
- * 5df-4 — 沿 A→B 延伸直線把區段剖成兩半。
+ * 5dh — 以開放折線（圍籬）把區段剖成兩半。曲線切割的幾何核心：
+ * 呼叫端把貝茲曲線攤平成折線、兩端沿切線延長到區段外再餵進來。
  *
- * 兩半繼承 kind / tangle / orientation（使用者切完再各自改）；
- * band 更新為各自 poly 的 bbox；id 預設父 id 加 a/b 後綴（父 id
- * 移出清單、後綴可巢狀＝天然唯一）。
+ * 演算法：圍籬與區段邊界求交點（沿圍籬排序）→ 恰 2 個交點才可切
+ * （0＝沒穿過、>2＝曲率太大來回穿越，拒絕）→ 邊界順向鏈＋圍籬
+ * 內段組成兩個新多邊形。**支援凹多邊形**（曲線切出的半塊再切
+ * 也正確——半平面裁剪對凹形會出錯，故直線切也改走此路）。
  *
+ * 兩半繼承 kind / tangle / orientation；band 更新為各自 poly 的
+ * bbox；id 預設父 id 加 a/b 後綴（可巢狀＝天然唯一）。
+ *
+ * @param {object} region
+ * @param {Array<[number, number]>} fence - 折線頂點（首尾在區段外）
  * @returns {{ok: true, parts: [object, object]} |
  *           {ok: false, reason: string}}
  */
-export function splitRegionByLine(region, a, b, opts = {}) {
-  const [ax, ay] = a;
-  const [bx, by] = b;
-  if (Math.hypot(bx - ax, by - ay) < 4) {
-    return {ok: false, reason: "兩點太近，無法定義切分線"};
+export function splitRegionByPolyline(region, fence, opts = {}) {
+  if (!Array.isArray(fence) || fence.length < 2) {
+    return {ok: false, reason: "切割線無效"};
   }
   const poly = regionPolygon(region);
+  const n = poly.length;
   const total = polygonArea(poly);
   if (total <= 0) return {ok: false, reason: "區段退化（面積為零）"};
-  const p1 = clipPolygonByLine(poly, ax, ay, bx, by, +1);
-  const p2 = clipPolygonByLine(poly, ax, ay, bx, by, -1);
+  // 圍籬 × 邊界全交點，沿圍籬里程排序＋去重（頂點命中會重複）。
+  const hits = [];
+  for (let k = 0; k < fence.length - 1; k++) {
+    for (let i = 0; i < n; i++) {
+      const h = _segIntersect(fence[k], fence[k + 1],
+                              poly[i], poly[(i + 1) % n]);
+      if (h) hits.push({fpos: k + h.t, edge: i, s: h.s, pt: h.pt});
+    }
+  }
+  hits.sort((p, q) => p.fpos - q.fpos);
+  const uniq = [];
+  for (const h of hits) {
+    const last = uniq[uniq.length - 1];
+    if (last &&
+        Math.hypot(h.pt[0] - last.pt[0], h.pt[1] - last.pt[1]) < 1e-6) {
+      continue;
+    }
+    uniq.push(h);
+  }
+  if (uniq.length !== 2) {
+    return {ok: false,
+            reason: `切割線穿越區段邊界 ${uniq.length} 次` +
+                    "（需恰 2 次——未貫穿或彎曲過度來回穿越）"};
+  }
+  const [X1, X2] = uniq;
+  // 圍籬位於區段內的中段頂點。
+  const interior = [];
+  for (let k = 0; k < fence.length; k++) {
+    if (k > X1.fpos && k < X2.fpos) interior.push(fence[k]);
+  }
+  // 邊界順向鏈：from 交點所在邊往前走到 to 交點所在邊。
+  const chainForward = (from, to) => {
+    const out = [];
+    if (from.edge === to.edge && to.s >= from.s) return out;
+    let idx = (from.edge + 1) % n;
+    for (let cnt = 0; cnt <= n; cnt++) {
+      out.push(poly[idx]);
+      if (idx === to.edge) break;
+      idx = (idx + 1) % n;
+    }
+    return out;
+  };
+  const partA = [X1.pt, ...chainForward(X1, X2), X2.pt,
+                 ...interior.slice().reverse()];
+  const partB = [X2.pt, ...chainForward(X2, X1), X1.pt, ...interior];
   const minArea = total * (opts.minAreaRatio ?? MIN_SPLIT_AREA_RATIO);
-  if (p1.length < 3 || p2.length < 3 ||
-      polygonArea(p1) < minArea || polygonArea(p2) < minArea) {
-    return {ok: false, reason: "切分線沒有穿過區段（或切出的細條太窄）"};
+  const areaA = polygonArea(partA);
+  const areaB = polygonArea(partB);
+  if (partA.length < 3 || partB.length < 3 ||
+      areaA < minArea || areaB < minArea) {
+    return {ok: false, reason: "切出的部分太窄（細條 < 2% 面積）"};
+  }
+  if (Math.abs(areaA + areaB - total) > total * 0.02) {
+    return {ok: false, reason: "切割幾何異常（面積不守恆），請重切"};
   }
   const [idA, idB] = opts.ids || [`${region.id}a`, `${region.id}b`];
   const mk = (id, p) => ({
@@ -430,5 +481,27 @@ export function splitRegionByLine(region, a, b, opts = {}) {
     tangle: region.tangle,
     orientation: region.orientation,
   });
-  return {ok: true, parts: [mk(idA, p1), mk(idB, p2)]};
+  return {ok: true, parts: [mk(idA, partA), mk(idB, partB)]};
+}
+
+/**
+ * 5df-4 — 沿 A→B 延伸直線把區段剖成兩半。
+ * 5dh 改為 splitRegionByPolyline 的包裝（直線＝兩點圍籬向外延長）
+ * ——凹多邊形（曲線切過的半塊）再直切也正確。
+ */
+export function splitRegionByLine(region, a, b, opts = {}) {
+  const [ax, ay] = a;
+  const [bx, by] = b;
+  const len = Math.hypot(bx - ax, by - ay);
+  if (len < 4) {
+    return {ok: false, reason: "兩點太近，無法定義切分線"};
+  }
+  const ext = Math.hypot(region.band.w, region.band.h) * 2 + 10;
+  const ux = (bx - ax) / len;
+  const uy = (by - ay) / len;
+  const fence = [
+    [ax - ux * ext, ay - uy * ext],
+    [bx + ux * ext, by + uy * ext],
+  ];
+  return splitRegionByPolyline(region, fence, opts);
 }
