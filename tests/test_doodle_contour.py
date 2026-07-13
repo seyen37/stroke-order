@@ -177,7 +177,8 @@ def test_5cj_vendor_proxy_and_same_origin_first(client, tmp_path,
     urls_block = js.split("OPENCV_CDN_URLS = [")[1].split("]")[0]
     lines = [l.strip() for l in urls_block.splitlines() if '"' in l]
     # 5cm：同源位址絕對化（_ORIGIN 前綴），仍居首位
-    assert '"/vendor/opencv.js"' in lines[0]            # 同源優先
+    # 5db：同源 URL 帶版本 query（瀏覽器 HTTP 快取隨 pin 失效）
+    assert '"/vendor/opencv.js?v=' in lines[0]          # 同源優先
     assert any("cdn.jsdelivr.net" in l for l in lines)  # CDN 備援仍在
 
 
@@ -262,7 +263,7 @@ def test_5cm_fetch_eval_watchdog_absolutized(client):
     """
     js = client.get("/static/doodle_engine.js").text
     assert "var _ORIGIN" in js
-    assert '_ORIGIN + "/vendor/opencv.js"' in js        # ① 絕對化
+    assert '_ORIGIN + "/vendor/opencv.js?v=' in js      # ① 絕對化＋5db query
     assert "_fetchScript" in js                          # ② fetch 看門狗
     assert "OPENCV_FETCH_STALL_MS" in js                 # ② chunk 逾時
     # ②' 5co：執行改回 importScripts（快取命中）——10MB 間接 eval

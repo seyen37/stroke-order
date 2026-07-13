@@ -598,8 +598,13 @@ var _ORIGIN = (typeof location !== "undefined" && location.origin &&
 // 伺服器端同步升級，快取檔名帶版本自動失效舊檔）。
 // docs.opencv.org 退出清單：實測只掛 4.9.0/4.13.0（4.11.0 回
 // 404）、校網又靜默丟包——同源＋jsDelivr 已足。
+// 5db：同源 URL 帶版本 query——5da 部署驗收抓到第三層快取：
+// /vendor/opencv.js 有 max-age=604800，瀏覽器 HTTP 快取的舊
+// 4.9 回應在 pin 升級後仍命中（no-store 實測伺服器已 serve
+// 4.11、裸 URL 仍回 4.9 舊 bytes；帶 query 343ms 就緒）。
+// query 版本與 server 的 _OPENCV_CACHE_FNAME 同步升級。
 var OPENCV_CDN_URLS = [
-  _ORIGIN + "/vendor/opencv.js",
+  _ORIGIN + "/vendor/opencv.js?v=4.11.0",
   "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.11.0-release.1" +
     "/dist/opencv.js",
 ];
@@ -914,7 +919,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=160";   // 5da cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=161";   // 5db cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;
