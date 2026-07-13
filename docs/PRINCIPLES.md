@@ -1251,6 +1251,50 @@ Chrome 對背景分頁有節流/暫停策略，長時間運算（WASM 編譯）�
 
 ---
 
+## 12. 光柵幾何與互動地基原則（2026-07-13 5db→5df-1 新增）
+
+> 雷切線（鏤空字/布章適配）與禪繞互動編輯弧地基的單日沉澱。
+> 詳細脈絡見 `decisions/2026-07-13_5db_5df1_laser_zentangle.md`。
+
+### 12.1 快取版本化要涵蓋所有快取層
+
+伺服器落地檔、部署燒入檔、**瀏覽器 HTTP 快取**三層都會押住舊
+資源；URL 即瀏覽器快取的鍵，query 就是它的版本欄位。驗證：
+裸 URL vs no-store vs 帶 query 三發 fetch 比 bytes。
+
+### 12.2 對偶問題共用管線、只換方向相反的核心步驟
+
+噴漆字（鑿白橋救孤島）與鏤空字（補黑橋連斷件）共用光柵→
+拓撲→向量化→三發射器，只差橋接方向；「邊框」建模成一個黑
+元件後連筋演算法自動接管，零特例碼。找出對偶結構＝省一半
+工程與一半測試。
+
+### 12.3 大畫布光柵拓撲用 run 填色，不用單像素 frontier
+
+frontier flood 迭代數＝區域直徑；「列/行 run 整段填色交替至
+不動點」數個 pass 收斂、正確性等價 4-連通。
+
+### 12.4 幾何適配在「消費點」取值，不信 bounding box
+
+bbox 只對滿弦造型成立；在文字列實際高度取造型水平弦（多線
+交集＝凸精確/凹保守），大小、間距、位置全跟弦走。新公式做成
+舊公式的一般化，退化情境與舊版全等＝金標零回歸。
+
+### 12.5 「方向/朝向」做成資料變換，不做圖樣變體
+
+orientSpecs 單一純函式讓全部圖樣自動獲得四向；朝向存在區段
+資料、渲染時疊加容器旋轉角——旋轉相容在資料層解決，UI 只改
+一個欄位。N 個圖樣 × 4 向不是 4N 份碼，是 N＋1。
+
+### 12.6 界內測試先行＋掃描死角補遺
+
+「所有輸出座標落區域內」一條測試在 5df-1 三殺（兩隻越界蟲＋
+一條釘常數舊斷言）。鐵則：網格迴圈邊界含元素最大外伸半徑、
+新圖樣先過界內測試再入 registry；§8.3 的 grep 範圍必須含
+tests/*.mjs（node 測試不在沙箱 pytest 預跑範圍＝死角）。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1269,6 +1313,7 @@ Chrome 對背景分頁有節流/暫停策略，長時間運算（WASM 編譯）�
   - [`2026-07-11_5ck_5cq_opencv_delivery_userfont.md`](decisions/2026-07-11_5ck_5cq_opencv_delivery_userfont.md)（OpenCV 交付鏈五層根因＋自訂字型，對應 §9）
   - [`2026-07-12_5cr_5cu_userfont_zhuyin.md`](decisions/2026-07-12_5cr_5cu_userfont_zhuyin.md)（自訂字型全能力線＋注音欄，對應 §10）
   - [`2026-07-13_5cv_5da_zhuyin_v2_opencv_case.md`](decisions/2026-07-13_5cv_5da_zhuyin_v2_opencv_case.md)（注音 v2 全線＋OpenCV 懸案破案，對應 §11）
+  - [`2026-07-13_5db_5df1_laser_zentangle.md`](decisions/2026-07-13_5db_5df1_laser_zentangle.md)（第二弧：雷切線＋禪繞地基，對應 §12）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
