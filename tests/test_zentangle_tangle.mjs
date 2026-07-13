@@ -12,15 +12,87 @@ import {
   SPEC_ORB,
   SPEC_DOT,
   TANGLES,
+  ORIENTATIONS,
   buildCrescentMoon,
   buildFlorz,
   buildCrescentMoonUnit,
   buildFlorzUnit,
   buildTangle,
+  buildTangleOriented,
+  orientSpecs,
   listTangles,
 } from "../src/stroke_order/web/static/zentangle/tangle.mjs";
 
 const AREA = {x: 0, y: 0, w: 400, h: 400};
+
+// ---------- 5df-1: 新六圖樣＋朝向 ----------
+
+const NEW_KEYS = ["tipple", "bales", "printemps", "paradox",
+                  "flux", "hollibaugh"];
+
+function _pts(sp) {
+  if (sp.type === "line" || sp.type === "s_shape") {
+    return [[sp.x1, sp.y1], [sp.x2, sp.y2]];
+  }
+  if (sp.type === "curve") {
+    return [[sp.x1, sp.y1], [sp.cx, sp.cy], [sp.x2, sp.y2]];
+  }
+  return [[sp.cx, sp.cy]];
+}
+
+test("5df-1: registry has 8 tangles incl. six new keys", () => {
+  assert.equal(listTangles().length, 8);
+  for (const k of NEW_KEYS) assert.ok(TANGLES[k], k);
+});
+
+test("5df-1: each new tangle fills area and stays in bounds", () => {
+  for (const k of NEW_KEYS) {
+    const specs = buildTangle(k, AREA, "medium");
+    assert.ok(specs.length > 0, k);
+    for (const sp of specs) {
+      for (const [x, y] of _pts(sp)) {
+        assert.ok(x >= AREA.x - 1 && x <= AREA.x + AREA.w + 1, `${k} x=${x}`);
+        assert.ok(y >= AREA.y - 1 && y <= AREA.y + AREA.h + 1, `${k} y=${y}`);
+      }
+    }
+  }
+});
+
+test("5df-1: orientSpecs rotates a line 90° about area centre", () => {
+  const area = {x: 0, y: 0, w: 100, h: 100};
+  const [o] = orientSpecs(
+    [{type: "line", x1: 50, y1: 10, x2: 50, y2: 90}], "right", area);
+  // (50,10)→(90,50)、(50,90)→(10,50)：垂直線轉成水平線
+  assert.equal(Math.round(o.x1), 90);
+  assert.equal(Math.round(o.y1), 50);
+  assert.equal(Math.round(o.x2), 10);
+  assert.equal(Math.round(o.y2), 50);
+});
+
+test("5df-1: orientSpecs shifts orb arc angles", () => {
+  const area = {x: 0, y: 0, w: 100, h: 100};
+  const [o] = orientSpecs(
+    [{type: "orb", cx: 50, cy: 50, r: 10,
+      startAngle: 0, endAngle: Math.PI}], "down", area);
+  assert.ok(Math.abs(o.startAngle - Math.PI) < 1e-9);
+  assert.ok(Math.abs(o.endAngle - 2 * Math.PI) < 1e-9);
+});
+
+test("5df-1: buildTangleOriented keeps non-square area in bounds", () => {
+  const rect = {x: 10, y: 20, w: 300, h: 120};   // 寬扁區域
+  for (const orient of ORIENTATIONS) {
+    const specs = buildTangleOriented("bales", rect, "medium", orient);
+    assert.ok(specs.length > 0, orient);
+    for (const sp of specs) {
+      for (const [x, y] of _pts(sp)) {
+        assert.ok(x >= rect.x - 1 && x <= rect.x + rect.w + 1,
+                  `${orient} x=${x}`);
+        assert.ok(y >= rect.y - 1 && y <= rect.y + rect.h + 1,
+                  `${orient} y=${y}`);
+      }
+    }
+  }
+});
 
 // ---------- spec constants ----------
 

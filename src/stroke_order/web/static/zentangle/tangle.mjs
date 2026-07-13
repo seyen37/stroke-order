@@ -184,6 +184,206 @@ export function buildFlorzUnit(cx, cy, scale = 45) {
 }
 
 // ---------------------------------------------------------------------------
+// 5df-1 — 六個新圖樣（參考 Zentangle A-Z 經典圖樣：Tipple / Bales /
+// Printemps / Paradox / Flux / Hollibaugh），全部走同一 spec 協定。
+// ---------------------------------------------------------------------------
+
+/** 決定性偽隨機（cell 座標雜湊）——同輸入永遠同輸出，可測試。 */
+function _hash01(a, b) {
+  let h = (a * 374761393 + b * 668265263) | 0;
+  h = ((h ^ (h >> 13)) * 1274126177) | 0;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967296;
+}
+
+/** Tipple — 大小圓泡簇（jitter 網格＋決定性半徑）。 */
+export function buildTipple(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density) * 0.6;
+  const specs = [];
+  for (let cy = area.y + s; cy < area.y + area.h - 3; cy += s) {
+    for (let cx = area.x + s; cx < area.x + area.w - 3; cx += s) {
+      const jx = (_hash01(cx | 0, cy | 0) - 0.5) * s * 0.5;
+      const jy = (_hash01(cy | 0, cx | 0) - 0.5) * s * 0.5;
+      const r = s * (0.18 + 0.28 * _hash01((cx + cy) | 0, (cx * 3) | 0));
+      specs.push({type: SPEC_ORB, cx: cx + jx, cy: cy + jy, r, fill: false});
+    }
+  }
+  return specs;
+}
+
+/** Bales — 織紋：每格四條向心弧圍成飽滿菱形＋角點。 */
+export function buildBales(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density);
+  const specs = [];
+  for (let cy = area.y + s; cy < area.y + area.h - 4; cy += s) {
+    for (let cx = area.x + s; cx < area.x + area.w - 4; cx += s) {
+      const half = s * 0.42;
+      const bow = s * 0.30;
+      // 上下左右四條向心弧（quadratic），端點在格角
+      specs.push({type: SPEC_CURVE, x1: cx - half, y1: cy - half,
+                  cx: cx, cy: cy - half + bow, x2: cx + half, y2: cy - half});
+      specs.push({type: SPEC_CURVE, x1: cx - half, y1: cy + half,
+                  cx: cx, cy: cy + half - bow, x2: cx + half, y2: cy + half});
+      specs.push({type: SPEC_CURVE, x1: cx - half, y1: cy - half,
+                  cx: cx - half + bow, cy: cy, x2: cx - half, y2: cy + half});
+      specs.push({type: SPEC_CURVE, x1: cx + half, y1: cy - half,
+                  cx: cx + half - bow, cy: cy, x2: cx + half, y2: cy + half});
+      specs.push({type: SPEC_DOT, cx, cy, r: 1.2});
+    }
+  }
+  return specs;
+}
+
+/** Printemps — 蝸牛螺旋：同心開口弧逐圈旋轉。 */
+export function buildPrintemps(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density) * 1.1;
+  const specs = [];
+  for (let cy = area.y + s; cy < area.y + area.h - 4; cy += s) {
+    for (let cx = area.x + s; cx < area.x + area.w - 4; cx += s) {
+      const rings = 3;
+      for (let i = 1; i <= rings; i++) {
+        const r = (s * 0.42) * (i / rings);
+        const a0 = (i * Math.PI) / 2.2;         // 逐圈旋轉開口＝螺旋感
+        specs.push({type: SPEC_ORB, cx, cy, r,
+                    startAngle: a0, endAngle: a0 + Math.PI * 1.72,
+                    fill: false});
+      }
+      specs.push({type: SPEC_DOT, cx, cy, r: 1.0});
+    }
+  }
+  return specs;
+}
+
+/** Paradox — 三角迴旋：巢狀三角形逐層向內旋轉。 */
+export function buildParadox(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density) * 1.4;
+  const specs = [];
+  for (let cy = area.y + s; cy < area.y + area.h - 4; cy += s) {
+    for (let cx = area.x + s; cx < area.x + area.w - 4; cx += s) {
+      const R = s * 0.46;
+      let v = [0, 1, 2].map(k => {
+        const a = -Math.PI / 2 + (k * 2 * Math.PI) / 3;
+        return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+      });
+      for (let step = 0; step < 6; step++) {
+        for (let k = 0; k < 3; k++) {
+          const [x1, y1] = v[k];
+          const [x2, y2] = v[(k + 1) % 3];
+          specs.push({type: SPEC_LINE, x1, y1, x2, y2});
+        }
+        const t = 0.18;                        // 頂點向次頂點推進＝迴旋
+        v = v.map((p, k) => {
+          const q = v[(k + 1) % 3];
+          return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+        });
+      }
+    }
+  }
+  return specs;
+}
+
+/** Flux — 葉藤：對角葉形（兩條鏡像曲線）＋葉心點。 */
+export function buildFlux(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density);
+  const specs = [];
+  let flip = false;
+  for (let cy = area.y + s; cy < area.y + area.h - 4; cy += s) {
+    for (let cx = area.x + s; cx < area.x + area.w - 4; cx += s) {
+      const half = s * 0.38;
+      const d = flip ? -1 : 1;                 // 交錯方向＝藤蔓感
+      const x1 = cx - half, y1 = cy + half * d;
+      const x2 = cx + half, y2 = cy - half * d;
+      const bow = s * 0.34;
+      specs.push({type: SPEC_CURVE, x1, y1,
+                  cx: cx - bow * d * 0.2, cy: cy - bow, x2, y2});
+      specs.push({type: SPEC_CURVE, x1, y1,
+                  cx: cx + bow * d * 0.2, cy: cy + bow, x2, y2});
+      specs.push({type: SPEC_DOT, cx, cy, r: 1.2});
+      flip = !flip;
+    }
+  }
+  return specs;
+}
+
+/** Hollibaugh — 交疊直帶：整區長條帶（線對）錯落堆疊。 */
+export function buildHollibaugh(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density);
+  const bandW = s * 0.42;
+  const specs = [];
+  let i = 0;
+  for (let x = area.x + s * 0.6; x < area.x + area.w - 3; x += s * 0.9) {
+    const off = (_hash01(i, 7) - 0.5) * s * 0.4;
+    const x1 = x + off, x2 = x + off + bandW;
+    specs.push({type: SPEC_LINE, x1, y1: area.y + 2,
+                x2: x1, y2: area.y + area.h - 2});
+    specs.push({type: SPEC_LINE, x1: x2, y1: area.y + 2,
+                x2: x2, y2: area.y + area.h - 2});
+    i += 1;
+  }
+  return specs;
+}
+
+// ---------------------------------------------------------------------------
+// 5df-1 — 朝向（曲度朝向）：單一純函式，所有圖樣自動獲得四向。
+// 朝向與紙磚旋轉解耦——區段記自己的 orientation，渲染時呼叫端把
+// 紙磚旋轉角疊加傳入即可（5df-3 的上下左右鈕直接改這個值）。
+// ---------------------------------------------------------------------------
+
+export const ORIENTATIONS = ["up", "right", "down", "left"];
+const _ORIENT_DEG = {up: 0, right: 90, down: 180, left: 270};
+
+/** 把 spec 列繞 area 中心旋轉到指定朝向（0/90/180/270）。 */
+export function orientSpecs(specs, orientation, area) {
+  const deg = _ORIENT_DEG[orientation] ?? 0;
+  if (deg === 0) return specs;
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.round(Math.cos(rad));
+  const sin = Math.round(Math.sin(rad));
+  const cx0 = area.x + area.w / 2;
+  const cy0 = area.y + area.h / 2;
+  const rot = (x, y) => [
+    cx0 + (x - cx0) * cos - (y - cy0) * sin,
+    cy0 + (x - cx0) * sin + (y - cy0) * cos,
+  ];
+  return specs.map(sp => {
+    const o = {...sp};
+    if (sp.type === SPEC_LINE || sp.type === SPEC_S_SHAPE) {
+      [o.x1, o.y1] = rot(sp.x1, sp.y1);
+      [o.x2, o.y2] = rot(sp.x2, sp.y2);
+    } else if (sp.type === SPEC_CURVE) {
+      [o.x1, o.y1] = rot(sp.x1, sp.y1);
+      [o.cx, o.cy] = rot(sp.cx, sp.cy);
+      [o.x2, o.y2] = rot(sp.x2, sp.y2);
+    } else {                                   // orb / dot
+      [o.cx, o.cy] = rot(sp.cx, sp.cy);
+      if (sp.startAngle !== undefined) o.startAngle = sp.startAngle + rad;
+      if (sp.endAngle !== undefined) o.endAngle = sp.endAngle + rad;
+    }
+    return o;
+  });
+}
+
+/** 建圖樣＋套朝向。90/270 時先以「轉置尺寸」建格（同中心），旋轉
+ * 後恰好落回原區域——非正方形區域不會溢框。 */
+export function buildTangleOriented(key, area, density = "medium",
+                                    orientation = "up") {
+  const deg = _ORIENT_DEG[orientation] ?? 0;
+  let buildArea = area;
+  if (deg === 90 || deg === 270) {
+    const cx0 = area.x + area.w / 2;
+    const cy0 = area.y + area.h / 2;
+    buildArea = {x: cx0 - area.h / 2, y: cy0 - area.w / 2,
+                 w: area.h, h: area.w};
+  }
+  return orientSpecs(buildTangle(key, buildArea, density), orientation, area);
+}
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
@@ -198,6 +398,13 @@ export const TANGLES = {
     build: buildFlorz,
     buildUnit: buildFlorzUnit,
   },
+  // 5df-1 新六圖樣（unit 版於 5df-3 互動輪視需要補）
+  tipple:      {label: "Tipple",      build: buildTipple},
+  bales:       {label: "Bales",       build: buildBales},
+  printemps:   {label: "Printemps",   build: buildPrintemps},
+  paradox:     {label: "Paradox",     build: buildParadox},
+  flux:        {label: "Flux",        build: buildFlux},
+  hollibaugh:  {label: "Hollibaugh",  build: buildHollibaugh},
 };
 
 export function listTangles() {
