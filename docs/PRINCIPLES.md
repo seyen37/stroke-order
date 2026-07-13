@@ -1295,6 +1295,55 @@ tests/*.mjs（node 測試不在沙箱 pytest 預跑範圍＝死角）。
 
 ---
 
+## 13. 區段模型與互動編輯原則（2026-07-13 5df-2→5df-4 新增）
+
+> 禪繞互動編輯弧收官（區段模型/隨機填充/點選編輯/自訂切分）
+> 的三輪沉澱。詳細脈絡見
+> `decisions/2026-07-13_5df2_5df4_zentangle_regions.md`。
+
+### 13.1 新鐵則要追溯掃全體——消費情境變窄，舊蟲現形
+
+鐵則入庫時只約束「新增碼」是半條鐵則：5df-1「邊界含最大外伸」
+只掃了六個新圖樣，5df-2 區段窄帶一來，全磚時代藏得住的**五個
+舊 builder 全數越界**。新守則入庫＝立刻回掃既有全體；等價地，
+既有碼進入更嚴苛的消費情境（大區域→窄帶、寬鬆→精確）前，
+先用該情境重跑守則測試。
+
+### 13.2 不規則形狀支援＝「生成吃 bbox、裁剪吃真形」
+
+內容生成器天然吃矩形時，別為不規則形狀改寫生成器：形狀存真形
+（poly）、band 同步為其 bbox、生成照舊、渲染 clip 換真形。
+成本封在渲染與命中兩個消費點，N 個生成器零改動。
+
+### 13.3 命中判斷與渲染裁剪要同一套語意——用純幾何重刻換可測
+
+「點在形內嗎」別依賴執行環境 API（ctx.isPointInPath）：用與
+渲染 clip 同語意的純函式（evenodd 計數）重刻，渲染與 hit-test
+成為同一語意的兩個消費者——行為天然一致、node 全測得到。
+依賴 DOM API 省下的碼，會在可測性上加倍還回去。
+
+### 13.4 同一輸入多語意＝明確模式狀態＋入口互清
+
+一鍵多義（方向鍵歸朝向還是透視、點擊選取還是切分）用明確狀態
+分流，且每個模式入口清掉另一模式的中間狀態——兩套語意永不
+同時活著。決策上：撞鍵位這類使用者體驗取捨，前一輪收工時預先
+標出、下輪開工一句話定案，零返工。
+
+### 13.5 UI 清單從 registry 動態生成
+
+靜態 HTML 抄 registry 清單＝§8.3 型漂移的 UI 版（radio 只列
+3 個、新六圖樣缺席）。改為執行期從 registry 生成、HTML 只留
+容器：新項目入 registry 即現身，「registry 改了、UI 忘了」
+整類蟲消失。
+
+### 13.6 分裂物件 id＝父後綴族譜
+
+分裂/衍生物件的 id 用父 id＋後綴（r2 → r2a/r2b，可巢狀）：
+父移出清單＋後綴巢狀＝天然唯一、免全域計數器、id 即族譜
+（除錯一眼看出衍生史）。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1304,8 +1353,9 @@ tests/*.mjs（node 測試不在沙箱 pytest 預跑範圍＝死角）。
     全日兩弧十七輪＋救援全記錄，含雙收官總結）
   - [`WORK_LOG_2026-07-12.md`](WORK_LOG_2026-07-12.md)（5cr→5cu
     自訂字型全能力線＋注音欄＋REF IVS 增補）
-  - [`WORK_LOG_2026-07-13.md`](WORK_LOG_2026-07-13.md)（5cv→5da
-    注音 v2 全收官＋OpenCV 4.11 破案）
+  - [`WORK_LOG_2026-07-13.md`](WORK_LOG_2026-07-13.md)（5cv→5df-4
+    全日三弧：注音 v2 全收官＋OpenCV 4.11 破案＋雷切線＋禪繞
+    互動編輯弧全收）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -1314,6 +1364,7 @@ tests/*.mjs（node 測試不在沙箱 pytest 預跑範圍＝死角）。
   - [`2026-07-12_5cr_5cu_userfont_zhuyin.md`](decisions/2026-07-12_5cr_5cu_userfont_zhuyin.md)（自訂字型全能力線＋注音欄，對應 §10）
   - [`2026-07-13_5cv_5da_zhuyin_v2_opencv_case.md`](decisions/2026-07-13_5cv_5da_zhuyin_v2_opencv_case.md)（注音 v2 全線＋OpenCV 懸案破案，對應 §11）
   - [`2026-07-13_5db_5df1_laser_zentangle.md`](decisions/2026-07-13_5db_5df1_laser_zentangle.md)（第二弧：雷切線＋禪繞地基，對應 §12）
+  - [`2026-07-13_5df2_5df4_zentangle_regions.md`](decisions/2026-07-13_5df2_5df4_zentangle_regions.md)（第三弧：禪繞區段模型/互動編輯/切分線，對應 §13）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1324,4 +1375,4 @@ tests/*.mjs（node 測試不在沙箱 pytest 預跑範圍＝死角）。
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§11 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§13 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯）。三者互補。
