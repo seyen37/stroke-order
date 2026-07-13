@@ -187,11 +187,94 @@ def _fit_char_size(n_chars: int, patch_w_mm: float,
 
     Fixes the overlap bug where e.g. 4 × 22 mm chars were squeezed into
     an 80 mm patch (centre spacing 12 mm < glyph width 22 mm).
+
+    5dd note: this is only the **bbox upper bound**——造型感知的最終
+    大小由 :func:`_fit_row_to_shape` 依文字列高度的水平弦決定。
     """
     if n_chars <= 0:
         return char_size_mm
     max_eff = patch_w_mm / (n_chars * _CHAR_GAP_RATIO + 0.3)
     return min(char_size_mm, max_eff)
+
+
+#: 5dd: 字級下限（mm）——弦再窄也不縮到看不見。
+_MIN_CHAR_MM = 3.0
+
+
+def _widest_chord(poly: Polygon, y: float):
+    """水平線 ``y`` 與造型的最寬弦 ``(L, R)``；無交點回 ``None``。"""
+    from .engrave import scanline_intersections
+    verts = list(poly.vertices)
+    if not verts:
+        return None
+    if verts[0] != verts[-1]:
+        verts = verts + [verts[0]]
+    xs = scanline_intersections([verts], y)
+    best = None
+    for i in range(0, len(xs) - 1, 2):
+        if best is None or xs[i + 1] - xs[i] > best[1] - best[0]:
+            best = (xs[i], xs[i + 1])
+    return best
+
+
+def _usable_interval(poly: Polygon, cy: float, size_mm: float,
+                     margin_mm: float):
+    """字列在 ``cy``、字高 ``size_mm`` 時的可用水平區間。
+
+    取字框上/中/下三條掃描線最寬弦的**交集**再內縮 margin——
+    對圓/盾/六角/拱/旗等非矩形造型是保守正確的（凸形精確、
+    凹形取安全側）。回傳 ``(L, R)`` 或 ``None``（放不下）。
+    """
+    lo: Optional[float] = None
+    hi: Optional[float] = None
+    for y in (cy - size_mm / 2.0, cy, cy + size_mm / 2.0):
+        c = _widest_chord(poly, y)
+        if c is None:
+            return None
+        lo = c[0] if lo is None else max(lo, c[0])
+        hi = c[1] if hi is None else min(hi, c[1])
+    lo += margin_mm
+    hi -= margin_mm
+    return (lo, hi) if hi > lo else None
+
+
+def _fit_row_to_shape(poly: Polygon, cy: float, n_chars: int,
+                      size0_mm: float):
+    """5dd 造型感知適配核心：回傳 ``(size, cy, L, R)``（L/R＝原始弦）。
+
+    使用者實測：預設 4 字下只有矩形/圓角/橢圓包得住，其餘造型
+    （圓/盾/六角/拱/旗）溢出——因為舊邏輯只看 bbox 寬。本函式
+    在文字列的實際高度取造型水平弦：
+    1. 可行性判定用「弦寬 − 2×硬邊距 ≥ N 字最小列寬」；不夠則
+       字大小逐步縮（×0.93）
+    2. 縮到下限仍放不下 → **位置同步向造型中心收斂**、字級
+       回復重試（top/bottom 在窄造型上自動向中線靠）
+    3. 回傳原始弦區間——列心對齊弦中點（旗形缺口/盾形斜邊等
+       不對稱造型自動偏移）；鋪排慣例由呼叫端沿用 5br 舊公式
+       （usable＝弦寬−2×字寬），矩形滿弦時與舊版位置全等零回歸
+    """
+    bbox = poly.bbox()
+    h_mid = (bbox[1] + bbox[3]) / 2.0
+    s = max(size0_mm, _MIN_CHAR_MM)
+    for _ in range(80):
+        hard = max(0.8, s * 0.08)             # 邊界淨空（縫線/切割位）
+        iv = _usable_interval(poly, cy, s, 0.0)
+        if iv is not None:
+            need = s + s * _CHAR_GAP_RATIO * (n_chars - 1)
+            if (iv[1] - iv[0]) - 2.0 * hard >= need:
+                return s, cy, iv[0], iv[1]
+        if s > _MIN_CHAR_MM:
+            s = max(_MIN_CHAR_MM, s * 0.93)
+        elif abs(cy - h_mid) > 0.5:
+            cy = cy + (h_mid - cy) * 0.3      # 位置同步調整
+            s = max(size0_mm, _MIN_CHAR_MM)   # 回復字級重試
+        else:
+            break
+    # 保底：中線、最小字級、弦（或 bbox）
+    iv = _usable_interval(poly, h_mid, _MIN_CHAR_MM, 0.0)
+    if iv is None:
+        iv = (bbox[0] + 0.5, bbox[2] - 0.5)
+    return _MIN_CHAR_MM, h_mid, iv[0], iv[1]
 
 
 def _layout_text_positions(
@@ -222,38 +305,26 @@ def _layout_text_positions(
     eff = _fit_char_size(n_chars, patch_w_mm, char_size_mm)
 
     if position == "on_arc":
-        # Drop the chars along the chord at the patch's vertical centre,
-        # but rotate each one slightly so they tangentially fan around
-        # the bbox centre. v1 keeps it simple — the visual on a wide
-        # arch is already convincing without true polar layout.
-        cx0 = patch_w_mm / 2.0
-        cy0 = patch_h_mm / 2.0
-        # Effective chord width (≈ patch width) divided by N chars.
-        usable = patch_w_mm - eff * 1.2
-        spacing = usable / max(n_chars - 1, 1) if n_chars > 1 else 0
-        # 5br: never tighter than one glyph width + gap.
-        if n_chars > 1:
-            spacing = max(spacing, eff * _CHAR_GAP_RATIO)
-        x0 = cx0 - spacing * max(n_chars - 1, 0) / 2.0
-        # Approximate radius from arch curvature (use bbox heights).
-        # Apex offset = sagitta_inner ≈ curvature*hh; we move chars up
-        # toward the apex for arch_top, down for arch_bottom.
+        # 5dd：拱形弦位的可用寬度也改走造型感知（舊版用 bbox 全寬，
+        # 拱帶在 offset 高度的實際弦長更短）。旋轉扇形邏輯維持。
         bbox = poly.bbox()
         bbox_h = bbox[3] - bbox[1]
         offset = bbox_h * 0.25 * (-1 if preset == "arch_top" else 1)
-        # Estimate angular span from chord & approx radius.
-        import math
-        radius_est = max(usable, 1.0)
+        cy0 = patch_h_mm / 2.0 + offset
+        s, cy0, lo, hi = _fit_row_to_shape(poly, cy0, n_chars, eff)
+        if n_chars == 1:
+            return [((lo + hi) / 2.0, cy0, 0.0)], s
+        usable = max((hi - lo) - 2.0 * s, s)      # 5br 慣例（弦版）
+        spacing = max(usable / (n_chars - 1), s * _CHAR_GAP_RATIO)
+        x0 = (lo + hi) / 2.0 - spacing * (n_chars - 1) / 2.0
         slots = []
         for i in range(n_chars):
-            x = x0 + i * spacing if n_chars > 1 else cx0
-            # Rotation: linear angle from -alpha → +alpha across the chord.
-            t = (i / (n_chars - 1)) if n_chars > 1 else 0.5
+            t = i / (n_chars - 1)
             alpha_deg = (t - 0.5) * 25.0   # gentle 25° total span
             if preset == "arch_bottom":
                 alpha_deg = -alpha_deg
-            slots.append((x, cy0 + offset, alpha_deg))
-        return slots, eff
+            slots.append((x0 + i * spacing, cy0, alpha_deg))
+        return slots, s
 
     # Straight horizontal row.
     cy_map = {
@@ -262,17 +333,17 @@ def _layout_text_positions(
         "bottom": patch_h_mm * 0.70,
     }
     cy = cy_map.get(position, patch_h_mm / 2.0)
+    # 5dd：造型感知——字大小/間距/列心全部跟著「文字列高度的造型
+    # 水平弦」走；弦太窄時位置自動向中心收斂（見 _fit_row_to_shape）。
+    s, cy, lo, hi = _fit_row_to_shape(poly, cy, n_chars, eff)
     if n_chars == 1:
-        return [(patch_w_mm / 2.0, cy, 0.0)], eff
-    # Even spread across the usable width — but never tighter than one
-    # glyph width + gap (5br), so glyphs cannot overlap. The row is then
-    # re-centred; when the spread is roomy this reproduces the previous
-    # margin-based positions exactly.
-    margin = eff * 0.5
-    usable = max(patch_w_mm - 2 * margin - eff, eff)
-    spacing = max(usable / (n_chars - 1), eff * _CHAR_GAP_RATIO)
-    x0 = (patch_w_mm - spacing * (n_chars - 1)) / 2.0
-    return [(x0 + i * spacing, cy, 0.0) for i in range(n_chars)], eff
+        return [((lo + hi) / 2.0, cy, 0.0)], s
+    # 5br 鋪排慣例的弦版：usable＝弦寬−2×字寬（矩形滿弦時與舊
+    # margin 公式全等）；間距夾最小字距後對弦中點置中。
+    usable = max((hi - lo) - 2.0 * s, s)
+    spacing = max(usable / (n_chars - 1), s * _CHAR_GAP_RATIO)
+    x0 = (lo + hi) / 2.0 - spacing * (n_chars - 1) / 2.0
+    return [(x0 + i * spacing, cy, 0.0) for i in range(n_chars)], s
 
 
 def _char_cut_paths(c: Character, x_mm: float, y_mm: float,

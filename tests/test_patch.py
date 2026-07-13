@@ -347,6 +347,84 @@ def test_5br_on_arc_spacing_clamped():
 
 
 # ---------------------------------------------------------------------------
+# 5dd: 造型感知適配——使用者實測預設 4 字下僅矩形/圓角/橢圓包得住，
+# 圓/盾/六角/拱/旗溢出（舊邏輯只看 bbox 寬）。字大小/間距/列心改跟
+# 「文字列高度的造型水平弦」走，位置必要時向中心收斂。
+# ---------------------------------------------------------------------------
+
+
+_ALL_PRESETS = ["rectangle", "name_tag", "oval", "circle", "shield",
+                "hexagon", "arch_top", "arch_bottom",
+                "banner_left", "banner_right"]
+
+
+def _pt_in_poly(px, py, verts):
+    """Ray casting 點在多邊形內。"""
+    inside = False
+    n = len(verts)
+    for i in range(n):
+        x1, y1 = verts[i]
+        x2, y2 = verts[(i + 1) % n]
+        if (y1 > py) != (y2 > py):
+            xin = (x2 - x1) * (py - y1) / (y2 - y1) + x1
+            if px < xin:
+                inside = not inside
+    return inside
+
+
+def _assert_glyphs_inside(preset, position, n_chars,
+                          w=80.0, h=40.0, size=18.0):
+    from stroke_order.exporters.patch import (
+        _build_patch_shape, _ensure_polygon, _layout_text_positions,
+    )
+    poly = _ensure_polygon(_build_patch_shape(preset, w, h))
+    positions, eff = _layout_text_positions(
+        n_chars, preset, position, w, h, size, poly)
+    assert len(positions) == n_chars
+    for cx, cy, _rot in positions:
+        for dx in (-0.5, 0.5):
+            for dy in (-0.5, 0.5):
+                px = cx + dx * eff * 0.95     # 角點微內縮容忍離散誤差
+                py = cy + dy * eff * 0.95
+                assert _pt_in_poly(px, py, poly.vertices), (
+                    f"{preset}/{position}/n={n_chars}: 字框角點 "
+                    f"({px:.1f},{py:.1f}) 超出造型外框（eff={eff:.1f}）")
+
+
+def test_5dd_default_four_chars_inside_every_preset():
+    """回報場景：預設參數（80×40、18mm、4 字）全部造型都要包得住。"""
+    for preset in _ALL_PRESETS:
+        for position in ("center", "top", "bottom"):
+            _assert_glyphs_inside(preset, position, 4)
+
+
+def test_5dd_single_and_two_chars_inside_every_preset():
+    for preset in _ALL_PRESETS:
+        _assert_glyphs_inside(preset, "center", 1)
+        _assert_glyphs_inside(preset, "center", 2)
+
+
+def test_5dd_circle_shrinks_more_than_rectangle():
+    """圓形（直徑 40）的有效字級必須小於矩形（全寬 80）。"""
+    from stroke_order.exporters.patch import (
+        _build_patch_shape, _ensure_polygon, _layout_text_positions,
+    )
+    rect = _ensure_polygon(_build_patch_shape("rectangle", 80.0, 40.0))
+    circ = _ensure_polygon(_build_patch_shape("circle", 80.0, 40.0))
+    _p1, eff_rect = _layout_text_positions(
+        4, "rectangle", "center", 80.0, 40.0, 18.0, rect)
+    _p2, eff_circ = _layout_text_positions(
+        4, "circle", "center", 80.0, 40.0, 18.0, circ)
+    assert eff_circ < eff_rect
+
+
+def test_5dd_on_arc_inside_arch_presets():
+    """拱形 on_arc 弦位也走造型感知（舊版用 bbox 全寬會溢出）。"""
+    for preset in ("arch_top", "arch_bottom"):
+        _assert_glyphs_inside(preset, "on_arc", 4)
+
+
+# ---------------------------------------------------------------------------
 # Phase 5cc — 髮絲線修正：scale transform 下的 stroke-width 補償
 # ---------------------------------------------------------------------------
 
