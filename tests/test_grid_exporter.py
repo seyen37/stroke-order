@@ -60,6 +60,14 @@ def test_5cu_zhuyin_strip_layout(source):
     assert svg.count('class="zhuyin"') == 3          # 三層各一條（blank 空欄）
     assert "polyline" in svg                          # ˇ 聲調手作軌跡
     assert 'viewBox="0 0 3072' in svg                 # 1 字 × pair 寬
+    # 5cv：調號在「最後一個符號的右上角」（課本慣例）——
+    # ㄩㄥˇ 兩符號：末符頂 y=1024，調號 y 應落在其上半部（<1400）
+    import re as _re
+    tone_pts = _re.findall(r'<polyline points="([^"]+)"', svg)
+    assert tone_pts
+    for pts in tone_pts:
+        ys = [float(p.split(",")[1]) for p in pts.split()]
+        assert 1024 <= min(ys) and max(ys) < 1400, ys
 
     svg0 = render_grid_svg(chars, cols=1)
     assert 'data-pair-em="2048"' in svg0              # 關閉＝原版面

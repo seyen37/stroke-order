@@ -133,12 +133,13 @@ def _zhuyin_strip(sym_str: str, zhuyin_chars: dict[str, Character],
     tone = next((c for c in sym_str if c in _ZY_TONE_CHARS), "")
     syms = [c for c in sym_str if c in zhuyin_chars]
     y0 = float(EM_SIZE)
-    total_h = 0.0
+    sym_h = EM_SIZE / 2.0
+    last_top = 120.0
     if syms and style != "blank":
         sym_h = EM_SIZE / max(len(syms), 2)
         s = min(float(w), sym_h) * 0.92
-        total_h = sym_h * len(syms)
-        y0 = (EM_SIZE - total_h) / 2
+        y0 = (EM_SIZE - sym_h * len(syms)) / 2
+        last_top = y0 + (len(syms) - 1) * sym_h
         scale = s / EM_SIZE
         for i, c in enumerate(syms):
             x = (w - s) / 2
@@ -150,13 +151,15 @@ def _zhuyin_strip(sym_str: str, zhuyin_chars: dict[str, Character],
     if tone and style != "blank":
         color = "#e0e0e0" if style == "ghost" else (
             "#c22" if style in ("trace", "filled") else "#222")
-        if tone == "˙":                      # 輕聲：點，置頂
+        if tone == "˙":                      # 輕聲：點，標於注音上方
             cx_, cy_ = w / 2, max(90.0, y0 - 120)
             parts.append(f'<circle cx="{cx_:.1f}" cy="{cy_:.1f}" r="36" '
                          f'fill="{color}"/>')
-        elif tone in _ZY_TONE_TRACKS:        # 二三四聲：右側
+        elif tone in _ZY_TONE_TRACKS:
+            # 5cv：二三四聲標於「最後一個符號的右上角」（教育部/課本
+            # 慣例；原版在欄底右側，使用者實機驗收指正）
             tx_ = w - 230
-            ty_ = min(EM_SIZE - 220, y0 + total_h - 120)
+            ty_ = max(30.0, last_top + sym_h * 0.05)
             for track in _ZY_TONE_TRACKS[tone]:
                 pts = " ".join(f"{tx_ + px},{ty_ + py}" for px, py in track)
                 parts.append(f'<polyline points="{pts}" fill="none" '
