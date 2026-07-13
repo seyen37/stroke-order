@@ -1203,10 +1203,10 @@
              title="橋接/連筋的結構寬度。壓克力等脆性材料建議加寬防斷裂；木/金屬薄板可用細橋。破字時調大此值">橋寬 (mm)</label>
       <input id="sc-bridgew" type="number" value="2" min="0.5" max="10"
              step="0.5" style="width:80px;">
-      <label style="margin-left:16px;" title="每個孔洞的橋接方向數（噴漆字模用）">橋數</label>
+      <label style="margin-left:16px;" title="每個孔洞的橋接數上限（噴漆字模用）。5dg：截斷點自動選在筆畫轉折/交接處，直筆中段不截斷；圓孔等無轉角時退回十字方向">橋數</label>
       <select id="sc-bridgen">
-        <option value="4" selected>4（十字）</option>
-        <option value="2">2（上下）</option>
+        <option value="4" selected>4（轉角）</option>
+        <option value="2">2（轉角）</option>
       </select>
       <label style="margin-left:16px;"
              title="路徑向外擴張，補償雷射光斑損耗（Kerf）或噴漆擴散；破字時可稍加粗">加粗 (mm)</label>

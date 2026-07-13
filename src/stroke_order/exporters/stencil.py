@@ -22,6 +22,7 @@ speedprint 鏤空字教學）：
 """
 from __future__ import annotations
 
+import math
 from typing import Literal, Optional
 
 import numpy as np
@@ -154,46 +155,171 @@ def _label(mask: np.ndarray) -> tuple[np.ndarray, int]:
 # 橋接（兩個對偶演算法）
 # ---------------------------------------------------------------------------
 
-_DIRS_4 = ((-1, 0), (1, 0), (0, -1), (0, 1))     # 上下左右（十字）
-_DIRS_2 = ((-1, 0), (1, 0))                       # 上下
+_DIRS_4 = ((-1, 0), (1, 0), (0, -1), (0, 1))     # 上下左右（十字，fallback 用）
+_DIRS_2 = ((-1, 0), (1, 0))                       # 上下（fallback 用）
+
+#: 5dg 轉角偵測：RDP 簡化後方向變化 ≥ 45° 視為轉角
+#: （cos 45° ≈ 0.707；夾角判斷用內積）。
+_CORNER_COS = math.cos(math.radians(45.0))
+#: 5dg 放射逃逸的長度上限（px）——超過視為「該方向沒有出口」。
+_ESCAPE_CAP_PX = 120
+
+
+def _hole_corners(hole_mask: np.ndarray) -> list[tuple[float, float]]:
+    """孔洞邊界的轉角頂點（(x, y) px）。
+
+    5dg：孔洞輪廓 → RDP 簡化 → 方向變化 ≥45° 的頂點＝轉角。
+    孔洞邊界的轉角正是筆畫交接處（口的四角＝橫豎筆相交點）；
+    直筆中段是直線段、永遠不會成為候選。
+    """
+    loops = _trace_boundary_loops(hole_mask)
+    if not loops:
+        return []
+    loop = max(loops, key=len)
+    simp = _simplify_loop(loop, eps=2.0)
+    m = len(simp)
+    if m < 3:
+        return []
+    corners: list[tuple[float, float]] = []
+    for i in range(m):
+        x0, y0 = simp[i - 1]
+        x1, y1 = simp[i]
+        x2, y2 = simp[(i + 1) % m]
+        v1x, v1y = x1 - x0, y1 - y0
+        v2x, v2y = x2 - x1, y2 - y1
+        n1 = math.hypot(v1x, v1y)
+        n2 = math.hypot(v2x, v2y)
+        if n1 < 1e-9 or n2 < 1e-9:
+            continue
+        cosang = (v1x * v2x + v1y * v2y) / (n1 * n2)
+        if cosang <= _CORNER_COS:
+            corners.append((float(x1), float(y1)))
+    return corners
+
+
+def _radial_escape(mask: np.ndarray, outside: np.ndarray,
+                   start_xy: tuple[float, float],
+                   dir_xy: tuple[float, float]) -> Optional[
+                       list[tuple[int, int]]]:
+    """從孔洞邊界點沿放射方向走到板外；回傳沿途墨像素（(y, x)）。
+
+    走不到外部（出界/超過 _ESCAPE_CAP_PX）回傳 None。路徑長度
+    ＝該轉角處的筆畫厚度（越短＝越適合鑿橋）。
+    """
+    h, w = mask.shape
+    x, y = start_xy
+    dx, dy = dir_xy
+    path: list[tuple[int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for _ in range(_ESCAPE_CAP_PX * 4):
+        px, py = int(round(x)), int(round(y))
+        if not (0 <= px < w and 0 <= py < h):
+            return None
+        if outside[py, px]:
+            return path
+        if mask[py, px] and (py, px) not in seen:
+            seen.add((py, px))
+            path.append((py, px))
+            if len(path) > _ESCAPE_CAP_PX:
+                return None
+        x += dx * 0.5
+        y += dy * 0.5
+    return None
+
+
+def _carve_cross_bridges(mask: np.ndarray, outside: np.ndarray,
+                         cy: int, cx: int, half: int,
+                         bridge_count: int) -> None:
+    """5dc 原十字/上下鑿橋（保留為無轉角孔洞的 fallback）。"""
+    h, w = mask.shape
+    dirs = _DIRS_4 if bridge_count >= 4 else _DIRS_2
+    for dy, dx in dirs:
+        y, x = cy, cx
+        path: list[tuple[int, int]] = []
+        reached = False
+        while 0 <= y < h and 0 <= x < w:
+            if outside[y, x]:
+                reached = True
+                break
+            path.append((y, x))
+            y += dy
+            x += dx
+        if not reached:
+            continue
+        for py, px in path:               # 鑿出垂直於行進方向的白色帶
+            if dy != 0:
+                mask[py, max(0, px - half):min(w, px + half + 1)] = False
+            else:
+                mask[max(0, py - half):min(h, py + half + 1), px] = False
 
 
 def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
                           bridge_count: int = 4) -> int:
-    """噴漆模板：每個封閉孔洞沿十字方向鑿白橋接回外部。
+    """噴漆模板：每個封閉孔洞鑿白橋接回外部。In-place；回傳孔洞數。
 
-    In-place 修改 mask；回傳橋接的孔洞數。
+    5dg（使用者實測回饋＋speedprint/字模範例）：截斷點改在
+    **轉折/筆畫交接處**，直筆中段不截斷——
+    1. 偵測孔洞邊界轉角（_hole_corners）
+    2. 每個轉角沿「質心→轉角」放射方向逃逸到板外，路徑長＝該處
+       筆畫厚度
+    3. 選「逃逸最短＋角度分佈最開」的 bridge_count 個轉角鑿橋
+       （角度間隔門檻＝180°/bridge_count；不足 2 座時放寬遞補）
+    4. 無轉角孔洞（圓孔等）退回 5dc 十字射線（降級階梯）
     """
     outside = _outside(mask)
     holes_lab, n_holes = _label(~mask & ~outside)
     half = max(1, bridge_px // 2)
-    dirs = _DIRS_4 if bridge_count >= 4 else _DIRS_2
-    h, w = mask.shape
     for hid in range(1, n_holes + 1):
-        ys, xs = np.nonzero(holes_lab == hid)
-        cy, cx = int(round(ys.mean())), int(round(xs.mean()))
+        hole = holes_lab == hid
+        ys, xs = np.nonzero(hole)
+        fcy, fcx = float(ys.mean()), float(xs.mean())
+        cy, cx = int(round(fcy)), int(round(fcx))
         if holes_lab[cy, cx] != hid:      # 凹形孔：質心可能落在孔外
             k = int(np.argmin((ys - cy) ** 2 + (xs - cx) ** 2))
             cy, cx = int(ys[k]), int(xs[k])
-        for dy, dx in dirs:
-            y, x = cy, cx
-            path: list[tuple[int, int]] = []
-            reached = False
-            while 0 <= y < h and 0 <= x < w:
-                if outside[y, x]:
-                    reached = True
-                    break
-                path.append((y, x))
-                y += dy
-                x += dx
-            if not reached:
+        # --- 5dg 轉角候選 ---
+        cands: list[tuple[int, float, list[tuple[int, int]]]] = []
+        for corner_x, corner_y in _hole_corners(hole):
+            vx, vy = corner_x - fcx, corner_y - fcy
+            norm = math.hypot(vx, vy)
+            if norm < 1e-6:
                 continue
-            for py, px in path:           # 鑿出垂直於行進方向的白色帶
-                if dy != 0:
-                    mask[py, max(0, px - half):min(w, px + half + 1)] = False
-                else:
-                    mask[max(0, py - half):min(h, py + half + 1), px] = False
+            dir_xy = (vx / norm, vy / norm)
+            path = _radial_escape(mask, outside,
+                                  (corner_x, corner_y), dir_xy)
+            if path:
+                cands.append((len(path), math.atan2(vy, vx), path))
+        if len(cands) < 2:                # 無轉角/出不去 → 5dc fallback
+            _carve_cross_bridges(mask, outside, cy, cx, half, bridge_count)
+            continue
+        # --- 選橋：逃逸短優先＋角度分佈（間隔 ≥ 180°/count） ---
+        cands.sort(key=lambda c: c[0])
+        want = max(2, bridge_count)
+        min_sep = math.pi / want
+        chosen: list[tuple[int, float, list[tuple[int, int]]]] = []
+        for c in cands:
+            if len(chosen) >= want:
+                break
+            if all(_ang_diff(c[1], o[1]) >= min_sep for o in chosen):
+                chosen.append(c)
+        if len(chosen) < 2:               # 角度門檻太嚴 → 按長度遞補
+            for c in cands:
+                if c not in chosen:
+                    chosen.append(c)
+                if len(chosen) >= 2:
+                    break
+        h_, w_ = mask.shape
+        for _len, _ang, path in chosen:   # 方形筆頭沿路徑鑿白
+            for py, px in path:
+                mask[max(0, py - half):min(h_, py + half + 1),
+                     max(0, px - half):min(w_, px + half + 1)] = False
     return n_holes
+
+
+def _ang_diff(a: float, b: float) -> float:
+    """兩角最小差（rad，0~π）。"""
+    d = abs(a - b) % (2 * math.pi)
+    return min(d, 2 * math.pi - d)
 
 
 def _thick_line(mask: np.ndarray, a: tuple[int, int], b: tuple[int, int],
@@ -212,14 +338,22 @@ def _thick_line(mask: np.ndarray, a: tuple[int, int], b: tuple[int, int],
 
 
 def connect_cutout_components(mask: np.ndarray, bridge_px: int,
-                              max_iter: int = 64) -> int:
+                              max_iter: int = 64, ties: int = 2) -> int:
     """鏤空字：黑元件間以最近點對補黑橋（連筋），連成單一連通件。
 
     In-place；回傳補的橋數。含邊框時（邊框本身是一個元件）自動
     把每個字元件接上邊框——同一份程式碼吃兩種情境。
+
+    5dg（使用者實測回饋：單線不穩固）：``ties >= 2`` 時，第一輪
+    連通後對「只有一條連筋」的字元件補**對稱第二筋**——取第一筋
+    錨點對元件質心的點對稱位置，連到最近的外部材料（外框或鄰件）。
+    右下有一條、左上就補一條。邊框元件（貼畫布邊界者）不補。
     """
     half = max(1, bridge_px // 2)
     added = 0
+    # 5dg：記住「原生元件」名冊（連筋前）＋每件的連筋錨點。
+    labels0, n0 = _label(mask)
+    anchors: dict[int, list[tuple[int, int]]] = {}
     for _ in range(max_iter):
         labels, n = _label(mask)
         if n <= 1:
@@ -242,6 +376,57 @@ def connect_cutout_components(mask: np.ndarray, bridge_px: int,
                     best = (dist, tuple(pa[i]), tuple(pb[j]))
         assert best is not None
         _thick_line(mask, best[1], best[2], half)   # type: ignore[arg-type]
+        added += 1
+        for pt in (best[1], best[2]):     # 錨點記到「原生元件」帳上
+            pid = int(labels0[pt])
+            if pid > 0:
+                anchors.setdefault(pid, []).append(pt)  # type: ignore[arg-type]
+    if ties >= 2 and n0 >= 2:
+        added += _add_symmetric_ties(mask, labels0, n0, anchors, half)
+    return added
+
+
+def _add_symmetric_ties(mask: np.ndarray, labels0: np.ndarray, n0: int,
+                        anchors: dict[int, list[tuple[int, int]]],
+                        half: int) -> int:
+    """5dg 對稱第二筋：單筋字元件在錨點的點對稱側補一筋到最近外部材料。"""
+    added = 0
+    border = np.zeros_like(mask)
+    border[0, :] = border[-1, :] = True
+    border[:, 0] = border[:, -1] = True
+    # 外部材料取樣池（整張 mask，含框/既有連筋；查找時再排除自身元件）
+    all_pts = np.argwhere(mask)
+    step = max(1, len(all_pts) // 4000)
+    pool = all_pts[::step]
+    pool_ids = labels0[pool[:, 0], pool[:, 1]]
+    for pid in range(1, n0 + 1):
+        piece = labels0 == pid
+        if (piece & border).any():        # 邊框元件不補
+            continue
+        got = anchors.get(pid, [])
+        if len(got) >= 2:                 # 已有兩筋（如三的中橫）
+            continue
+        p_pts = np.argwhere(piece)
+        cy, cx = p_pts.mean(axis=0)
+        if got:
+            ay, ax = got[0]
+        else:                             # 錨點落在橋上等罕見情形：
+            ext0 = pool[pool_ids != pid]  # 以最近外部點當擬錨
+            if len(ext0) == 0:
+                continue
+            d2 = ((ext0 - [cy, cx]) ** 2).sum(axis=1)
+            ay, ax = ext0[int(d2.argmin())]
+        # 點對稱位置 → 元件上最接近該位置的像素
+        my, mx = 2 * cy - ay, 2 * cx - ax
+        d2p = ((p_pts - [my, mx]) ** 2).sum(axis=1)
+        sp = tuple(p_pts[int(d2p.argmin())])
+        # 最近外部材料（排除自身元件）
+        ext = pool[pool_ids != pid]
+        if len(ext) == 0:
+            continue
+        d2e = ((ext - np.asarray(sp)) ** 2).sum(axis=1)
+        tp = tuple(ext[int(d2e.argmin())])
+        _thick_line(mask, sp, tp, half)   # type: ignore[arg-type]
         added += 1
     return added
 
