@@ -318,7 +318,11 @@ export function buildHollibaugh(area, density = "medium") {
   const bandW = s * 0.42;
   const specs = [];
   let i = 0;
-  for (let x = area.x + s * 0.6; x < area.x + area.w - 3; x += s * 0.9) {
+  // 迴圈上限含最大外伸（jitter ±0.2s ＋ bandW）——帶右緣不越界
+  // （5df-1c：node 界內測試抓包，同 paradox 型蟲）
+  const maxExt = s * 0.2 + bandW + 2;
+  for (let x = area.x + s * 0.6;
+       x < area.x + area.w - maxExt; x += s * 0.9) {
     const off = (_hash01(i, 7) - 0.5) * s * 0.4;
     const x1 = x + off, x2 = x + off + bandW;
     specs.push({type: SPEC_LINE, x1, y1: area.y + 2,
