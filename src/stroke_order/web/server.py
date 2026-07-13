@@ -631,14 +631,27 @@ def build_mandala_char_loader(
 
 # 5cl：Render 實測 docs.opencv.org 對資料中心出站回 403（bot 防護；
 # 4.x 還會轉跳 4.13.0 再 403）。改以 npm 鏡像為主源——
-# @techstark/opencv-js 的 dist/opencv.js 是官方 docs.opencv.org/4.9.0
-# 原檔（其 README 明載），bits 相同、CDN 對 hotlink/資料中心友善。
+# @techstark/opencv-js 的 dist/opencv.js 是官方原檔（其 README
+# 明載），bits 相同、CDN 對 hotlink/資料中心友善。
 # docs.opencv.org 降末位備援並補瀏覽器 UA（其 403 疑似 UA 過濾）。
+#
+# 5da：家用機實測破案——4.9.0-release.3 的 WASM runtime init 在
+# 新版 Chrome（149 實測）永久懸掛：importScripts 數百 ms 完成、
+# cv Promise 永不 resolve；微型 WASM 模組同機秒過＝非 WASM 封鎖。
+# 4.11.0-release.1 同機同管道 759ms 完整就緒（cv.Mat ready）。
+# 回頭看，先前判定的「受管理電腦環境層懸掛」極可能一直就是這個
+# 版本不相容。pin 升 4.11，且把版本寫進快取檔名——升級自動失效
+# 舊快取（Render 燒入檔與本機 ~/.stroke-order/vendor 都適用）。
+_OPENCV_VERSION = "4.11.0-release.1"
+_OPENCV_CACHE_FNAME = "opencv-4.11.0.js"
+# 5da：docs.opencv.org 退出清單——實測只掛 4.9.0/4.13.0（4.11.0
+# 回 404），且它對資料中心 403（5cl）、4.9.0 又會懸掛；同源＋
+# 兩個 npm CDN 已足（§8.2：實測不存在的 URL 不入 pin 清單）。
 _OPENCV_SOURCES = (
-    "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0-release.3"
+    f"https://cdn.jsdelivr.net/npm/@techstark/opencv-js@{_OPENCV_VERSION}"
     "/dist/opencv.js",
-    "https://unpkg.com/@techstark/opencv-js@4.9.0-release.3/dist/opencv.js",
-    "https://docs.opencv.org/4.9.0/opencv.js",
+    f"https://unpkg.com/@techstark/opencv-js@{_OPENCV_VERSION}"
+    "/dist/opencv.js",
 )
 _OPENCV_FETCH_HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -666,7 +679,8 @@ def _vendor_cache_path(fname: str) -> Path:
 
 
 def _opencv_cache_path() -> Path:
-    return _vendor_cache_path("opencv.js")
+    # 5da：檔名帶版本——pin 升級自動失效舊快取
+    return _vendor_cache_path(_OPENCV_CACHE_FNAME)
 
 
 def _ensure_vendor_cached(fname: str, sources: tuple[str, ...],
@@ -708,7 +722,7 @@ def _ensure_vendor_cached(fname: str, sources: tuple[str, ...],
 
 def _ensure_opencv_cached(timeout: float = 90.0) -> Path:
     return _ensure_vendor_cached(
-        "opencv.js", _OPENCV_SOURCES, _OPENCV_MIN_BYTES, timeout)
+        _OPENCV_CACHE_FNAME, _OPENCV_SOURCES, _OPENCV_MIN_BYTES, timeout)
 
 
 def _ensure_opentype_cached(timeout: float = 90.0) -> Path:

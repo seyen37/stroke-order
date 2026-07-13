@@ -164,8 +164,9 @@ def test_5cj_vendor_proxy_and_same_origin_first(client, tmp_path,
     """
     vendor = tmp_path / "vendor"
     vendor.mkdir()
+    from stroke_order.web.server import _OPENCV_CACHE_FNAME
     fake = b"/* fake opencv.js */" + b"x" * 1_100_000
-    (vendor / "opencv.js").write_bytes(fake)
+    (vendor / _OPENCV_CACHE_FNAME).write_bytes(fake)     # 5da：檔名帶版本
     monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
     r = client.get("/vendor/opencv.js")
     assert r.status_code == 200
@@ -177,7 +178,7 @@ def test_5cj_vendor_proxy_and_same_origin_first(client, tmp_path,
     lines = [l.strip() for l in urls_block.splitlines() if '"' in l]
     # 5cm：同源位址絕對化（_ORIGIN 前綴），仍居首位
     assert '"/vendor/opencv.js"' in lines[0]            # 同源優先
-    assert any("docs.opencv.org" in l for l in lines)   # CDN 備援仍在
+    assert any("cdn.jsdelivr.net" in l for l in lines)  # CDN 備援仍在
 
 
 def test_5ck_vendor_endpoint_is_sync_def(client):
@@ -214,8 +215,9 @@ def test_5ck_vendor_status_observability(client, tmp_path, monkeypatch):
     body = r.json()
     assert body["opencv_cached"] is False and body["size"] == 0
 
+    from stroke_order.web.server import _OPENCV_CACHE_FNAME
     fake = b"/* fake */" + b"x" * 1_100_000
-    (vendor / "opencv.js").write_bytes(fake)
+    (vendor / _OPENCV_CACHE_FNAME).write_bytes(fake)     # 5da：檔名帶版本
     body = client.get("/vendor/status").json()
     assert body["opencv_cached"] is True and body["size"] == len(fake)
     assert "opentype_cached" in body            # 5cn：一併觀察 opentype
@@ -225,7 +227,7 @@ def test_5cl_fetch_sources_datacenter_friendly(client):
     """5cl：docs.opencv.org 對資料中心出站回 403（Render 實測）。
 
     伺服器抓取源以 jsDelivr 鏡像為主（@techstark/opencv-js 的
-    dist/opencv.js＝官方 4.9.0 原檔）、unpkg 次之、docs 降末位
+    dist/opencv.js＝官方原檔）、unpkg 次之、docs 降末位
     備援並補瀏覽器 UA；瀏覽器端備援清單第二位也加 jsDelivr
     （校網常放行 cdn.jsdelivr.net）。
     """
@@ -234,8 +236,11 @@ def test_5cl_fetch_sources_datacenter_friendly(client):
         _OPENCV_SOURCES,
     )
     assert "cdn.jsdelivr.net" in _OPENCV_SOURCES[0]
-    assert "4.9.0" in _OPENCV_SOURCES[0]                # 版本 pin 不漂移
-    assert "docs.opencv.org" in _OPENCV_SOURCES[-1]     # 官方降末位備援
+    # 5da：4.9.0 的 WASM init 在新 Chrome 懸掛（家用機實錘）→ 4.11
+    assert "4.11.0" in _OPENCV_SOURCES[0]               # 版本 pin 不漂移
+    # 5da：docs.opencv.org 退出清單（4.11.0 實測 404＋資料中心 403）
+    assert all("docs.opencv.org" not in u for u in _OPENCV_SOURCES)
+    assert len(_OPENCV_SOURCES) >= 2                    # 仍有備援
     assert "Mozilla/5.0" in _OPENCV_FETCH_HEADERS["User-Agent"]
 
     js = client.get("/static/doodle_engine.js").text
@@ -297,9 +302,10 @@ def test_5cq_fetch_vendor_build_script(tmp_path, monkeypatch):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
+    from stroke_order.web.server import _OPENCV_CACHE_FNAME
     vendor = tmp_path / "baked"
     vendor.mkdir()
-    (vendor / "opencv.js").write_bytes(b"x" * 1_100_000)
+    (vendor / _OPENCV_CACHE_FNAME).write_bytes(b"x" * 1_100_000)
     (vendor / "opentype.min.js").write_bytes(b"y" * 150_000)
     monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
     assert mod.main([]) == 0                 # 快取命中、graceful 回 0
@@ -312,10 +318,13 @@ def test_5cq_fetch_vendor_build_script(tmp_path, monkeypatch):
 
 def test_5ck_ensure_cached_hits_cache_without_network(tmp_path, monkeypatch):
     """5ck：快取命中時 _ensure_opencv_cached 不碰網路直接回。"""
-    from stroke_order.web.server import _ensure_opencv_cached
+    from stroke_order.web.server import (
+        _OPENCV_CACHE_FNAME,
+        _ensure_opencv_cached,
+    )
     vendor = tmp_path / "vendor"
     vendor.mkdir()
-    fake = vendor / "opencv.js"
+    fake = vendor / _OPENCV_CACHE_FNAME                  # 5da：檔名帶版本
     fake.write_bytes(b"y" * 1_200_000)
     monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
     # 若走到網路分支會 import requests 打真連線；快取命中應直接回
@@ -330,7 +339,8 @@ def test_index_has_style_select_and_cdn_fix(client):
     # 5ch：4.10.0 死連結修正 → 4.9.0 pin；5cl：4.x 移除（會轉跳
     # 漂移版本），備援改 jsDelivr 鏡像（見 test_5cl_*）
     assert "OPENCV_CDN_URLS" in js
-    assert "https://docs.opencv.org/4.9.0/opencv.js" in js
+    # 5da：4.9.0 WASM init 於新 Chrome 懸掛 → 4.11.0；docs.opencv.org
+    # 退出清單（4.11.0 實測 404；註解提及版號 OK，URL 不行）
+    assert "@techstark/opencv-js@4.11.0-release.1" in js
+    assert "https://docs.opencv.org/" not in js
     assert "https://docs.opencv.org/4.x/opencv.js" not in js
-    # 死連結不再被引用（註解提及版號 OK，URL 不行）
-    assert "https://docs.opencv.org/4.10.0/opencv.js" not in js

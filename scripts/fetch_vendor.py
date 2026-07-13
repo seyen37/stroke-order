@@ -38,6 +38,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # import 放在 dest 確立之後——_ensure_vendor_cached 讀環境變數
     from stroke_order.web.server import (
+        _OPENCV_CACHE_FNAME,
         _OPENCV_MIN_BYTES,
         _OPENCV_SOURCES,
         _OPENTYPE_MIN_BYTES,
@@ -45,8 +46,10 @@ def main(argv: list[str] | None = None) -> int:
         _ensure_vendor_cached,
     )
 
+    # 5da：opencv 快取檔名帶版本（單一事實源在 server.py）——
+    # pin 升級時 build 自動抓新檔，舊檔閒置無妨
     for fname, sources, min_bytes in (
-        ("opencv.js", _OPENCV_SOURCES, _OPENCV_MIN_BYTES),
+        (_OPENCV_CACHE_FNAME, _OPENCV_SOURCES, _OPENCV_MIN_BYTES),
         ("opentype.min.js", _OPENTYPE_SOURCES, _OPENTYPE_MIN_BYTES),
     ):
         try:

@@ -590,11 +590,18 @@ async function renderInBrowser(file, opts) {
 // 3/3 成功。node（無 location）維持相對字串。
 var _ORIGIN = (typeof location !== "undefined" && location.origin &&
                location.origin !== "null") ? location.origin : "";
+// 5da：4.9.0-release.3 的 WASM runtime init 在新版 Chrome（149
+// 家用機實測）永久懸掛——importScripts 數百 ms 完成、cv Promise
+// 永不 resolve；微型 WASM 同機秒過＝非 WASM 封鎖；4.11.0-release.1
+// 同機同管道 759ms 完整就緒。先前「受管理電腦環境層懸掛」的判定
+// 極可能一直就是這個版本不相容。pin 升 4.11（同源 /vendor 由
+// 伺服器端同步升級，快取檔名帶版本自動失效舊檔）。
+// docs.opencv.org 退出清單：實測只掛 4.9.0/4.13.0（4.11.0 回
+// 404）、校網又靜默丟包——同源＋jsDelivr 已足。
 var OPENCV_CDN_URLS = [
   _ORIGIN + "/vendor/opencv.js",
-  "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0-release.3" +
+  "https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.11.0-release.1" +
     "/dist/opencv.js",
-  "https://docs.opencv.org/4.9.0/opencv.js",
 ];
 var OPENCV_CDN_URL = OPENCV_CDN_URLS[0];   // 向後相容（測試引用）
 var _cvPromise = null;
@@ -907,7 +914,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=159";   // 5cu cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=160";   // 5da cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;

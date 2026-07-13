@@ -70,9 +70,10 @@ def test_5cb_opencv_engine_registered(client):
     assert "opencv:" in body
     assert "loadOpenCV" in body
     assert "renderInOpenCV" in body
-    # CDN 惰性載入且版本 pin 死（可重現性）；5ch：4.10.0 實測 404，
-    # 改 pin 4.9.0（詳細清單斷言見 test_doodle_contour.py）
-    assert "https://docs.opencv.org/4.9.0/opencv.js" in body
+    # CDN 惰性載入且版本 pin 死（可重現性）；5ch：4.10.0 實測 404
+    # → 4.9.0；5da：4.9.0 WASM init 於新 Chrome 懸掛 → 4.11.0、
+    # docs.opencv.org 退出清單（詳細斷言見 test_doodle_contour.py）
+    assert "@techstark/opencv-js@4.11.0-release.1" in body
 
 
 def test_5cb_opencv_pipeline_symbols(client):
