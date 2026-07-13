@@ -119,23 +119,32 @@ _ZY_TONE_TRACKS: dict[str, list[list[tuple[int, int]]]] = {
 _ZY_TONE_CHARS = "ˊˇˋ˙ˉ"
 
 
-def _zhuyin_strip(sym_str: str, zhuyin_chars: dict[str, Character],
-                  style: CellStyle) -> str:
-    """Render one 注音欄 strip (viewport ``ZHUYIN_STRIP_EM × EM_SIZE``).
+def _zhuyin_layout(
+    sym_str: str, zhuyin_chars: dict[str, Character],
+) -> tuple[list[tuple[str, Character, float, float, float]],
+           list[list[tuple[float, float]]],
+           Optional[tuple[float, float, float]]]:
+    """5cy：注音欄幾何收集器（SVG 與 G-code 共用——單一真相源，
+    調號位置等修正兩端自動同步）。座標系＝strip 視口
+    ``ZHUYIN_STRIP_EM × EM_SIZE``。
 
-    符號經 ``_cell_content`` 渲染——描紅/淡灰/紅軌跡樣式全數繼承，
-    「注音也能練筆順」。``blank`` 層只畫外框（學生自行填寫）。
+    Returns ``(placements, tone_tracks, tone_dot)``:
+
+    - ``placements``: ``[(符號字, Character, x, y, scale)]`` 符號放置
+      （符號字獨立攜帶——G-code 註解要標原符號，不能信賴
+      Character.char，測試 stand-in 曝露過此坑）
+    - ``tone_tracks``: 二三四聲 polyline 點列（已平移到最後一個
+      符號的右上角——5cv 課本慣例）
+    - ``tone_dot``: 輕聲 ``(cx, cy, r)`` 或 ``None``
     """
     w = ZHUYIN_STRIP_EM
-    parts = ['<g class="zhuyin">',
-             f'<rect x="0" y="0" width="{w}" height="{EM_SIZE}" '
-             f'fill="none" stroke="#cccccc" stroke-width="8"/>']
     tone = next((c for c in sym_str if c in _ZY_TONE_CHARS), "")
     syms = [c for c in sym_str if c in zhuyin_chars]
     y0 = float(EM_SIZE)
     sym_h = EM_SIZE / 2.0
     last_top = 120.0
-    if syms and style != "blank":
+    placements: list[tuple[str, Character, float, float, float]] = []
+    if syms:
         sym_h = EM_SIZE / max(len(syms), 2)
         s = min(float(w), sym_h) * 0.92
         y0 = (EM_SIZE - sym_h * len(syms)) / 2
@@ -144,28 +153,53 @@ def _zhuyin_strip(sym_str: str, zhuyin_chars: dict[str, Character],
         for i, c in enumerate(syms):
             x = (w - s) / 2
             y = y0 + i * sym_h + (sym_h - s) / 2
+            placements.append((c, zhuyin_chars[c], x, y, scale))
+    tone_tracks: list[list[tuple[float, float]]] = []
+    tone_dot: Optional[tuple[float, float, float]] = None
+    if tone == "˙":                          # 輕聲：點，標於注音上方
+        tone_dot = (w / 2, max(90.0, y0 - 120), 36.0)
+    elif tone in _ZY_TONE_TRACKS:
+        # 5cv：二三四聲標於「最後一個符號的右上角」（教育部/課本
+        # 慣例；原版在欄底右側，使用者實機驗收指正）
+        tx_ = w - 230
+        ty_ = max(30.0, last_top + sym_h * 0.05)
+        tone_tracks = [[(tx_ + px, ty_ + py) for px, py in track]
+                       for track in _ZY_TONE_TRACKS[tone]]
+    return placements, tone_tracks, tone_dot
+
+
+def _zhuyin_strip(sym_str: str, zhuyin_chars: dict[str, Character],
+                  style: CellStyle) -> str:
+    """Render one 注音欄 strip (viewport ``ZHUYIN_STRIP_EM × EM_SIZE``).
+
+    符號經 ``_cell_content`` 渲染——描紅/淡灰/紅軌跡樣式全數繼承，
+    「注音也能練筆順」。``blank`` 層只畫外框（學生自行填寫）。
+    幾何一律來自 ``_zhuyin_layout``（5cy 收集器）。
+    """
+    w = ZHUYIN_STRIP_EM
+    parts = ['<g class="zhuyin">',
+             f'<rect x="0" y="0" width="{w}" height="{EM_SIZE}" '
+             f'fill="none" stroke="#cccccc" stroke-width="8"/>']
+    if style != "blank":
+        placements, tone_tracks, tone_dot = _zhuyin_layout(
+            sym_str, zhuyin_chars)
+        for _sym, zc, x, y, scale in placements:
             parts.append(
                 f'<g transform="translate({x:.1f},{y:.1f}) '
                 f'scale({scale:.6f})">'
-                f'{_cell_content(zhuyin_chars[c], style)}</g>')
-    if tone and style != "blank":
+                f'{_cell_content(zc, style)}</g>')
         color = "#e0e0e0" if style == "ghost" else (
             "#c22" if style in ("trace", "filled") else "#222")
-        if tone == "˙":                      # 輕聲：點，標於注音上方
-            cx_, cy_ = w / 2, max(90.0, y0 - 120)
-            parts.append(f'<circle cx="{cx_:.1f}" cy="{cy_:.1f}" r="36" '
-                         f'fill="{color}"/>')
-        elif tone in _ZY_TONE_TRACKS:
-            # 5cv：二三四聲標於「最後一個符號的右上角」（教育部/課本
-            # 慣例；原版在欄底右側，使用者實機驗收指正）
-            tx_ = w - 230
-            ty_ = max(30.0, last_top + sym_h * 0.05)
-            for track in _ZY_TONE_TRACKS[tone]:
-                pts = " ".join(f"{tx_ + px},{ty_ + py}" for px, py in track)
-                parts.append(f'<polyline points="{pts}" fill="none" '
-                             f'stroke="{color}" stroke-width="28" '
-                             f'stroke-linecap="round" '
-                             f'stroke-linejoin="round"/>')
+        if tone_dot:
+            cx_, cy_, r_ = tone_dot
+            parts.append(f'<circle cx="{cx_:.1f}" cy="{cy_:.1f}" '
+                         f'r="{r_:.0f}" fill="{color}"/>')
+        for track in tone_tracks:
+            pts = " ".join(f"{px:g},{py}" for px, py in track)
+            parts.append(f'<polyline points="{pts}" fill="none" '
+                         f'stroke="{color}" stroke-width="28" '
+                         f'stroke-linecap="round" '
+                         f'stroke-linejoin="round"/>')
     parts.append("</g>")
     return "".join(parts)
 
@@ -387,6 +421,10 @@ def render_grid_gcode(
     flip_y: bool = True,
     origin_x_mm: float = 10.0,
     origin_y_mm: float = 10.0,
+    # 5cy：注音欄進 G-code——與 SVG 同源（zhuyin_map/zhuyin_chars
+    # 由 server 解析傳入；幾何走 _zhuyin_layout 收集器）
+    zhuyin_map: Optional[dict[str, str]] = None,
+    zhuyin_chars: Optional[dict[str, Character]] = None,
 ) -> str:
     """Emit G-code for the grid's primary tier only.
 
@@ -396,7 +434,11 @@ def render_grid_gcode(
     Cells are emitted in **tier order**: horizontal mode scans the primary
     row left-to-right; vertical mode scans the primary column top-to-bottom.
     This keeps pen motion visually predictable (B1 rule).
+
+    5cy：``zhuyin_map`` 存在時每格加寬為 pair（2:1，同 SVG 版面），
+    主字寫完接著寫該格注音符號與調號——「注音也能機器寫」。
     """
+    import math
     from io import StringIO
     from ..ir import EM_SIZE
 
@@ -410,6 +452,11 @@ def render_grid_gcode(
     else:
         primary_cells.sort(key=lambda c: c["col"])
 
+    zy_on = zhuyin_map is not None
+    zhuyin_chars = zhuyin_chars or {}
+    pair_em = EM_SIZE + (ZHUYIN_STRIP_EM if zy_on else 0)
+    # 5cy：X 間距隨 pair 加寬（zy 關閉時 pair_em=EM ＝原間距，零回歸）
+    x_pitch = cell_size_mm * pair_em / EM_SIZE + cell_gap_mm
     cell_pitch = cell_size_mm + cell_gap_mm
     scale = cell_size_mm / EM_SIZE
 
@@ -418,6 +465,8 @@ def render_grid_gcode(
     buf.write(f"; chars: {''.join(c.char for c in chars)}\n")
     buf.write(f"; cell_size={cell_size_mm}mm gap={cell_gap_mm}mm "
               f"direction={direction} feed={feed_rate}\n")
+    if zy_on:
+        buf.write("; zhuyin: pair layout 2:1 (字格＋右側注音欄)\n")
     buf.write("G21 ; mm\n")
     buf.write("G90 ; absolute\n")
     buf.write(f"{pen_up_cmd} ; pen up (start)\n")
@@ -429,35 +478,64 @@ def render_grid_gcode(
         ch = cell["char"]
         # Cell origin in the output coordinate system
         # horizontal: column increases → X increases; row increases → Y increases
-        cell_x = origin_x_mm + cell["col"] * cell_pitch
+        # 5cy：X 用 pair 間距（注音關閉時 x_pitch == cell_pitch）
+        cell_x = origin_x_mm + cell["col"] * x_pitch
         cell_y = origin_y_mm + cell["row"] * cell_pitch
 
         buf.write(f"\n; --- cell ({cell['row']},{cell['col']}): "
                   f"{ch.char} (U+{ch.unicode_hex.upper()}) ---\n")
+
+        def _emit_track(pts_em: list[tuple[float, float]]) -> None:
+            """一條筆畫（cell 內 EM 座標）→ 抬筆定位/落筆/走筆/抬筆。"""
+            def _mm(px: float, py: float) -> tuple[float, float]:
+                y_ir = (EM_SIZE - py) if flip_y else py
+                return cell_x + px * scale, cell_y + y_ir * scale
+
+            x, y = _mm(*pts_em[0])
+            buf.write(f"G0 X{x:.3f} Y{y:.3f} F{travel_rate}\n")
+            buf.write(f"{pen_down_cmd}\n")
+            if pen_dwell_sec > 0:
+                buf.write(f"G4 P{int(pen_dwell_sec * 1000)}\n")
+            for px, py in pts_em[1:]:
+                x, y = _mm(px, py)
+                buf.write(f"G1 X{x:.3f} Y{y:.3f} F{feed_rate}\n")
+            if pen_dwell_sec > 0:
+                buf.write(f"G4 P{int(pen_dwell_sec * 1000)}\n")
+            buf.write(f"{pen_up_cmd}\n")
 
         for s in ch.strokes:
             pts = s.track
             if not pts:
                 continue
             buf.write(f"; stroke {s.index + 1}: {s.kind_name}\n")
+            _emit_track([(p.x, p.y) for p in pts])
 
-            def _xform(p):
-                x_mm = cell_x + p.x * scale
-                y_ir = (EM_SIZE - p.y) if flip_y else p.y
-                y_mm = cell_y + y_ir * scale
-                return x_mm, y_mm
-
-            x, y = _xform(pts[0])
-            buf.write(f"G0 X{x:.3f} Y{y:.3f} F{travel_rate}\n")
-            buf.write(f"{pen_down_cmd}\n")
-            if pen_dwell_sec > 0:
-                buf.write(f"G4 P{int(pen_dwell_sec * 1000)}\n")
-            for p in pts[1:]:
-                x, y = _xform(p)
-                buf.write(f"G1 X{x:.3f} Y{y:.3f} F{feed_rate}\n")
-            if pen_dwell_sec > 0:
-                buf.write(f"G4 P{int(pen_dwell_sec * 1000)}\n")
-            buf.write(f"{pen_up_cmd}\n")
+        # 5cy：注音欄——主字寫完接著寫本格注音（strip 在字格右側，
+        # X 偏移 EM_SIZE；幾何與 SVG 同源 _zhuyin_layout）
+        if zy_on:
+            sym = zhuyin_map.get(ch.char, "")
+            placements, tone_tracks, tone_dot = _zhuyin_layout(
+                sym, zhuyin_chars)
+            for zsym, zc, zx, zy_, zscale in placements:
+                for s in zc.strokes:
+                    if not s.track:
+                        continue
+                    buf.write(f"; zhuyin {zsym} "
+                              f"stroke {s.index + 1}: {s.kind_name}\n")
+                    _emit_track([
+                        (EM_SIZE + zx + p.x * zscale, zy_ + p.y * zscale)
+                        for p in s.track])
+            for track in tone_tracks:
+                buf.write("; zhuyin tone\n")
+                _emit_track([(EM_SIZE + px, py) for px, py in track])
+            if tone_dot:
+                # 輕聲點＝八邊形微圓（r=36 EM ≈ 0.35mm @20mm 格）
+                cx_, cy_, r_ = tone_dot
+                buf.write("; zhuyin tone dot\n")
+                _emit_track([
+                    (EM_SIZE + cx_ + r_ * math.cos(i * math.pi / 4),
+                     cy_ + r_ * math.sin(i * math.pi / 4))
+                    for i in range(9)])
 
     buf.write("\n; --- epilogue ---\n")
     buf.write(f"{pen_up_cmd} ; ensure pen up\n")

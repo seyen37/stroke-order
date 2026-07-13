@@ -3415,11 +3415,12 @@ async function renderGrid() {
     }
     statusEl.textContent = `OK · SVG ${(svg.length / 1024).toFixed(1)} KB`;
     if (document.getElementById("grid-zhuyin").checked) {
-      // 5cu v1：注音欄只進 SVG——伺服器 G-code/JSON 版面不含注音欄
       // 5cw：標明讀音體系（查表命中＝教育部；表未載入＝拼音近似）
+      // 5cy：伺服器 G-code 含注音（自訂字型模式的前端 G-code 除外）；
+      //      JSON 仍為主字版面
       const zySrc = zyTwDict ? "教育部審定體系" : "拼音近似（讀音表未載入）";
       statusEl.textContent +=
-        `（含注音欄描紅・${zySrc}；G-code/JSON 為主字版面、不含注音）`;
+        `（含注音欄描紅・${zySrc}；G-code 含注音、JSON 為主字版面）`;
     }
     // Wire up the 3 download links
     const dlSvg = document.getElementById("grid-download-svg");

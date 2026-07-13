@@ -2539,6 +2539,29 @@ def create_app() -> FastAPI:
         basename = "".join(c.char for c in loaded) + "_字帖"
         headers: dict[str, str] = {}
 
+        # 5cu：注音欄——解析映射並載入符號 Character（37 符有筆順
+        # 資料，經標準 _load 走 char_loader；載不到的符號靜默跳過）。
+        # 5cy：提到分支之前——SVG 與 G-code 共用（注音也能機器寫）
+        zmap: Optional[dict[str, str]] = None
+        zchars: dict = {}
+        if zhuyin_map is not None:
+            zmap = {}
+            for pair in zhuyin_map.split(","):
+                if ":" not in pair:
+                    continue
+                k, v = pair.split(":", 1)
+                if k:
+                    zmap[k] = v
+            for val in zmap.values():
+                for sym in val:
+                    if sym in zchars or sym in "ˊˇˋ˙ˉ":
+                        continue
+                    try:
+                        zc, _r2, _2 = _load(sym, source, hook_policy)
+                        zchars[sym] = zc
+                    except HTTPException:
+                        continue
+
         if format == "gcode":
             body = render_grid_gcode(
                 loaded, cols=cols,
@@ -2546,6 +2569,8 @@ def create_app() -> FastAPI:
                 direction=direction,   # type: ignore
                 cell_size_mm=gc_cell_size_mm, cell_gap_mm=gc_cell_gap_mm,
                 feed_rate=gc_feed,
+                zhuyin_map=zmap,
+                zhuyin_chars=zchars,
             )
             if download:
                 headers["Content-Disposition"] = _content_disposition(
@@ -2572,27 +2597,6 @@ def create_app() -> FastAPI:
                             headers=headers)
 
         # format == "svg" (default)
-        # 5cu：注音欄——解析映射並載入符號 Character（37 符有筆順
-        # 資料，經標準 _load 走 char_loader；載不到的符號靜默跳過）
-        zmap: Optional[dict[str, str]] = None
-        zchars: dict = {}
-        if zhuyin_map is not None:
-            zmap = {}
-            for pair in zhuyin_map.split(","):
-                if ":" not in pair:
-                    continue
-                k, v = pair.split(":", 1)
-                if k:
-                    zmap[k] = v
-            for val in zmap.values():
-                for sym in val:
-                    if sym in zchars or sym in "ˊˇˋ˙ˉ":
-                        continue
-                    try:
-                        zc, _r2, _2 = _load(sym, source, hook_policy)
-                        zchars[sym] = zc
-                    except HTTPException:
-                        continue
         svg = render_grid_svg(
             loaded, cols=cols, guide=guide,
             cell_style=cell_style, cell_size_px=cell_size,

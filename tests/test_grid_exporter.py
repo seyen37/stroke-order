@@ -213,6 +213,53 @@ def test_grid_gcode_cell_positioning_vertical(source):
     assert "--- cell (1,0): 永" in gcode
 
 
+def test_5cy_gcode_zhuyin_strip(source):
+    """5cy：G-code 含注音——符號筆畫與調號進筆、註解標記可辨識。"""
+    from stroke_order.exporters.grid import render_grid_gcode
+    import re
+    chars = _prep(source, "永")
+    stand_in = _prep(source, "一")[0]
+    gc = render_grid_gcode(
+        chars, cols=1, cell_size_mm=20.0, origin_x_mm=10.0,
+        zhuyin_map={"永": "ㄩㄥˇ"},
+        zhuyin_chars={"ㄩ": stand_in, "ㄥ": stand_in},
+    )
+    assert "; zhuyin ㄩ" in gc and "; zhuyin ㄥ" in gc
+    assert "; zhuyin tone" in gc
+    # 注音筆畫落在欄內：strip X ∈ [30, 40]mm（origin 10＋字格 20＋欄 10）
+    xs = [float(m) for m in re.findall(r"G[01] X([0-9.]+)", gc)]
+    assert max(xs) <= 40.0 + 1e-6
+    assert any(x > 30.0 for x in xs)     # 確實有筆畫進注音欄
+
+
+def test_5cy_gcode_zhuyin_pair_pitch(source):
+    """5cy：注音開啟時 X 間距＝1.5×cell（pair 2:1，同 SVG 版面）。"""
+    from stroke_order.exporters.grid import render_grid_gcode
+    import re
+    chars = _prep(source, "日永")
+    gc = render_grid_gcode(chars, cols=1, cell_size_mm=20.0,
+                           origin_x_mm=10.0, zhuyin_map={},
+                           zhuyin_chars={})
+    # 第二格（col=1）主字筆畫 X 應從 10＋30=40mm 起跳（非 30）；
+    # 切掉 epilogue（回家 G0 X10 不屬於本格）
+    cell2 = gc.split("; --- cell (0,1)")[1].split("; --- epilogue")[0]
+    xs = [float(m) for m in re.findall(r"G[01] X([0-9.]+)", cell2)]
+    assert xs and min(xs) >= 40.0 - 1e-6
+
+
+def test_5cy_gcode_without_zhuyin_unchanged(source):
+    """5cy：注音關閉＝完全零回歸（無 zhuyin 註解、原間距）。"""
+    from stroke_order.exporters.grid import render_grid_gcode
+    import re
+    chars = _prep(source, "日永")
+    gc = render_grid_gcode(chars, cols=1, cell_size_mm=20.0,
+                           origin_x_mm=10.0)
+    assert "zhuyin" not in gc
+    cell2 = gc.split("; --- cell (0,1)")[1].split("; --- epilogue")[0]
+    xs = [float(m) for m in re.findall(r"G[01] X([0-9.]+)", cell2)]
+    assert xs and min(xs) < 40.0        # 原 20mm 間距（30mm 起跳）
+
+
 def test_grid_gcode_ghost_blank_skipped(source):
     """Ghost and blank tiers must NOT appear as cell sections."""
     from stroke_order.exporters.grid import render_grid_gcode
@@ -294,6 +341,14 @@ def test_api_grid_format_gcode(client):
     r = client.get("/api/grid?chars=日永&cols=2&format=gcode")
     assert r.status_code == 200
     assert r.text.startswith("; ---") or "G21" in r.text
+
+
+def test_5cy_api_gcode_zhuyin(client):
+    """5cy：/api/grid gcode 分支吃 zhuyin_map（符號經 _load 載入）。"""
+    r = client.get("/api/grid?chars=永&cols=1&format=gcode&zhuyin_map=永:ㄩㄥˇ")
+    assert r.status_code == 200
+    assert "; zhuyin" in r.text
+    assert "; zhuyin tone" in r.text
 
 
 def test_api_grid_format_json(client):
