@@ -1191,6 +1191,66 @@ IVS 注音字型（開源免商用）餵進自訂字型＋注音欄同紙＝
 
 ---
 
+## 11. 資料源選型與根因再挑戰原則（2026-07-13 5cv→5da 新增）
+
+> 注音 v2 全線收官＋OpenCV「環境層」懸案破案的單日沉澱。
+> 詳細脈絡見 `decisions/2026-07-13_5cv_5da_zhuyin_v2_opencv_case.md`。
+
+### 11.1 治本方案的成本假設要用「資料源品質」重新估
+
+推薦 80/20 補丁（衝突字覆寫表）的前提是「換資料源成本高」；
+但 McBopomofo 一個高品質開源資料源同時解掉台灣音＋破音字預設
+＋v2 UI 資料三個問題，總成本反而低於補丁（5cw）。凡漸進 vs
+治本的取捨，先花十分鐘調查治本路上有沒有現成的開源資產——
+成本假設過期，推薦就過期。
+
+### 11.2 舊結論要用「新變因 A/B」定期再挑戰
+
+「受管理電腦環境層懸掛」是當時證據下的合理結論，但它有個
+未驗的隱含假設：對照組（blob worker「成功」）驗的層級與受測組
+相同。5da 用版本 A/B（4.9 vs 4.11 同機同管道）一發擊穿——
+真根因是 build 與新版瀏覽器不相容。**結論越「玄」（環境層、
+平台特性、不可修），越要保留一個廉價的再挑戰路徑**：換版本、
+換機器、換瀏覽器，任何一軸的 A/B 都比接受玄結論便宜。
+
+### 11.3 對照實驗要驗到「與受測組相同的完成層級」
+
+blob worker 當年的「4/4 成功」只驗了 importScripts 返回；真正
+的卡點在下一層（WASM runtime init / cv ready）。對照組與受測
+組的「成功判準」必須落在同一層級，否則對照只證明了無關緊要
+的上游層。同理，5da 實驗鏈每一步都先排除一個變因（校網→
+背景節流→腳本執行→WASM 本身）再前進，卡點才會精準。
+
+### 11.4 版本進快取檔名——pin 升級自動失效
+
+無版本檔名（opencv.js）讓 pin 升級後舊快取永遠命中：Render
+build 燒入檔、本機 ~/.stroke-order/vendor、瀏覽器 HTTP 快取
+三層全中。檔名即版本（opencv-4.11.0.js）＝升級零遷移邏輯、
+舊檔閒置無害。所有「pin 版本的落地快取」都適用。
+
+### 11.5 一參數總開關優先於教引擎新概念
+
+page 型注音欄不教 flow 引擎認識 pair cell，而是把 pair 映射成
+既有的 `char_width_mm`（×1.5）——換行/分頁/容量全自動正確、
+版面引擎零改動（5cz）。改動抽象層之前先找「現有參數的哪個
+賦值等價於我要的新概念」；找得到就是零風險路徑。
+
+### 11.6 收集器輸出要自帶語意標籤
+
+`_zhuyin_layout` 的 placements 起初只帶 Character 物件，G-code
+註解從物件反推符號名——測試 stand-in 立刻曝露兩者可以不同。
+幾何收集器（或任何中間表示）的輸出欄位要把「來源語意」
+（原符號字）顯式帶上，不倚賴消費端反推。
+
+### 11.7 對外驗收實驗先固定「分頁可見性」變因
+
+Chrome 對背景分頁有節流/暫停策略，長時間運算（WASM 編譯）的
+實驗在 hidden 分頁跑會得到假懸掛。實機實驗第一步：
+`document.visibilityState` 檢查＋請使用者把測試分頁切前景；
+必要時改標題（🔴 標記）讓使用者認得該切哪個分頁。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1200,12 +1260,15 @@ IVS 注音字型（開源免商用）餵進自訂字型＋注音欄同紙＝
     全日兩弧十七輪＋救援全記錄，含雙收官總結）
   - [`WORK_LOG_2026-07-12.md`](WORK_LOG_2026-07-12.md)（5cr→5cu
     自訂字型全能力線＋注音欄＋REF IVS 增補）
+  - [`WORK_LOG_2026-07-13.md`](WORK_LOG_2026-07-13.md)（5cv→5da
+    注音 v2 全收官＋OpenCV 4.11 破案）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
   - [`2026-07-11_5bo_educational_category.md`](decisions/2026-07-11_5bo_educational_category.md)（科普教育分類）
   - [`2026-07-11_5ck_5cq_opencv_delivery_userfont.md`](decisions/2026-07-11_5ck_5cq_opencv_delivery_userfont.md)（OpenCV 交付鏈五層根因＋自訂字型，對應 §9）
   - [`2026-07-12_5cr_5cu_userfont_zhuyin.md`](decisions/2026-07-12_5cr_5cu_userfont_zhuyin.md)（自訂字型全能力線＋注音欄，對應 §10）
+  - [`2026-07-13_5cv_5da_zhuyin_v2_opencv_case.md`](decisions/2026-07-13_5cv_5da_zhuyin_v2_opencv_case.md)（注音 v2 全線＋OpenCV 懸案破案，對應 §11）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1216,4 +1279,4 @@ IVS 注音字型（開源免商用）餵進自訂字型＋注音欄同紙＝
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§11 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰）。三者互補。
