@@ -261,9 +261,11 @@ export function buildParadox(area, density = "medium") {
   if (!area || area.w <= 0 || area.h <= 0) return [];
   const s = _spacingFor(density) * 1.4;
   const specs = [];
-  for (let cy = area.y + s; cy < area.y + area.h - 4; cy += s) {
-    for (let cx = area.x + s; cx < area.x + area.w - 4; cx += s) {
-      const R = s * 0.46;
+  const R = s * 0.46;
+  // 迴圈邊界含外接半徑 R——三角頂點不越格（node 界內測試抓包：
+  // 舊邊界 -4 會讓最後一格頂點超出 area 約 3px）
+  for (let cy = area.y + R + 2; cy <= area.y + area.h - R - 2; cy += s) {
+    for (let cx = area.x + R + 2; cx <= area.x + area.w - R - 2; cx += s) {
       let v = [0, 1, 2].map(k => {
         const a = -Math.PI / 2 + (k * 2 * Math.PI) / 3;
         return [cx + R * Math.cos(a), cy + R * Math.sin(a)];

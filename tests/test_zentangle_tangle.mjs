@@ -168,9 +168,9 @@ test("buildFlorz: density scales count", () => {
 
 // ---------- registry ----------
 
-test("listTangles: returns 2 tangles for 6z-3 MVP", () => {
+test("listTangles: matches registry (6z-3 MVP=2 → 5df-1=8)", () => {
   const list = listTangles();
-  assert.equal(list.length, 2);
+  assert.equal(list.length, Object.keys(TANGLES).length);
   const keys = list.map((t) => t.key);
   assert.ok(keys.includes("crescent_moon"));
   assert.ok(keys.includes("florz"));
