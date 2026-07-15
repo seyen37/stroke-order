@@ -230,6 +230,8 @@ export function assignRandomTangles(regions, tangleKeys, opts = {}) {
     orientation: ORIENTATIONS[
       Math.floor(rand() * ORIENTATIONS.length) % ORIENTATIONS.length
     ],
+    // 5dj-1: 延伸技法集合（預設全關；per-region 獨立）。
+    enhancers: {aura: false, weighting: false, rounding: false},
   }));
 }
 
@@ -480,6 +482,8 @@ export function splitRegionByPolyline(region, fence, opts = {}) {
     poly: p,
     tangle: region.tangle,
     orientation: region.orientation,
+    // 5dj-1: 兩半繼承延伸技法（複製一份、互不影響）。
+    enhancers: {...(region.enhancers || {})},
   });
   return {ok: true, parts: [mk(idA, partA), mk(idB, partB)]};
 }

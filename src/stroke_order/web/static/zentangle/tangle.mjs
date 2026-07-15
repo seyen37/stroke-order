@@ -353,6 +353,113 @@ export function buildHollibaugh(area, density = "medium") {
 }
 
 // ---------------------------------------------------------------------------
+// 5dj-1 — iCSO 五大基本符號（點 i／直線 |／弧 C／S 線 S／圓 O）。
+//
+// 禪繞畫核心：任何圖樣都拆解成這五個最簡筆劃。它們與 8 個經典圖樣走
+// 完全相同的 spec 協定＋orientSpecs 朝向，差別只在 registry 的
+// category 標記（basic vs classic）——工具列據此分排。
+//
+// 每個基本符號＝該筆劃鋪成網格；unit 版＝單一筆劃置中（user-place）。
+// 邊界一律含「筆劃最大外伸」（5df-1c 鐵則：先過界內測試再入 registry）。
+// ---------------------------------------------------------------------------
+
+/** 點 (Dot / i)：小圓點網格。定位、填縫的最小元素。 */
+export function buildDotField(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density) * 0.55;
+  const r = Math.max(1.2, s * 0.16);
+  const specs = [];
+  for (let cy = area.y + s; cy <= area.y + area.h - r - 1; cy += s) {
+    for (let cx = area.x + s; cx <= area.x + area.w - r - 1; cx += s) {
+      specs.push({type: SPEC_DOT, cx, cy, r});
+    }
+  }
+  return specs;
+}
+
+/** 直線 (Line / |)：等距平行豎線（朝向旋轉後成橫線等）。 */
+export function buildLineField(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density) * 0.7;
+  const specs = [];
+  for (let cx = area.x + s; cx <= area.x + area.w - 2; cx += s) {
+    specs.push({type: SPEC_LINE, x1: cx, y1: area.y + 2,
+                x2: cx, y2: area.y + area.h - 2});
+  }
+  return specs;
+}
+
+/** 弧線 (Curve / C)：開口朝右的 C 弧網格（花瓣/波浪的基礎）。 */
+export function buildCurveC(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density);
+  const r = s * 0.34;
+  const specs = [];
+  const ext = r + 2;
+  for (let cy = area.y + s; cy <= area.y + area.h - ext; cy += s) {
+    for (let cx = area.x + s; cx <= area.x + area.w - ext; cx += s) {
+      // 開口朝右的 C：右半圓缺口＝從 90°(下) 逆掃到 270°(上) 走左側。
+      specs.push({type: SPEC_ORB, cx, cy, r,
+                  startAngle: Math.PI * 0.5, endAngle: Math.PI * 1.5,
+                  fill: false});
+    }
+  }
+  return specs;
+}
+
+/** S 型線 (S-shape / S)：雙向曲線網格（Mooka 的流動基礎）。 */
+export function buildSField(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density);
+  const half = s * 0.36;
+  const specs = [];
+  const ext = half + 2;
+  for (let cy = area.y + s; cy <= area.y + area.h - ext; cy += s) {
+    for (let cx = area.x + s; cx <= area.x + area.w - ext; cx += s) {
+      specs.push({type: SPEC_S_SHAPE, x1: cx, y1: cy - half,
+                  x2: cx, y2: cy + half});
+    }
+  }
+  return specs;
+}
+
+/** 圓圈 (Orb / O)：封閉圓圈網格（帶手感的不完美圓）。 */
+export function buildOrbField(area, density = "medium") {
+  if (!area || area.w <= 0 || area.h <= 0) return [];
+  const s = _spacingFor(density);
+  const r = s * 0.32;
+  const specs = [];
+  const ext = r + 2;
+  for (let cy = area.y + s; cy <= area.y + area.h - ext; cy += s) {
+    for (let cx = area.x + s; cx <= area.x + area.w - ext; cx += s) {
+      specs.push({type: SPEC_ORB, cx, cy, r, fill: false});
+    }
+  }
+  return specs;
+}
+
+// 5dj-1 unit 版（user-place：單一筆劃置中於 (cx, cy)，scale≈spacing）。
+export function buildDotUnit(cx, cy, scale = 45) {
+  return [{type: SPEC_DOT, cx, cy, r: Math.max(1.6, scale * 0.09)}];
+}
+export function buildLineUnit(cx, cy, scale = 45) {
+  const h = scale * 0.42;
+  return [{type: SPEC_LINE, x1: cx, y1: cy - h, x2: cx, y2: cy + h}];
+}
+export function buildCurveCUnit(cx, cy, scale = 45) {
+  const r = scale * 0.34;
+  return [{type: SPEC_ORB, cx, cy, r,
+           startAngle: Math.PI * 0.5, endAngle: Math.PI * 1.5, fill: false}];
+}
+export function buildSUnit(cx, cy, scale = 45) {
+  const h = scale * 0.4;
+  return [{type: SPEC_S_SHAPE, x1: cx, y1: cy - h, x2: cx, y2: cy + h}];
+}
+export function buildOrbUnit(cx, cy, scale = 45) {
+  return [{type: SPEC_ORB, cx, cy, r: scale * 0.34, fill: false}];
+}
+
+// ---------------------------------------------------------------------------
 // 5df-1 — 朝向（曲度朝向）：單一純函式，所有圖樣自動獲得四向。
 // 朝向與紙磚旋轉解耦——區段記自己的 orientation，渲染時呼叫端把
 // 紙磚旋轉角疊加傳入即可（5df-3 的上下左右鈕直接改這個值）。
@@ -411,28 +518,54 @@ export function buildTangleOriented(key, area, density = "medium",
 // Registry
 // ---------------------------------------------------------------------------
 
+// 5dj-1：category 分類——工具列據此分三排。
+//   "basic"   : iCSO 五大基本符號（最上層、預設展開）
+//   "classic" : 8 個經典組合圖樣（可收合；本質＝基本符號的重複/翻轉組合）
+export const TANGLE_CATEGORIES = ["basic", "classic"];
+
 export const TANGLES = {
+  // --- iCSO 五大基本符號（5dj-1）---
+  dot:     {label: "Dot (點)",   category: "basic",
+            build: buildDotField,  buildUnit: buildDotUnit},
+  line:    {label: "Line (直線)", category: "basic",
+            build: buildLineField, buildUnit: buildLineUnit},
+  curve_c: {label: "Curve (弧 C)", category: "basic",
+            build: buildCurveC,    buildUnit: buildCurveCUnit},
+  s_curve: {label: "S-shape (S 線)", category: "basic",
+            build: buildSField,    buildUnit: buildSUnit},
+  orb:     {label: "Orb (圓)",   category: "basic",
+            build: buildOrbField,  buildUnit: buildOrbUnit},
+  // --- 8 經典組合圖樣 ---
   crescent_moon: {
-    label: "Crescent Moon",
+    label: "Crescent Moon", category: "classic",
     build: buildCrescentMoon,
     buildUnit: buildCrescentMoonUnit,
   },
   florz: {
-    label: "Florz",
+    label: "Florz", category: "classic",
     build: buildFlorz,
     buildUnit: buildFlorzUnit,
   },
-  // 5df-1 新六圖樣（unit 版於 5df-3 互動輪視需要補）
-  tipple:      {label: "Tipple",      build: buildTipple},
-  bales:       {label: "Bales",       build: buildBales},
-  printemps:   {label: "Printemps",   build: buildPrintemps},
-  paradox:     {label: "Paradox",     build: buildParadox},
-  flux:        {label: "Flux",        build: buildFlux},
-  hollibaugh:  {label: "Hollibaugh",  build: buildHollibaugh},
+  tipple:      {label: "Tipple",      category: "classic", build: buildTipple},
+  bales:       {label: "Bales",       category: "classic", build: buildBales},
+  printemps:   {label: "Printemps",   category: "classic", build: buildPrintemps},
+  paradox:     {label: "Paradox",     category: "classic", build: buildParadox},
+  flux:        {label: "Flux",        category: "classic", build: buildFlux},
+  hollibaugh:  {label: "Hollibaugh",  category: "classic", build: buildHollibaugh},
 };
 
-export function listTangles() {
-  return Object.entries(TANGLES).map(([key, t]) => ({key, label: t.label}));
+/**
+ * 列出圖樣。5dj-1：帶 category。opts.category 過濾單一類別；
+ * 未給＝全部（保持與 5df 之前呼叫端相容：回傳仍含 {key,label}）。
+ */
+export function listTangles(opts = {}) {
+  let entries = Object.entries(TANGLES);
+  if (opts.category) {
+    entries = entries.filter(([, t]) => t.category === opts.category);
+  }
+  return entries.map(([key, t]) => ({
+    key, label: t.label, category: t.category || "classic",
+  }));
 }
 
 export function buildTangle(key, area, density = "medium") {
@@ -455,8 +588,11 @@ export function buildTangle(key, area, density = "medium") {
  */
 export function renderTangleSpecs(ctx, specs) {
   if (!ctx || !Array.isArray(specs) || specs.length === 0) return;
+  const baseLW = ctx.lineWidth;   // 5dj-1: 記住基準線寬，per-spec lw 用完還原
   for (const s of specs) {
     if (!s || typeof s.type !== "string") continue;
+    // 5dj-1（Weighting 延伸）：spec 可帶選配 `lw` 覆寫線寬（加厚/壓重）。
+    ctx.lineWidth = (typeof s.lw === "number" && s.lw > 0) ? s.lw : baseLW;
     ctx.beginPath();
     switch (s.type) {
       case SPEC_LINE:
@@ -512,4 +648,5 @@ export function renderTangleSpecs(ctx, specs) {
         break;
     }
   }
+  ctx.lineWidth = baseLW;   // 5dj-1: 還原、不污染呼叫端後續繪製
 }

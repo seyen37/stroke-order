@@ -44,6 +44,13 @@ import {
   isValidCurveMode,
   VALID_CURVE_MODES,
 } from "./pseudo3d.mjs";
+import {
+  ENHANCERS,
+  ENHANCER_LABELS,
+  applyEnhancers,
+  hasAnyEnhancer,
+  normalizeEnhancers,
+} from "./enhancers.mjs";
 
 // 6z-2.1 NOTE: `rotateContours` is intentionally NOT imported here.
 // Tile rotation is now applied via canvas ctx transform (so frame + outline
@@ -475,10 +482,14 @@ function clearRegions() {
     return;
   }
   if (_splitMode) setSplitMode(false);
-  for (const region of _regions) region.tangle = null;
+  for (const region of _regions) {
+    region.tangle = null;
+    region.enhancers = {aura: false, weighting: false, rounding: false};
+  }
   _selectedRegionId = null;
   _splitState = null;
   redrawAll();
+  refreshEnhancerToggles();
   // bg 暫存跨字形重載保留（5dh）——「載入字框」只會重抽 hollow。
   setStatus(`${mode === "hollow" ? "空心填充" : "背景鑲嵌"}區段已全部留白` +
             "——點縮圖重新上圖樣" +
@@ -545,11 +556,17 @@ function drawRegionLayer(mappedContours) {
       if (bgHolePath) _ctx.clip(bgHolePath, "evenodd");
     }
     // 5dh: 連續 spacing——元素大小跟著區塊自動調整（筆畫窄元素小）。
-    const specs = buildTangleOriented(
+    let specs = buildTangleOriented(
       region.tangle, region.band,
       pickSpacing(region.band, region.kind),
       region.orientation
     );
+    // 5dj-1: 延伸技法管線（build → orient → enhance）。每區段獨立記
+    // 自己勾了哪些 enhancer；有開才套（短路避免無謂複製）。
+    if (hasAnyEnhancer(region.enhancers)) {
+      specs = applyEnhancers(specs, region.enhancers,
+                             {baseLineWidth: TANGLE_LINE_WIDTH});
+    }
     renderTangleSpecs(_ctx, specs);
     _ctx.restore();
   }
@@ -844,19 +861,24 @@ function selectRegionAtClick(e, canvas) {
     if (_selectedRegionId !== null) {
       _selectedRegionId = null;
       redrawAll();
+      refreshEnhancerToggles();
       setStatus("已取消選取");
     }
     return;
   }
   _selectedRegionId = region.id;
   redrawAll();
+  refreshEnhancerToggles();
   const tangleLabel = region.tangle
     ? (TANGLES[region.tangle]?.label || region.tangle)
     : "留白";
+  const ens = ENHANCERS.filter((k) => region.enhancers && region.enhancers[k])
+    .map((k) => ENHANCER_LABELS[k]);
   setStatus(
     `已選區段 ${region.id}（${region.kind === "glyph" ? "字內" : "背景"}）` +
     `· ${tangleLabel} · 朝向 ${region.orientation}` +
-    "——圖樣鈕換圖樣、⬆⬇⬅➡ 轉朝向、點空白取消"
+    (ens.length ? ` · 延伸：${ens.join("、")}` : "") +
+    "——縮圖換圖樣、勾延伸技法、⬆⬇⬅➡ 轉朝向、點空白取消"
   );
 }
 
@@ -908,50 +930,144 @@ function setRegionOrientation(dir) {
   return true;
 }
 
+/** 單一縮圖鈕：36px canvas 跑該圖樣 builder；點擊＝setRegionTangle。 */
+function makeThumbButton(key, title) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "zt-region-btn";
+  btn.title = title;                       // hover 顯示英文名
+  btn.style.cssText =
+    "padding:2px;border:1px solid var(--border);border-radius:3px;" +
+    "background:#fff;cursor:pointer;line-height:0;";
+  btn.addEventListener("click", () => setRegionTangle(key));
+  const cv = document.createElement("canvas");
+  cv.width = 36;
+  cv.height = 36;
+  const c2 = cv.getContext("2d");
+  if (c2) {
+    c2.strokeStyle = TANGLE_STROKE;
+    c2.fillStyle = TANGLE_FILL;
+    c2.lineWidth = 1;
+    c2.lineJoin = "round";
+    c2.lineCap = "round";
+    // 5dh 數值 spacing：縮圖用小間距讓 36px 內看得到圖樣單元。
+    renderTangleSpecs(c2, buildTangle(key, {x: 1, y: 1, w: 34, h: 34}, 13));
+  }
+  btn.appendChild(cv);
+  return btn;
+}
+
 /**
- * 動態生成圖樣鈕列（registry 單一事實源——新圖樣入 registry 即現身）。
- * 5dh：按鈕改**元素縮圖**（36px canvas 直接跑該圖樣的 builder），
- * 英文名移到 title——滑鼠移上去才顯示（tooltip）。
+ * 5dj-1 — 三排式工具列：上排 basic（iCSO 五符號）、下排 classic（8 圖樣）
+ * 各自從 registry 依 category 動態生成（單一事實源——新圖樣入 registry
+ * 標好 category 即自動歸位）。留白鈕掛在 basic 排尾。
  */
 function buildRegionToolbar() {
-  const host = document.getElementById("zentangle-region-buttons");
+  const basicHost = document.getElementById("zentangle-basic-buttons");
+  const classicHost = document.getElementById("zentangle-classic-buttons");
+  if (basicHost) {
+    basicHost.innerHTML = "";
+    for (const t of listTangles({category: "basic"})) {
+      basicHost.appendChild(makeThumbButton(t.key, t.label));
+    }
+    // 留白鈕（文字，沒有圖像可縮）掛在基本排尾。
+    const blank = document.createElement("button");
+    blank.type = "button";
+    blank.title = "Blank — 清空區段的圖樣";
+    blank.style.cssText =
+      "padding:3px 8px;border:1px solid var(--border);border-radius:3px;" +
+      "background:#fafaf8;cursor:pointer;font-size:12px;height:40px;";
+    blank.textContent = "留白";
+    blank.addEventListener("click", () => setRegionTangle(null));
+    basicHost.appendChild(blank);
+  }
+  if (classicHost) {
+    classicHost.innerHTML = "";
+    for (const t of listTangles({category: "classic"})) {
+      classicHost.appendChild(makeThumbButton(t.key, t.label));
+    }
+  }
+  // 5dj-1: 延伸技法 toggle 列。
+  buildEnhancerToggles();
+}
+
+/**
+ * 5dj-1 — 延伸技法 toggle 列（ENHANCERS 單一事實源）。每個是 checkbox；
+ * 勾/取消套用 5di 慣例：未選區段＝套目前模式全部區段、選中＝只改該區。
+ * checkbox 反映「選中區段的狀態」（未選時反映全部區段是否一致）。
+ */
+function buildEnhancerToggles() {
+  const host = document.getElementById("zentangle-enhancer-toggles");
   if (!host) return;
   host.innerHTML = "";
-  const mkBtn = (key, title) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "zt-region-btn";
-    btn.title = title;                     // hover 顯示英文名
-    btn.style.cssText =
-      "padding:2px;border:1px solid var(--border);border-radius:3px;" +
-      "background:#fff;cursor:pointer;line-height:0;";
-    btn.addEventListener("click", () => setRegionTangle(key));
-    host.appendChild(btn);
-    return btn;
-  };
-  for (const t of listTangles()) {
-    const btn = mkBtn(t.key, t.label);
-    const cv = document.createElement("canvas");
-    cv.width = 36;
-    cv.height = 36;
-    const c2 = cv.getContext("2d");
-    if (c2) {
-      c2.strokeStyle = TANGLE_STROKE;
-      c2.fillStyle = TANGLE_FILL;
-      c2.lineWidth = 1;
-      c2.lineJoin = "round";
-      c2.lineCap = "round";
-      // 5dh 數值 spacing：縮圖用小間距讓 36px 內看得到圖樣單元。
-      renderTangleSpecs(c2, buildTangle(t.key, {x: 1, y: 1, w: 34, h: 34}, 13));
-    }
-    btn.appendChild(cv);
+  for (const key of ENHANCERS) {
+    const lbl = document.createElement("label");
+    lbl.style.cssText =
+      "font-size:12px;cursor:pointer;display:inline-flex;align-items:center;" +
+      "gap:3px;padding:2px 6px;border:1px solid var(--border);border-radius:3px;";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.dataset.enhancer = key;
+    cb.addEventListener("change", () => setRegionEnhancer(key, cb.checked));
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(ENHANCER_LABELS[key]));
+    host.appendChild(lbl);
   }
-  // 留白鈕維持文字（沒有圖像可縮）。
-  const blank = mkBtn(null, "Blank — 清空選中區段的圖樣");
-  blank.style.cssText =
-    "padding:3px 8px;border:1px solid var(--border);border-radius:3px;" +
-    "background:#fafaf8;cursor:pointer;font-size:12px;height:40px;";
-  blank.textContent = "留白";
+  refreshEnhancerToggles();
+}
+
+/** 依「選中區段（或全部區段一致值）」刷新 toggle 勾選狀態。 */
+function refreshEnhancerToggles() {
+  const host = document.getElementById("zentangle-enhancer-toggles");
+  if (!host) return;
+  const sel = selectedRegion();
+  host.querySelectorAll("input[data-enhancer]").forEach((cb) => {
+    const key = cb.dataset.enhancer;
+    if (sel) {
+      cb.checked = !!(sel.enhancers && sel.enhancers[key]);
+      cb.indeterminate = false;
+    } else if (_regions.length > 0) {
+      // 未選：全部區段一致才顯示勾/空，否則 indeterminate。
+      const vals = _regions.map((r) => !!(r.enhancers && r.enhancers[key]));
+      const allOn = vals.every(Boolean);
+      const allOff = vals.every((v) => !v);
+      cb.checked = allOn;
+      cb.indeterminate = !allOn && !allOff;
+    } else {
+      cb.checked = false;
+      cb.indeterminate = false;
+    }
+  });
+}
+
+/**
+ * 5dj-1 — 勾/取消延伸技法（5di 套用模型）：
+ *   有選取 → 只改該區段；未選取 → 套用到目前模式全部區段。
+ */
+function setRegionEnhancer(key, on) {
+  if (!ENHANCERS.includes(key)) return;
+  const apply = (r) => {
+    r.enhancers = normalizeEnhancers(r.enhancers);
+    r.enhancers[key] = on;
+  };
+  const sel = selectedRegion();
+  if (sel) {
+    apply(sel);
+    redrawAll();
+    refreshEnhancerToggles();
+    setStatus(`區段 ${sel.id} ${ENHANCER_LABELS[key]} → ${on ? "開" : "關"}`);
+    return;
+  }
+  if (_regions.length === 0) {
+    setStatus("目前沒有區段——選「空心填充/背景鑲嵌」並按「載入字框」", true);
+    refreshEnhancerToggles();
+    return;
+  }
+  for (const r of _regions) apply(r);
+  redrawAll();
+  refreshEnhancerToggles();
+  setStatus(`全部區段 ${ENHANCER_LABELS[key]} → ${on ? "開" : "關"}` +
+            "（點紙磚選單一區段＝個別調）");
 }
 
 /**
@@ -1163,6 +1279,7 @@ async function renderOutline() {
   _regionStash.hollow = null;
   ensureRegions();
   redrawAll();
+  refreshEnhancerToggles();
   // Status: report what's currently on the canvas (post-mapping count).
   const ts = currentTileSize();
   const tm = currentTileMargin();
@@ -1333,6 +1450,7 @@ function wireInlineControls() {
       commitConfigChange({ mode: e.target.value });
       ensureRegions();
       redrawAll();
+      refreshEnhancerToggles();
       const hint =
         e.target.value === "pure"
           ? "（點 canvas 手放圖樣）"
@@ -1351,6 +1469,7 @@ function wireInlineControls() {
       _regionStash.bg = null;
       ensureRegions();
       redrawAll();
+      refreshEnhancerToggles();
       setStatus(`紙磚尺寸 → ${TILE_LABELS[e.target.value]}`);
     });
   });

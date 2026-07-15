@@ -2806,14 +2806,33 @@
     <h2>紙磚 (600 × 600 px ≈ 9 cm 標準磚)</h2>
     <!-- 6z-2.2: 4 側邊 pan buttons — 旋轉時邊角超出 viewport 的 quick-peek。
          按一下：紙磚向反方向移動，露出該側超界區；同側再按：回正中心。 -->
-    <!-- 5dh: 纏繞元素工具列 — 移至紙磚上方；縮圖鈕由 zentangle.js
+    <!-- 5dj-1: 三排式纏繞元素工具列 — 上排 5 基本符號(iCSO)、中排 7
+         延伸技法 toggle、下排 8 經典圖樣(可收合)。縮圖鈕由 zentangle.js
          buildRegionToolbar() 從 tangle registry 動態生成（縮圖＝該圖樣
          builder 直接畫 36px canvas；英文名 hover 才顯示）。 -->
-    <div class="row" style="margin:2px 0 6px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
-      <span style="font-weight:bold;color:var(--muted);">纏繞元素</span>
-      <span id="zentangle-region-buttons"
+    <!-- 上排：iCSO 五大基本符號 -->
+    <div class="row" style="margin:2px 0 4px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
+      <span style="font-weight:bold;color:var(--muted);min-width:64px;text-align:right;" title="點 i／直線 |／弧 C／S 線／圓 O — 禪繞畫最基礎的五筆劃">基本符號</span>
+      <span id="zentangle-basic-buttons"
             style="display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;"></span>
-      <span style="display:inline-flex;gap:4px;margin-left:6px;" title="改變選中區段的圖樣朝向（同鍵盤方向鍵）">
+    </div>
+    <!-- 中排：延伸技法 toggle（每區段獨立勾選） -->
+    <div class="row" style="margin:2px 0 4px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
+      <span style="font-weight:bold;color:var(--muted);min-width:64px;text-align:right;" title="裝飾/延伸技法 — 讓平面圖樣長出質感與立體感">延伸技法</span>
+      <span id="zentangle-enhancer-toggles"
+            style="display:inline-flex;flex-wrap:wrap;gap:4px 8px;align-items:center;"></span>
+    </div>
+    <!-- 下排：8 經典圖樣（可收合） -->
+    <details style="margin:2px auto 4px;max-width:560px;">
+      <summary style="font-size:12px;color:var(--muted);cursor:pointer;text-align:center;list-style-position:inside;">經典圖樣（8 種，皆由基本符號組合）▾</summary>
+      <div class="row" style="margin:4px 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;">
+        <span id="zentangle-classic-buttons"
+              style="display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;"></span>
+      </div>
+    </details>
+    <!-- 動作列：朝向 / 切分 / 清除 -->
+    <div class="row" style="margin:2px 0 6px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
+      <span style="display:inline-flex;gap:4px;" title="改變選中區段的圖樣朝向（同鍵盤方向鍵）">
         <button type="button" class="zt-orient-btn" data-orient="up"
                 style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝上">⬆</button>
         <button type="button" class="zt-orient-btn" data-orient="right"
@@ -2834,8 +2853,8 @@
               title="目前模式的纏繞元素全部留白（保留區段結構；空心/背景切換不清空、按此鈕才清）">清除區段</button>
     </div>
     <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:6px;">
-      ⓘ 直接點縮圖＝全部區段換圖樣；點紙磚選區段（虛線框）→ 點縮圖＝個別換、⬆➡⬇⬅ 改朝向、「留白」清空；
-      ✂ 切分＝起點 → 終點 → 滑鼠調彎 → 雙擊定案（可再切）；空心/背景切換各自保留
+      ⓘ 點縮圖＝換圖樣、勾延伸技法＝加裝飾（未選區段＝套全部、點紙磚選區段＝只改該區）；
+      ⬆➡⬇⬅ 改朝向、✂ 切分＝起點→終點→調彎→雙擊；空心/背景切換各自保留
     </div>
     <div id="zentangle-canvas-wrap"
          style="display:grid;justify-content:center;padding:8px;
@@ -10106,7 +10125,7 @@ async function renderCnsDecomposition(char) {
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，
      舊快取的 zentangle.js 不認得區段模型，改版時同步 bump。 -->
-<script type="module" src="/static/zentangle/zentangle.js?v=180"></script>
+<script type="module" src="/static/zentangle/zentangle.js?v=181"></script>
 
 </body>
 </html>

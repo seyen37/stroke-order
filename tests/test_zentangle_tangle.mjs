@@ -40,8 +40,10 @@ function _pts(sp) {
   return [[sp.cx, sp.cy]];
 }
 
-test("5df-1: registry has 8 tangles incl. six new keys", () => {
-  assert.equal(listTangles().length, 8);
+test("5df-1: registry has six new classic keys", () => {
+  // 5dj-1：registry 擴為 13（5 basic iCSO + 8 classic）；此鎖只驗
+  //「6 個 5df-1 新圖樣仍在」，總數改由 classic 過濾器斷言。
+  assert.equal(listTangles({category: "classic"}).length, 8);
   for (const k of NEW_KEYS) assert.ok(TANGLES[k], k);
 });
 

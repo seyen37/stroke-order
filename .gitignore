@@ -117,3 +117,7 @@ docs/site/
 
 # Cowork cloud-session scratch (device VM cannot delete files); never commit
 _to_delete/
+
+# Workspace cleanup (2026-07-15): archive folder + cleanup script stay untracked
+/_archive_scratch/
+/清理工作區.ps1
