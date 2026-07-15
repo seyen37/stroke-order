@@ -230,8 +230,9 @@ export function assignRandomTangles(regions, tangleKeys, opts = {}) {
     orientation: ORIENTATIONS[
       Math.floor(rand() * ORIENTATIONS.length) % ORIENTATIONS.length
     ],
-    // 5dj-1: 延伸技法集合（預設全關；per-region 獨立）。
-    enhancers: {aura: false, weighting: false, rounding: false},
+    // 5dj-1/2: 延伸技法集合（預設全關；per-region 獨立）。
+    // 空物件＝全關（渲染端 normalizeEnhancers 缺欄補 false，涵蓋全部 key）。
+    enhancers: {},
   }));
 }
 

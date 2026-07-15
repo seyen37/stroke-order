@@ -484,7 +484,7 @@ function clearRegions() {
   if (_splitMode) setSplitMode(false);
   for (const region of _regions) {
     region.tangle = null;
-    region.enhancers = {aura: false, weighting: false, rounding: false};
+    region.enhancers = {};   // 全關（normalizeEnhancers 缺欄補 false）
   }
   _selectedRegionId = null;
   _splitState = null;
@@ -564,8 +564,9 @@ function drawRegionLayer(mappedContours) {
     // 5dj-1: 延伸技法管線（build → orient → enhance）。每區段獨立記
     // 自己勾了哪些 enhancer；有開才套（短路避免無謂複製）。
     if (hasAnyEnhancer(region.enhancers)) {
+      // 5dj-2: dewdrop 需要區段 band（整區一顆水滴置中）。
       specs = applyEnhancers(specs, region.enhancers,
-                             {baseLineWidth: TANGLE_LINE_WIDTH});
+                             {baseLineWidth: TANGLE_LINE_WIDTH, area: region.band});
     }
     renderTangleSpecs(_ctx, specs);
     _ctx.restore();
