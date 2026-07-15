@@ -61,5 +61,5 @@ test("5di: clearRegions ＝全部留白、非刪除；退出切分模式", () =>
 test("§11.4: index.html 載入 zentangle.js 帶版本 query 且 ≥180", () => {
   const m = INDEX.match(/zentangle\/zentangle\.js\?v=(\d+)/);
   assert.ok(m, "zentangle.js 必須帶 ?v= cache-busting query");
-  assert.ok(parseInt(m[1], 10) >= 182, `?v=${m[1]} 應 ≥ 182（5dj-2）`);
+  assert.ok(parseInt(m[1], 10) >= 183, `?v=${m[1]} 應 ≥ 183（5dj-3）`);
 });

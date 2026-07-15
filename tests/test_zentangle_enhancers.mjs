@@ -7,13 +7,16 @@ import assert from "node:assert/strict";
 
 import {
   TANGLES, TANGLE_CATEGORIES, listTangles, buildTangle, buildTangleOriented,
+  orientSpecs,
   SPEC_LINE, SPEC_CURVE, SPEC_S_SHAPE, SPEC_ORB, SPEC_DOT,
+  SPEC_POLYLINE, SPEC_TRI,
 } from "../src/stroke_order/web/static/zentangle/tangle.mjs";
 import {
   ENHANCERS, ENHANCER_LABELS,
   applyAura, applyWeighting, applyRounding,
   applySparkle, applyPerfs, applyCoffering, applyDewdrop,
   applyEnhancers, normalizeEnhancers, hasAnyEnhancer,
+  ENHANCER_PARAM_DEFS, defaultEnhancerParams, paramsToOpts, COMBOS,
 } from "../src/stroke_order/web/static/zentangle/enhancers.mjs";
 
 const AREA = {x: 0, y: 0, w: 200, h: 200};
@@ -326,4 +329,111 @@ test("五個 apply* 都不改輸入陣列", () => {
   const s2 = mk(); const b2 = JSON.stringify(s2);
   applyDewdrop(s2, {x: 0, y: 0, w: 50, h: 50});
   assert.equal(JSON.stringify(s2), b2, "applyDewdrop 不改輸入");
+});
+
+// ---------------------------------------------------------------------------
+// 5dj-3 — Sparkle 支援 s_shape / Rounding 真銳角三角 / 參數 / 推薦組合
+// ---------------------------------------------------------------------------
+
+test("5dj-3: Sparkle 支援 s_shape → 兩段 polyline、端點守恆", () => {
+  const s = {type: SPEC_S_SHAPE, x1: 0, y1: 0, x2: 100, y2: 0};
+  const out = applySparkle([s], {sparkleGap: 0.2});
+  const polys = out.filter((x) => x.type === SPEC_POLYLINE);
+  assert.equal(polys.length, 2, "S 線斷成兩段 polyline");
+  // 第一段起點＝原起點；第二段終點＝原終點。
+  const a = polys[0].points, b = polys[1].points;
+  assert.ok(Math.hypot(a[0][0] - 0, a[0][1] - 0) < 1e-6, "段1 起點=原起");
+  assert.ok(Math.hypot(b[b.length-1][0] - 100, b[b.length-1][1] - 0) < 1e-6,
+            "段2 終點=原終");
+});
+
+test("5dj-3: Sparkle sparkleGap 優先於 gap（管線不與 aura 撞名）", () => {
+  const line = {type: SPEC_LINE, x1: 0, y1: 0, x2: 100, y2: 0};
+  // sparkleGap=0.4 → 段1 [0,30]、段2 [70,100]。
+  const out = applySparkle([line], {gap: 0.1, sparkleGap: 0.4});
+  assert.equal(out[0].x2, 30);
+  assert.equal(out[1].x1, 70);
+});
+
+test("5dj-3: Rounding 銳角三角——尖角 <88° 填 tri、直角不填", () => {
+  // 尖角：兩線在 (0,0) 交會、夾角 40°。
+  const a = 40 * Math.PI / 180;
+  const sharp = [
+    {type: SPEC_LINE, x1: 0, y1: 0, x2: 100, y2: 0},
+    {type: SPEC_LINE, x1: 0, y1: 0, x2: 100 * Math.cos(a), y2: 100 * Math.sin(a)},
+  ];
+  const tri = applyRounding(sharp, {}).filter((s) => s.type === SPEC_TRI);
+  assert.ok(tri.length >= 1, "尖角應填三角");
+  assert.equal(tri[0].points.length, 3);
+  // 直角：不填三角。
+  const right = [
+    {type: SPEC_LINE, x1: 0, y1: 0, x2: 100, y2: 0},
+    {type: SPEC_LINE, x1: 0, y1: 0, x2: 0, y2: 100},
+  ];
+  assert.equal(applyRounding(right, {}).filter((s) => s.type === SPEC_TRI).length,
+               0, "直角不填三角");
+});
+
+test("5dj-3: Rounding 仍保留端點小圓（圓化）", () => {
+  const out = applyRounding([{type: SPEC_LINE, x1: 0, y1: 0, x2: 10, y2: 0}], {r: 2});
+  assert.ok(out.filter((s) => s.type === SPEC_DOT).length >= 1, "端點小圓仍在");
+});
+
+test("5dj-3: 參數 defs 與預設", () => {
+  assert.ok(ENHANCER_PARAM_DEFS.length >= 5);
+  const d = defaultEnhancerParams();
+  for (const def of ENHANCER_PARAM_DEFS) {
+    assert.equal(d[def.key], def.def, `${def.key} 預設`);
+    assert.ok(def.min <= def.def && def.def <= def.max, `${def.key} 在範圍`);
+  }
+});
+
+test("5dj-3: paramsToOpts 映射（gap_sparkle → sparkleGap，不與 aura gap 撞）", () => {
+  const opts = paramsToOpts({gap: 6, gap_sparkle: 0.3, factor: 3});
+  assert.equal(opts.gap, 6);          // aura 用
+  assert.equal(opts.sparkleGap, 0.3); // sparkle 用（分開）
+  assert.equal(opts.factor, 3);
+  // extra 透傳。
+  assert.equal(paramsToOpts({}, {area: {x:0,y:0,w:1,h:1}}).area.w, 1);
+});
+
+test("5dj-3: 參數經 applyEnhancers 生效——aura gap 改變同心圈半徑", () => {
+  const orb = [{type: SPEC_ORB, cx: 0, cy: 0, r: 10, fill: false}];
+  const o1 = applyEnhancers(orb, {aura: true}, paramsToOpts({gap: 3, rings: 1}));
+  const o2 = applyEnhancers(orb, {aura: true}, paramsToOpts({gap: 8, rings: 1}));
+  const r1 = o1.find((s) => s.type === SPEC_ORB && s.r !== 10).r;
+  const r2 = o2.find((s) => s.type === SPEC_ORB && s.r !== 10).r;
+  assert.equal(r1, 13); assert.equal(r2, 18);
+});
+
+test("5dj-3: COMBOS 3-4 組、每組 tangle 有效、enhancers key 合法", () => {
+  assert.ok(COMBOS.length >= 3 && COMBOS.length <= 4);
+  for (const c of COMBOS) {
+    assert.ok(TANGLES[c.tangle], `${c.key} tangle 有效`);
+    for (const k of Object.keys(c.enhancers)) {
+      assert.ok(ENHANCERS.includes(k), `${c.key} enhancer ${k} 合法`);
+    }
+    assert.ok(c.label, `${c.key} 有 label`);
+  }
+});
+
+test("5dj-3: 慕卡風＝S線＋加厚＋襯飾小圓（使用者指定）", () => {
+  const mooka = COMBOS.find((c) => c.key === "mooka");
+  assert.ok(mooka);
+  assert.equal(mooka.tangle, "s_curve");
+  assert.equal(mooka.enhancers.weighting, true);
+  assert.equal(mooka.enhancers.perfs, true);
+});
+
+test("5dj-3: SPEC_POLYLINE / SPEC_TRI 經 orientSpecs 旋轉每個頂點", () => {
+  const area = {x: 0, y: 0, w: 100, h: 100};
+  const poly = {type: SPEC_POLYLINE, points: [[50, 10], [50, 90]]};
+  const [op] = orientSpecs([poly], "right", area);   // 90°
+  // (50,10)→(90,50)、(50,90)→(10,50)
+  assert.equal(Math.round(op.points[0][0]), 90);
+  assert.equal(Math.round(op.points[0][1]), 50);
+  assert.equal(Math.round(op.points[1][0]), 10);
+  const tri = {type: SPEC_TRI, points: [[50, 50], [60, 50], [50, 60]]};
+  const [ot] = orientSpecs([tri], "right", area);
+  assert.equal(ot.points.length, 3);
 });

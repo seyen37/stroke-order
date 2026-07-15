@@ -50,7 +50,14 @@ import {
   applyEnhancers,
   hasAnyEnhancer,
   normalizeEnhancers,
+  ENHANCER_PARAM_DEFS,
+  defaultEnhancerParams,
+  paramsToOpts,
+  COMBOS,
 } from "./enhancers.mjs";
+
+// 5dj-3: 全域延伸參數（per-session；一組滑桿套用到所有已勾技法的區段）。
+let _enhancerParams = defaultEnhancerParams();
 
 // 6z-2.1 NOTE: `rotateContours` is intentionally NOT imported here.
 // Tile rotation is now applied via canvas ctx transform (so frame + outline
@@ -564,9 +571,10 @@ function drawRegionLayer(mappedContours) {
     // 5dj-1: 延伸技法管線（build → orient → enhance）。每區段獨立記
     // 自己勾了哪些 enhancer；有開才套（短路避免無謂複製）。
     if (hasAnyEnhancer(region.enhancers)) {
-      // 5dj-2: dewdrop 需要區段 band（整區一顆水滴置中）。
+      // 5dj-2/3: dewdrop 需要區段 band；全域參數（滑桿）併入 opts。
       specs = applyEnhancers(specs, region.enhancers,
-                             {baseLineWidth: TANGLE_LINE_WIDTH, area: region.band});
+        paramsToOpts(_enhancerParams,
+                     {baseLineWidth: TANGLE_LINE_WIDTH, area: region.band}));
     }
     renderTangleSpecs(_ctx, specs);
     _ctx.restore();
@@ -990,6 +998,93 @@ function buildRegionToolbar() {
   }
   // 5dj-1: 延伸技法 toggle 列。
   buildEnhancerToggles();
+  // 5dj-3: 推薦組合快捷鈕 + 全域參數滑桿。
+  buildComboButtons();
+  buildParamSliders();
+}
+
+/**
+ * 5dj-3 — 推薦組合快捷鈕（COMBOS 單一事實源）。點鈕＝一鍵套用
+ * tangle + 一組 enhancers 到區段（沿 5di 模型：未選套全部、選中只改該區）。
+ */
+function buildComboButtons() {
+  const host = document.getElementById("zentangle-combo-buttons");
+  if (!host) return;
+  host.innerHTML = "";
+  for (const combo of COMBOS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    const ens = ENHANCERS.filter((k) => combo.enhancers[k])
+      .map((k) => ENHANCER_LABELS[k].split(" ")[0]).join("＋");
+    const tLabel = (TANGLES[combo.tangle]?.label || combo.tangle).split(" ")[0];
+    btn.title = `${tLabel}＋${ens}`;
+    btn.textContent = combo.label;
+    btn.style.cssText =
+      "padding:3px 10px;border:1px solid var(--border);border-radius:12px;" +
+      "background:#fafaf8;cursor:pointer;font-size:12px;";
+    btn.addEventListener("click", () => setRegionCombo(combo));
+    host.appendChild(btn);
+  }
+}
+
+/**
+ * 5dj-3 — 套用推薦組合到區段（5di 模型）。設 tangle + 覆蓋 enhancers。
+ */
+function setRegionCombo(combo) {
+  const apply = (r) => {
+    r.tangle = combo.tangle;
+    r.enhancers = normalizeEnhancers(combo.enhancers);
+  };
+  const sel = selectedRegion();
+  if (sel) {
+    apply(sel);
+    redrawAll();
+    refreshEnhancerToggles();
+    setStatus(`區段 ${sel.id} → ${combo.label}`);
+    return;
+  }
+  if (_regions.length === 0) {
+    setStatus("目前沒有區段——選「空心填充/背景鑲嵌」並按「載入字框」", true);
+    return;
+  }
+  for (const r of _regions) apply(r);
+  redrawAll();
+  refreshEnhancerToggles();
+  setStatus(`全部區段 → ${combo.label}（點紙磚選單一區段＝個別套）`);
+}
+
+/**
+ * 5dj-3 — 全域延伸參數滑桿（ENHANCER_PARAM_DEFS 單一事實源）。
+ * 一組滑桿即時套用到所有已勾該技法的區段（改 _enhancerParams → redraw）。
+ */
+function buildParamSliders() {
+  const host = document.getElementById("zentangle-param-sliders");
+  if (!host) return;
+  host.innerHTML = "";
+  for (const def of ENHANCER_PARAM_DEFS) {
+    const wrap = document.createElement("label");
+    wrap.style.cssText =
+      "font-size:11px;color:var(--muted);display:inline-flex;align-items:center;" +
+      "gap:4px;white-space:nowrap;";
+    const val = document.createElement("span");
+    val.style.cssText = "min-width:28px;text-align:right;font-variant-numeric:tabular-nums;";
+    const fmt = (v) => (def.step < 1 ? v.toFixed(2) : String(v));
+    val.textContent = fmt(_enhancerParams[def.key]);
+    const rng = document.createElement("input");
+    rng.type = "range";
+    rng.min = String(def.min); rng.max = String(def.max);
+    rng.step = String(def.step); rng.value = String(_enhancerParams[def.key]);
+    rng.style.cssText = "width:76px;";
+    rng.addEventListener("input", () => {
+      _enhancerParams[def.key] = rng.valueAsNumber;
+      val.textContent = fmt(rng.valueAsNumber);
+      redrawAll();
+    });
+    wrap.appendChild(document.createTextNode(def.label + " "));
+    wrap.appendChild(rng);
+    wrap.appendChild(val);
+    host.appendChild(wrap);
+  }
 }
 
 /**

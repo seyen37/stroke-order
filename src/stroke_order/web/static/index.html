@@ -2822,6 +2822,18 @@
       <span id="zentangle-enhancer-toggles"
             style="display:inline-flex;flex-wrap:wrap;gap:4px 8px;align-items:center;"></span>
     </div>
+    <!-- 5dj-3: 推薦組合快捷（基本符號 + 一組延伸技法，一鍵套用） -->
+    <div class="row" style="margin:2px 0 4px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
+      <span style="font-weight:bold;color:var(--muted);min-width:64px;text-align:right;" title="經典禪繞質感一鍵套用（基本符號＋延伸技法組合）">推薦組合</span>
+      <span id="zentangle-combo-buttons"
+            style="display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;"></span>
+    </div>
+    <!-- 5dj-3: 延伸參數微調（全域一組滑桿，可收合） -->
+    <details style="margin:2px auto 4px;max-width:600px;">
+      <summary style="font-size:12px;color:var(--muted);cursor:pointer;text-align:center;list-style-position:inside;">延伸參數微調（間距／圈數／粗細／內縮…）▾</summary>
+      <div id="zentangle-param-sliders"
+           style="margin:4px 0;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:center;"></div>
+    </details>
     <!-- 下排：8 經典圖樣（可收合） -->
     <details style="margin:2px auto 4px;max-width:560px;">
       <summary style="font-size:12px;color:var(--muted);cursor:pointer;text-align:center;list-style-position:inside;">經典圖樣（8 種，皆由基本符號組合）▾</summary>
@@ -10125,7 +10137,7 @@ async function renderCnsDecomposition(char) {
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，
      舊快取的 zentangle.js 不認得區段模型，改版時同步 bump。 -->
-<script type="module" src="/static/zentangle/zentangle.js?v=182"></script>
+<script type="module" src="/static/zentangle/zentangle.js?v=183"></script>
 
 </body>
 </html>

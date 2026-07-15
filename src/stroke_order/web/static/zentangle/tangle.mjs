@@ -23,6 +23,11 @@ export const SPEC_CURVE = "curve";
 export const SPEC_S_SHAPE = "s_shape";
 export const SPEC_ORB = "orb";
 export const SPEC_DOT = "dot";
+// 5dj-3 新增兩型（供延伸技法用）：
+//   polyline: {type, points:[[x,y],...], lw?}   折線（Sparkle 斷 S 線）
+//   tri     : {type, points:[[x,y]×3]}          填黑三角（Rounding 塗黑）
+export const SPEC_POLYLINE = "polyline";
+export const SPEC_TRI = "tri";
 
 // Density → grid spacing (px). User picks via 6z-1.x density radio later;
 // 6z-3 uses "medium" default since no UI yet. Keeping enum for future.
@@ -490,6 +495,9 @@ export function orientSpecs(specs, orientation, area) {
       [o.x1, o.y1] = rot(sp.x1, sp.y1);
       [o.cx, o.cy] = rot(sp.cx, sp.cy);
       [o.x2, o.y2] = rot(sp.x2, sp.y2);
+    } else if (sp.type === SPEC_POLYLINE || sp.type === SPEC_TRI) {
+      // 5dj-3：折線/三角＝旋轉每個頂點。
+      o.points = (sp.points || []).map(([x, y]) => rot(x, y));
     } else {                                   // orb / dot
       [o.cx, o.cy] = rot(sp.cx, sp.cy);
       if (sp.startAngle !== undefined) o.startAngle = sp.startAngle + rad;
@@ -643,6 +651,24 @@ export function renderTangleSpecs(ctx, specs) {
         ctx.arc(s.cx, s.cy, s.r, 0, Math.PI * 2);
         ctx.fill();
         break;
+      case SPEC_POLYLINE: {                    // 5dj-3: 折線（Sparkle 斷 S 線）
+        const pts = s.points;
+        if (!Array.isArray(pts) || pts.length < 2) break;
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.stroke();
+        break;
+      }
+      case SPEC_TRI: {                          // 5dj-3: 填黑三角（Rounding 塗黑）
+        const pts = s.points;
+        if (!Array.isArray(pts) || pts.length < 3) break;
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        ctx.lineTo(pts[1][0], pts[1][1]);
+        ctx.lineTo(pts[2][0], pts[2][1]);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
       default:
         // Unknown spec — skip silently (forward-compat for 6z-3.X new types).
         break;

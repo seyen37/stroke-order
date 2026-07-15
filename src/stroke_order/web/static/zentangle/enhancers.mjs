@@ -24,6 +24,7 @@
 
 import {
   SPEC_LINE, SPEC_CURVE, SPEC_S_SHAPE, SPEC_ORB, SPEC_DOT,
+  SPEC_POLYLINE, SPEC_TRI,
 } from "./tangle.mjs";
 
 // 可用的延伸技法 key（UI toggle 據此生成；registry 哲學＝單一事實源）。
@@ -44,7 +45,21 @@ export const ENHANCER_LABELS = {
   dewdrop: "露珠 Dewdrop",
 };
 
-// 預設參數（區段可覆寫；本輪固定值，UI 微調留後輪）。
+// 5dj-3 推薦組合快捷（基本符號 + 一組延伸技法）。點快捷鈕＝一鍵套用
+// tangle + enhancers 到區段（沿 5di 模型：未選套全部、選中只改該區）。
+// 各組合都用上不同技法、對應經典禪繞質感。
+export const COMBOS = [
+  {key: "mooka",    label: "慕卡風",
+   tangle: "s_curve", enhancers: {weighting: true, perfs: true}},
+  {key: "crescent", label: "新月風",
+   tangle: "curve_c", enhancers: {aura: true}},
+  {key: "vault",    label: "金庫風",
+   tangle: "orb",     enhancers: {coffering: true}},
+  {key: "bubble",   label: "泡泡風",
+   tangle: "orb",     enhancers: {dewdrop: true, sparkle: true}},
+];
+
+// 預設參數。
 const AURA_GAP = 4;          // 光環線與原筆劃的間距（px）
 const AURA_RINGS = 1;        // 圈數
 const WEIGHTING_FACTOR = 2.6; // 加厚後線寬倍率（相對 base=1）
@@ -54,6 +69,42 @@ const PERFS_SPACING = 9;     // 襯飾小圓：沿筆劃等距間隔（px）
 const PERFS_R = 1.6;         // 襯飾小圓半徑（px）
 const COFFERING_INSET = 0.55; // 金庫：內縮圈半徑比例
 const DEWDROP_R_RATIO = 0.30; // 露珠：半徑相對區段短邊比例
+
+// 5dj-3 全域參數微調（UI 滑桿據此生成——單一事實源）。
+// 每項：key（opts 欄位名）／label／min／max／step／預設。
+export const ENHANCER_PARAM_DEFS = [
+  {key: "gap",     label: "光環間距",   min: 1,    max: 12,  step: 1,    def: AURA_GAP},
+  {key: "rings",   label: "光環圈數",   min: 1,    max: 4,   step: 1,    def: AURA_RINGS},
+  {key: "factor",  label: "加厚倍率",   min: 1.5,  max: 5,   step: 0.1,  def: WEIGHTING_FACTOR},
+  {key: "spacing", label: "襯飾間距",   min: 5,    max: 20,  step: 1,    def: PERFS_SPACING},
+  {key: "inset",   label: "金庫內縮",   min: 0.35, max: 0.8, step: 0.05, def: COFFERING_INSET},
+  {key: "gap_sparkle", label: "閃光留白", min: 0.08, max: 0.45, step: 0.01, def: SPARKLE_GAP},
+];
+
+/** 全域參數預設（UI 未動時的值）。 */
+export function defaultEnhancerParams() {
+  const o = {};
+  for (const d of ENHANCER_PARAM_DEFS) o[d.key] = d.def;
+  return o;
+}
+
+/**
+ * 把全域參數（UI 滑桿值）翻成 applyEnhancers 的 opts 欄位。
+ * gap_sparkle → opts.gap 只在 sparkle 用、與 aura 的 gap 撞名，故分開存、
+ * 這裡不合併；applyEnhancers 各技法讀各自欄位（見下方各 apply* 簽名）。
+ */
+export function paramsToOpts(params, extra = {}) {
+  const p = {...defaultEnhancerParams(), ...(params || {})};
+  return {
+    gap: p.gap,
+    rings: p.rings,
+    factor: p.factor,
+    spacing: p.spacing,
+    inset: p.inset,
+    sparkleGap: p.gap_sparkle,
+    ...extra,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // 幾何小工具
@@ -168,27 +219,96 @@ export function applyWeighting(specs, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Rounding（圓化 / 塗黑）— MVP 端點圓化近似
+// Rounding（圓化 / 塗黑）— 5dj-3 真銳角偵測＋三角填黑
 // ---------------------------------------------------------------------------
 
 /**
- * Rounding（MVP 近似）：在每個 stroke spec 的端點放小填黑圓，模擬
- * 「轉角圓化＋三角塗黑」的視覺重量。回傳「原 spec + 端點小黑圓」。
- * 端點去重（共點只放一個）＝相鄰筆劃交接處不疊黑。
- *
- * 誠實標注：這是端點近似，非真正的銳角偵測＋三角填黑（留後輪）。
+ * 取 stroke spec 的端點＋「朝筆劃內部的單位切向」。用於銳角偵測：
+ * 兩筆劃在同一點交會，各自的內向切向夾角即轉角角度。
+ *   line    : 端點切向＝指向另一端
+ *   curve   : 端點切向＝指向控制點
+ *   s_shape : 攤平後首/末段方向
+ *   polyline: 首/末段方向
+ * orb/dot 無端點（封閉/點）。回傳 [{x, y, dir:[ux,uy]}, ...]。
+ */
+function strokeEnds(s) {
+  const norm = (dx, dy) => {
+    const L = Math.hypot(dx, dy) || 1;
+    return [dx / L, dy / L];
+  };
+  if (s.type === SPEC_LINE) {
+    return [{x: s.x1, y: s.y1, dir: norm(s.x2 - s.x1, s.y2 - s.y1)},
+            {x: s.x2, y: s.y2, dir: norm(s.x1 - s.x2, s.y1 - s.y2)}];
+  }
+  if (s.type === SPEC_CURVE) {
+    return [{x: s.x1, y: s.y1, dir: norm(s.cx - s.x1, s.cy - s.y1)},
+            {x: s.x2, y: s.y2, dir: norm(s.cx - s.x2, s.cy - s.y2)}];
+  }
+  if (s.type === SPEC_S_SHAPE) {
+    const p = flattenSShape(s);
+    const n = p.length - 1;
+    return [{x: p[0][0], y: p[0][1], dir: norm(p[1][0]-p[0][0], p[1][1]-p[0][1])},
+            {x: p[n][0], y: p[n][1], dir: norm(p[n-1][0]-p[n][0], p[n-1][1]-p[n][1])}];
+  }
+  if (s.type === SPEC_POLYLINE && Array.isArray(s.points) && s.points.length >= 2) {
+    const p = s.points, n = p.length - 1;
+    return [{x: p[0][0], y: p[0][1], dir: norm(p[1][0]-p[0][0], p[1][1]-p[0][1])},
+            {x: p[n][0], y: p[n][1], dir: norm(p[n-1][0]-p[n][0], p[n-1][1]-p[n][1])}];
+  }
+  return [];
+}
+
+// 銳角門檻（度）：兩筆劃內向切向夾角小於此＝尖角、填黑三角。
+const ROUNDING_ACUTE_DEG = 88;
+
+/**
+ * Rounding（5dj-3 升級）：
+ *   ① 圓化：每個 stroke 端點放小黑圓（軟化收口，沿用 MVP 行為）。
+ *   ② 塗黑：真銳角偵測——把端點分群（同點交會），對群內任兩筆劃內向
+ *      切向夾角 < 門檻的「尖角對」填一個小黑三角（塗掉尖角空隙）。
+ * 回傳「原 spec + 端點小圓 + 銳角三角」。
  */
 export function applyRounding(specs, opts = {}) {
   const r = opts.r ?? ROUNDING_R;
+  const acuteRad = ((opts.acuteDeg ?? ROUNDING_ACUTE_DEG) * Math.PI) / 180;
+  const legLen = opts.legLen ?? Math.max(4, r * 2.2);  // 三角邊長
   const out = specs.slice();
-  const seen = [];
-  const dup = (x, y) =>
-    seen.some(([sx, sy]) => Math.hypot(sx - x, sy - y) < r);
-  for (const s of specs) {
-    for (const [x, y] of specEndpoints(s)) {
-      if (dup(x, y)) continue;
-      seen.push([x, y]);
-      out.push({type: SPEC_DOT, cx: x, cy: y, r});
+
+  // 收集所有 stroke 端點（含切向），並分群（同點）。
+  const ends = [];
+  for (const s of specs) for (const e of strokeEnds(s)) ends.push(e);
+
+  // ① 端點小圓（去重）。
+  const seenDot = [];
+  for (const e of ends) {
+    if (seenDot.some(([sx, sy]) => Math.hypot(sx - e.x, sy - e.y) < r)) continue;
+    seenDot.push([e.x, e.y]);
+    out.push({type: SPEC_DOT, cx: e.x, cy: e.y, r});
+  }
+
+  // ② 銳角三角：分群 → 群內尖角對填黑。
+  const eps = Math.max(1.5, r);
+  const clusters = [];   // 每群 = {x, y, dirs:[[ux,uy],...]}
+  for (const e of ends) {
+    let g = clusters.find((c) => Math.hypot(c.x - e.x, c.y - e.y) < eps);
+    if (!g) { g = {x: e.x, y: e.y, dirs: []}; clusters.push(g); }
+    g.dirs.push(e.dir);
+  }
+  for (const g of clusters) {
+    if (g.dirs.length < 2) continue;
+    for (let i = 0; i < g.dirs.length; i++) {
+      for (let j = i + 1; j < g.dirs.length; j++) {
+        const d1 = g.dirs[i], d2 = g.dirs[j];
+        const dot = Math.max(-1, Math.min(1, d1[0]*d2[0] + d1[1]*d2[1]));
+        const ang = Math.acos(dot);
+        if (ang >= acuteRad) continue;            // 非銳角＝不填
+        // 三角：交會點 + 沿兩內向切向各 legLen 的點。
+        out.push({type: SPEC_TRI, points: [
+          [g.x, g.y],
+          [g.x + d1[0] * legLen, g.y + d1[1] * legLen],
+          [g.x + d2[0] * legLen, g.y + d2[1] * legLen],
+        ]});
+      }
     }
   }
   return out;
@@ -254,21 +374,61 @@ function sampleAlong(s, spacing) {
   return pts;
 }
 
+/**
+ * 5dj-3 — 把 s_shape 攤平成折線點（與 renderTangleSpecs 的 S 幾何一致：
+ * 兩段 cubic bezier、法線偏移 off=len·0.25）。segs=每段取樣段數。
+ * 回傳整條 S 的點序列（首=x1,y1；尾=x2,y2）。
+ */
+function flattenSShape(s, segs = 24) {
+  const x1 = s.x1, y1 = s.y1, x2 = s.x2, y2 = s.y2;
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const off = len * 0.25;
+  const nx = -dy / len, ny = dx / len;
+  // 兩段 cubic 的控制點（與 renderer 相同）。
+  const seg1 = [[x1, y1], [x1 + nx * off, y1 + ny * off],
+                [mx - nx * off, my - ny * off], [mx, my]];
+  const seg2 = [[mx, my], [mx + nx * off, my + ny * off],
+                [x2 - nx * off, y2 - ny * off], [x2, y2]];
+  const cubic = (P, t) => {
+    const u = 1 - t;
+    return [
+      u*u*u*P[0][0] + 3*u*u*t*P[1][0] + 3*u*t*t*P[2][0] + t*t*t*P[3][0],
+      u*u*u*P[0][1] + 3*u*u*t*P[1][1] + 3*u*t*t*P[2][1] + t*t*t*P[3][1],
+    ];
+  };
+  const pts = [];
+  for (let i = 0; i <= segs; i++) pts.push(cubic(seg1, i / segs));
+  for (let i = 1; i <= segs; i++) pts.push(cubic(seg2, i / segs));  // 略頭避重
+  return pts;
+}
+
+/** 取折線點序列的子區間 [t0,t1]（比例）＝新折線點。 */
+function polylineSlice(pts, t0, t1) {
+  const n = pts.length - 1;
+  const i0 = Math.max(0, Math.floor(t0 * n));
+  const i1 = Math.min(n, Math.ceil(t1 * n));
+  return pts.slice(i0, i1 + 1);
+}
+
 // ---------------------------------------------------------------------------
 // Sparkle（閃光留白）— 筆劃中段斷開留白，模擬反光高光
 // ---------------------------------------------------------------------------
 
 /**
  * Sparkle：把每個 stroke/弧 spec 從中段斷成兩段、中間留白 gap（比例）。
- *   line  : 切成 [0, 0.5-g/2] 與 [0.5+g/2, 1] 兩段
- *   curve : de Casteljau 分兩段（跳過中段）
- *   orb   : 弧角度範圍中段留角度 gap
- *   dot / s_shape : 原樣（點無中段可斷；s_shape 由 renderer 自算控制點、
- *           不易穩定切分——MVP 誠實維持原樣）
- * 回傳新陣列（不改輸入）。
+ *   line    : 切成 [0, 0.5-g/2] 與 [0.5+g/2, 1] 兩段
+ *   curve   : de Casteljau 分兩段（跳過中段）
+ *   s_shape : 5dj-3——攤平成折線、取兩段子區間（polyline spec）
+ *   orb     : 弧角度範圍中段留角度 gap
+ *   dot     : 原樣（點無中段可斷）
+ * gap 讀 opts.sparkleGap（管線用、與 aura 的 gap 分開）→ opts.gap（直呼
+ * 相容）→ 預設。回傳新陣列（不改輸入）。
  */
 export function applySparkle(specs, opts = {}) {
-  const g = Math.min(0.6, Math.max(0.02, opts.gap ?? SPARKLE_GAP));
+  const g = Math.min(0.6, Math.max(0.02,
+    opts.sparkleGap ?? opts.gap ?? SPARKLE_GAP));
   const t1 = 0.5 - g / 2, t2 = 0.5 + g / 2;
   const out = [];
   for (const s of specs) {
@@ -285,13 +445,18 @@ export function applySparkle(specs, opts = {}) {
                 x2: L[2][0], y2: L[2][1]});
       out.push({...s, x1: R[0][0], y1: R[0][1], cx: R[1][0], cy: R[1][1],
                 x2: R[2][0], y2: R[2][1]});
+    } else if (s.type === SPEC_S_SHAPE) {
+      const pts = flattenSShape(s);
+      const lw = s.lw;                          // 保留加厚
+      out.push({type: SPEC_POLYLINE, points: polylineSlice(pts, 0, t1), lw});
+      out.push({type: SPEC_POLYLINE, points: polylineSlice(pts, t2, 1), lw});
     } else if (s.type === SPEC_ORB) {
       const a0 = s.startAngle ?? 0, a1 = s.endAngle ?? Math.PI * 2;
       const span = a1 - a0;
       out.push({...s, startAngle: a0, endAngle: a0 + span * t1, fill: false});
       out.push({...s, startAngle: a0 + span * t2, endAngle: a1, fill: false});
     } else {
-      out.push(s);   // dot / s_shape 原樣
+      out.push(s);   // dot 原樣
     }
   }
   return out;
