@@ -462,20 +462,27 @@ function ensureRegions({force = false} = {}) {
   _regionStash[mode] = _regions;
 }
 
-/** 5dh — 清除目前模式的區段（使用者定案：按鈕才清空）。 */
+/**
+ * 5dh/5di — 清除目前模式的區段（使用者定案：按鈕才清空）。
+ * 5di 改語意：清除＝**全部留白**（保留區段結構與切分線）——縮圖鈕
+ * 立即可再上圖樣，不再是「刪光區段 → 點什麼都沒反應」的死路；
+ * 並自動退出 ✂ 切分模式（避免清除後點擊仍被切割流程攔截）。
+ */
 function clearRegions() {
   const mode = _config?.mode;
   if (mode !== "hollow" && mode !== "bg") {
     setStatus("清除區段只作用於空心填充/背景鑲嵌模式", true);
     return;
   }
-  _regionStash[mode] = null;
-  _regions = [];
+  if (_splitMode) setSplitMode(false);
+  for (const region of _regions) region.tangle = null;
   _selectedRegionId = null;
   _splitState = null;
   redrawAll();
-  setStatus(`已清除${mode === "hollow" ? "空心填充" : "背景鑲嵌"}的` +
-            "纏繞元素——按「載入字框」重新隨機填充");
+  // bg 暫存跨字形重載保留（5dh）——「載入字框」只會重抽 hollow。
+  setStatus(`${mode === "hollow" ? "空心填充" : "背景鑲嵌"}區段已全部留白` +
+            "——點縮圖重新上圖樣" +
+            (mode === "hollow" ? "、「載入字框」重新隨機填充" : ""));
 }
 
 /** mapped contours → Path2D（每 contour 一 sub-path、closePath）。 */
@@ -853,21 +860,40 @@ function selectRegionAtClick(e, canvas) {
   );
 }
 
-/** 圖樣鈕列：改選中區段的 tangle（null = 留白）。 */
+/**
+ * 圖樣鈕列：改選中區段的 tangle（null = 留白）。
+ * 5di（驗收回饋）：**未選取＝套用到目前模式全部區段**——bg 單一整區
+ * 時「點縮圖直接切換」符合直覺；hollow 多帶＝整字統一圖樣。
+ * 有選取時維持 5df-3 的單區段編輯。
+ */
 function setRegionTangle(key) {
-  const r = selectedRegion();
-  if (!r) {
-    setStatus("先點 canvas 選一個區段（空心填充/背景鑲嵌模式）", true);
-    return;
-  }
   if (key !== null && !TANGLES[key]) {
     setStatus(`未知 tangle: ${key}`, true);
     return;
   }
-  r.tangle = key;
+  const r = selectedRegion();
+  if (r) {
+    r.tangle = key;
+    redrawAll();
+    setStatus(
+      key ? `區段 ${r.id} 圖樣 → ${TANGLES[key].label}` : `區段 ${r.id} → 留白`
+    );
+    return;
+  }
+  if (_regions.length === 0) {
+    setStatus(
+      "目前沒有區段——選「空心填充/背景鑲嵌」模式並按「載入字框」",
+      true
+    );
+    return;
+  }
+  for (const region of _regions) region.tangle = key;
   redrawAll();
   setStatus(
-    key ? `區段 ${r.id} 圖樣 → ${TANGLES[key].label}` : `區段 ${r.id} → 留白`
+    (key
+      ? `全部區段圖樣 → ${TANGLES[key].label}`
+      : "全部區段 → 留白") +
+    "（點紙磚選單一區段＝個別改）"
   );
 }
 

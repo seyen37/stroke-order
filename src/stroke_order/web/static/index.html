@@ -2831,10 +2831,10 @@
       </label>
       <button id="zentangle-region-clear" type="button"
               style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
-              title="清空目前模式的纏繞元素（空心/背景切換不清空、按此鈕才清）">清除區段</button>
+              title="目前模式的纏繞元素全部留白（保留區段結構；空心/背景切換不清空、按此鈕才清）">清除區段</button>
     </div>
     <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:6px;">
-      ⓘ 點紙磚選區段（虛線框）→ 點縮圖換圖樣、⬆➡⬇⬅ 改朝向、「留白」清空該區段；
+      ⓘ 直接點縮圖＝全部區段換圖樣；點紙磚選區段（虛線框）→ 點縮圖＝個別換、⬆➡⬇⬅ 改朝向、「留白」清空；
       ✂ 切分＝起點 → 終點 → 滑鼠調彎 → 雙擊定案（可再切）；空心/背景切換各自保留
     </div>
     <div id="zentangle-canvas-wrap"
@@ -10106,7 +10106,7 @@ async function renderCnsDecomposition(char) {
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，
      舊快取的 zentangle.js 不認得區段模型，改版時同步 bump。 -->
-<script type="module" src="/static/zentangle/zentangle.js?v=179"></script>
+<script type="module" src="/static/zentangle/zentangle.js?v=180"></script>
 
 </body>
 </html>

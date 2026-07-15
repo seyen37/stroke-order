@@ -114,3 +114,6 @@ docs/site/
 # Claude 寫 commit msg 到此資料夾 (Python list-of-strings)、
 # user host PowerShell 跑 `git commit -F docs/_commit_msg/YYYY-MM-DD_NN.txt`
 /docs/_commit_msg/
+
+# Cowork cloud-session scratch (device VM cannot delete files); never commit
+_to_delete/
