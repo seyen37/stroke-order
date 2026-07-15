@@ -1392,6 +1392,71 @@ click 的疊發，用「該 phase 單擊＝no-op」吸收，不用計時器猜�
 
 ---
 
+## 15. 引擎正交、匯出管線與雲端工作階段原則（2026-07-15 5di→5dk 新增）
+
+> 禪繞引擎重構弧的沉澱：把使用者「理念」翻成正交分層、同一 spec
+> 管線同時餵渲染與三格式匯出、近似先落地精確後升級、雲端工作
+> 階段的跨檔案系統紀律。詳細脈絡見
+> `decisions/2026-07-15_5di_5dk_zentangle_export.md`。
+
+### 15.1 理念的結構就是架構的維度
+
+使用者給的常是理念不是規格（禪繞「五基本符號 × 七延伸技法」）。
+把理念的乘法結構直接落成程式的正交維度：基本層（registry
+category）× 延伸層（吃 spec 回 spec 的純函式）× 資料（per-region
+集合）。延伸層與 builder 完全解耦＝既有圖樣一行不改就歸位、新舊
+共用同一朝向/渲染。理念裡的「維度」比「清單」更值得保留。
+
+### 15.2 同一管線同時餵渲染與匯出，不另寫幾何
+
+畫面與匯出共用 `build → orient → enhance` 一條管線——看到什麼、
+匯出就是什麼（含全部延伸/朝向/參數）。若為匯出在另一語言/層重寫
+幾何＝雙軌維護、必然漂移。單一真相源不只省事，是「所見即所得」
+正確性的保證。
+
+### 15.3 近似先落地、精確有觸發才升級
+
+先用可測、夠用的近似當輪交付價值（取樣裁切），保留升級路徑；
+精確版（evenodd 真裁切）等到有明確觸發（使用者要更精準）才做。
+每輪都有可驗收的成果，不為一次到位拖延交付；升級時 API 不變、
+測試全保。
+
+### 15.4 能力邊界誠實，不適用就略過或降級
+
+後處理技法對不適用的輸入不硬套：Coffering 只認完整 orb、Sparkle
+對 s_shape 首版 no-op（後輪補）、Rounding 端點近似→真三角但直角
+不填。每個「做不到／暫不做」在註解誠實標注、留升級路徑，不假裝
+全能、不硬塞怪幾何。降級要有可觀察性（狀態列/註記）。
+
+### 15.5 固定管線的順序是規格，要用組合驗證
+
+多個後處理疊成固定管線時，順序本身就是規格——「不炸」不夠，
+要防**靜默失效**（Coffering 排在 Sparkle 後會找不到完整 orb、
+無聲失效）。用實際多勾組合（不只單技法）跑 E2E，把「先誰後誰」
+的依賴寫進回歸鎖。
+
+### 15.6 雲端工作階段＝兩個檔案系統的跨越紀律
+
+雲端沙箱與本機權威檔是兩套 fs，跨越時：①開工 `git reset --hard`
+前確認前輪已 push，否則清掉磁碟上未 commit 的工作（留 `/root/out`
+副本可還原）②寫回一律 `device_commit_files` ＋ stage 回讀驗證；
+uploads 二次 stage 同路徑讀到舊 md5（快取殘影）＝以 stage 回傳
+bytes 或新檔名/clone 對照，不信 `device_bash` 讀值 ③`device_bash`
+跑 `git status` 會留刪不掉的 `.git/index.lock`；④外部資源以
+「使用者網路環境」為準（release 字型資料中心 403＝系統字型代打）；
+⑤`收工檢查.bat` 取最高編號 msg——要兩筆分開就分兩輪交付、之間
+讓使用者收工一次。
+
+### 15.7 registry／宣告式清單長出多消費者（§14.6 擴大版）
+
+同一份清單餵多個 UI 與邏輯：`TANGLES`→縮圖鈕（跑生產 builder）／
+`ENHANCERS`→toggle／`COMBOS`→快捷鈕／`ENHANCER_PARAM_DEFS`→滑桿／
+`DXF_LAYER_COLORS`→DXF 層。新增一項＝改一處清單、UI 自動長出、
+永不漂移。前端復刻後端格式時（DXF）以既有實作（`dxf.py`）為規格，
+逐項對齊勝過各寫各的。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1404,6 +1469,9 @@ click 的疊發，用「該 phase 單擊＝no-op」吸收，不用計時器猜�
   - [`WORK_LOG_2026-07-13.md`](WORK_LOG_2026-07-13.md)（5cv→5dh
     全日五弧：注音 v2 全收官＋OpenCV 4.11 破案＋雷切線＋禪繞
     互動編輯弧＋鏤空字實測修正＋互動大改版）
+  - [`WORK_LOG_2026-07-15.md`](WORK_LOG_2026-07-15.md)（5di→5dk
+    禪繞引擎重構弧：iCSO 五基本符號＋七延伸技法＋參數/組合＋
+    SVG/G-code/DXF 匯出＋evenodd 真裁切＋雷雕掃描填充；雲端工作階段）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -1414,6 +1482,7 @@ click 的疊發，用「該 phase 單擊＝no-op」吸收，不用計時器猜�
   - [`2026-07-13_5db_5df1_laser_zentangle.md`](decisions/2026-07-13_5db_5df1_laser_zentangle.md)（第二弧：雷切線＋禪繞地基，對應 §12）
   - [`2026-07-13_5df2_5df4_zentangle_regions.md`](decisions/2026-07-13_5df2_5df4_zentangle_regions.md)（第三弧：禪繞區段模型/互動編輯/切分線，對應 §13）
   - [`2026-07-13_5dg_5dh_stencil_zentangle_ux.md`](decisions/2026-07-13_5dg_5dh_stencil_zentangle_ux.md)（第四弧：鏤空字實測修正＋禪繞互動大改版，對應 §14）
+  - [`2026-07-15_5di_5dk_zentangle_export.md`](decisions/2026-07-15_5di_5dk_zentangle_export.md)（禪繞引擎重構弧：互動修正＋iCSO 引擎＋SVG/G-code/DXF 匯出，對應 §15）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1424,4 +1493,4 @@ click 的疊發，用「該 phase 單擊＝no-op」吸收，不用計時器猜�
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§14 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§15 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段）。三者互補。
