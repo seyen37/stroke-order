@@ -13,6 +13,7 @@ import pytest
 
 from stroke_order.sources.chongxi_seal import (
     ChongxiSealSource,
+    _simp_to_trad,
     apply_seal_outline_mode,
     attribution_notice,
     default_seal_font_path,
@@ -122,6 +123,45 @@ def test_unknown_codepoint_raises(seal_env):
     # Emoji not in the seal font.
     with pytest.raises(CharacterNotFound):
         src.get_character("\U0001F600")
+
+
+# ---------------------------------------------------------------------------
+# 5dn：以崇羲為主體、簡轉繁補足（QODA A 案）——崇羲＝純繁體，缺口幾乎
+# 全是簡體；簡體輸入轉繁後用崇羲的繁體篆形渲染。
+# ---------------------------------------------------------------------------
+
+
+def test_5dn_simp_to_trad_single_char():
+    """opencc s2t 單字轉換：簡體→繁體；非單字/無變化回 None。"""
+    assert _simp_to_trad("国") == "國"
+    assert _simp_to_trad("书") == "書"
+    assert _simp_to_trad("发") == "發"
+    # 已是繁體 / 兩岸同形 → 無變化 → None（不觸發 fallback）
+    assert _simp_to_trad("國") is None
+    assert _simp_to_trad("永") is None
+
+
+@needs_seal
+def test_5dn_simplified_input_renders_via_traditional_glyph(seal_env):
+    """簡體輸入 → 簡轉繁 → 用崇羲繁體篆形渲染；字形＝對應繁體字。"""
+    src = ChongxiSealSource()
+    for simp, trad in [("国", "國"), ("书", "書"), ("龙", "龍")]:
+        cs = src.get_character(simp)
+        ct = src.get_character(trad)
+        assert cs.strokes[0].outline, f"{simp} 應能經 fallback 渲染"
+        # 簡體用的是繁體字形 → outline 指令數與繁體一致
+        assert len(cs.strokes[0].outline) == len(ct.strokes[0].outline)
+        # 保留使用者原輸入身份（char＝簡體）
+        assert cs.char == simp
+
+
+@needs_seal
+def test_5dn_traditional_still_direct_hit(seal_env):
+    """以崇羲為主體：繁體字直接命中、不經轉換。"""
+    src = ChongxiSealSource()
+    c = src.get_character("國")
+    assert c.char == "國"
+    assert c.strokes[0].outline
 
 
 # ---------------------------------------------------------------------------

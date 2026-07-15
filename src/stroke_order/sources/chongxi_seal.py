@@ -54,6 +54,45 @@ _ENV_DIR = "STROKE_ORDER_SEAL_FONT_DIR"
 _DEFAULT_FILE = Path.home() / ".stroke-order" / "seal-fonts" / "chongxi_seal.otf"
 
 
+# ---------------------------------------------------------------------------
+# 5dn：以崇羲為主體、簡轉繁補足不足（QODA A 案）
+# ---------------------------------------------------------------------------
+# 崇羲篆書是台灣繁體篆書、覆蓋繁體近乎完整（教育部常用字 4808 只真缺
+# ~8 罕見字），但**不收簡體**（缺口 ~1500 字幾乎全是簡體）。篆書本來
+# 就用繁體/古形——「簡體篆書」是現代產物——故簡體輸入轉繁後用崇羲的
+# 繁體篆形渲染，語義上反而更正確，且零新字型、無他家字型授權問題。
+# 實測 opencc s2t 可救回崇羲 99% 的缺字（1494/1508）。
+#
+# opencc 為選用依賴：缺套件時 fallback 靜默關閉（退回原本缺字行為），
+# 與字型「未安裝即降級」同一容錯策略。
+_S2T_SENTINEL = object()
+_S2T_CONVERTER = _S2T_SENTINEL  # 未初始化；首次用時 lazy load
+
+
+def _simp_to_trad(char: str) -> Optional[str]:
+    """單一簡體字 → 繁體（opencc s2t）。
+
+    僅在轉換結果**恰為一個字且與原字不同**時回傳（可當單一字形渲染）；
+    無 opencc、非單字結果、或無變化 → ``None``（不做 fallback）。
+    """
+    global _S2T_CONVERTER
+    if _S2T_CONVERTER is _S2T_SENTINEL:
+        try:
+            import opencc  # type: ignore
+            _S2T_CONVERTER = opencc.OpenCC("s2t")
+        except Exception:            # noqa: BLE001 — 缺套件/初始化失敗即降級
+            _S2T_CONVERTER = None
+    if _S2T_CONVERTER is None:
+        return None
+    try:
+        alt = _S2T_CONVERTER.convert(char)
+    except Exception:                # noqa: BLE001
+        return None
+    if len(alt) == 1 and alt != char:
+        return alt
+    return None
+
+
 def default_seal_font_path() -> Path:
     """Resolve the OTF path. Order:
 
@@ -134,20 +173,18 @@ class ChongxiSealSource:
             return 0
         return len(font.getBestCmap())
 
-    def get_character(self, char: str) -> Character:
-        if char in self._cache:
-            return self._cache[char]
-        font = self._load_font()
-        if font is None:
-            raise CharacterNotFound(
-                f"崇羲篆體 font not installed; checked {self.font_path}"
-            )
-        cp = ord(char)
-        cmap = font.getBestCmap()
-        gname = cmap.get(cp)
+    def _render_glyph(self, font, glyph_char: str, id_char: str) -> Character:
+        """以 ``glyph_char`` 的字形渲染，但 Character.char 記為 ``id_char``。
+
+        （5dn：簡轉繁 fallback 時 glyph_char＝繁體、id_char＝使用者原本
+        輸入的簡體，保留輸入身份、用繁體篆形作圖。）缺字形/無輪廓即
+        拋 :class:`CharacterNotFound`。
+        """
+        cp = ord(glyph_char)
+        gname = font.getBestCmap().get(cp)
         if gname is None:
             raise CharacterNotFound(
-                f"崇羲篆體 has no glyph for U+{cp:04X} ({char!r})"
+                f"崇羲篆體 has no glyph for U+{cp:04X} ({glyph_char!r})"
             )
         pen = _OutlineCmdPen(font.getGlyphSet())
         font.getGlyphSet()[gname].draw(pen)
@@ -162,9 +199,9 @@ class ChongxiSealSource:
             _transform_cmd(cmd, scale=scale, ascender=ascender)
             for cmd in pen.commands
         ]
-        c = Character(
-            char=char,
-            unicode_hex=f"{cp:04x}",
+        return Character(
+            char=id_char,
+            unicode_hex=f"{ord(id_char):04x}",
             strokes=[Stroke(
                 index=0,
                 raw_track=[],
@@ -175,6 +212,24 @@ class ChongxiSealSource:
             )],
             data_source="chongxi_seal",
         )
+
+    def get_character(self, char: str) -> Character:
+        if char in self._cache:
+            return self._cache[char]
+        font = self._load_font()
+        if font is None:
+            raise CharacterNotFound(
+                f"崇羲篆體 font not installed; checked {self.font_path}"
+            )
+        # 以崇羲為主體：原字先試（繁體/崇羲已有的字直接命中）。
+        try:
+            c = self._render_glyph(font, char, char)
+        except CharacterNotFound:
+            # 崇羲缺字 → 5dn 簡轉繁 fallback（缺口幾乎全是簡體）。
+            alt = _simp_to_trad(char)
+            if alt is None:
+                raise
+            c = self._render_glyph(font, alt, char)   # 繁體篆形、原輸入身份
         self._cache[char] = c
         return c
 
