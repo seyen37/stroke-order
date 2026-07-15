@@ -80,19 +80,51 @@ export function flattenSpec(spec, opts = {}) {
                closed: full}];
     }
     case SPEC_DOT: {
-      // 輪廓化：小圓周（閉合折線）。
+      // 填色型（fill:true）：閉合小圓周；collect 依 fillMode 決定輪廓/掃描。
       const n = Math.max(6, Math.round(arcSegs * 0.4));
       return [{points: flattenArc(spec.cx, spec.cy, Math.max(spec.r, 0.4),
-                                  0, Math.PI * 2, n), closed: true}];
+                                  0, Math.PI * 2, n), closed: true, fill: true}];
     }
     case SPEC_TRI: {
       const p = spec.points || [];
       if (p.length < 3) return [];
-      return [{points: [p[0], p[1], p[2]], closed: true}];
+      return [{points: [p[0], p[1], p[2]], closed: true, fill: true}];
     }
     default:
       return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// 1b) scanline 填充：閉合多邊形 → 平行水平掃描線（雷雕填色）
+// ---------------------------------------------------------------------------
+
+/**
+ * 掃描填充：水平線陣列與多邊形求交、配對區間 → 水平線段。
+ * spacing 為 px（呼叫端由 mm 換算）。回傳開放折線群（每段兩點）。
+ */
+export function scanlineFill(poly, spacing) {
+  if (!Array.isArray(poly) || poly.length < 3 || !(spacing > 0)) return [];
+  let ymin = Infinity, ymax = -Infinity;
+  for (const [, y] of poly) { if (y < ymin) ymin = y; if (y > ymax) ymax = y; }
+  const segs = [];
+  // 從 ymin 半格起掃、避免恰壓頂點。
+  for (let y = ymin + spacing * 0.5; y < ymax; y += spacing) {
+    const xs = [];
+    for (let i = 0; i < poly.length; i++) {
+      const [x1, y1] = poly[i];
+      const [x2, y2] = poly[(i + 1) % poly.length];
+      // 邊跨越掃描線 y（半開區間避免頂點重複計數）。
+      if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) {
+        xs.push(x1 + (x2 - x1) * (y - y1) / (y2 - y1));
+      }
+    }
+    xs.sort((a, b) => a - b);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      if (xs[k + 1] - xs[k] > 1e-6) segs.push([[xs[k], y], [xs[k + 1], y]]);
+    }
+  }
+  return segs;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,15 +255,29 @@ export function clipPolyline(pl, region, mappedContours, opts = {}) {
  * applyEnhancers），再以 5dj-5 精確 even-odd 真裁切到區段可見區。
  * 每區段的裁切邊界（區段形狀＋字形輪廓）預算一次、跨該區所有折線復用。
  *
- * @param {object} ctx - {regions, mappedContours, params, tileSize, tileMargin,
- *                        baseLineWidth, includeOutline}
- * @returns {{strokes: Array<Array<[x,y]>>, outline: Array<Array<[x,y]>>}}
+ * 5dk：填色形狀（dot/tri，flatten fill:true）依 fillMode 分流——
+ *   "outline"（預設）：輪廓當描邊 → strokes
+ *   "scan"           ：掃描線填滿 → fills（雷雕）
+ *   "skip"           ：略過
+ * 掃描間距 scanSpacingMm 由 tileMm/tileSize 換算成 px。
+ * strokes/fills 分開回傳＝DXF 可分 ENGRAVE（線＋填）／WRITE（僅線）。
+ *
+ * @param {object} ctx - {regions, mappedContours, params, tileSize, tileMm,
+ *                        baseLineWidth, includeOutline, fillMode, scanSpacingMm,
+ *                        arcSegs, curveSegs}
+ * @returns {{strokes, fills, outline}} 各為 Array<Array<[x,y]>>
  */
 export function collectExportPaths(ctx) {
-  const {regions, mappedContours, params, tileSize,
+  const {regions, mappedContours, params, tileSize, tileMm = 90,
          baseLineWidth = 1, includeOutline = true,
-         paramsToOpts} = ctx;
+         fillMode = "outline", scanSpacingMm = 1.0,
+         arcSegs, curveSegs, paramsToOpts} = ctx;
+  const flattenOpts = {};
+  if (arcSegs) flattenOpts.arcSegs = arcSegs;
+  if (curveSegs) flattenOpts.curveSegs = curveSegs;
+  const scanSpacingPx = Math.max(1, scanSpacingMm * tileSize / tileMm);
   const strokes = [];
+  const fills = [];
   for (const region of regions || []) {
     if (!region.tangle) continue;
     if (region.kind === "glyph" &&
@@ -248,7 +294,21 @@ export function collectExportPaths(ctx) {
     // 5dj-5：裁切邊界每區段預算一次（避免每條折線重建字形邊列表）。
     const edges = buildClipEdges(region, mappedContours);
     for (const spec of specs) {
-      for (const pl of flattenSpec(spec)) {
+      for (const pl of flattenSpec(spec, flattenOpts)) {
+        if (pl.fill) {
+          // 填色形狀依 fillMode 分流。
+          if (fillMode === "skip") continue;
+          if (fillMode === "scan") {
+            for (const seg of scanlineFill(pl.points, scanSpacingPx)) {
+              for (const c of clipPolyline({points: seg, closed: false},
+                                           region, mappedContours, {edges})) {
+                fills.push(c);
+              }
+            }
+            continue;
+          }
+          // "outline"：輪廓當描邊，落入 strokes（下方共用裁切）。
+        }
         for (const seg of clipPolyline(pl, region, mappedContours, {edges})) {
           strokes.push(seg);
         }
@@ -261,7 +321,7 @@ export function collectExportPaths(ctx) {
       if (Array.isArray(poly) && poly.length >= 2) outline.push([...poly, poly[0]]);
     }
   }
-  return {strokes, outline};
+  return {strokes, fills, outline};
 }
 
 // ---------------------------------------------------------------------------
@@ -276,8 +336,8 @@ function plToPoints(seg, sx, sy) {
 }
 
 /**
- * SVG 匯出（mm 尺寸；5bt 契約：width = viewBox 跨度 mm）。字框輪廓較粗、
- * 圖樣較細。填色形狀已在 flatten 輪廓化，這裡一律 stroke。
+ * SVG 匯出（mm 尺寸；5bt 契約：width = viewBox 跨度 mm）。三層：outline
+ * 字框（較粗）／tangle 圖樣線／fill 掃描填充（5dk，scan 模式才有）。
  */
 export function pathsToSvg(paths, opts = {}) {
   const {tileSize, tileMm, strokeMm = 0.3, outlineMm = 0.5} = opts;
@@ -291,6 +351,12 @@ export function pathsToSvg(paths, opts = {}) {
   if (paths.outline && paths.outline.length) {
     lines.push(`    <g stroke-width="${outlineMm}" data-layer="outline">`);
     for (const seg of paths.outline)
+      lines.push(`      <polyline points="${plToPoints(seg, sx, sy)}"/>`);
+    lines.push("    </g>");
+  }
+  if (paths.fills && paths.fills.length) {
+    lines.push(`    <g stroke-width="${strokeMm}" data-layer="fill">`);
+    for (const seg of paths.fills)
       lines.push(`      <polyline points="${plToPoints(seg, sx, sy)}"/>`);
     lines.push("    </g>");
   }
@@ -343,10 +409,77 @@ export function pathsToGcode(paths, opts = {}) {
   if (includeOutline && paths.outline && paths.outline.length)
     emit(paths.outline, "outline 字框");
   emit(paths.strokes, "tangle 圖樣");
+  if (paths.fills && paths.fills.length) emit(paths.fills, "fill 掃描填充");
   out.push("");
   out.push("; --- epilogue ---");
   out.push(`${penUp} ; ensure pen up`);
   out.push(`G0 X${fmt(ox)} Y${fmt(oy)} F${travel} ; return home`);
   out.push("; done");
   return out.join("\n") + "\n";
+}
+
+// ---------------------------------------------------------------------------
+// 5dk) DXF R12 分層匯出（CUT / ENGRAVE / WRITE，復刻 exporters/dxf.py 慣例）
+// ---------------------------------------------------------------------------
+
+//: AutoCAD 顏色索引（同 dxf.py：CUT 紅 / ENGRAVE 黑 / WRITE 藍）。
+export const DXF_LAYER_COLORS = {CUT: 1, ENGRAVE: 7, WRITE: 5};
+
+function dg(code, value) { return `${code}\n${value}\n`; }
+
+/**
+ * DXF R12 ASCII（POLYLINE/VERTEX/SEQEND；zero-dep；flip_y 機器 Y 向上）。
+ * layers = [{name, polys:[{points:[[x,y]mm...], closed}]}]，順序保留。
+ */
+export function layersToDxf(layers, opts = {}) {
+  const flipY = opts.flipY !== false;
+  const sy = flipY ? -1 : 1;
+  const out = [];
+  out.push(dg(0, "SECTION") + dg(2, "HEADER"));
+  out.push(dg(9, "$ACADVER") + dg(1, "AC1009"));
+  out.push(dg(0, "ENDSEC"));
+  out.push(dg(0, "SECTION") + dg(2, "TABLES"));
+  out.push(dg(0, "TABLE") + dg(2, "LAYER") + dg(70, layers.length));
+  for (const {name} of layers) {
+    const color = DXF_LAYER_COLORS[name] ?? 7;
+    out.push(dg(0, "LAYER") + dg(2, name) + dg(70, 0) + dg(62, color) + dg(6, "CONTINUOUS"));
+  }
+  out.push(dg(0, "ENDTAB") + dg(0, "ENDSEC"));
+  out.push(dg(0, "SECTION") + dg(2, "ENTITIES"));
+  for (const {name, polys} of layers) {
+    for (const poly of polys) {
+      const pts = poly.points;
+      if (!Array.isArray(pts) || pts.length < 2) continue;
+      out.push(dg(0, "POLYLINE") + dg(8, name) + dg(66, 1) + dg(70, poly.closed ? 1 : 0));
+      for (const [x, y] of pts) {
+        out.push(dg(0, "VERTEX") + dg(8, name) +
+                 dg(10, fmt(x)) + dg(20, fmt(sy * y)) + dg(30, "0.0"));
+      }
+      out.push(dg(0, "SEQEND") + dg(8, name));
+    }
+  }
+  out.push(dg(0, "ENDSEC") + dg(0, "EOF"));
+  return out.join("");
+}
+
+/**
+ * 禪繞路徑 → DXF 三層（5dk QODA 定案）：
+ *   CUT（紅）    ：字框 outline（雷切輪廓）
+ *   ENGRAVE（黑）：圖樣線 + 掃描填充（雷雕）
+ *   WRITE（藍）  ：圖樣線（寫字機筆軌跡，不含掃描填充）
+ * px → mm 換算後入 DXF（DXF 用 mm 空間、flip_y 由 layersToDxf 處理）。
+ */
+export function pathsToDxf(paths, opts = {}) {
+  const {tileSize, tileMm} = opts;
+  const s = tileMm / tileSize;
+  const toMm = (segs) => (segs || []).map(
+    (seg) => ({points: seg.map(([x, y]) => [x * s, y * s]), closed: false}));
+  const outlineMm = (paths.outline || []).map(
+    (seg) => ({points: seg.map(([x, y]) => [x * s, y * s]), closed: true}));
+  const engrave = [...toMm(paths.strokes), ...toMm(paths.fills)];
+  return layersToDxf([
+    {name: "CUT", polys: outlineMm},
+    {name: "ENGRAVE", polys: engrave},
+    {name: "WRITE", polys: toMm(paths.strokes)},
+  ], opts);
 }

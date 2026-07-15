@@ -12,6 +12,7 @@ import {
 import {
   TILE_MM, flattenSpec, clipPolyline, collectExportPaths,
   pathsToSvg, pathsToGcode, buildClipEdges,
+  scanlineFill, pathsToDxf, layersToDxf, DXF_LAYER_COLORS,
 } from "../src/stroke_order/web/static/zentangle/exporters.mjs";
 import {paramsToOpts} from "../src/stroke_order/web/static/zentangle/enhancers.mjs";
 
@@ -236,4 +237,105 @@ test("5dj-5: 完整圓（閉合折線）裁切在字形內＝閉合處也正確"
   assert.ok(segs.length >= 1, "圓在字形內應保留");
   const nPts = segs.reduce((a, s) => a + s.length, 0);
   assert.ok(nPts >= circle.points.length - 1, "點數大致守恆（全在內）");
+});
+
+// ---------------------------------------------------------------------------
+// 5dk — 雷雕掃描填充 / 填色模式 / DXF 三層
+// ---------------------------------------------------------------------------
+
+test("5dk: scanlineFill 方塊 → 水平線段填滿、間距正確", () => {
+  const sq = [[0,0],[20,0],[20,20],[0,20]];
+  const segs = scanlineFill(sq, 5);
+  assert.ok(segs.length >= 3, `20 高 /5 間距 → ≥3 條，得 ${segs.length}`);
+  for (const [[x0,y0],[x1,y1]] of segs) {
+    assert.equal(y0, y1, "水平線");
+    assert.ok(Math.abs(x0 - 0) < 1e-6 && Math.abs(x1 - 20) < 1e-6, "跨滿方塊寬");
+  }
+});
+
+test("5dk: scanlineFill 三角形 → 線段寬度隨高度變化", () => {
+  const tri = [[0,0],[20,0],[0,20]];  // 直角三角，上寬下窄
+  const segs = scanlineFill(tri, 4);
+  assert.ok(segs.length >= 2);
+  // 靠近 y=0 的線段較長、靠近 y=20 較短。
+  const widths = segs.map(([[x0],[x1]]) => x1 - x0);
+  assert.ok(widths[0] > widths[widths.length-1], "上寬下窄");
+});
+
+test("5dk: scanlineFill 退化輸入回空", () => {
+  assert.deepEqual(scanlineFill([[0,0],[1,1]], 5), []);   // <3 點
+  assert.deepEqual(scanlineFill([[0,0],[9,0],[9,9]], 0), []);  // spacing 0
+});
+
+function fillCtx(fillMode) {
+  // 字形＝大方塊；區段 glyph 內放 tangle 帶 rounding（產生 tri 填色形狀）。
+  const glyph = [[[10,10],[90,10],[90,90],[10,90]]];
+  return {
+    regions: [{id:"r0", kind:"glyph", band:{x:10,y:10,w:80,h:80},
+               tangle:"line", orientation:"up", enhancers:{rounding:true}}],
+    mappedContours: glyph, params: {}, tileSize: 100, tileMm: 100,
+    baseLineWidth: 1, paramsToOpts, fillMode, scanSpacingMm: 2,
+  };
+}
+
+test("5dk: collectExportPaths 回 strokes/fills/outline 三欄", () => {
+  const r = collectExportPaths(fillCtx("outline"));
+  assert.ok("strokes" in r && "fills" in r && "outline" in r);
+});
+
+test("5dk: fillMode scan → fills 有掃描線、outline 模式 fills 空", () => {
+  const scan = collectExportPaths(fillCtx("scan"));
+  const outline = collectExportPaths(fillCtx("outline"));
+  assert.ok(scan.fills.length > 0, "scan 模式產生掃描填充線");
+  assert.equal(outline.fills.length, 0, "outline 模式無 fills（輪廓歸 strokes）");
+});
+
+test("5dk: fillMode skip → 填色形狀完全略過（fills 空、strokes 較少）", () => {
+  const skip = collectExportPaths(fillCtx("skip"));
+  const outline = collectExportPaths(fillCtx("outline"));
+  assert.equal(skip.fills.length, 0);
+  assert.ok(skip.strokes.length <= outline.strokes.length,
+            "skip 略過填色輪廓 → strokes ≤ outline 模式");
+});
+
+test("5dk: layersToDxf R12 結構（LAYER table + POLYLINE + flip_y）", () => {
+  const dxf = layersToDxf([
+    {name:"CUT", polys:[{points:[[0,0],[10,0],[10,10]], closed:true}]},
+    {name:"ENGRAVE", polys:[{points:[[2,2],[8,8]], closed:false}]},
+  ]);
+  assert.match(dxf, /AC1009/, "R12");
+  assert.match(dxf, /LAYER\n2\nCUT/, "CUT 層");
+  assert.match(dxf, /POLYLINE\n\s*8\nCUT/, "CUT 圖元");
+  assert.match(dxf, /EOF/);
+  // flip_y：y=10 → DXF Y=-10。
+  assert.match(dxf, /20\n-10/, "flip_y 生效");
+});
+
+test("5dk: DXF_LAYER_COLORS 三層", () => {
+  assert.equal(DXF_LAYER_COLORS.CUT, 1);
+  assert.equal(DXF_LAYER_COLORS.ENGRAVE, 7);
+  assert.equal(DXF_LAYER_COLORS.WRITE, 5);
+});
+
+test("5dk: pathsToDxf 三層——CUT=字框、ENGRAVE=線+填、WRITE=僅線", () => {
+  const paths = {
+    strokes: [[[10,10],[90,10]]],
+    fills: [[[20,20],[80,20]]],
+    outline: [[[0,0],[100,0],[100,100],[0,100],[0,0]]],
+  };
+  const dxf = pathsToDxf(paths, {tileSize:100, tileMm:100});
+  assert.match(dxf, /LAYER\n2\nCUT/);
+  assert.match(dxf, /LAYER\n2\nENGRAVE/);
+  assert.match(dxf, /LAYER\n2\nWRITE/);
+  // ENGRAVE 含 strokes + fills（2 條 POLYLINE 在 ENGRAVE 層）。
+  const engBlocks = (dxf.match(/POLYLINE\n\s*8\nENGRAVE/g) || []).length;
+  assert.equal(engBlocks, 2, "ENGRAVE = 線 + 填 共 2");
+  const wrBlocks = (dxf.match(/POLYLINE\n\s*8\nWRITE/g) || []).length;
+  assert.equal(wrBlocks, 1, "WRITE = 僅線 1");
+});
+
+test("5dk: SVG/G-code 含 fills 層", () => {
+  const paths = {strokes:[[[0,0],[10,0]]], fills:[[[2,2],[8,2]]], outline:[]};
+  assert.match(pathsToSvg(paths, {tileSize:100, tileMm:90}), /data-layer="fill"/);
+  assert.match(pathsToGcode(paths, {tileSize:100, tileMm:90}), /fill 掃描填充/);
 });

@@ -60,10 +60,22 @@ import {
   collectExportPaths,
   pathsToSvg,
   pathsToGcode,
+  pathsToDxf,
 } from "./exporters.mjs";
 
 // 5dj-3: 全域延伸參數（per-session；一組滑桿套用到所有已勾技法的區段）。
 let _enhancerParams = defaultEnhancerParams();
+
+// 5dk: 全域匯出設定（per-session）。fillMode 填色形狀處理；scanSpacingMm
+// 雷雕掃描間距；strokeMm 圖樣線寬；curveSegs 曲線攤平精細度；includeOutline
+// 是否含字框。
+const _exportOpts = {
+  fillMode: "outline",   // outline | scan | skip
+  scanSpacingMm: 1.0,
+  strokeMm: 0.3,
+  curveSegs: 24,
+  includeOutline: true,
+};
 
 // 6z-2.1 NOTE: `rotateContours` is intentionally NOT imported here.
 // Tile rotation is now applied via canvas ctx transform (so frame + outline
@@ -828,8 +840,9 @@ function setSplitMode(on) {
 }
 
 /**
- * 5dj-4 — 匯出目前紙磚的裝飾筆劃（含全部延伸技法）為 SVG / G-code。
- * 與 drawRegionLayer 同管線收集折線、取樣裁切貼合字形/背景，換算 mm 尺寸。
+ * 5dj-4/5dk — 匯出目前紙磚的裝飾筆劃（含全部延伸技法）為 SVG / G-code / DXF。
+ * 與 drawRegionLayer 同管線收集折線、精確裁切貼合字形/背景，換算 mm 尺寸。
+ * 5dk：全域匯出設定 _exportOpts（填色模式/掃描間距/線寬/精細度/含字框）。
  */
 function exportZentangle(fmt) {
   const mode = _config?.mode;
@@ -847,23 +860,32 @@ function exportZentangle(fmt) {
     regions: _regions,
     mappedContours: currentMappedContours(),
     params: _enhancerParams,
-    tileSize,
+    tileSize, tileMm,
     baseLineWidth: TANGLE_LINE_WIDTH,
-    includeOutline: true,
+    includeOutline: _exportOpts.includeOutline,
+    fillMode: _exportOpts.fillMode,
+    scanSpacingMm: _exportOpts.scanSpacingMm,
+    curveSegs: _exportOpts.curveSegs,
+    arcSegs: Math.round(_exportOpts.curveSegs * 1.6),
     paramsToOpts,
   });
-  const nSeg = paths.strokes.length + paths.outline.length;
+  const nSeg = paths.strokes.length + paths.fills.length + paths.outline.length;
   if (nSeg === 0) {
     setStatus("裁切後無可匯出路徑（圖樣可能全落在區段外）", true);
     return;
   }
   const char = (_charInput?.value || "禪繞").trim() || "禪繞";
+  const emitOpts = {tileSize, tileMm, strokeMm: _exportOpts.strokeMm,
+                    includeOutline: _exportOpts.includeOutline};
   let content, mime, ext;
   if (fmt === "svg") {
-    content = pathsToSvg(paths, {tileSize, tileMm});
+    content = pathsToSvg(paths, emitOpts);
     mime = "image/svg+xml"; ext = "svg";
+  } else if (fmt === "dxf") {
+    content = pathsToDxf(paths, emitOpts);
+    mime = "application/dxf"; ext = "dxf";
   } else {
-    content = pathsToGcode(paths, {tileSize, tileMm});
+    content = pathsToGcode(paths, emitOpts);
     mime = "text/plain"; ext = "gcode";
   }
   const blob = new Blob([content], {type: mime});
@@ -875,8 +897,63 @@ function exportZentangle(fmt) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setStatus(`已匯出 ${fmt.toUpperCase()}：${paths.strokes.length} 圖樣折線` +
-            ` + ${paths.outline.length} 字框（${tileMm}mm 紙磚）`);
+  const fillNote = _exportOpts.fillMode === "scan"
+    ? `、${paths.fills.length} 掃描填充` : "";
+  setStatus(`已匯出 ${ext.toUpperCase()}：${paths.strokes.length} 圖樣折線` +
+            fillNote + ` + ${paths.outline.length} 字框（${tileMm}mm 紙磚）`);
+}
+
+/**
+ * 5dk — 匯出設定 UI（全域一組；改 _exportOpts → 下次匯出生效）。
+ */
+function buildExportControls() {
+  const host = document.getElementById("zentangle-export-opts");
+  if (!host) return;
+  host.innerHTML = "";
+  // 填色模式 select。
+  const fillWrap = document.createElement("label");
+  fillWrap.style.cssText = "font-size:11px;color:var(--muted);display:inline-flex;align-items:center;gap:3px;";
+  fillWrap.appendChild(document.createTextNode("填色形狀 "));
+  const sel = document.createElement("select");
+  sel.style.cssText = "font-size:11px;";
+  for (const [v, label] of [["outline", "輪廓化"], ["scan", "雷雕掃描填充"], ["skip", "略過"]]) {
+    const o = document.createElement("option");
+    o.value = v; o.textContent = label;
+    if (v === _exportOpts.fillMode) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", () => { _exportOpts.fillMode = sel.value; });
+  fillWrap.appendChild(sel);
+  host.appendChild(fillWrap);
+  // 數值滑桿：掃描間距 / 線寬 / 曲線精細度。
+  const mkSlider = (label, key, min, max, step, fmtFn) => {
+    const wrap = document.createElement("label");
+    wrap.style.cssText = "font-size:11px;color:var(--muted);display:inline-flex;align-items:center;gap:4px;white-space:nowrap;";
+    const val = document.createElement("span");
+    val.style.cssText = "min-width:30px;text-align:right;font-variant-numeric:tabular-nums;";
+    val.textContent = fmtFn(_exportOpts[key]);
+    const rng = document.createElement("input");
+    rng.type = "range"; rng.min = min; rng.max = max; rng.step = step;
+    rng.value = String(_exportOpts[key]); rng.style.cssText = "width:70px;";
+    rng.addEventListener("input", () => {
+      _exportOpts[key] = rng.valueAsNumber; val.textContent = fmtFn(rng.valueAsNumber);
+    });
+    wrap.appendChild(document.createTextNode(label + " "));
+    wrap.appendChild(rng); wrap.appendChild(val);
+    host.appendChild(wrap);
+  };
+  mkSlider("掃描間距", "scanSpacingMm", 0.3, 3, 0.1, (v) => v.toFixed(1) + "mm");
+  mkSlider("線寬", "strokeMm", 0.1, 1.0, 0.05, (v) => v.toFixed(2));
+  mkSlider("曲線精細", "curveSegs", 8, 48, 4, (v) => String(v));
+  // 含字框 checkbox。
+  const olWrap = document.createElement("label");
+  olWrap.style.cssText = "font-size:11px;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:3px;";
+  const cb = document.createElement("input");
+  cb.type = "checkbox"; cb.checked = _exportOpts.includeOutline;
+  cb.addEventListener("change", () => { _exportOpts.includeOutline = cb.checked; });
+  olWrap.appendChild(cb);
+  olWrap.appendChild(document.createTextNode("含字框輪廓"));
+  host.appendChild(olWrap);
 }
 
 function wireSplitControls() {
@@ -894,11 +971,14 @@ function wireSplitControls() {
   // 5dh: 清除區段（按鈕才清空——模式切換不清）。
   const clearBtn = document.getElementById("zentangle-region-clear");
   if (clearBtn) clearBtn.addEventListener("click", clearRegions);
-  // 5dj-4: 延伸效果向量匯出（SVG / G-code）。
+  // 5dj-4/5dk: 延伸效果向量匯出（SVG / G-code / DXF）＋匯出設定 UI。
   const svgBtn = document.getElementById("zentangle-export-svg");
   if (svgBtn) svgBtn.addEventListener("click", () => exportZentangle("svg"));
   const gcodeBtn = document.getElementById("zentangle-export-gcode");
   if (gcodeBtn) gcodeBtn.addEventListener("click", () => exportZentangle("gcode"));
+  const dxfBtn = document.getElementById("zentangle-export-dxf");
+  if (dxfBtn) dxfBtn.addEventListener("click", () => exportZentangle("dxf"));
+  buildExportControls();
   // 5dh: 朝向鈕——直接改選中區段的圖樣朝向（同鍵盤 ⬆⬇⬅➡）。
   document.querySelectorAll(".zt-orient-btn").forEach((ob) => {
     ob.addEventListener("click", () => {
