@@ -229,6 +229,21 @@
       <div id="lishu-status-row" class="font-status-row">隸書字型：載入中…</div>
       <div id="song-status-row"  class="font-status-row">宋體字型：載入中…</div>
       <div id="kaishu-status-row" class="font-status-row">楷書字型：載入中…</div>
+      <!-- 5do：崇羲缺字補足（簡轉繁＋異體字正規化）出處/授權 -->
+      <div id="seal-supplement-row" class="font-status-row"
+           style="background:#eef6ee;color:#2f6f3a;border-left:3px solid #4a9d5c;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;
+                     background:#4a9d5c;margin-right:6px;"></span>
+        <b>篆書缺字補足</b>（崇羲為主體）：崇羲為<b>繁體</b>篆書，缺字時以
+        <code>OpenCC</code> <b>簡轉繁＋異體字正規化</b>（如 国→國、爲→為、
+        衆→眾）自動補上，渲染仍用崇羲的繁體篆形。此為<b>內建函式庫</b>、
+        無需下載授權；真正罕見佛經字（如 閦／毘／鉢）崇羲無、轉換也救不回
+        時維持缺字。<br>
+        授權：OpenCC，<b>Apache License 2.0</b>（可商用）。出處：
+        <code>opencc-python-reimplemented</code> ·
+        <a href="https://github.com/BYVoid/OpenCC" target="_blank"
+           rel="noopener" style="color:#2f6f3a;">github.com/BYVoid/OpenCC</a>
+      </div>
     </div>
   </div>
 </div>

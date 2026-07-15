@@ -301,3 +301,37 @@ def test_5dc_api_cutout_dxf(client, monkeypatch):
     assert r.status_code == 200
     assert "POLYLINE" in r.text
     assert int(r.headers["x-stencil-components"]) >= 1
+
+
+# ---------------------------------------------------------------------------
+# 5do：垂直置中（依墨邊界）＋噴漆字輪廓軸向去微段（平順化）
+# ---------------------------------------------------------------------------
+
+
+def test_5do_stencil_outline_smoothed_no_staircase():
+    """5do：細化光柵（8px/mm）＋較大 RDP 容差 → 軸向邊平順、無階梯微段。
+
+    黑體般的軸向方塊字模，輪廓頂點應精簡（無 1px 階梯鋸齒殘留）。
+    """
+    # 合成方塊字（軸向邊），墨佔 em 中段
+    box = [[[(400.0, 400.0), (1600.0, 400.0), (1600.0, 1600.0),
+             (400.0, 1600.0)]]]
+    loops, _w, _h, _st = stencil_geometry(
+        box, kind="stencil", char_height_mm=50, bridge_width_mm=2.0)
+    # 一個實心方塊（無孔）→ 單一矩形環，平順化後頂點極少（≈4，容 AA 餘裕）
+    main = max(loops, key=len)
+    assert len(main) <= 8, f"軸向方塊輪廓應平順精簡，實得 {len(main)} 頂點"
+
+
+def test_5do_stencil_centers_ink_vertically():
+    """依墨實際 y-範圍垂直置中：即使字形偏在 em 框下半，也上下等距。"""
+    # 合成字形：墨只佔 em 的下半（y 1100..1900）——舊法會沉底貼框。
+    char_polys = [[[(500.0, 1100.0), (1500.0, 1100.0),
+                    (1500.0, 1900.0), (500.0, 1900.0)]]]
+    loops, w, h, st = stencil_geometry(
+        char_polys, kind="stencil", char_height_mm=50, bridge_width_mm=2.0)
+    ys = [y for lp in loops for _x, y in lp]
+    top_gap = min(ys)
+    bot_gap = h - max(ys)
+    assert abs(top_gap - bot_gap) <= 0.6, (
+        f"墨應垂直置中：上緣 {top_gap:.2f}mm vs 下緣 {bot_gap:.2f}mm")

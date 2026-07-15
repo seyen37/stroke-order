@@ -66,21 +66,65 @@ _DEFAULT_FILE = Path.home() / ".stroke-order" / "seal-fonts" / "chongxi_seal.otf
 # opencc 為選用依賴：缺套件時 fallback 靜默關閉（退回原本缺字行為），
 # 與字型「未安裝即降級」同一容錯策略。
 _S2T_SENTINEL = object()
-_S2T_CONVERTER = _S2T_SENTINEL  # 未初始化；首次用時 lazy load
+_S2T_CONVERTER = _S2T_SENTINEL  # s2t 單一轉換器（_simp_to_trad 用）
+
+# 5do（抄經/佛經缺字補足）：把 5dn 的「簡轉繁」延伸成**轉換鏈**。
+# 崇羲對核心佛經覆蓋已很高（心經缺 2、金剛經缺 4），缺口分三類：
+#   ① 簡體字（国→國）——s2t / s2tw 補
+#   ② 異體字（爲→為、衆→眾、卻、兌）——s2tw / t2tw（正規化到台灣標準）補
+#   ③ 真正罕見佛經字（閦毘鉢憍耨）——**任何轉換都救不回**（就是標準形、
+#      崇羲單純沒有）→ 依使用者決策維持缺字並清楚提示，不引入商用字型。
+# 鏈依序試 s2t → s2tw → t2tw，取第一個「崇羲有」的單字候選。實測
+# 教育部 4808 由缺 ~1508 降到 9。
+_SEAL_CONV_CONFIGS = ("s2t", "s2tw", "t2tw")
+_SEAL_CONVERTERS = _S2T_SENTINEL  # list[OpenCC] | None；lazy load
+
+
+def _seal_converters():
+    global _SEAL_CONVERTERS
+    if _SEAL_CONVERTERS is _S2T_SENTINEL:
+        try:
+            import opencc  # type: ignore
+            _SEAL_CONVERTERS = [
+                opencc.OpenCC(cfg) for cfg in _SEAL_CONV_CONFIGS
+            ]
+        except Exception:            # noqa: BLE001 — 缺套件即降級
+            _SEAL_CONVERTERS = None
+    return _SEAL_CONVERTERS
+
+
+def _seal_variants(char: str) -> list[str]:
+    """回傳 ``char`` 的候選正規化單字（簡轉繁＋異體字正規化，去重、排序）。
+
+    只收「恰一字且與原字不同」的結果；無 opencc 即回空清單（降級）。
+    順序即優先序（s2t→s2tw→t2tw）。
+    """
+    convs = _seal_converters()
+    if not convs:
+        return []
+    out: list[str] = []
+    for c in convs:
+        try:
+            r = c.convert(char)
+        except Exception:            # noqa: BLE001
+            continue
+        if len(r) == 1 and r != char and r not in out:
+            out.append(r)
+    return out
 
 
 def _simp_to_trad(char: str) -> Optional[str]:
-    """單一簡體字 → 繁體（opencc s2t）。
+    """單一簡體字 → 繁體（opencc s2t）。5dn 保留：narrower helper。
 
-    僅在轉換結果**恰為一個字且與原字不同**時回傳（可當單一字形渲染）；
-    無 opencc、非單字結果、或無變化 → ``None``（不做 fallback）。
+    僅在轉換結果**恰為一個字且與原字不同**時回傳；無 opencc/非單字/
+    無變化 → ``None``。
     """
     global _S2T_CONVERTER
     if _S2T_CONVERTER is _S2T_SENTINEL:
         try:
             import opencc  # type: ignore
             _S2T_CONVERTER = opencc.OpenCC("s2t")
-        except Exception:            # noqa: BLE001 — 缺套件/初始化失敗即降級
+        except Exception:            # noqa: BLE001
             _S2T_CONVERTER = None
     if _S2T_CONVERTER is None:
         return None
@@ -225,11 +269,21 @@ class ChongxiSealSource:
         try:
             c = self._render_glyph(font, char, char)
         except CharacterNotFound:
-            # 崇羲缺字 → 5dn 簡轉繁 fallback（缺口幾乎全是簡體）。
-            alt = _simp_to_trad(char)
-            if alt is None:
-                raise
-            c = self._render_glyph(font, alt, char)   # 繁體篆形、原輸入身份
+            # 崇羲缺字 → 5do 轉換鏈 fallback（簡轉繁＋異體字正規化）；
+            # 依序試候選、第一個崇羲有的字形勝出、保留原輸入身份。
+            c = None
+            for alt in _seal_variants(char):
+                try:
+                    c = self._render_glyph(font, alt, char)
+                    break
+                except CharacterNotFound:
+                    continue
+            if c is None:
+                # 真正罕見字（閦毘鉢…）：轉換也救不回 → 維持缺字。
+                raise CharacterNotFound(
+                    f"崇羲篆體 lacks U+{ord(char):04X} ({char!r}); "
+                    f"no simp/variant form available"
+                )
         self._cache[char] = c
         return c
 

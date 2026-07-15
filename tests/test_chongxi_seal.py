@@ -325,3 +325,30 @@ def test_seal_script_is_valid_style_param(client):
         "/api/notebook?text=永&preset=large&style=seal_script&cell_style=outline"
     )
     assert r.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# 5do：崇羲缺字補足延伸為異體字鏈（簡轉繁＋異體字正規化）
+# ---------------------------------------------------------------------------
+
+
+def test_5do_seal_variants_includes_variant_normalization():
+    """_seal_variants：簡體與異體字都給候選（爲→為、衆→眾、卻、国→國）。"""
+    from stroke_order.sources.chongxi_seal import _seal_variants
+    assert "國" in _seal_variants("国")      # 簡轉繁
+    assert "為" in _seal_variants("爲")      # 異體正規化
+    assert "眾" in _seal_variants("衆")
+    assert "卻" in _seal_variants("却")
+    assert _seal_variants("永") == []        # 崇羲已有/無變化 → 空
+
+
+@needs_seal
+def test_5do_seal_variant_chain_renders_and_rare_stays_missing(seal_env):
+    """異體字經鏈補足可渲染；真正罕見佛經字（閦/毘）維持缺字。"""
+    src = ChongxiSealSource()
+    for ch in ["爲", "衆", "却"]:
+        c = src.get_character(ch)
+        assert c.char == ch and c.strokes[0].outline
+    for rare in ["閦", "毘"]:
+        with pytest.raises(CharacterNotFound):
+            src.get_character(rare)

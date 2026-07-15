@@ -34,9 +34,14 @@ from .engrave import scanline_intersections
 
 StencilKind = Literal["stencil", "cutout"]
 
-#: 光柵解析度（px/mm）——0.25mm/px；50mm 字高＝200px，
-#: 2mm 橋寬＝8px，精度/效能平衡點。
-PX_PER_MM = 4
+#: 光柵解析度（px/mm）。5do：4→8（0.125mm/px）——黑體軸向邊的階梯步階
+#: 減半，配合較大的 RDP 容差（_STENCIL_RDP_EPS）把殘餘微凸/微凹去乾淨，
+#: 噴漆字輪廓更平順。50mm 字高＝400px、2mm 橋寬＝16px；純後端、效能充裕。
+PX_PER_MM = 8
+
+#: 5do：字模 loop 簡化容差（px）。8px/mm 下 2.0px≈0.25mm——吃掉光柵階梯
+#: 的微段（微凸/微凹），但遠小於筆畫/橋（≥16px）與真轉角，故不損字形。
+_STENCIL_RDP_EPS = 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -557,14 +562,25 @@ def stencil_geometry(
         margin_mm = max(5.0, char_height_mm * 0.2) if (
             kind == "stencil" or frame) else max(3.0, char_height_mm * 0.1)
     mg_px = max(2, int(round(margin_mm * px_per_mm)))
+    scale = ch_px / EM_SIZE
+    # 5do：依所有字形**實際墨的 y-範圍**垂直置中，而非靠字型 em 框/
+    # baseline——思源黑體漢字墨常溢出 em 框下緣（實測 y 705..2574 / 2048），
+    # 舊法（oy=mg_px）會讓字沉底貼下框、甚至被裁切。改成把墨的 y 跨距置於
+    # 上下等距的 mg_px 邊界內，畫布高隨墨自適應。
+    ink_ys = [y for polys in char_polys for p in polys for (_x, y) in p]
+    if ink_ys:
+        iy0, iy1 = min(ink_ys), max(ink_ys)
+    else:
+        iy0, iy1 = 0.0, float(EM_SIZE)
+    ink_h_px = max(1, int(math.ceil((iy1 - iy0) * scale)))
+    h_px = 2 * mg_px + ink_h_px
+    oy = int(round(mg_px - iy0 * scale))     # 墨頂落在 mg_px（可為負，_fill 內夾邊）
     w_px = 2 * mg_px + n * ch_px + (n - 1) * sp_px
-    h_px = 2 * mg_px + ch_px
 
     mask = np.zeros((h_px, w_px), dtype=bool)
-    scale = ch_px / EM_SIZE
     for i, polys in enumerate(char_polys):
         _fill_polys(mask, polys,
-                    ox=mg_px + i * (ch_px + sp_px), oy=mg_px, scale=scale)
+                    ox=mg_px + i * (ch_px + sp_px), oy=oy, scale=scale)
 
     bold_px = int(round(bold_mm * px_per_mm))
     if bold_px > 0:
@@ -584,6 +600,8 @@ def stencil_geometry(
 
     loops_px = _trace_boundary_loops(mask)
     min_area = (bw_px * bw_px) / 4.0          # 去斑：小於 1/4 橋寬平方
+    # 5do：容差隨解析度縮放（維持 ~0.25mm 的實體去微段效果）。
+    eps = _STENCIL_RDP_EPS * (px_per_mm / PX_PER_MM)
     loops_mm: list[list[tuple[float, float]]] = []
     for loop in loops_px:
         area = 0.0
@@ -593,7 +611,7 @@ def stencil_geometry(
             area += x1 * y2 - x2 * y1
         if abs(area) / 2.0 < min_area:
             continue
-        simp = _simplify_loop(loop, eps=1.2)
+        simp = _simplify_loop(loop, eps=eps)
         loops_mm.append([(x / px_per_mm, y / px_per_mm) for x, y in simp])
     stats["cut_loops"] = len(loops_mm)
     return loops_mm, w_px / px_per_mm, h_px / px_per_mm, stats
