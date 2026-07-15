@@ -158,6 +158,11 @@ def _label(mask: np.ndarray) -> tuple[np.ndarray, int]:
 _DIRS_4 = ((-1, 0), (1, 0), (0, -1), (0, 1))     # 上下左右（十字，fallback 用）
 _DIRS_2 = ((-1, 0), (1, 0))                       # 上下（fallback 用）
 
+#: 5dm（方正大黑連筋切法）：橋接逃逸限定純軸向四方向（dx, dy）——
+#: 右/左/下/上。軸向缺口＝乾淨矩形（像被內縮的橫/豎筆端），取代 5dl 的
+#: ±70° 斜向扇形（斜橋在複雜字如「圖」會糊成一團）。
+_ESCAPE_AXES = ((1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0))
+
 #: 5dg 轉角偵測：RDP 簡化後方向變化 ≥ 45° 視為轉角
 #: （cos 45° ≈ 0.707；夾角判斷用內積）。
 _CORNER_COS = math.cos(math.radians(45.0))
@@ -294,16 +299,22 @@ def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
         #  取逃逸最短者＝垂直於最薄的牆、料損最小、截口不落直筆中段。）
         cands: list[tuple[int, tuple[int, int], list[tuple[int, int]]]] = []
         for corner_x, corner_y in _hole_corners(hole):
-            vx, vy = corner_x - fcx, corner_y - fcy
-            norm = math.hypot(vx, vy)
-            if norm < 1e-6:
-                continue
-            base_ang = math.atan2(vy, vx)
+            # 5dm（方正大黑連筋切法）：每轉角只試上/下/左/右四個純軸方向，
+            # 取最短穿牆者。最短軸向逃逸＝垂直穿越最薄的牆（橫或豎筆），
+            # 缺口為乾淨矩形、像被內縮的筆畫端——保留字形交接處可讀特徵，
+            # 取代 5dl 的 ±70° 斜向扇形（斜橋在複雜字會糊成一團）。
             best: Optional[tuple[int, list[tuple[int, int]]]] = None
-            for da_deg in range(-70, 71, 10):
-                a = base_ang + math.radians(da_deg)
+            for dxf, dyf in _ESCAPE_AXES:
+                # 只走「近牆」：往該方向須立即進入墨（牆）內。若第一步落在
+                # 孔洞空腔（自由空間），此方向會穿越整個孔、鑿到對側遠牆——
+                # 對邊兩轉角於是撞同一面牆併成一橋（大孔只剩單橋、不穩）。
+                # 近牆判定＝往內 2px 仍是墨。
+                nx = int(round(corner_x + dxf * 2))
+                ny = int(round(corner_y + dyf * 2))
+                if not (0 <= ny < h_ and 0 <= nx < w_ and mask[ny, nx]):
+                    continue
                 path = _radial_escape(mask, outside, (corner_x, corner_y),
-                                      (math.cos(a), math.sin(a)))
+                                      (dxf, dyf))
                 if path and (best is None or len(path) < best[0]):
                     best = (len(path), path)
             if best:

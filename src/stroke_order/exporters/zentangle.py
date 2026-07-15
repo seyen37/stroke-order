@@ -33,6 +33,7 @@ from ..sources.chongxi_seal import get_seal_source
 from ..sources.moe_kaishu import get_kaishu_source
 from ..sources.moe_lishu import get_lishu_source
 from ..sources.moe_song import get_song_source
+from ..sources.noto_hei import get_hei_source
 
 # Per Phase 6z v0.3 §5 軸 1 + Q1 user decision: 教育部楷書 (moe_kaishu)
 # is the MVP default — most natural handwriting feel for the acquisition
@@ -44,6 +45,7 @@ DEFAULT_SAMPLES_PER_CURVE = 8
 
 # Source dispatch — ordered for the UI dropdown.
 SOURCE_REGISTRY: dict[str, Callable] = {
+    "noto_hei": get_hei_source,
     "moe_kaishu": get_kaishu_source,
     "cns_kai": get_cns_kai_source,
     "moe_song": get_song_source,
@@ -52,6 +54,7 @@ SOURCE_REGISTRY: dict[str, Callable] = {
 }
 
 _LABELS = {
+    "noto_hei": "思源黑體",
     "moe_kaishu": "教育部楷書",
     "cns_kai": "CNS 楷書",
     "moe_song": "教育部宋體",

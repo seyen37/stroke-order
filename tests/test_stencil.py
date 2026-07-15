@@ -112,13 +112,30 @@ def test_5dg_hole_corners_detects_rect_corners():
                    for cx, cy in cs) < 36, (x, y)
 
 
-def test_5dl_stencil_cuts_at_corners_not_midspan():
-    """5dl 核心規則：直筆中段不截斷、截斷點在轉折處、橋數自動取最少。
+def _cut_gaps(orig: np.ndarray, carved: np.ndarray,
+              bridge_px: int = 4) -> list[tuple[int, int]]:
+    """回傳每道截口的 (高, 寬) bbox；截口＝原為墨、鑿橋後變白之處。"""
+    cut = orig & ~carved
+    lab, n = _label(cut)
+    gaps: list[tuple[int, int]] = []
+    for i in range(1, n + 1):
+        ys, xs = np.nonzero(lab == i)
+        if len(ys) < bridge_px:               # 去斑（AA 級碎點）
+            continue
+        gaps.append((int(ys.max() - ys.min() + 1),
+                     int(xs.max() - xs.min() + 1)))
+    return gaps
 
-    5dl 改動：橋數 4→自動最少（大孔 2），且以「最短穿牆」選橋。
-    直筆中段完整仍是鐵則；轉角截口至少 2 處（大孔 2 橋）。
+
+def test_5dm_stencil_cuts_at_corners_not_midspan():
+    """5dm（方正大黑連筋切法）：軸向對齊截口、直筆中段不截斷、轉角穿近牆。
+
+    5dm 改動：橋接逃逸限純軸向（上/下/左/右），只穿「近牆」——截口為
+    乾淨軸向矩形（像被內縮的筆畫端），取代 5dl 的 ±70° 斜向扇形。
+    直筆中段完整仍是鐵則。
     """
-    m = _ring_mask()          # 環帶＝rows/cols 10..89、孔 30..69
+    orig = _ring_mask()       # 環帶＝rows/cols 10..89、孔 30..69
+    m = orig.copy()
     carve_stencil_bridges(m, bridge_px=4, bridge_count=4)
     assert _n_holes(m) == 0                     # 孔仍被接回外部
     # 上下橫筆與左右豎筆的「中段」完整無截斷（核心可讀性鐵則）
@@ -126,33 +143,29 @@ def test_5dl_stencil_cuts_at_corners_not_midspan():
     assert m[70:90, 48:53].all(), "下橫中段被截斷"
     assert m[48:53, 10:30].all(), "左豎中段被截斷"
     assert m[48:53, 70:90].all(), "右豎中段被截斷"
-    # 5dl：大孔取 2 橋 → 四個轉角帶中至少 2 處有白色截口。
-    corners = [
-        (~m[12:30, 12:30]).any(),   # 左上
-        (~m[12:30, 70:88]).any(),   # 右上
-        (~m[70:88, 12:30]).any(),   # 左下
-        (~m[70:88, 70:88]).any(),   # 右下
-    ]
-    assert sum(corners) >= 2, f"轉角截口應 ≥ 2 處，實得 {sum(corners)}"
+    # 5dm：每道截口皆軸向對齊（bbox 至少一邊 ≤ 橋寬＋容差＝薄矩形）。
+    gaps = _cut_gaps(orig, m, bridge_px=4)
+    assert len(gaps) >= 2, f"大孔應 ≥ 2 截口，實得 {len(gaps)}"
+    for gh, gw in gaps:
+        assert min(gh, gw) <= 7, f"截口非軸向（bbox {gh}x{gw}）"
 
 
-def test_5dl_stencil_minimal_bridges_small_vs_large():
-    """5dl：小孔 1 橋、大孔 2 橋（自動最少橋數、可讀性優先）。"""
-    # 大孔（環，孔 span 40 ≥ 30）→ 2 橋。
-    big = _ring_mask()
+def test_5dm_stencil_minimal_bridges_small_vs_large():
+    """5dm：小孔 1 橋、大孔 2 橋（自動最少橋數、對邊近牆各一、可讀性優先）。"""
+    # 大孔（環，孔 span 40 ≥ 30）→ 恰 2 道軸向截口（近牆修正後不再併橋）。
+    orig = _ring_mask()
+    big = orig.copy()
     carve_stencil_bridges(big, bridge_px=4, bridge_count=4)
-    # 大孔環有 2 道截口（間隙帶連通元件數＝橋把環切成的段數關係）——
-    # 直接數轉角截口：應為 2（見上個測試 ≥2；此處驗上限不爆）。
-    corners_big = sum([
-        (~big[12:30, 12:30]).any(), (~big[12:30, 70:88]).any(),
-        (~big[70:88, 12:30]).any(), (~big[70:88, 70:88]).any()])
-    assert corners_big == 2, f"大孔應恰 2 轉角橋，實得 {corners_big}"
+    gaps_big = _cut_gaps(orig, big, bridge_px=4)
+    assert len(gaps_big) == 2, f"大孔應恰 2 截口，實得 {len(gaps_big)}"
     # 小孔（span < 30）→ 1 橋。
-    small = np.zeros((60, 60), bool)
-    small[15:45, 15:45] = True                  # 30×30 方塊
-    small[22:38, 22:38] = False                 # 16×16 孔（span 16 < 30）
+    small0 = np.zeros((60, 60), bool)
+    small0[15:45, 15:45] = True                 # 30×30 方塊
+    small0[22:38, 22:38] = False                # 16×16 孔（span 16 < 30）
+    small = small0.copy()
     carve_stencil_bridges(small, bridge_px=4, bridge_count=4)
     assert _n_holes(small) == 0                 # 小孔接回
+    assert len(_cut_gaps(small0, small, bridge_px=4)) == 1, "小孔應恰 1 橋"
 
 
 def test_5dl_cutout_frame_spokes_two_ties():

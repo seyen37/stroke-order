@@ -80,6 +80,14 @@ five sources permit redistribution under the terms below.
   Source: https://language.moe.gov.tw/result.aspx?classify_sn=23
   Permits free use and redistribution with attribution.
 
+- **思源黑體 / Noto Sans TC (NotoSansTC-Bold.otf)** — the 鏤空字模
+  (stencil) recommended font, developed by Adobe (as Source Han Sans)
+  and released by Google as Noto Sans CJK. Copyright 2014-2021 Adobe.
+  License: SIL Open Font License 1.1. Reserved Font Name: "Noto".
+  Source: https://github.com/notofonts/noto-cjk
+  Permits commercial use, bundling, and derivatives; the whole font may
+  not be sold on its own and the OFL notice must travel with it.
+
 ### C. Character cover-set datasets (built-in)
 
 The five built-in cover-sets in `src/stroke_order/components/` are

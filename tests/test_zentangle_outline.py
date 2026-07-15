@@ -76,7 +76,8 @@ def test_extract_unknown_source_message_lists_valid_keys():
     with pytest.raises(ValueError) as ei:
         zentangle.extract_outline_polylines("心", source="bogus")
     msg = str(ei.value)
-    for key in ("moe_kaishu", "cns_kai", "moe_song", "moe_lishu", "chongxi_seal"):
+    for key in ("noto_hei", "moe_kaishu", "cns_kai", "moe_song",
+                "moe_lishu", "chongxi_seal"):
         assert key in msg, f"valid source {key!r} should appear in error: {msg}"
 
 
@@ -86,17 +87,25 @@ def test_extract_unknown_source_message_lists_valid_keys():
 # ---------------------------------------------------------------------------
 
 
-def test_list_sources_returns_five_entries():
+def test_list_sources_returns_six_entries():
     sources = zentangle.list_sources()
-    assert len(sources) == 5
+    assert len(sources) == 6
     keys = [s["key"] for s in sources]
     assert keys == [
+        "noto_hei",
         "moe_kaishu",
         "cns_kai",
         "moe_song",
         "moe_lishu",
         "chongxi_seal",
     ], "ordered registry powers the UI dropdown order"
+
+
+def test_list_sources_hei_label_and_registered():
+    """5dm：思源黑體 (noto_hei) 為鏤空字模推薦字型，須入註冊表。"""
+    sources = {s["key"]: s["label"] for s in zentangle.list_sources()}
+    assert sources["noto_hei"] == "思源黑體"
+    assert "noto_hei" in zentangle.SOURCE_REGISTRY
 
 
 def test_list_sources_each_entry_has_required_fields():

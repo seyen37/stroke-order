@@ -62,6 +62,8 @@ services:
         value: /opt/render/project/src/.fonts/song-fonts/edusong_Unicode.ttf
       - key: STROKE_ORDER_KAISHU_FONT_FILE
         value: /opt/render/project/src/.fonts/kaishu-fonts/edukai.ttf
+      - key: STROKE_ORDER_HEI_FONT_FILE
+        value: /opt/render/project/src/.fonts/hei-fonts/NotoSansTC-Bold.otf
 
       # ---- Vendor JS (5cq) — must match buildCommand's fetch_vendor dest --
       # Runtime reads the baked opencv.js / opentype.min.js from the git

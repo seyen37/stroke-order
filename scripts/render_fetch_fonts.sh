@@ -50,7 +50,8 @@ mkdir -p \
   "$FONT_BASE/seal-fonts"   \
   "$FONT_BASE/lishu-fonts"  \
   "$FONT_BASE/song-fonts"   \
-  "$FONT_BASE/kaishu-fonts"
+  "$FONT_BASE/kaishu-fonts" \
+  "$FONT_BASE/hei-fonts"
 
 ok=0
 fail=0
@@ -84,7 +85,14 @@ fetch_one() {
     fi
   fi
 
-  local url="$REL_BASE/$rel"
+  # $rel may be an absolute URL (http/https) for fonts hosted outside the
+  # fonts-v1 release (e.g. Noto Sans TC from the official noto-cjk repo);
+  # otherwise it is a path relative to REL_BASE.
+  local url
+  case "$rel" in
+    http://*|https://*) url="$rel" ;;
+    *)                  url="$REL_BASE/$rel" ;;
+  esac
   echo "[fetch_fonts] FETCH $rel  →  $out"
 
   local attempt
@@ -137,6 +145,13 @@ fetch_one "edusong_Unicode.ttf"       "$FONT_BASE/song-fonts/edusong_Unicode.ttf
 
 # 教育部楷書 (~10 MB)
 fetch_one "edukai.ttf"                "$FONT_BASE/kaishu-fonts/edukai.ttf"              1000000
+
+# 思源黑體 / Noto Sans TC Bold — 鏤空字模推薦字型 (5dm)。
+# SIL OFL 1.1（可商用/可打包/可改作）。抓官方 noto-cjk repo 的區域版
+# 單檔 OTF（~5.8 MB），不必上傳到 fonts-v1 release。jsdelivr 為備援：
+# https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf
+fetch_one "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf" \
+                                      "$FONT_BASE/hei-fonts/NotoSansTC-Bold.otf"       3000000
 
 # ---------------------------------------------------------------------
 # Summary
