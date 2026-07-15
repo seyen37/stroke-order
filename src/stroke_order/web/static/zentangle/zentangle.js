@@ -55,6 +55,12 @@ import {
   paramsToOpts,
   COMBOS,
 } from "./enhancers.mjs";
+import {
+  TILE_MM,
+  collectExportPaths,
+  pathsToSvg,
+  pathsToGcode,
+} from "./exporters.mjs";
 
 // 5dj-3: 全域延伸參數（per-session；一組滑桿套用到所有已勾技法的區段）。
 let _enhancerParams = defaultEnhancerParams();
@@ -821,6 +827,58 @@ function setSplitMode(on) {
   );
 }
 
+/**
+ * 5dj-4 — 匯出目前紙磚的裝飾筆劃（含全部延伸技法）為 SVG / G-code。
+ * 與 drawRegionLayer 同管線收集折線、取樣裁切貼合字形/背景，換算 mm 尺寸。
+ */
+function exportZentangle(fmt) {
+  const mode = _config?.mode;
+  if (mode !== "hollow" && mode !== "bg") {
+    setStatus("匯出限空心填充/背景鑲嵌模式（純禪繞的手放圖樣另計）", true);
+    return;
+  }
+  if (!_regions.some((r) => r.tangle)) {
+    setStatus("目前沒有圖樣可匯出——先點縮圖上圖樣", true);
+    return;
+  }
+  const tileSize = currentTileSize();
+  const tileMm = TILE_MM[_config?.tileSize] || TILE_MM.standard;
+  const paths = collectExportPaths({
+    regions: _regions,
+    mappedContours: currentMappedContours(),
+    params: _enhancerParams,
+    tileSize,
+    baseLineWidth: TANGLE_LINE_WIDTH,
+    includeOutline: true,
+    paramsToOpts,
+  });
+  const nSeg = paths.strokes.length + paths.outline.length;
+  if (nSeg === 0) {
+    setStatus("裁切後無可匯出路徑（圖樣可能全落在區段外）", true);
+    return;
+  }
+  const char = (_charInput?.value || "禪繞").trim() || "禪繞";
+  let content, mime, ext;
+  if (fmt === "svg") {
+    content = pathsToSvg(paths, {tileSize, tileMm});
+    mime = "image/svg+xml"; ext = "svg";
+  } else {
+    content = pathsToGcode(paths, {tileSize, tileMm});
+    mime = "text/plain"; ext = "gcode";
+  }
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `zentangle_${char}_${_config.tileSize}.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setStatus(`已匯出 ${fmt.toUpperCase()}：${paths.strokes.length} 圖樣折線` +
+            ` + ${paths.outline.length} 字框（${tileMm}mm 紙磚）`);
+}
+
 function wireSplitControls() {
   const btn = document.getElementById("zentangle-split-toggle");
   if (btn) btn.addEventListener("click", () => setSplitMode(!_splitMode));
@@ -836,6 +894,11 @@ function wireSplitControls() {
   // 5dh: 清除區段（按鈕才清空——模式切換不清）。
   const clearBtn = document.getElementById("zentangle-region-clear");
   if (clearBtn) clearBtn.addEventListener("click", clearRegions);
+  // 5dj-4: 延伸效果向量匯出（SVG / G-code）。
+  const svgBtn = document.getElementById("zentangle-export-svg");
+  if (svgBtn) svgBtn.addEventListener("click", () => exportZentangle("svg"));
+  const gcodeBtn = document.getElementById("zentangle-export-gcode");
+  if (gcodeBtn) gcodeBtn.addEventListener("click", () => exportZentangle("gcode"));
   // 5dh: 朝向鈕——直接改選中區段的圖樣朝向（同鍵盤 ⬆⬇⬅➡）。
   document.querySelectorAll(".zt-orient-btn").forEach((ob) => {
     ob.addEventListener("click", () => {

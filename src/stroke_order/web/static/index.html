@@ -2863,10 +2863,19 @@
       <button id="zentangle-region-clear" type="button"
               style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
               title="目前模式的纏繞元素全部留白（保留區段結構；空心/背景切換不清空、按此鈕才清）">清除區段</button>
+      <!-- 5dj-4: 延伸效果向量匯出（雷切/寫字機） -->
+      <span style="display:inline-flex;gap:4px;margin-left:8px;border-left:1px solid var(--border);padding-left:10px;">
+        <button id="zentangle-export-svg" type="button"
+                style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+                title="匯出目前紙磚的裝飾筆劃為 SVG（mm 尺寸、取樣裁切貼合字形；含填色版供檢視）">⤓ SVG</button>
+        <button id="zentangle-export-gcode" type="button"
+                style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+                title="匯出 G-code（雷切/寫字機；填色形狀已輪廓化、G21/G90 專案慣例）">⤓ G-code</button>
+      </span>
     </div>
     <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:6px;">
       ⓘ 點縮圖＝換圖樣、勾延伸技法＝加裝飾（未選區段＝套全部、點紙磚選區段＝只改該區）；
-      ⬆➡⬇⬅ 改朝向、✂ 切分＝起點→終點→調彎→雙擊；空心/背景切換各自保留
+      ⬆➡⬇⬅ 改朝向、✂ 切分＝起點→終點→調彎→雙擊；⤓ 匯出裝飾筆劃給雷切/寫字機
     </div>
     <div id="zentangle-canvas-wrap"
          style="display:grid;justify-content:center;padding:8px;
@@ -10137,7 +10146,7 @@ async function renderCnsDecomposition(char) {
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，
      舊快取的 zentangle.js 不認得區段模型，改版時同步 bump。 -->
-<script type="module" src="/static/zentangle/zentangle.js?v=183"></script>
+<script type="module" src="/static/zentangle/zentangle.js?v=184"></script>
 
 </body>
 </html>

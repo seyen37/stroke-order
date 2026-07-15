@@ -379,7 +379,7 @@ function sampleAlong(s, spacing) {
  * 兩段 cubic bezier、法線偏移 off=len·0.25）。segs=每段取樣段數。
  * 回傳整條 S 的點序列（首=x1,y1；尾=x2,y2）。
  */
-function flattenSShape(s, segs = 24) {
+export function flattenSShape(s, segs = 24) {
   const x1 = s.x1, y1 = s.y1, x2 = s.x2, y2 = s.y2;
   const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
   const dx = x2 - x1, dy = y2 - y1;
