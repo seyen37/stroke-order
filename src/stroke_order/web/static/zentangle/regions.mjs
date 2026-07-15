@@ -18,7 +18,7 @@
 // hit-test（5df-3 預留）：hitTestRegions 只做 point-in-band 的矩形判斷；
 // glyph 區段的「點是否落在字形內」由 DOM 端 ctx.isPointInPath 補完。
 
-import {ORIENTATIONS} from "./tangle.mjs";
+import {ORIENTATIONS} from "./tangle.mjs?v=187";
 
 // ---------------------------------------------------------------------------
 // 幾何基元

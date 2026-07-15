@@ -1455,6 +1455,20 @@ bytes 或新檔名/clone 對照，不信 `device_bash` 讀值 ③`device_bash`
 永不漂移。前端復刻後端格式時（DXF）以既有實作（`dxf.py`）為規格，
 逐項對齊勝過各寫各的。
 
+### 15.8 快取破壞要涵蓋整個 ES module graph，不只入口（§11.4 應驗）
+
+`?v=` 只加在入口 `zentangle.js?v=186`、它 `import` 的 `.mjs` 卻是
+裸 URL——瀏覽器抓新入口、卻從 HTTP 快取給舊 `.mjs`。版本一旦跨檔
+不一致（新入口 import 舊 `enhancers.mjs`、缺 `export flattenSShape`）
+→ import 拋錯 → **整個 module graph 死掉**（線上禪繞頁全空白、
+canvas 不 render、工具列不長鈕），且沙箱乾淨載入測不出來。修法＝
+所有 `.mjs` 之間的 import URL 一律帶同一版本 query（`from
+"./x.mjs?v=187"`），版本一動全 graph 一起破快取。§11.4 的「URL 即
+快取鍵」要延伸到 import graph 的每一條邊，不只 `<script>` 那一行。
+（node ESM 容許 import specifier 帶 query、以路徑解析檔案，測試不受
+影響。）教訓：跨檔快取偏移只在「線上舊快取＋新部署」交會時現形，
+純沙箱／硬重整都測不到——版本化要一次涵蓋整個相依圖。
+
 ---
 
 ## 7. 索引

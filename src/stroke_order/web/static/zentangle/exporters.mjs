@@ -20,10 +20,10 @@ import {
   SPEC_LINE, SPEC_CURVE, SPEC_S_SHAPE, SPEC_ORB, SPEC_DOT,
   SPEC_POLYLINE, SPEC_TRI,
   buildTangleOriented,
-} from "./tangle.mjs";
-import {flattenSShape} from "./enhancers.mjs";
-import {applyEnhancers, hasAnyEnhancer} from "./enhancers.mjs";
-import {pickSpacing, pointInGlyph, pointInRegion, regionPolygon} from "./regions.mjs";
+} from "./tangle.mjs?v=187";
+import {flattenSShape} from "./enhancers.mjs?v=187";
+import {applyEnhancers, hasAnyEnhancer} from "./enhancers.mjs?v=187";
+import {pickSpacing, pointInGlyph, pointInRegion, regionPolygon} from "./regions.mjs?v=187";
 
 // 紙磚實體尺寸（mm）——對應 TILE_SIZES 的 px（zentangle.js）。
 export const TILE_MM = {bijou: 50, standard: 90, apprentice: 135};

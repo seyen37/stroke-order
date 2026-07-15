@@ -17,7 +17,7 @@ import {
   SPEC_S_SHAPE,
   SPEC_ORB,
   SPEC_DOT,
-} from "./tangle.mjs";
+} from "./tangle.mjs?v=187";
 
 // Coefficients chosen for visual distinguishability at degree=1:
 //   forward/backward: ±50% scale around unit center
