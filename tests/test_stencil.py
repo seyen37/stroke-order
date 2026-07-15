@@ -112,41 +112,64 @@ def test_5dg_hole_corners_detects_rect_corners():
                    for cx, cy in cs) < 36, (x, y)
 
 
-def test_5dg_stencil_cuts_at_corners_not_midspan():
-    """5dg 核心規則：直筆中段不截斷、截斷點在轉折處。"""
+def test_5dl_stencil_cuts_at_corners_not_midspan():
+    """5dl 核心規則：直筆中段不截斷、截斷點在轉折處、橋數自動取最少。
+
+    5dl 改動：橋數 4→自動最少（大孔 2），且以「最短穿牆」選橋。
+    直筆中段完整仍是鐵則；轉角截口至少 2 處（大孔 2 橋）。
+    """
     m = _ring_mask()          # 環帶＝rows/cols 10..89、孔 30..69
     carve_stencil_bridges(m, bridge_px=4, bridge_count=4)
     assert _n_holes(m) == 0                     # 孔仍被接回外部
-    # 上下橫筆與左右豎筆的「中段」完整無截斷
+    # 上下橫筆與左右豎筆的「中段」完整無截斷（核心可讀性鐵則）
     assert m[10:30, 48:53].all(), "上橫中段被截斷"
     assert m[70:90, 48:53].all(), "下橫中段被截斷"
     assert m[48:53, 10:30].all(), "左豎中段被截斷"
     assert m[48:53, 70:90].all(), "右豎中段被截斷"
-    # 四個轉角帶內各有白色截口（對角出口）
-    assert (~m[12:30, 12:30]).any(), "左上轉角無截口"
-    assert (~m[12:30, 70:88]).any(), "右上轉角無截口"
-    assert (~m[70:88, 12:30]).any(), "左下轉角無截口"
-    assert (~m[70:88, 70:88]).any(), "右下轉角無截口"
+    # 5dl：大孔取 2 橋 → 四個轉角帶中至少 2 處有白色截口。
+    corners = [
+        (~m[12:30, 12:30]).any(),   # 左上
+        (~m[12:30, 70:88]).any(),   # 右上
+        (~m[70:88, 12:30]).any(),   # 左下
+        (~m[70:88, 70:88]).any(),   # 右下
+    ]
+    assert sum(corners) >= 2, f"轉角截口應 ≥ 2 處，實得 {sum(corners)}"
 
 
-def test_5dg_cutout_symmetric_second_tie():
-    """單字件掛框：第一筋之外補對稱第二筋（單線不穩固回饋）。"""
+def test_5dl_stencil_minimal_bridges_small_vs_large():
+    """5dl：小孔 1 橋、大孔 2 橋（自動最少橋數、可讀性優先）。"""
+    # 大孔（環，孔 span 40 ≥ 30）→ 2 橋。
+    big = _ring_mask()
+    carve_stencil_bridges(big, bridge_px=4, bridge_count=4)
+    # 大孔環有 2 道截口（間隙帶連通元件數＝橋把環切成的段數關係）——
+    # 直接數轉角截口：應為 2（見上個測試 ≥2；此處驗上限不爆）。
+    corners_big = sum([
+        (~big[12:30, 12:30]).any(), (~big[12:30, 70:88]).any(),
+        (~big[70:88, 12:30]).any(), (~big[70:88, 70:88]).any()])
+    assert corners_big == 2, f"大孔應恰 2 轉角橋，實得 {corners_big}"
+    # 小孔（span < 30）→ 1 橋。
+    small = np.zeros((60, 60), bool)
+    small[15:45, 15:45] = True                  # 30×30 方塊
+    small[22:38, 22:38] = False                 # 16×16 孔（span 16 < 30）
+    carve_stencil_bridges(small, bridge_px=4, bridge_count=4)
+    assert _n_holes(small) == 0                 # 小孔接回
+
+
+def test_5dl_cutout_frame_spokes_two_ties():
+    """5dl：含框時字件以最近框邊垂直輻條接框，1~2 筋、連通、不交叉。"""
     m = _ring_mask()
     add_frame(m, frame_px=5)
     added = connect_cutout_components(m, bridge_px=4)
     _lab, n = _label(m)
-    assert n == 1
-    assert added == 2                           # 第一筋＋對稱第二筋
-    # 兩筋落在環與框之間的間隙帶、且方位大致點對稱
+    assert n == 1                               # 連成單件
+    assert added == 2                           # 環（單件）補 2 輻條
+    # 兩輻條落在環與框之間的間隙帶、且為兩道分離的筋（非交叉）
     gap = np.ones_like(m)
-    gap[10:90, 10:90] = False                   # 環 bbox（含孔）
-    gap[:5, :] = gap[-5:, :] = False            # 框帶
+    gap[10:90, 10:90] = False
+    gap[:5, :] = gap[-5:, :] = False
     gap[:, :5] = gap[:, -5:] = False
-    labs, k = _label(m & gap)
-    assert k == 2, f"間隙帶應恰有兩道連筋，實得 {k}"
-    c1 = np.argwhere(labs == 1).mean(axis=0) - 49.5
-    c2 = np.argwhere(labs == 2).mean(axis=0) - 49.5
-    assert float((c1 * c2).sum()) < 0, "兩筋未在點對稱方位"
+    _labs, k = _label(m & gap)
+    assert k == 2, f"間隙帶應恰兩道分離連筋，實得 {k}"
 
 
 def test_5dg_cutout_three_bars_each_gets_two_ties():
