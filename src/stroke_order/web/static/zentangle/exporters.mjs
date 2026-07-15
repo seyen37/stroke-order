@@ -23,7 +23,7 @@ import {
 } from "./tangle.mjs";
 import {flattenSShape} from "./enhancers.mjs";
 import {applyEnhancers, hasAnyEnhancer} from "./enhancers.mjs";
-import {pickSpacing, pointInGlyph, pointInRegion} from "./regions.mjs";
+import {pickSpacing, pointInGlyph, pointInRegion, regionPolygon} from "./regions.mjs";
 
 // 紙磚實體尺寸（mm）——對應 TILE_SIZES 的 px（zentangle.js）。
 export const TILE_MM = {bijou: 50, standard: 90, apprentice: 135};
@@ -108,36 +108,107 @@ function pointVisible(region, mappedContours, x, y) {
   return !inGlyph;                      // bg：字形墨面不算背景
 }
 
+/** lerp（沿 a→b，參數 t）。 */
+function lerpAB(a, b, t) {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+
 /**
- * 取樣裁切：把折線細分（step px），逐小段以中點判斷是否可見，連續可見
- * 的點串成子折線（出界即斷）。閉合折線先展開成環（尾接頭）再裁。
+ * 線段交點參數：回傳 a→b 上的參數 t（∈[0,1]，與 c→d 相交），否則 null。
+ * 平行/共線回傳 null（共線邊界貢獻端點交點由相鄰非平行邊補上）。
+ */
+function segParamT(a, b, c, d) {
+  const rx = b[0] - a[0], ry = b[1] - a[1];
+  const sx = d[0] - c[0], sy = d[1] - c[1];
+  const denom = rx * sy - ry * sx;
+  if (Math.abs(denom) < 1e-12) return null;
+  const qx = c[0] - a[0], qy = c[1] - a[1];
+  const t = (qx * sy - qy * sx) / denom;
+  const u = (qx * ry - qy * rx) / denom;
+  if (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9) return null;
+  return Math.min(1, Math.max(0, t));
+}
+
+/**
+ * 5dj-5 — 裁切邊界邊：區段形狀多邊形（band 或 5df-4 切分 poly）＋所有
+ * 字形 contour 邊。線段與這些邊求精確交點＝真裁切分割點。
+ * @returns {Array<[[x,y],[x,y]]>}
+ */
+export function buildClipEdges(region, mappedContours) {
+  const edges = [];
+  const rp = regionPolygon(region);
+  for (let i = 0; i < rp.length; i++) edges.push([rp[i], rp[(i + 1) % rp.length]]);
+  if (Array.isArray(mappedContours)) {
+    for (const poly of mappedContours) {
+      if (!Array.isArray(poly) || poly.length < 2) continue;
+      for (let i = 0; i < poly.length; i++)
+        edges.push([poly[i], poly[(i + 1) % poly.length]]);
+    }
+  }
+  return edges;
+}
+
+/**
+ * 一段 [a,b] 的「保留區間」（升序 [t0,t1]）：與所有邊界邊求精確交點 →
+ * 沿線參數排序去重 → 相鄰交點間以中點 even-odd 判斷是否在區段可見區，
+ * 保留在內的區間 → 合併連續保留區間（跨字形邊但仍在內＝一整段）。
+ */
+function keptIntervalsOnSeg(a, b, region, mappedContours, edges) {
+  const ts = [0, 1];
+  for (const [c, d] of edges) {
+    const t = segParamT(a, b, c, d);
+    if (t !== null) ts.push(t);
+  }
+  ts.sort((x, y) => x - y);
+  const uniq = [];
+  for (const t of ts)
+    if (!uniq.length || t - uniq[uniq.length - 1] > 1e-7) uniq.push(t);
+  const kept = [];
+  for (let k = 0; k < uniq.length - 1; k++) {
+    const t0 = uniq[k], t1 = uniq[k + 1];
+    const m = lerpAB(a, b, (t0 + t1) / 2);
+    if (pointVisible(region, mappedContours, m[0], m[1])) {
+      const last = kept[kept.length - 1];
+      if (last && Math.abs(last[1] - t0) < 1e-7) last[1] = t1;   // 合併連續
+      else kept.push([t0, t1]);
+    }
+  }
+  return kept;
+}
+
+/**
+ * 5dj-5 真裁切（精確 even-odd）：折線的每一段與「區段形狀 + 字形輪廓」
+ * 求精確交點分割，只留在區段可見區（glyph: 字形 evenodd ∩ 區段；bg:
+ * 區段 ∖ 字形）的子區間。裁切邊界精確落在字形/區段邊上，無 px 級鋸齒。
+ * 跨段連續（前段延伸到終點、後段從起點續）則串成同一條折線。
+ * 閉合折線先展開成環再裁。
+ *
  * @returns {Array<Array<[x,y]>>} 裁切後的開放折線群（可能 0..N 條）
  */
 export function clipPolyline(pl, region, mappedContours, opts = {}) {
-  const step = opts.step ?? 2.0;             // 細分步長（px）
   const src = pl.points;
   if (!Array.isArray(src) || src.length < 2) return [];
   const pts = pl.closed ? [...src, src[0]] : src;
+  const edges = opts.edges || buildClipEdges(region, mappedContours);
   const out = [];
   let cur = [];
-  const pushPt = (p) => { cur.push(p); };
   const flush = () => { if (cur.length >= 2) out.push(cur); cur = []; };
+  let prevToEnd = false;                      // 前段是否延伸到終點（t1=1）
   for (let i = 0; i < pts.length - 1; i++) {
     const a = pts[i], b = pts[i + 1];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const n = Math.max(1, Math.ceil(len / step));
-    for (let k = 0; k < n; k++) {
-      const t0 = k / n, t1 = (k + 1) / n;
-      const m = [a[0] + (b[0]-a[0])*(t0+t1)/2, a[1] + (b[1]-a[1])*(t0+t1)/2];
-      const p0 = [a[0] + (b[0]-a[0])*t0, a[1] + (b[1]-a[1])*t0];
-      const p1 = [a[0] + (b[0]-a[0])*t1, a[1] + (b[1]-a[1])*t1];
-      if (pointVisible(region, mappedContours, m[0], m[1])) {
-        if (cur.length === 0) pushPt(p0);
-        pushPt(p1);
+    const intervals = keptIntervalsOnSeg(a, b, region, mappedContours, edges);
+    if (intervals.length === 0) { flush(); prevToEnd = false; continue; }
+    for (let j = 0; j < intervals.length; j++) {
+      const [t0, t1] = intervals[j];
+      const P0 = lerpAB(a, b, t0), P1 = lerpAB(a, b, t1);
+      if (j === 0 && prevToEnd && t0 <= 1e-7 && cur.length > 0) {
+        cur.push(P1);                          // 跨段續：a==前段 b、跳過重複點
       } else {
         flush();
+        cur = [P0, P1];
       }
     }
+    prevToEnd = intervals[intervals.length - 1][1] >= 1 - 1e-7;
   }
   flush();
   return out;
@@ -149,7 +220,8 @@ export function clipPolyline(pl, region, mappedContours, opts = {}) {
 
 /**
  * 收集匯出折線。與 drawRegionLayer 同管線（buildTangleOriented →
- * applyEnhancers），再取樣裁切到區段可見區。
+ * applyEnhancers），再以 5dj-5 精確 even-odd 真裁切到區段可見區。
+ * 每區段的裁切邊界（區段形狀＋字形輪廓）預算一次、跨該區所有折線復用。
  *
  * @param {object} ctx - {regions, mappedContours, params, tileSize, tileMargin,
  *                        baseLineWidth, includeOutline}
@@ -173,9 +245,11 @@ export function collectExportPaths(ctx) {
         : {baseLineWidth, area: region.band};
       specs = applyEnhancers(specs, region.enhancers, opts);
     }
+    // 5dj-5：裁切邊界每區段預算一次（避免每條折線重建字形邊列表）。
+    const edges = buildClipEdges(region, mappedContours);
     for (const spec of specs) {
       for (const pl of flattenSpec(spec)) {
-        for (const seg of clipPolyline(pl, region, mappedContours)) {
+        for (const seg of clipPolyline(pl, region, mappedContours, {edges})) {
           strokes.push(seg);
         }
       }

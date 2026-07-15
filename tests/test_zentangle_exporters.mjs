@@ -11,7 +11,7 @@ import {
 } from "../src/stroke_order/web/static/zentangle/tangle.mjs";
 import {
   TILE_MM, flattenSpec, clipPolyline, collectExportPaths,
-  pathsToSvg, pathsToGcode,
+  pathsToSvg, pathsToGcode, buildClipEdges,
 } from "../src/stroke_order/web/static/zentangle/exporters.mjs";
 import {paramsToOpts} from "../src/stroke_order/web/static/zentangle/enhancers.mjs";
 
@@ -160,4 +160,80 @@ test("TILE_MM 三檔存在", () => {
   assert.equal(TILE_MM.bijou, 50);
   assert.equal(TILE_MM.standard, 90);
   assert.equal(TILE_MM.apprentice, 135);
+});
+
+// ---------------------------------------------------------------------------
+// 5dj-5 — 精確 even-odd 真裁切（vs 取樣近似）
+// ---------------------------------------------------------------------------
+
+test("5dj-5: 裁切邊界精確落在字形邊上（非 px 級近似）", () => {
+  // 字形＝方塊 [40,60]²；glyph 區段全 band。水平線 y=50 穿過。
+  const glyph = [[[40,40],[60,40],[60,60],[40,60]]];
+  const region = {kind:"glyph", band:{x:0,y:0,w:100,h:100}};
+  const pl = {points:[[0,50],[100,50]], closed:false};
+  const segs = clipPolyline(pl, region, glyph);
+  assert.equal(segs.length, 1, "字形內恰一段");
+  const seg = segs[0];
+  const x0 = seg[0][0], x1 = seg[seg.length-1][0];
+  // 精確：端點恰在 x=40 / x=60（取樣近似會有 ±step 誤差）。
+  assert.ok(Math.abs(x0 - 40) < 1e-6, `左界精確=40，得 ${x0}`);
+  assert.ok(Math.abs(x1 - 60) < 1e-6, `右界精確=60，得 ${x1}`);
+});
+
+test("5dj-5: bg 裁切——字形兩側精確斷點", () => {
+  const glyph = [[[40,40],[60,40],[60,60],[40,60]]];
+  const region = {kind:"bg", band:{x:0,y:0,w:100,h:100}};
+  const pl = {points:[[0,50],[100,50]], closed:false};
+  const segs = clipPolyline(pl, region, glyph);
+  assert.equal(segs.length, 2, "字形兩側各一段");
+  // 左段 [0,40]、右段 [60,100]，斷點精確。
+  const left = segs.find((s) => s[0][0] < 5);
+  const right = segs.find((s) => s[0][0] > 55);
+  assert.ok(Math.abs(left[left.length-1][0] - 40) < 1e-6, "左段止於 x=40");
+  assert.ok(Math.abs(right[0][0] - 60) < 1e-6, "右段起於 x=60");
+});
+
+test("5dj-5: 跨多條字形邊仍在內＝合併成一段（不碎裂）", () => {
+  // 兩個相鄰方塊拼成長條 [20,80]×[40,60]（共邊 x=50）。
+  const glyph = [[[20,40],[50,40],[50,60],[20,60]],
+                 [[50,40],[80,40],[80,60],[50,60]]];
+  const region = {kind:"glyph", band:{x:0,y:0,w:100,h:100}};
+  const pl = {points:[[0,50],[100,50]], closed:false};
+  const segs = clipPolyline(pl, region, glyph);
+  // 穿過 x=50 共邊但整段都在字形內 → 應是一整段 [20,80]，不碎成兩段。
+  assert.equal(segs.length, 1, `應合併成一段，得 ${segs.length}`);
+  assert.ok(Math.abs(segs[0][0][0] - 20) < 1e-6);
+  assert.ok(Math.abs(segs[0][segs[0].length-1][0] - 80) < 1e-6);
+});
+
+test("5dj-5: 5df-4 切分區段用 poly 邊界（非 band 矩形）", () => {
+  // 三角形切分區段（poly）；一條線穿過，裁切用三角形邊界。
+  const region = {kind:"bg",
+                  band:{x:0,y:0,w:100,h:100},
+                  poly:[[10,10],[90,10],[10,90]]};   // 直角三角
+  const pl = {points:[[0,20],[100,20]], closed:false};
+  const segs = clipPolyline(pl, region, null);
+  assert.equal(segs.length, 1);
+  // y=20 與三角形斜邊 x+y=100... 斜邊 (90,10)-(10,90): x+y=100。y=20→x=80。
+  // 左界＝三角左邊 x=10；右界＝斜邊 x=80。
+  assert.ok(Math.abs(segs[0][0][0] - 10) < 1e-6, "左界 x=10");
+  assert.ok(Math.abs(segs[0][segs[0].length-1][0] - 80) < 1e-6, "斜邊界 x=80");
+});
+
+test("5dj-5: buildClipEdges = 區段邊 + 字形邊", () => {
+  const glyph = [[[40,40],[60,40],[60,60],[40,60]]];  // 4 邊
+  const region = {kind:"glyph", band:{x:0,y:0,w:100,h:100}};  // 4 邊
+  const edges = buildClipEdges(region, glyph);
+  assert.equal(edges.length, 8, "band 4 + 字形 4 = 8 邊");
+});
+
+test("5dj-5: 完整圓（閉合折線）裁切在字形內＝閉合處也正確", () => {
+  const glyph = [[[10,10],[90,10],[90,90],[10,90]]];   // 大方塊含整個圓
+  const region = {kind:"glyph", band:{x:0,y:0,w:100,h:100}};
+  // 圓心 (50,50) r=20 完全在字形內 → 裁切後應保留（閉合展開後一整段）。
+  const circle = flattenSpec({type:"orb", cx:50, cy:50, r:20})[0];
+  const segs = clipPolyline(circle, region, glyph);
+  assert.ok(segs.length >= 1, "圓在字形內應保留");
+  const nPts = segs.reduce((a, s) => a + s.length, 0);
+  assert.ok(nPts >= circle.points.length - 1, "點數大致守恆（全在內）");
 });
