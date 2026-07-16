@@ -1,39 +1,28 @@
 """
-Phase 5bo / 5ds: 元素週期表描紅字帖 exporter.
+Phase 5bo / 5ds / 5du: 元素週期表描紅字帖 exporter.
 
-Renders the 118-element periodic table as a single A4-landscape 描紅
-page in the **米字格抄經 style**: every occupied position is a 米字格
-cell (thin border + faint 米-shaped helper guides) carrying only the
-element's Chinese name as a faded trace glyph (描紅) — no atomic
-numbers, no Latin symbols, no category tint, no legend.
+5du (per user): render the periodic table on a **plain blank 抄經 sheet** —
+i.e. reuse the real ``render_sutra_page`` (full 米字格 grid + 日期/抄寫者
+header + outer frame, exactly like every other 抄經 body page) and simply
+place the 118 element names at their periodic-table cell positions. The
+empty periodic-table gaps (blank cells / blank rows / blank columns) are
+just ordinary blank 米字格 cells — the "原味" of a practice sheet.
 
-5ds layout (per user spec): read **column-major, left → right**, each
-column is a group and reads top → bottom:
+Column-major, left → right: group 1 (氫 鋰 鈉 鉀 銣 銫 鍅) is the leftmost
+column; 氦 sits top-right (group 18); 鑭 (57) / 錒 (89) live in the main
+block at group 3; 鑭系 (58-71) / 錒系 (90-103) drop to two pull-out rows
+below a blank row. The whole thing is left-aligned in the standard 20×15
+landscape grid, so a couple of columns and several rows stay blank.
 
-- Group 1 (leftmost column): 氫 鋰 鈉 鉀 銣 銫 鍅
-- Group 2: (blank period-1 cell) 鈹 鎂 鈣 鍶 鋇 鐳
-- Group 3: (three blank cells) 鈧 釔 鑭 錒
-- …the 18-group × 7-period main block, 氦 at the top-right (group 18)
-- 鑭系 (58-71) and 錒系 (90-103) pulled out into two rows below a
-  blank row; 鑭 (57) / 錒 (89) themselves sit in the main block (group 3).
-
-Empty periodic-table gaps are left as true white space (no 米字格) so
-the table's characteristic silhouette is visible. Only the title
-「元素週期表」is drawn besides the cells.
-
-CJK glyphs (title + names) are *traced* via the char loader — the same
-``_char_cut_paths`` outline pipeline as sutra body pages, with skeleton
-fallback — so the SVG renders correctly under cairosvg on hosts without
-a CJK system font.
+CJK glyphs are traced via the char loader (``render_sutra_page`` handles
+this), so the SVG renders correctly under cairosvg on hosts without a CJK
+system font.
 """
 from __future__ import annotations
 
-from .patch import _char_cut_paths
 from .sutra import (
     CharLoader, PageGeometry, get_geometry,
-    TRACE_FILL_DEFAULT, _render_skeleton_glyph, _wrap_svg,
-    GRID_LINE_COLOR, GRID_LINE_WIDTH,
-    HELPER_LINE_COLOR, HELPER_LINE_WIDTH, HELPER_DASH,
+    TRACE_FILL_DEFAULT, render_sutra_page,
 )
 
 # ---------------------------------------------------------------------------
@@ -63,7 +52,7 @@ assert len(_SYMBOLS) == 118 and len(_ZH_NAMES) == 118
 
 # ---------------------------------------------------------------------------
 # Category classification (retained for downstream reference / tests; the
-# 米字格 render deliberately draws no category tint or legend).
+# 描紅 sheet deliberately draws no category tint or legend).
 # ---------------------------------------------------------------------------
 
 _CATEGORY_OF: dict[int, str] = {}
@@ -117,12 +106,11 @@ CATEGORY_LABELS_ZH: dict[str, str] = {
 
 
 def _cell_of(z: int) -> tuple[int, int]:
-    """(row, col) in display space. Rows 1-7 = periods; rows 8/9 =
-    鑭系 / 錒系 pull-out rows (cols 3-16).
+    """(row, col), 1-indexed. Rows 1-7 = periods; rows 8/9 = 鑭系 / 錒系
+    pull-out rows (cols 3-16).
 
-    5ds: 鑭 (57) / 錒 (89) sit in the main block at group 3 (rows 6/7);
-    the pull-out rows carry the *remaining* series members (58-71 /
-    90-103), matching the printed-table convention the user requested.
+    鑭 (57) / 錒 (89) sit in the main block at group 3 (rows 6/7); the
+    pull-out rows carry the remaining series members (58-71 / 90-103).
     """
     if z == 1:
         return (1, 1)
@@ -170,86 +158,30 @@ ELEMENTS: list[dict] = [
     for z in range(1, 119)
 ]
 
-# ---------------------------------------------------------------------------
-# Page geometry (A4 landscape, mm)
-# ---------------------------------------------------------------------------
 
-_MARGIN_L = 10.0
-_MARGIN_R = 8.0
-_GRID_TOP = 24.0
-_ROW_GAP  = 8.0          # blank row between period 7 and the pull-out rows
-_TITLE_CY = 12.0
-_TITLE_SIZE = 6.5
-_N_GROUPS = 18
+def _grid_row(my_row: int) -> int:
+    """Map the logical periodic-table row to a 0-indexed grid row.
+
+    Periods 1-7 → grid rows 0-6. Grid row 7 is left blank (the 空白列
+    between the main block and the pull-out rows). 鑭系/錒系 (logical
+    rows 8/9) → grid rows 8/9.
+    """
+    return (my_row - 1) if my_row <= 7 else my_row
 
 
-def _grid_metrics(geom: PageGeometry) -> tuple[float, float]:
-    """Square 米字格 cell sized to fit 18 groups across the page width."""
-    grid_w = geom.page_w_mm - _MARGIN_L - _MARGIN_R
-    cell = grid_w / _N_GROUPS
-    return cell, cell
-
-
-def _cell_origin(row: int, col: int, cell_w: float,
-                 cell_h: float) -> tuple[float, float]:
-    x = _MARGIN_L + (col - 1) * cell_w
-    y = _GRID_TOP + (row - 1) * cell_h
-    if row >= 8:                 # pull-out rows sit below a blank row
-        y += _ROW_GAP
-    return x, y
-
-
-def _mizige_cell(x0: float, y0: float, cell_w: float, cell_h: float) -> str:
-    """One 米字格 cell: thin border + faint dashed cross + two diagonals
-    (identical helper geometry to sutra body pages)."""
-    x_mid = x0 + cell_w / 2
-    y_mid = y0 + cell_h / 2
-    x1 = x0 + cell_w
-    y1 = y0 + cell_h
-    hc = (f'stroke="{HELPER_LINE_COLOR}" stroke-width="{HELPER_LINE_WIDTH}" '
-          f'stroke-dasharray="{HELPER_DASH}"')
-    return (
-        f'<rect x="{x0:.2f}" y="{y0:.2f}" width="{cell_w:.2f}" '
-        f'height="{cell_h:.2f}" fill="none" stroke="{GRID_LINE_COLOR}" '
-        f'stroke-width="{GRID_LINE_WIDTH}"/>'
-        f'<line x1="{x0:.2f}" y1="{y_mid:.2f}" x2="{x1:.2f}" '
-        f'y2="{y_mid:.2f}" {hc}/>'
-        f'<line x1="{x_mid:.2f}" y1="{y0:.2f}" x2="{x_mid:.2f}" '
-        f'y2="{y1:.2f}" {hc}/>'
-        f'<line x1="{x0:.2f}" y1="{y0:.2f}" x2="{x1:.2f}" y2="{y1:.2f}" '
-        f'{hc}/>'
-        f'<line x1="{x0:.2f}" y1="{y1:.2f}" x2="{x1:.2f}" y2="{y0:.2f}" '
-        f'{hc}/>'
-    )
-
-
-def _traced_chars(chars: str, cx: float, cy: float, size_mm: float,
-                  char_loader: CharLoader, *, fill: str = "#555555",
-                  gap_ratio: float = 1.15) -> str:
-    """Draw a short CJK label (e.g. the title) as dark filled glyphs via
-    the loader, centred at ``cx``. Missing glyphs fall back to ``<text>``."""
-    n = len(chars)
-    if n == 0:
-        return ""
-    step = size_mm * gap_ratio
-    x0 = cx - step * (n - 1) / 2.0
-    parts: list[str] = []
-    for i, ch in enumerate(chars):
-        x = x0 + i * step
-        c = char_loader(ch)
-        drawn = ""
-        if c is not None:
-            drawn = _char_cut_paths(c, x, cy, size_mm)
-            if not drawn:
-                drawn = _render_skeleton_glyph(c, x, cy, size_mm)
-        if not drawn:
-            drawn = (
-                f'<text x="{x:.2f}" y="{cy + size_mm * 0.35:.2f}" '
-                f'font-size="{size_mm:.2f}" text-anchor="middle" '
-                f'fill="{fill}">{ch}</text>'
-            )
-        parts.append(drawn)
-    return f'<g fill="{fill}" stroke="none">{"".join(parts)}</g>'
+def periodic_table_cells(geom: PageGeometry) -> list[str]:
+    """Build the ``chars`` list for ``render_sutra_page`` (row-major /
+    ``direction="horizontal"``): element names at their periodic-table
+    grid positions, blank strings everywhere else. Left-aligned in the
+    ``geom.cols × geom.rows`` grid.
+    """
+    cols, rows = geom.cols, geom.rows
+    cells = [""] * (cols * rows)
+    for el in ELEMENTS:
+        my_row, my_col = el["cell"]
+        n = _grid_row(my_row) * cols + (my_col - 1)
+        cells[n] = el["zh"]
+    return cells
 
 
 def render_periodic_table_page(
@@ -257,64 +189,28 @@ def render_periodic_table_page(
     char_loader: CharLoader,
     trace_fill: str = TRACE_FILL_DEFAULT,
     show_grid: bool = True,
-    title: str = "元素週期表",
 ) -> str:
-    """Render the 118-element periodic table as a 米字格 描紅 page (SVG, mm).
+    """Render the periodic table on a standard blank 抄經 body sheet.
 
-    Each occupied periodic-table position gets a 米字格 cell with the
-    element's Chinese name as a faded trace glyph; gaps are white space.
-    Cells whose name cannot be loaded keep the 米字格 (empty) rather than
-    failing the page. ``show_grid=False`` omits the 米字格 lines (glyphs
-    only). ``trace_fill`` tints the 描紅 glyphs.
+    Reuses ``render_sutra_page`` verbatim (full 米字格 grid + 日期/抄寫者
+    header + outer frame); the 118 element names are placed at their
+    periodic-table cell positions and every other cell stays a blank
+    米字格. ``show_grid`` / helper lines follow the 抄經 convention.
     """
     geom = get_geometry("landscape")
-    cell_w, cell_h = _grid_metrics(geom)
-    char_size = min(cell_w, cell_h) * 0.78
-
-    grid_parts: list[str] = []
-    glyph_parts: list[str] = []
-    skeleton_parts: list[str] = []
-
-    # --- title -----------------------------------------------------------
-    title_svg = _traced_chars(
-        title, geom.page_w_mm / 2.0, _TITLE_CY, _TITLE_SIZE, char_loader,
+    cells = periodic_table_cells(geom)
+    return render_sutra_page(
+        cells,
+        char_loader=char_loader,
+        orientation="landscape",
+        direction="horizontal",
+        show_grid=show_grid,
+        show_helper_lines=show_grid,
+        trace_fill=trace_fill,
     )
-
-    # --- element cells ---------------------------------------------------
-    for el in ELEMENTS:
-        row, col = el["cell"]
-        x0, y0 = _cell_origin(row, col, cell_w, cell_h)
-        if show_grid:
-            grid_parts.append(_mizige_cell(x0, y0, cell_w, cell_h))
-        cx = x0 + cell_w / 2.0
-        cy = y0 + cell_h / 2.0
-        c = char_loader(el["zh"])
-        if c is None:
-            continue
-        drawn = _char_cut_paths(c, cx, cy, char_size)
-        if drawn:
-            glyph_parts.append(
-                f'<g fill="{trace_fill}" stroke="none">{drawn}</g>')
-        else:
-            poly = _render_skeleton_glyph(c, cx, cy, char_size)
-            if poly:
-                skeleton_parts.append(poly)
-
-    inner = (
-        f'<g id="pt-grid">{"".join(grid_parts)}</g>'
-        f'<g id="pt-title">{title_svg}</g>'
-        f'<g id="pt-trace">{"".join(glyph_parts)}</g>'
-        + (
-            f'<g id="pt-trace-skeleton" fill="none" stroke="{trace_fill}" '
-            f'stroke-width="0.5" stroke-linecap="round">'
-            f'{"".join(skeleton_parts)}</g>'
-            if skeleton_parts else ""
-        )
-    )
-    return _wrap_svg(inner, geom=geom)
 
 
 __all__ = [
     "ELEMENTS", "CATEGORY_COLORS", "CATEGORY_LABELS_ZH",
-    "render_periodic_table_page",
+    "periodic_table_cells", "render_periodic_table_page",
 ]
