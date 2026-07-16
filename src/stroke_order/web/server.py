@@ -215,6 +215,10 @@ class SutraPostRequest(BaseModel):
     # tracks (the writing-robot/plotter format). No effect on
     # outline-bearing styles (kaishu/sung) — they already render filled.
     show_original_glyph: bool = False
+    # 5dt: emit a transparent per-cell click-map (data-char/data-pos) so the
+    # browser preview can make each 描紅 cell clickable (逐字手寫). Preview
+    # sets this True; SVG/PDF downloads leave it False.
+    emit_cellmap: bool = False
 
 
 class ClosingPageSpec(BaseModel):
@@ -3909,6 +3913,8 @@ def create_app() -> FastAPI:
                 direction=req.text_direction,         # type: ignore[arg-type]
                 # 5bz: reference letterform (preview + PDF)
                 outline_glyph_loader=outline_loader,
+                # 5dt: click-map overlay (preview only)
+                emit_cellmap=req.emit_cellmap,
             )
         return Response(
             content=svg, media_type="image/svg+xml",
@@ -3944,6 +3950,8 @@ def create_app() -> FastAPI:
             "vertical", pattern="^(vertical|horizontal)$"),
         # 5bz: original-glyph reference layer (preview only)
         show_original_glyph: bool = Query(False),
+        # 5dt: per-cell click-map overlay (preview only)
+        emit_cellmap: bool = Query(False),
     ):
         req = SutraPostRequest(
             preset=preset, page_index=page_index, page_type=page_type,
@@ -3958,6 +3966,7 @@ def create_app() -> FastAPI:
             paper_orientation=paper_orientation,
             text_direction=text_direction,
             show_original_glyph=show_original_glyph,
+            emit_cellmap=emit_cellmap,
         )
         return sutra_post(req)
 

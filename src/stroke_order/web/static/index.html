@@ -400,6 +400,75 @@
 </div>
 
 <!-- ============================================================
+     逐字手寫 (Phase 5dt) — 點抄經預覽格子後彈出，寫自己的字
+     ============================================================ -->
+<div id="sw-overlay" style="display:none;position:fixed;inset:0;
+     background:rgba(0,0,0,.45);z-index:1000;align-items:center;
+     justify-content:center;">
+  <div style="background:white;border-radius:8px;padding:18px;
+       max-width:520px;width:92%;max-height:92vh;overflow:auto;
+       box-shadow:0 10px 40px rgba(0,0,0,.3);">
+    <div style="display:flex;align-items:center;margin-bottom:10px;">
+      <h2 style="margin:0;font-size:18px;">逐字手寫</h2>
+      <span id="sw-progress" style="margin-left:12px;color:var(--muted);
+            font-size:13px;"></span>
+      <button id="sw-close" style="margin-left:auto;background:none;
+              border:none;font-size:20px;cursor:pointer;line-height:1;"
+              title="關閉">✕</button>
+    </div>
+    <p style="margin:0 0 10px;color:var(--muted);font-size:12px;">
+      在米字格裡照著淡色範字寫出你自己的字；送出後會存進本機使用者字典，
+      並取代預覽中這個字的描紅範本（全域套用同一個字）。
+    </p>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+      <div>
+        <canvas id="sw-canvas" width="360" height="360"
+                style="border:1px solid var(--border);background:white;
+                       cursor:crosshair;display:block;touch-action:none;">
+        </canvas>
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
+          <button id="sw-undo" type="button">↶ 復原</button>
+          <button id="sw-clear" type="button">清空</button>
+          <label style="font-size:12px;margin-left:6px;
+                 display:inline-flex;align-items:center;gap:4px;">
+            <input id="sw-show-ref" type="checkbox" checked> 顯示範字</label>
+          <span id="sw-canvas-info" style="color:var(--muted);
+                font-size:11px;margin-left:auto;">0 筆畫</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:150px;font-size:12px;color:var(--muted);">
+        <div style="font-size:13px;color:var(--fg,#222);margin-bottom:6px;">
+          目前：<b id="sw-current-char"
+                 style="font-size:22px;font-family:'Noto Sans TC',sans-serif;">
+          </b></div>
+        <p style="margin:4px 0;">按「上一字／下一字」會自動送出目前寫好的字
+           再移動；沒寫就直接跳過。</p>
+        <div id="sw-status" style="margin-top:8px;min-height:16px;"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px;gap:6px;flex-wrap:wrap;
+         align-items:center;">
+      <button id="sw-prev" type="button">← 上一字</button>
+      <button id="sw-next" type="button">下一字 →</button>
+      <button id="sw-skip" type="button" title="不寫這個字，跳到下一個">略過</button>
+      <span style="margin-left:auto;"></span>
+      <button id="sw-submit" class="primary" type="button">送出並關閉</button>
+    </div>
+    <div class="row" style="margin-top:10px;padding-top:10px;
+         border-top:1px solid var(--border);gap:8px;font-size:12px;
+         align-items:center;">
+      <span style="color:var(--muted);">自己寫的字：</span>
+      <button id="sw-export" type="button" title="下載所有手寫字（ZIP）">⬇ 下載</button>
+      <button id="sw-import" type="button" title="匯入之前下載的 ZIP">⬆ 匯入</button>
+      <input id="sw-import-file" type="file" accept=".zip"
+             style="display:none;">
+      <span style="color:var(--muted);margin-left:auto;">
+        也可在「✎ 罕用字管理」統一管理</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
      字帖模式 (grid mode) — hidden by default, toggled by mode radio
      ============================================================ -->
 <main id="grid-view" style="display:none;">
@@ -7457,6 +7526,7 @@ document.addEventListener("DOMContentLoaded", () => {
   waUpdateAlignState();
   waUpdateDirectionState();
   udInit();
+  swInit();
   cnsInit();
   sealInit();
   lishuInit();
@@ -9074,7 +9144,9 @@ async function sutraRender() {
       headers: {"Content-Type": "application/json"},
       // 5bz: preview shows the reference letterform behind the skeleton
       // (隸/篆 only). Download buttons keep the default (skeleton-only).
-      body: JSON.stringify(sutraBuildBody({show_original_glyph: true})),
+      // 5dt: emit_cellmap → clickable per-cell overlay for 逐字手寫.
+      body: JSON.stringify(sutraBuildBody(
+        {show_original_glyph: true, emit_cellmap: true})),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({detail: r.statusText}));
@@ -9092,7 +9164,9 @@ async function sutraRender() {
       inner.style.display = "block";
       inner.style.background = "white";
     }
-    status.textContent = "✓ 完成";
+    // 5dt: wire each 描紅 cell to open the 逐字手寫 popup.
+    swAttachPreviewClicks(preview);
+    status.textContent = "✓ 完成（點格子可逐字手寫）";
     status.style.color = "#080";
   } catch (e) {
     status.textContent = "失敗：" + e.message;
@@ -9597,6 +9671,242 @@ async function udSave() {
   } catch (e) {
     status.textContent = "失敗：" + e.message;
     status.style.color = "var(--accent)";
+  }
+}
+
+// ============================================================
+// 逐字手寫 (Phase 5dt) — 點抄經預覽格子 → 手寫自己的字 → 存 user-dict
+// ============================================================
+const SW = {
+  positions: [],     // [{char, pos}] in reading order (from cellmap)
+  index: 0,          // current position in `positions`
+  strokes: [],       // [[ [x,y], ... ], ...] canvas-pixel coords
+  active: null,
+  dirty: false,      // any successful write this session → refresh preview
+};
+
+function swInit() {
+  const $ = id => document.getElementById(id);
+  if (!$("sw-overlay")) return;
+  $("sw-close").onclick   = swClose;
+  $("sw-undo").onclick    = () => { SW.strokes.pop(); swRedraw(); swInfo(); };
+  $("sw-clear").onclick   = () => { SW.strokes = []; swRedraw(); swInfo(); };
+  $("sw-show-ref").onchange = swRedraw;
+  $("sw-prev").onclick    = () => swNav(-1);
+  $("sw-next").onclick    = () => swNav(1);
+  $("sw-skip").onclick    = () => swNav(1, /*noSubmit=*/true);
+  $("sw-submit").onclick  = swSubmitAndClose;
+  $("sw-export").onclick  = () => {
+    window.location.href = `${API_BASE}/api/user-dict/export`;
+  };
+  $("sw-import").onclick  = () => $("sw-import-file").click();
+  $("sw-import-file").addEventListener("change", swImport);
+  $("sw-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "sw-overlay") swClose();
+  });
+  swBindCanvas();
+}
+
+// Wire clickable cells after each preview render (called by sutraRender).
+function swAttachPreviewClicks(previewEl) {
+  const rects = [...previewEl.querySelectorAll("#sutra-cellmap rect[data-char]")];
+  // Build the reading-order position list (sorted by data-pos).
+  SW.positions = rects
+    .map(r => ({ char: r.getAttribute("data-char"),
+                 pos: parseInt(r.getAttribute("data-pos"), 10),
+                 missing: r.hasAttribute("data-missing") }))
+    .sort((a, b) => a.pos - b.pos);
+  rects.forEach(r => {
+    r.style.cursor = "pointer";
+    // faint hover highlight
+    r.addEventListener("mouseenter", () => { r.setAttribute("fill", "rgba(80,140,255,.12)"); });
+    r.addEventListener("mouseleave", () => { r.setAttribute("fill", "transparent"); });
+    if (r.hasAttribute("data-missing")) {
+      // subtle dashed outline so 缺字 cells read as "writable"
+      r.setAttribute("stroke", "#e0a94f");
+      r.setAttribute("stroke-width", "0.3");
+      r.setAttribute("stroke-dasharray", "1,1");
+    }
+    r.addEventListener("click", () => {
+      const p = parseInt(r.getAttribute("data-pos"), 10);
+      const idx = SW.positions.findIndex(q => q.pos === p);
+      swOpen(idx >= 0 ? idx : 0);
+    });
+  });
+}
+
+async function swOpen(index) {
+  if (!SW.positions.length) return;
+  SW.index = Math.max(0, Math.min(index, SW.positions.length - 1));
+  document.getElementById("sw-overlay").style.display = "flex";
+  await swLoadCurrent();
+}
+
+function swClose() {
+  document.getElementById("sw-overlay").style.display = "none";
+  if (SW.dirty) {            // reflect newly-written glyphs in the preview
+    SW.dirty = false;
+    sutraRender();
+  }
+}
+
+// Load the current position: show char, preload existing user-dict strokes.
+async function swLoadCurrent() {
+  const cur = SW.positions[SW.index];
+  SW.strokes = [];
+  document.getElementById("sw-current-char").textContent = cur.char;
+  document.getElementById("sw-progress").textContent =
+    `第 ${SW.index + 1} / ${SW.positions.length} 字`;
+  const st = document.getElementById("sw-status");
+  st.textContent = ""; st.style.color = "var(--muted)";
+  // Preload any handwriting the user already saved for this char (edit mode).
+  try {
+    const r = await fetch(`${API_BASE}/api/user-dict/${encodeURIComponent(cur.char)}`);
+    if (r.ok) {
+      const d = await r.json();
+      const c = document.getElementById("sw-canvas");
+      const W = c.width, H = c.height;
+      SW.strokes = d.strokes.map(s => s.track.map(p => [p[0] / 2048 * W, p[1] / 2048 * H]));
+      st.textContent = "（已載入你先前寫的版本，可覆蓋）";
+    }
+  } catch (_) { /* none yet — blank canvas */ }
+  swRedraw(); swInfo();
+}
+
+// Submit the current char's strokes to the user dict. Returns true if a
+// write happened (or nothing to write is treated as a no-op success).
+async function swSubmitCurrent() {
+  const valid = SW.strokes.filter(s => s.length >= 2);
+  if (valid.length === 0) return { ok: true, wrote: false };
+  const cur = SW.positions[SW.index];
+  const canvas = document.getElementById("sw-canvas");
+  try {
+    const r = await fetch(`${API_BASE}/api/user-dict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        char: cur.char,
+        format: "handwriting",
+        handwriting: { strokes: valid, canvas_width: canvas.width,
+                       canvas_height: canvas.height },
+      }),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({ detail: r.statusText }));
+      throw new Error(e.detail || `HTTP ${r.status}`);
+    }
+    SW.dirty = true;
+    return { ok: true, wrote: true };
+  } catch (e) {
+    const st = document.getElementById("sw-status");
+    st.textContent = "儲存失敗：" + e.message; st.style.color = "var(--accent)";
+    return { ok: false, wrote: false };
+  }
+}
+
+// Navigate: submit current (unless noSubmit) then move by `delta`.
+async function swNav(delta, noSubmit) {
+  if (!noSubmit) {
+    const res = await swSubmitCurrent();
+    if (!res.ok) return;   // stay put on save error
+  }
+  const next = SW.index + delta;
+  if (next < 0 || next >= SW.positions.length) {
+    const st = document.getElementById("sw-status");
+    st.textContent = next < 0 ? "已是第一個字" : "已是最後一個字";
+    st.style.color = "var(--muted)";
+    return;
+  }
+  SW.index = next;
+  await swLoadCurrent();
+}
+
+async function swSubmitAndClose() {
+  const res = await swSubmitCurrent();
+  if (!res.ok) return;
+  swClose();
+}
+
+async function swImport(e) {
+  const f = e.target.files[0];
+  if (!f) return;
+  const st = document.getElementById("sw-status");
+  st.textContent = "匯入中…"; st.style.color = "var(--muted)";
+  try {
+    const fd = new FormData();
+    fd.append("file", f);
+    fd.append("policy", "replace");
+    const r = await fetch(`${API_BASE}/api/user-dict/import`, { method: "POST", body: fd });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    st.textContent = `✓ 已匯入（新增 ${d.imported ?? "?"}）`; st.style.color = "#080";
+    SW.dirty = true;
+    await swLoadCurrent();
+  } catch (err) {
+    st.textContent = "匯入失敗：" + err.message; st.style.color = "var(--accent)";
+  } finally {
+    e.target.value = "";
+  }
+}
+
+// ---- canvas ----
+function swBindCanvas() {
+  const c = document.getElementById("sw-canvas");
+  c.addEventListener("pointerdown", e => {
+    c.setPointerCapture(e.pointerId);
+    SW.active = [swPt(e)]; SW.strokes.push(SW.active); swRedraw();
+  });
+  c.addEventListener("pointermove", e => {
+    if (SW.active == null) return;
+    SW.active.push(swPt(e)); swRedraw();
+  });
+  const fin = () => { if (SW.active == null) return; SW.active = null; swInfo(); };
+  c.addEventListener("pointerup", fin);
+  c.addEventListener("pointercancel", fin);
+  c.addEventListener("pointerleave", fin);
+}
+function swPt(e) {
+  const r = e.target.getBoundingClientRect();
+  return [e.clientX - r.left, e.clientY - r.top];
+}
+function swInfo() {
+  document.getElementById("sw-canvas-info").textContent =
+    `${SW.strokes.filter(s => s.length >= 2).length} 筆畫`;
+}
+function swRedraw() {
+  const c = document.getElementById("sw-canvas");
+  const ctx = c.getContext("2d");
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  // faint reference char behind the grid
+  const cur = SW.positions[SW.index];
+  if (cur && document.getElementById("sw-show-ref").checked) {
+    ctx.save();
+    ctx.fillStyle = "#dcdcdc";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `${Math.round(H * 0.82)}px 'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif`;
+    ctx.fillText(cur.char, W / 2, H / 2 + H * 0.02);
+    ctx.restore();
+  }
+  // 米字格
+  ctx.strokeStyle = "#e8e8e8"; ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+  ctx.beginPath();
+  ctx.moveTo(0, 0); ctx.lineTo(W, H);
+  ctx.moveTo(W, 0); ctx.lineTo(0, H);
+  ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H);
+  ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);
+  ctx.stroke();
+  // ink
+  ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const s of SW.strokes) {
+    if (s.length < 2) continue;
+    ctx.beginPath();
+    ctx.moveTo(s[0][0], s[0][1]);
+    for (let i = 1; i < s.length; i++) ctx.lineTo(s[i][0], s[i][1]);
+    ctx.stroke();
   }
 }
 

@@ -2372,3 +2372,57 @@ def test_5dp_sutra_endpoints_are_sync_not_coroutine():
     assert seen, "找不到抄經渲染端點"
     for key, is_coro in seen.items():
         assert not is_coro, f"{key} 應為 sync def（避免凍 event loop）"
+
+
+# ---------------------------------------------------------------------------
+# 5dt：逐字手寫——抄經字格 click-map overlay（data-char / data-pos）
+# ---------------------------------------------------------------------------
+
+
+def test_5dt_cellmap_emitted_only_when_requested():
+    from stroke_order.exporters.sutra import render_sutra_page
+    chars = list("心經")
+    off = render_sutra_page(chars, char_loader=lambda ch: None)
+    on = render_sutra_page(chars, char_loader=lambda ch: None,
+                           emit_cellmap=True)
+    assert 'id="sutra-cellmap"' not in off      # off by default
+    assert 'id="sutra-cellmap"' in on
+    # one click rect per (non-space) char, carrying char + position
+    assert 'data-char="心"' in on and 'data-char="經"' in on
+    assert 'data-pos="0"' in on and 'data-pos="1"' in on
+
+
+def test_5dt_cellmap_marks_unloaded_cells_missing():
+    from stroke_order.exporters.sutra import render_sutra_page
+    from stroke_order.ir import Character
+
+    def loader(ch):
+        # 心 loads (empty outline is fine for the flag); 經 does not
+        if ch == "心":
+            return Character(char=ch, unicode_hex=f"{ord(ch):04x}",
+                             strokes=[])
+        return None
+
+    svg = render_sutra_page(list("心經"), char_loader=loader,
+                            emit_cellmap=True)
+    # the cellmap group carries a data-missing marker for 經 but not 心.
+    cellmap = svg.split('id="sutra-cellmap"')[1]
+    xin = [seg for seg in cellmap.split("<rect") if 'data-char="心"' in seg]
+    jing = [seg for seg in cellmap.split("<rect") if 'data-char="經"' in seg]
+    assert xin and "data-missing" not in xin[0]
+    assert jing and 'data-missing="1"' in jing[0]
+
+
+def test_5dt_cellmap_flows_through_api(monkeypatch):
+    from fastapi.testclient import TestClient
+    from stroke_order.web.server import app
+    client = TestClient(app)
+    r = client.get("/api/sutra?preset=heart_sutra&page_type=body"
+                   "&emit_cellmap=true")
+    assert r.status_code == 200
+    assert 'id="sutra-cellmap"' in r.text
+    assert "data-char=" in r.text
+    # default (no flag) stays clean — plotter/PDF downloads unaffected
+    r2 = client.get("/api/sutra?preset=heart_sutra&page_type=body")
+    assert r2.status_code == 200
+    assert 'id="sutra-cellmap"' not in r2.text

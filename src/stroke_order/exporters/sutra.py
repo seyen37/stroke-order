@@ -739,6 +739,12 @@ def render_sutra_page(
     # near-invisible (0.03) so users aren't distracted by the imperfect
     # centerline traces; tweak `_SKELETON_TRACE_OPACITY` to dial it back.
     reference_glyph_opacity: float = 0.55,
+    # 5dt: emit a transparent per-cell click-map overlay carrying
+    # data-char / data-pos so the browser preview can make each 描紅 cell
+    # clickable (逐字手寫). Off by default — enabled only for the preview
+    # endpoint; PDF / plotter-SVG paths keep it off (invisible either way,
+    # but there's no reason to bloat downloads).
+    emit_cellmap: bool = False,
 ) -> str:
     """Render one body page (trace grid + header + footer).
 
@@ -830,6 +836,7 @@ def render_sutra_page(
     # returned skeleton-only data — avoids double-drawing for kaishu/sung.
     reference_glyph_parts: list[str] = []
     mark_parts: list[str] = []         # 5bi: 句讀 marks
+    cellmap_parts: list[str] = []      # 5dt: transparent per-cell click map
     # 5bt: bigger marks (~33% larger than 5bs). The user prefers a more
     # legible 句讀 mark and accepts edge contact with the BOTTOM frame.
     # Numbers (landscape, "黃" worst-case glyph bottom +4.25mm):
@@ -856,6 +863,20 @@ def render_sutra_page(
         )
         cx = x0 + cell_w / 2
         cy = y0 + cell_h / 2
+        # 5dt: per-cell click-map rect (covers whole cell; drawn last so it
+        # sits above the glyphs for reliable clicks). Includes 缺字 cells
+        # (data-missing="1") so the user can hand-write those too.
+        if emit_cellmap and ch and not ch.isspace():
+            _esc = (ch.replace("&", "&amp;").replace("<", "&lt;")
+                    .replace(">", "&gt;").replace('"', "&quot;"))
+            _loaded = char_loader(ch) is not None
+            cellmap_parts.append(
+                f'<rect x="{x0:.3f}" y="{y0:.3f}" width="{cell_w:.3f}" '
+                f'height="{cell_h:.3f}" fill="transparent" '
+                f'data-char="{_esc}" data-pos="{n}"'
+                + ('' if _loaded else ' data-missing="1"')
+                + '/>'
+            )
         # Draw the glyph if we have one
         if ch and not ch.isspace():
             c_glyph = char_loader(ch)
@@ -959,6 +980,13 @@ def render_sutra_page(
                 f'opacity="0.55">'
                 f'{"".join(mark_parts)}</g>'
             )
+
+    # 5dt: click-map overlay LAST so its transparent rects capture clicks
+    # above the glyph/grid layers.
+    if cellmap_parts:
+        pieces.append(
+            f'<g id="sutra-cellmap">{"".join(cellmap_parts)}</g>'
+        )
 
     return _wrap_svg("".join(pieces), geom=geom)
 
