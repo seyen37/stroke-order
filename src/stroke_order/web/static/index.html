@@ -8866,6 +8866,12 @@ function sutraRebuildPresetDropdown() {
   const prev = presetSel.value;
 
   const matches = (p) => {
+    // 5dr：目錄不列「內建但正文未打包」的 preset。唯一案例為著作權排除的
+    // macarthur_prayer——線上部署（repo 不含正文）→ ready=false → 隱藏；
+    // 使用者在本機 ~/.stroke-order/sutras/builtin/ 放入正文後 → ready=true
+    // → 自動出現。使用者自訂 preset 只在檔案存在時才列出，天生 ready，
+    // 不受此條影響。
+    if (p.is_builtin && !p.ready) return false;
     if (cat !== "__all__" && p.category !== cat) return false;
     if (!search) return true;
     const hay = [
