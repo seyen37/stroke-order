@@ -3041,6 +3041,10 @@ def create_app() -> FastAPI:
             summary = src.import_zip_bytes(zip_bytes, policy=policy)
         except ValueError as e:
             raise HTTPException(400, detail=str(e)) from e
+        # 5dq：使用者字庫變動後，清 make_source 快取——否則已建的
+        # AutoSource 內 UserDictSource 讀不到新匯入的字（見 __init__.py）。
+        from ..sources import reset_source_cache
+        reset_source_cache()
         return summary
 
     @app.get("/api/user-dict/{char}")
@@ -3116,6 +3120,10 @@ def create_app() -> FastAPI:
             path = src.save_character(req.char, strokes=strokes)
         except ValueError as e:
             raise HTTPException(400, detail=str(e)) from e
+        # 5dq：使用者字庫變動後，清 make_source 快取——否則已建的
+        # AutoSource 內 UserDictSource 讀不到新寫入的字（見 __init__.py）。
+        from ..sources import reset_source_cache
+        reset_source_cache()
         return {
             "char": req.char,
             "unicode_hex": f"{ord(req.char):04x}",
@@ -3132,6 +3140,10 @@ def create_app() -> FastAPI:
         if not src.delete_character(char):
             raise HTTPException(
                 404, detail=f"no user-dict entry for U+{ord(char):04X}")
+        # 5dq：使用者字庫變動後，清 make_source 快取——否則已建的
+        # AutoSource 內 UserDictSource 仍回傳已刪的字（見 __init__.py）。
+        from ..sources import reset_source_cache
+        reset_source_cache()
         return {"deleted": char, "unicode_hex": f"{ord(char):04x}"}
 
     # ------ 布章 (patch) — Phase 5ax -----------------------------------

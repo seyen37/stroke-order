@@ -186,20 +186,7 @@ class RegionAutoSource:
         )
 
 
-def make_source(name: str) -> Source:
-    """
-    Factory for the CLI's ``--source`` flag.
-
-    Accepts:
-      - data source names: 'g0v', 'mmh', 'kanjivg' (exact: no fallbacks)
-      - 'auto' (g0v → MMH → punctuation fallback)
-      - region codes: 'tw', 'cn', 'jp' (region-specific + punctuation fallback)
-
-    Single-source modes deliberately don't include the punctuation
-    fallback — explicitly picking one source means "only that source".
-    The ``auto`` / region modes chain :class:`PunctuationSource` at the
-    end so mixed CJK documents (text + ``，！？「」``) just work.
-    """
+def _build_source(name: str) -> Source:
     name = name.lower()
     if name == "g0v":
         return G0VSource()
@@ -217,6 +204,46 @@ def make_source(name: str) -> Source:
     )
 
 
+# 5dq：make_source 記憶化——同名字源只建一次、跨呼叫重用。
+# 各字源本有 per-instance 快取（mmh._index 解析 9500 行、moe_kaishu 讀
+# CFF glyphset、g0v/cns_font TTFont…），但 _load 每次呼叫都 make_source()
+# 建全新 AutoSource（含全新子字源），把這些快取全丟掉重建——一頁元素
+# 週期表（118 罕見字）光載入就 ~31s（mmh 重解 20s＋moe_kaishu 重讀 9s）
+# → Render 逾時 502。改成同名字源 process 內只建一次（等同既有
+# get_kaishu_source 等 singleton 的設計意圖），118 字載入 31s→~1s。
+_SOURCE_CACHE: dict[str, Source] = {}
+
+
+def make_source(name: str) -> Source:
+    """
+    Factory for the CLI's ``--source`` flag（結果快取、同名重用）.
+
+    Accepts:
+      - data source names: 'g0v', 'mmh', 'kanjivg' (exact: no fallbacks)
+      - 'auto' (g0v → MMH → punctuation fallback)
+      - region codes: 'tw', 'cn', 'jp' (region-specific + punctuation fallback)
+
+    Single-source modes deliberately don't include the punctuation
+    fallback — explicitly picking one source means "only that source".
+    The ``auto`` / region modes chain :class:`PunctuationSource` at the
+    end so mixed CJK documents (text + ``，！？「」``) just work.
+
+    同名字源在 process 內只建一次並重用（見 ``_SOURCE_CACHE`` 註解）；
+    測試若改字型路徑等環境變數，呼叫 :func:`reset_source_cache` 清快取。
+    """
+    key = name.lower()
+    src = _SOURCE_CACHE.get(key)
+    if src is None:
+        src = _build_source(key)          # 未知名稱在此拋 ValueError（不快取）
+        _SOURCE_CACHE[key] = src
+    return src
+
+
+def reset_source_cache() -> None:
+    """清空 make_source 記憶化（測試改字型/環境後呼叫）。"""
+    _SOURCE_CACHE.clear()
+
+
 __all__ = [
     "Source",
     "Region",
@@ -231,6 +258,7 @@ __all__ = [
     "RegionAutoSource",
     "CharacterNotFound",
     "make_source",
+    "reset_source_cache",
     "supported_punctuation",
     "default_user_dict_dir",
     "default_cns_font_dir",

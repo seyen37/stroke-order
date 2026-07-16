@@ -1593,6 +1593,32 @@ cache）「每唯一字只載一次」，預覽 ~15s→2~3s、PDF 多頁跨頁�
 效能問題先量「呼叫次數 × 單次成本」拆兩軸，本例砍的是「次數」（去重），
 不是「單次成本」。
 
+## 20. 昂貴工廠要跨呼叫快取，但可變狀態要能失效（2026-07-15 5dq 新增）
+
+元素週期表改「只留週期表形狀」後暴露一個效能舊帳：一頁 118 罕見字光
+字形載入 ~31s → Render 逾時 502。§19.2 砍的是「單次請求內的重複次數」；
+這裡的根因在**更上一層**——`_load` 每次呼叫都 `make_source(source)` 建
+**全新** `AutoSource`（含全新 `MMHSource` 重解 9500 行 ~20s、全新
+`MoeKaishuSource` 重讀 CFF glyphset ~9s），把各字源的 per-instance 快取
+整個丟掉重建。
+
+### 20.1 同名昂貴工廠在 process 內只建一次
+
+`make_source` 加 `_SOURCE_CACHE`（同名字源建一次、跨請求重用），呼應既
+有 `get_kaishu_source` 等 singleton 的設計意圖。118 字載入 31s→~3s。判準：
+**工廠產物「昂貴建置＋語意上無狀態/唯讀」→ 快取重用**；未知名稱走
+`_build_source` 拋 `ValueError`（不進快取，錯誤不被記住）。
+
+### 20.2 快取「可變」資源，寫入端一定要主動失效
+
+`AutoSource` 內含 `UserDictSource`——使用者字庫**可在執行期被寫改**。加
+了 §20.1 快取後，`user_dict_post/delete/import` 三個寫入端點若不清快取，
+已建的 `AutoSource` 就讀不到新寫入/已刪的字（回歸測
+`test_api_user_dict_override_visible_in_notebook`：POST 一個 2 畫的字後
+GET notebook 竟仍回 1 畫）。修法：寫入成功後呼叫 `reset_source_cache()`。
+鐵則：**引入任何快取，同時要盤點「誰會讓底層資料變」並在那裡失效**；
+快取與失效是一組、不可只做一半（cache-and-invalidate 成對）。
+
 ---
 
 ## 7. 索引

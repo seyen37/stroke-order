@@ -59,3 +59,38 @@ def test_autosource_propagates_when_both_fail():
     src = AutoSource(primary=_Boom(), secondary=_Boom())
     with pytest.raises(CharacterNotFound):
         src.get_character("\U0001F600")  # 😀 — not in any source
+
+
+# ---------------------------------------------------------------------------
+# 5dq：make_source 記憶化（同名字源重用）——修效能 502 根因
+# ---------------------------------------------------------------------------
+
+
+def test_5dq_make_source_caches_by_name():
+    """同名字源回同一 instance（重用 per-instance 快取）；不同名不同物件。"""
+    from stroke_order.sources import make_source, reset_source_cache
+    reset_source_cache()
+    a1 = make_source("auto")
+    a2 = make_source("auto")
+    assert a1 is a2, "同名字源應重用（否則 mmh/moe_kaishu 快取每次重建）"
+    assert make_source("g0v") is not a1
+    # 大小寫正規化：AUTO == auto
+    assert make_source("AUTO") is a1
+
+
+def test_5dq_reset_source_cache_clears():
+    from stroke_order.sources import make_source, reset_source_cache
+    a1 = make_source("auto")
+    reset_source_cache()
+    a2 = make_source("auto")
+    assert a1 is not a2, "reset 後應重建"
+
+
+def test_5dq_make_source_unknown_not_cached():
+    """未知名稱拋 ValueError、不進快取。"""
+    from stroke_order.sources import make_source, reset_source_cache
+    reset_source_cache()
+    with pytest.raises(ValueError):
+        make_source("bogus")
+    with pytest.raises(ValueError):   # 二次仍拋（未毒化快取）
+        make_source("bogus")

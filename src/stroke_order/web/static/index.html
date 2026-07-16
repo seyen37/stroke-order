@@ -8966,8 +8966,14 @@ async function sutraRebuildLayout() {
     } catch (_) { /* fall back to cached value */ }
   }
   if (includeCover) layout.push({type: "cover"});
-  for (let i = 0; i < bodyPages; i++) {
-    layout.push({type: "body", body_index: i});
+  // 5dq：元素週期表只用「週期表形狀描紅頁」——它的意義在結構位置
+  // （族/週期 + 鑭系/錒系），平鋪格子描紅反而破壞可讀性。其餘表格類
+  // preset 維持「平鋪描紅頁 + 表格頁」兩段。
+  const tableOnly = (p.key === "periodic_table" && p.ready);
+  if (!tableOnly) {
+    for (let i = 0; i < bodyPages; i++) {
+      layout.push({type: "body", body_index: i});
+    }
   }
   // 5bo: presets with a table layout get that page after the body
   // pages (A4 landscape fixed geometry).
