@@ -1742,7 +1742,12 @@ data_source 分兩條 lane，別硬塞進既有 lane**——否則新來源被�
     互動編輯弧＋鏤空字實測修正＋互動大改版）
   - [`WORK_LOG_2026-07-15.md`](WORK_LOG_2026-07-15.md)（5di→5dk
     禪繞引擎重構弧：iCSO 五基本符號＋七延伸技法＋參數/組合＋
-    SVG/G-code/DXF 匯出＋evenodd 真裁切＋雷雕掃描填充；雲端工作階段）
+    SVG/G-code/DXF 匯出＋evenodd 真裁切＋雷雕掃描填充；雲端工作階段。
+    §十一/§十二另收 5dm→5do 字模字型弧）
+  - [`WORK_LOG_2026-07-16.md`](WORK_LOG_2026-07-16.md)（5dp→5dv
+    抄經深化弧：502 穩定性×2（sync def/loader 去重、字源工廠快取）＋
+    麥克阿瑟著作權治理＋元素週期表三迭代（自繪→標準抄經紙→定位）＋
+    逐字手寫互動新功能＋手寫可見修復）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -1754,6 +1759,8 @@ data_source 分兩條 lane，別硬塞進既有 lane**——否則新來源被�
   - [`2026-07-13_5df2_5df4_zentangle_regions.md`](decisions/2026-07-13_5df2_5df4_zentangle_regions.md)（第三弧：禪繞區段模型/互動編輯/切分線，對應 §13）
   - [`2026-07-13_5dg_5dh_stencil_zentangle_ux.md`](decisions/2026-07-13_5dg_5dh_stencil_zentangle_ux.md)（第四弧：鏤空字實測修正＋禪繞互動大改版，對應 §14）
   - [`2026-07-15_5di_5dk_zentangle_export.md`](decisions/2026-07-15_5di_5dk_zentangle_export.md)（禪繞引擎重構弧：互動修正＋iCSO 引擎＋SVG/G-code/DXF 匯出，對應 §15）
+  - [`2026-07-15_5dm_5do_stencil_font_seal.md`](decisions/2026-07-15_5dm_5do_stencil_font_seal.md)（字模字型與切割精修弧：黑體字模＋切割風格庫＋崇羲繁簡＋佛經缺字，對應 §16–§18）
+  - [`2026-07-16_5dp_5dv_sutra_periodic_handwrite.md`](decisions/2026-07-16_5dp_5dv_sutra_periodic_handwrite.md)（抄經深化弧：502 成本模型＋著作權治理＋週期表三迭代＋逐字手寫＋渲染分流，對應 §19–§25）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1764,4 +1771,4 @@ data_source 分兩條 lane，別硬塞進既有 lane**——否則新來源被�
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§15 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§25 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面）。三者互補。
