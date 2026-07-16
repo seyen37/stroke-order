@@ -546,6 +546,26 @@ def _upgrade_to_lishu(c, style: str, *, lishu_outline_mode: str = "skeleton"):
 
 
 # ---------------------------------------------------------------------------
+# 5dp: 抄經預覽 502 修復——per-request char-loader 記憶化
+# ---------------------------------------------------------------------------
+# render_sutra_page 對**每個字位**都呼叫 char_loader(ch)（一頁 260 位），
+# 而 _load 不快取——重複字每次重載，一頁心經（117 唯一字 / 260 位）純
+# 載入就數秒~十幾秒，且端點是 async def、重活凍住 event loop（§9/5ck
+# 應驗）→ Render 單 worker 逾時回 502。記憶化把「每字只載一次」，同一
+# request 內同字回同一（唯讀）Character；PDF 多頁共用 loader 時省更多
+# （跨頁重複字只載一次）。輸出與非記憶化逐位元相同（已驗）。
+def _memoize_char_loader(fn):
+    """Wrap a char-loader so each unique char is resolved at most once."""
+    cache: dict = {}
+
+    def cached(ch: str):
+        if ch not in cache:
+            cache[ch] = fn(ch)
+        return cache[ch]
+
+    return cached
+
+
 # 5bz: outline-preserving loader for sutra preview + PDF
 # ---------------------------------------------------------------------------
 #
@@ -3765,7 +3785,9 @@ def create_app() -> FastAPI:
     # --- Render endpoints (now accept any builtin or user key) ---------
 
     @app.post("/api/sutra")
-    async def sutra_post(req: SutraPostRequest):
+    def sutra_post(req: SutraPostRequest):
+        # 5dp：sync def——重字形載入/SVG 渲染走 threadpool、不凍 event loop
+        # （§9/5ck；stencil 端點同一策略）。避免 Render 單 worker 逾時 502。
         from ..sutras import get_sutra_info, load_text
         from ..exporters.sutra import (
             render_sutra_page, render_sutra_cover, render_sutra_dedication,
@@ -3787,7 +3809,7 @@ def create_app() -> FastAPI:
                        "multiplication_table, solar_terms, "
                        "kangxi_radicals, cangjie_roots, zhuyin_symbols)")
 
-        def loader(ch: str):
+        def _loader(ch: str):
             try:
                 c, _r, _ = _load(ch, req.source, req.hook_policy)
                 c = _upgrade_to_sung(c, req.style)
@@ -3798,6 +3820,8 @@ def create_app() -> FastAPI:
                 return c
             except HTTPException:
                 return None
+
+        loader = _memoize_char_loader(_loader)   # 5dp：每字只載一次
 
         if req.page_type == "table":
             # 5bo: preset-specific table layout, one A4-landscape page.
@@ -3853,10 +3877,10 @@ def create_app() -> FastAPI:
             # original outline (skip mode) so the renderer can lay a
             # faded reference letterform under the skeleton tracks.
             outline_loader = (
-                _build_sutra_outline_loader(
+                _memoize_char_loader(_build_sutra_outline_loader(
                     source=req.source, style=req.style,
                     hook_policy=req.hook_policy,
-                )
+                ))
                 if req.show_original_glyph
                 else None
             )
@@ -3881,7 +3905,7 @@ def create_app() -> FastAPI:
         )
 
     @app.get("/api/sutra")
-    async def sutra_get(
+    def sutra_get(       # 5dp：sync def（見 sutra_post）
         preset: str = Query("heart_sutra", pattern=_SUTRA_PRESET_PATTERN),
         page_index: int = Query(0, ge=0, le=200),
         page_type: str = Query("body", pattern=_SUTRA_PAGE_TYPE_PATTERN),
@@ -3923,12 +3947,12 @@ def create_app() -> FastAPI:
             text_direction=text_direction,
             show_original_glyph=show_original_glyph,
         )
-        return await sutra_post(req)
+        return sutra_post(req)
 
     # ------ 5bi: PDF download — cover + body pages + dedication ----------
 
     @app.get("/api/sutra/pdf")
-    async def sutra_pdf_endpoint(
+    def sutra_pdf_endpoint(       # 5dp：sync def（見 sutra_post；PDF 最重）
         preset: str = Query("heart_sutra", pattern=_SUTRA_PRESET_PATTERN),
         style: str = Query("kaishu", pattern=_STYLE_PATTERN),
         source: str = Query("auto"),
@@ -3994,7 +4018,7 @@ def create_app() -> FastAPI:
                        "into the sutra dir",
             )
 
-        def loader(ch: str):
+        def _loader(ch: str):
             try:
                 c, _r, _ = _load(ch, source, hook_policy)
                 c = _upgrade_to_sung(c, style)
@@ -4006,12 +4030,15 @@ def create_app() -> FastAPI:
             except HTTPException:
                 return None
 
+        # 5dp：跨頁共用、每字只載一次（多頁 PDF 省最多）。
+        loader = _memoize_char_loader(_loader)
+
         # 5bz: outline-bearing companion loader for the reference layer
         # (隸/篆 with mode="skip"). None when the user opts out.
         outline_loader = (
-            _build_sutra_outline_loader(
+            _memoize_char_loader(_build_sutra_outline_loader(
                 source=source, style=style, hook_policy=hook_policy,
-            )
+            ))
             if show_original_glyph
             else None
         )

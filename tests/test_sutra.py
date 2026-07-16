@@ -2332,3 +2332,43 @@ def test_5bp_env_disable_restores_not_loaded(temp_sutra_dir):
     loaded from the package."""
     from stroke_order.sutras import is_loaded
     assert not is_loaded("heart_sutra")
+
+
+# ---------------------------------------------------------------------------
+# 5dp：抄經預覽 502 修復——loader 記憶化＋端點 sync def（不凍 event loop）
+# ---------------------------------------------------------------------------
+
+
+def test_5dp_memoize_char_loader_resolves_once_per_unique():
+    """每個唯一字只解析一次；同字回同一物件。"""
+    from stroke_order.web.server import _memoize_char_loader
+    calls = []
+
+    def raw(ch):
+        calls.append(ch)
+        return object()
+
+    cached = _memoize_char_loader(raw)
+    a1 = cached("心"); a2 = cached("心"); b = cached("經"); cached("心")
+    assert calls == ["心", "經"], f"應每唯一字載一次，實得 {calls}"
+    assert a1 is a2, "同字應回同一（唯讀）物件"
+    assert b is not a1
+
+
+def test_5dp_sutra_endpoints_are_sync_not_coroutine():
+    """sutra_post/get/pdf 為 sync def——FastAPI 走 threadpool、不凍 event
+    loop（§9/5ck；重渲染在單 worker 上凍住會讓 Render 逾時 502）。"""
+    import inspect
+    from fastapi.routing import APIRoute
+    from stroke_order.web.server import create_app
+
+    app = create_app()
+    targets = {"/api/sutra", "/api/sutra/pdf"}
+    seen = {}
+    for r in app.routes:
+        if isinstance(r, APIRoute) and r.path in targets:
+            for m in r.methods:
+                seen[(r.path, m)] = inspect.iscoroutinefunction(r.endpoint)
+    assert seen, "找不到抄經渲染端點"
+    for key, is_coro in seen.items():
+        assert not is_coro, f"{key} 應為 sync def（避免凍 event loop）"
