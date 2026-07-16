@@ -74,28 +74,39 @@ def test_periodic_table_cells_positions():
     cells = periodic_table_cells(geom)
     assert len(cells) == cols * geom.rows
     assert sum(1 for c in cells if c) == 118    # exactly 118 filled
-    # 氫 top-left; 氦 top-right; group 1 down the leftmost column
-    assert cells[0] == "氫"
-    assert cells[17] == "氦"
-    assert cells[1 * cols + 0] == "鋰"          # period 2, group 1
-    assert cells[2 * cols + 0] == "鈉"          # period 3, group 1
-    # 鑭 in main block (period 6, group 3) → grid row 5, col 2
-    assert cells[5 * cols + 2] == "鑭"
-    # 錒 (period 7, group 3) → grid row 6, col 2
-    assert cells[6 * cols + 2] == "錒"
-    # grid row 7 is the 空白列 between main block and pull-outs
-    assert all(cells[7 * cols + c] == "" for c in range(cols))
-    # 鈰 starts the 鑭系 pull-out (grid row 8, col 2)
-    assert cells[8 * cols + 2] == "鈰"
-    assert cells[9 * cols + 2] == "釷"          # 錒系 pull-out
+    # 5dv offsets: down 3 rows, right 1 col. 氫 at grid (row 3, col 1).
+    assert cells[3 * cols + 1] == "氫"
+    assert cells[3 * cols + 18] == "氦"         # group 18, top row
+    assert cells[4 * cols + 1] == "鋰"          # period 2, group 1
+    assert cells[5 * cols + 1] == "鈉"          # period 3, group 1
+    # 鑭 in main block (period 6, group 3) → grid row 8, col 3
+    assert cells[8 * cols + 3] == "鑭"
+    assert cells[9 * cols + 3] == "錒"          # period 7, group 3
+    # blank row between main block (ends grid row 9) and pull-outs
+    assert all(cells[10 * cols + c] == "" for c in range(cols))
+    assert cells[11 * cols + 3] == "鈰"         # 鑭系 pull-out
+    assert cells[12 * cols + 3] == "釷"         # 錒系 pull-out
 
 
-def test_group1_reads_top_to_bottom_leftmost_column():
+def test_layout_has_one_blank_column_each_side_and_top_margin():
+    geom = get_geometry("landscape")
+    cols, rows = geom.cols, geom.rows
+    cells = periodic_table_cells(geom)
+    # leftmost + rightmost columns fully blank (1 空欄 each side)
+    assert all(cells[r * cols + 0] == "" for r in range(rows))
+    assert all(cells[r * cols + (cols - 1)] == "" for r in range(rows))
+    # top 3 rows blank (上面空 3 格)
+    assert all(cells[r * cols + c] == ""
+               for r in range(3) for c in range(cols))
+
+
+def test_group1_reads_top_to_bottom():
     geom = get_geometry("landscape")
     cols = geom.cols
     cells = periodic_table_cells(geom)
-    col0 = "".join(cells[r * cols + 0] for r in range(7))
-    assert col0 == "氫鋰鈉鉀銣銫鍅"
+    # group 1 sits in grid column 1 (after the 1-col right shift), rows 3-9
+    col = "".join(cells[r * cols + 1] for r in range(3, 10))
+    assert col == "氫鋰鈉鉀銣銫鍅"
 
 
 # ---------------------------------------------------------------------------

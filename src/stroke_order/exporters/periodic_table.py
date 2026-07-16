@@ -159,27 +159,38 @@ ELEMENTS: list[dict] = [
 ]
 
 
+# 5dv: 版面偏移（使用者指定）——整體向下 3 行（上面空 3 格）、向右 1 格，
+# 使 18 欄的週期表在 20 欄格中左右各留 1 空欄（水平置中）。
+_ROW_OFFSET = 3
+_COL_OFFSET = 1
+
+
 def _grid_row(my_row: int) -> int:
     """Map the logical periodic-table row to a 0-indexed grid row.
 
-    Periods 1-7 → grid rows 0-6. Grid row 7 is left blank (the 空白列
-    between the main block and the pull-out rows). 鑭系/錒系 (logical
-    rows 8/9) → grid rows 8/9.
+    Periods 1-7 → grid rows 0-6; 鑭系/錒系 (logical rows 8/9) → grid rows
+    8/9 (leaving grid row 7 blank as the 空白列). The whole block is then
+    shifted down by ``_ROW_OFFSET`` so the top rows stay blank.
     """
-    return (my_row - 1) if my_row <= 7 else my_row
+    base = (my_row - 1) if my_row <= 7 else my_row
+    return base + _ROW_OFFSET
 
 
 def periodic_table_cells(geom: PageGeometry) -> list[str]:
     """Build the ``chars`` list for ``render_sutra_page`` (row-major /
     ``direction="horizontal"``): element names at their periodic-table
-    grid positions, blank strings everywhere else. Left-aligned in the
-    ``geom.cols × geom.rows`` grid.
+    grid positions, blank strings everywhere else.
+
+    5dv: shifted down ``_ROW_OFFSET`` rows and right ``_COL_OFFSET`` cols
+    so the 18-group table sits with one blank column on each side and a
+    few blank rows above (centred, per the user's request).
     """
     cols, rows = geom.cols, geom.rows
     cells = [""] * (cols * rows)
     for el in ELEMENTS:
         my_row, my_col = el["cell"]
-        n = _grid_row(my_row) * cols + (my_col - 1)
+        grid_col = (my_col - 1) + _COL_OFFSET
+        n = _grid_row(my_row) * cols + grid_col
         cells[n] = el["zh"]
     return cells
 

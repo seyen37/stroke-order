@@ -406,7 +406,7 @@
      background:rgba(0,0,0,.45);z-index:1000;align-items:center;
      justify-content:center;">
   <div style="background:white;border-radius:8px;padding:18px;
-       max-width:520px;width:92%;max-height:92vh;overflow:auto;
+       max-width:600px;width:94%;max-height:92vh;overflow:auto;
        box-shadow:0 10px 40px rgba(0,0,0,.3);">
     <div style="display:flex;align-items:center;margin-bottom:10px;">
       <h2 style="margin:0;font-size:18px;">逐字手寫</h2>
@@ -420,38 +420,48 @@
       在米字格裡照著淡色範字寫出你自己的字；送出後會存進本機使用者字典，
       並取代預覽中這個字的描紅範本（全域套用同一個字）。
     </p>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">
-      <div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
+      <!-- 米字格畫布：復原/清空 疊在左上角 -->
+      <div style="position:relative;">
         <canvas id="sw-canvas" width="360" height="360"
                 style="border:1px solid var(--border);background:white;
                        cursor:crosshair;display:block;touch-action:none;">
         </canvas>
-        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
-          <button id="sw-undo" type="button">↶ 復原</button>
-          <button id="sw-clear" type="button">清空</button>
-          <label style="font-size:12px;margin-left:6px;
-                 display:inline-flex;align-items:center;gap:4px;">
-            <input id="sw-show-ref" type="checkbox" checked> 顯示範字</label>
-          <span id="sw-canvas-info" style="color:var(--muted);
-                font-size:11px;margin-left:auto;">0 筆畫</span>
+        <div style="position:absolute;top:6px;left:6px;display:flex;gap:6px;">
+          <button id="sw-undo" type="button"
+                  style="font-size:12px;padding:3px 8px;background:#fffd;
+                         border:1px solid var(--border);border-radius:4px;
+                         cursor:pointer;">↶ 復原</button>
+          <button id="sw-clear" type="button"
+                  style="font-size:12px;padding:3px 8px;background:#fffd;
+                         border:1px solid var(--border);border-radius:4px;
+                         cursor:pointer;">清空</button>
         </div>
+        <span id="sw-canvas-info"
+              style="position:absolute;bottom:6px;right:8px;
+                     color:var(--muted);font-size:11px;">0 筆畫</span>
       </div>
-      <div style="flex:1;min-width:150px;font-size:12px;color:var(--muted);">
-        <div style="font-size:13px;color:var(--fg,#222);margin-bottom:6px;">
+      <!-- 米字格右邊：上一字 / 下一字 / 略過 + 選項 + 目前字 -->
+      <div style="display:flex;flex-direction:column;gap:8px;
+                  min-width:130px;flex:1;">
+        <button id="sw-prev" type="button">← 上一字</button>
+        <button id="sw-next" type="button">下一字 →</button>
+        <button id="sw-skip" type="button"
+                title="不寫這個字，跳到下一個">略過</button>
+        <label style="font-size:12px;display:inline-flex;align-items:center;
+               gap:4px;margin-top:4px;">
+          <input id="sw-show-ref" type="checkbox" checked> 顯示範字</label>
+        <div style="font-size:13px;color:var(--fg,#222);margin-top:4px;">
           目前：<b id="sw-current-char"
-                 style="font-size:22px;font-family:'Noto Sans TC',sans-serif;">
-          </b></div>
-        <p style="margin:4px 0;">按「上一字／下一字」會自動送出目前寫好的字
-           再移動；沒寫就直接跳過。</p>
-        <div id="sw-status" style="margin-top:8px;min-height:16px;"></div>
+                 style="font-size:22px;
+                        font-family:'Noto Sans TC',sans-serif;"></b></div>
+        <div id="sw-status" style="font-size:12px;color:var(--muted);
+             min-height:16px;"></div>
       </div>
     </div>
-    <div class="row" style="margin-top:14px;gap:6px;flex-wrap:wrap;
-         align-items:center;">
-      <button id="sw-prev" type="button">← 上一字</button>
-      <button id="sw-next" type="button">下一字 →</button>
-      <button id="sw-skip" type="button" title="不寫這個字，跳到下一個">略過</button>
-      <span style="margin-left:auto;"></span>
+    <p style="margin:8px 0 0;color:var(--muted);font-size:12px;">
+      按「上一字／下一字」會自動送出目前寫好的字再移動；沒寫就直接跳過。</p>
+    <div class="row" style="margin-top:12px;gap:6px;justify-content:flex-end;">
       <button id="sw-submit" class="primary" type="button">送出並關閉</button>
     </div>
     <div class="row" style="margin-top:10px;padding-top:10px;

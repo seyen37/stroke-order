@@ -837,6 +837,7 @@ def render_sutra_page(
     reference_glyph_parts: list[str] = []
     mark_parts: list[str] = []         # 5bi: 句讀 marks
     cellmap_parts: list[str] = []      # 5dt: transparent per-cell click map
+    user_glyph_parts: list[str] = []   # 5dv: user-dict handwriting (visible)
     # 5bt: bigger marks (~33% larger than 5bs). The user prefers a more
     # legible 句讀 mark and accepts edge contact with the BOTTOM frame.
     # Numbers (landscape, "黃" worst-case glyph bottom +4.25mm):
@@ -894,14 +895,24 @@ def render_sutra_page(
                     poly_svg = _render_skeleton_glyph(
                         c_glyph, cx, cy, char_size,
                     )
+                    # 5dv: 逐字手寫的字（user dict）也是 centerline-only，但
+                    # 使用者「就是要看到自己寫的字」——不能走 隸/篆 那條
+                    # near-invisible（0.03）骨架層，否則送出後格子看起來空白。
+                    # 依 data_source 分流到可見的 user 手寫層。
+                    _is_user = str(getattr(c_glyph, "data_source", "")
+                                   ).startswith("user")
                     if poly_svg:
-                        skeleton_glyph_parts.append(poly_svg)
+                        if _is_user:
+                            user_glyph_parts.append(poly_svg)
+                        else:
+                            skeleton_glyph_parts.append(poly_svg)
                     # 5bz: also draw the original outline letterform as a
                     # faded reference, so the user sees the lishu/seal
                     # shape behind the skeleton. Only triggered for
                     # skeleton-only chars (the `else` branch) — kaishu
-                    # already showed in the main trace group.
-                    if outline_glyph_loader is not None:
+                    # already showed in the main trace group. User-dict
+                    # handwriting has no lishu/seal reference — skip it.
+                    if not _is_user and outline_glyph_loader is not None:
                         ref_glyph = outline_glyph_loader(ch)
                         if ref_glyph is not None:
                             ref_svg = _char_cut_paths(
@@ -959,6 +970,19 @@ def render_sutra_page(
             f'stroke-linecap="round" stroke-linejoin="round" '
             f'opacity="{_SKELETON_TRACE_OPACITY:.3f}">'
             f'{"".join(skeleton_glyph_parts)}</g>'
+        )
+    # 5dv: user-dict handwriting — same centerline polylines, but rendered
+    # VISIBLY (as a 描紅 template) so 逐字手寫 submissions actually show up
+    # in the cell instead of vanishing at the 隸/篆 0.03 opacity.
+    if user_glyph_parts:
+        user_stroke_w = char_size * _SKELETON_TRACE_STROKE_RATIO
+        pieces.append(
+            f'<g id="sutra-trace-user" fill="none" '
+            f'stroke="{trace_fill}" '
+            f'stroke-width="{user_stroke_w:.3f}" '
+            f'stroke-linecap="round" stroke-linejoin="round" '
+            f'opacity="0.9">'
+            f'{"".join(user_glyph_parts)}</g>'
         )
     if mark_parts:
         if mark_renderer == "polyline":

@@ -2426,3 +2426,50 @@ def test_5dt_cellmap_flows_through_api(monkeypatch):
     r2 = client.get("/api/sutra?preset=heart_sutra&page_type=body")
     assert r2.status_code == 200
     assert 'id="sutra-cellmap"' not in r2.text
+
+
+# ---------------------------------------------------------------------------
+# 5dv：逐字手寫送出後，使用者手寫（centerline）要可見，不能落到 0.03 骨架層
+# ---------------------------------------------------------------------------
+
+
+def _user_handwriting_char(tmp_path, ch="度"):
+    from stroke_order.sources.user_dict import (
+        UserDictSource, handwriting_to_strokes,
+    )
+    src = UserDictSource(dict_dir=tmp_path)
+    strokes = handwriting_to_strokes(
+        [[[60, 60], [300, 60]], [[180, 40], [180, 320]]],
+        canvas_width=360, canvas_height=360)
+    src.save_character(ch, strokes=strokes)
+    return src.get_character(ch)
+
+
+def test_5dv_user_handwriting_renders_visibly(tmp_path):
+    import dataclasses
+    from stroke_order.exporters.sutra import render_sutra_page
+
+    hand = _user_handwriting_char(tmp_path)
+    assert str(hand.data_source).startswith("user")
+
+    svg = render_sutra_page(["度"],
+                            char_loader=lambda ch: hand if ch == "度" else None)
+    # user handwriting goes to the VISIBLE user layer (opacity 0.9), not the
+    # near-invisible 隸/篆 skeleton layer (0.03) that made it look blank.
+    assert 'id="sutra-trace-user"' in svg
+    assert 'opacity="0.9"' in svg
+    assert 'id="sutra-trace-skeleton"' not in svg
+
+
+def test_5dv_lishu_skeleton_still_near_invisible(tmp_path):
+    """Non-user centerline glyphs (隸/篆 fallback) keep the faint 0.03
+    skeleton layer — the 5dv split must not disturb them."""
+    import dataclasses
+    from stroke_order.exporters.sutra import render_sutra_page
+
+    hand = _user_handwriting_char(tmp_path)
+    lishu = dataclasses.replace(hand, data_source="moe_lishu")
+    svg = render_sutra_page(["度"],
+                            char_loader=lambda ch: lishu if ch == "度" else None)
+    assert 'id="sutra-trace-skeleton"' in svg
+    assert 'id="sutra-trace-user"' not in svg
