@@ -183,3 +183,49 @@ def test_api_table_page_post_route(client, fast_null_loader):
     })
     assert r.status_code == 200
     assert "stroke-dasharray" in r.text
+
+
+# ---------------------------------------------------------------------------
+# 5dw: 逐字手寫 click-map on the periodic table (extends 5dt from 抄經 body
+# pages to the table page). render_periodic_table_page forwards emit_cellmap
+# to render_sutra_page; the API table branch capability-detects it.
+# ---------------------------------------------------------------------------
+
+
+def test_cellmap_emitted_only_when_requested():
+    off = render_periodic_table_page(char_loader=lambda ch: None)
+    on = render_periodic_table_page(char_loader=lambda ch: None,
+                                    emit_cellmap=True)
+    assert 'id="sutra-cellmap"' not in off      # off by default
+    assert 'id="sutra-cellmap"' in on
+    # one click rect per element, carrying the element glyph
+    assert 'data-char="氫"' in on
+    assert 'data-char="鈾"' in on
+
+
+def test_cellmap_has_exactly_118_element_rects():
+    on = render_periodic_table_page(char_loader=lambda ch: None,
+                                    emit_cellmap=True)
+    cellmap = on.split('id="sutra-cellmap"')[1]
+    # blank periodic gaps emit no rect — exactly the 118 element cells do
+    assert cellmap.count('data-char="') == 118
+
+
+def test_api_table_cellmap_flows_through(client, fast_null_loader):
+    on = client.get("/api/sutra?preset=periodic_table"
+                    "&page_type=table&emit_cellmap=true")
+    off = client.get("/api/sutra?preset=periodic_table&page_type=table")
+    assert on.status_code == 200 and off.status_code == 200
+    assert 'id="sutra-cellmap"' in on.text
+    assert 'id="sutra-cellmap"' not in off.text
+    assert 'data-char="氫"' in on.text
+
+
+def test_api_table_cellmap_ignored_by_selfdrawn_table(client, fast_null_loader):
+    # multiplication_table is a self-drawn renderer with no emit_cellmap
+    # param; requesting it must not raise (capability-detection guard) and
+    # simply yields no click-map.
+    r = client.get("/api/sutra?preset=multiplication_table"
+                   "&page_type=table&emit_cellmap=true")
+    assert r.status_code == 200
+    assert 'id="sutra-cellmap"' not in r.text

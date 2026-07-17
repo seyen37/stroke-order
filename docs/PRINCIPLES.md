@@ -1728,6 +1728,46 @@ data_source 分兩條 lane，別硬塞進既有 lane**——否則新來源被�
 
 ---
 
+## 26. registry dispatch 用能力偵測、別寫死 preset；重用紅利在第 N 個消費者兌現（2026-07-17 5dw 新增）
+
+把逐字手寫（5dt）從抄經內文頁延伸到元素週期表頁，實作只有兩處、且沒有
+任何新機制——這兩件事各自是一條原則。
+
+**① 缺口是「單一未轉發的旗標」，靠端到端追資料契約才抓到。** 前端其實
+早就對表格頁送 `emit_cellmap:true` 並無條件呼叫 `swAttachPreviewClicks`
+（點擊接線本來就通用）；`render_sutra_page` 也早就會吐 `#sutra-cellmap`
+（horizontal 方向照樣發 data-char）。唯一斷點：server.py 的 `page_type
+== "table"` 分支呼叫 table renderer 時**沒把 `emit_cellmap` 傳下去**，
+而 body 分支有。判準：**功能「幾乎會動但沒動」時，沿著資料契約從產生端
+到消費端逐段走，斷點常是某一段沒把既有參數往下傳**——不是缺機制，是缺
+一條線。
+
+**② registry 分派要「能力偵測」，不要寫死 preset 名。** `_table_page_
+renderer` 是六個簽名互異的 renderer 註冊表（週期表重用 render_sutra_page、
+其餘自繪、乘法表/節氣每格還是多字詞）。要把 `emit_cellmap` 只餵給吃得下
+的 renderer，寫法用 `inspect.signature(fn).parameters` 偵測——能就傳、
+不能就跳過。**好處：未來任何新的單字表 renderer 只要在簽名加上 `emit_
+cellmap` 就自動參與，不必回頭改 server；自繪多字表則零影響。** 反例是
+`if preset == "periodic_table"`：每加一張表就要回來補一個 if，且把「誰
+支援」的知識從 renderer 自身外洩到分派點。判準：**當一個共用分派點要對
+異質實作傳選配能力，用簽名/介面偵測讓實作自行 opt-in，別在分派點維護一
+份會過期的 preset 白名單。**
+
+**③ 重用決策會複利，紅利在第 N 個消費者兌現。** 這次之所以只花兩行，
+正因為 5du（§24）先前把週期表改成「重用 render_sutra_page、別複刻格線」
+——所以週期表天生就是一張單字米字格頁，cellmap 機制原封不動就套上了。
+**「重用勝於自造」的省力常不在當下、而在後續某個功能免費落地時才結清**；
+每次選重用，都是在替未來的自己預存紅利。（承 §23.3／§24；同一機制第三度
+兌現：cellmap 收集器 → 抄經內文頁 → 週期表頁。）
+
+驗收照 §25：沙箱起 uvicorn + Playwright 走真 UI（選週期表→到表格頁→真
+sutraRender→118 個 cellmap rect→點「氫」→逐字手寫彈窗開、顯示「第 1/118
+字・目前：氫」），截圖目視到「使用者實際看到的那一格」，不是只驗 API 回傳。
+（沙箱網路擋遠端字形源、118 罕用字載入吃 503，用 null loader 打樁——正好
+是罕用字無筆順＝data-missing 的真實手寫場景，cellmap 不依賴字形載入成功。）
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1748,6 +1788,9 @@ data_source 分兩條 lane，別硬塞進既有 lane**——否則新來源被�
     抄經深化弧：502 穩定性×2（sync def/loader 去重、字源工廠快取）＋
     麥克阿瑟著作權治理＋元素週期表三迭代（自繪→標準抄經紙→定位）＋
     逐字手寫互動新功能＋手寫可見修復）
+  - [`WORK_LOG_2026-07-17.md`](WORK_LOG_2026-07-17.md)（5dw
+    逐字手寫延伸到元素週期表頁：table 分支能力偵測轉發 emit_cellmap，
+    兩行落地＋Playwright 端到端）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -1761,6 +1804,7 @@ data_source 分兩條 lane，別硬塞進既有 lane**——否則新來源被�
   - [`2026-07-15_5di_5dk_zentangle_export.md`](decisions/2026-07-15_5di_5dk_zentangle_export.md)（禪繞引擎重構弧：互動修正＋iCSO 引擎＋SVG/G-code/DXF 匯出，對應 §15）
   - [`2026-07-15_5dm_5do_stencil_font_seal.md`](decisions/2026-07-15_5dm_5do_stencil_font_seal.md)（字模字型與切割精修弧：黑體字模＋切割風格庫＋崇羲繁簡＋佛經缺字，對應 §16–§18）
   - [`2026-07-16_5dp_5dv_sutra_periodic_handwrite.md`](decisions/2026-07-16_5dp_5dv_sutra_periodic_handwrite.md)（抄經深化弧：502 成本模型＋著作權治理＋週期表三迭代＋逐字手寫＋渲染分流，對應 §19–§25）
+  - [`2026-07-17_5dw_periodic_handwrite.md`](decisions/2026-07-17_5dw_periodic_handwrite.md)（逐字手寫延伸表格頁：單一未轉發旗標＋registry 能力偵測分派＋重用複利，對應 §26）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1771,4 +1815,4 @@ data_source 分兩條 lane，別硬塞進既有 lane**——否則新來源被�
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§25 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§26 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利）。三者互補。

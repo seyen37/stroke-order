@@ -1,10 +1,10 @@
 # stroke-order
 
 [![CI](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml/badge.svg)](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-1700%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-1704%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![license](https://img.shields.io/badge/license-MIT-yellow)
-![version](https://img.shields.io/badge/version-0.14.200-orange)
+![version](https://img.shields.io/badge/version-0.14.201-orange)
 
 ## 🌟 核心願景
 

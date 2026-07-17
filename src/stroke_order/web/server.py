@@ -25,6 +25,7 @@ Run with::
 """
 from __future__ import annotations
 
+import inspect
 import io
 import os
 import threading
@@ -3842,11 +3843,19 @@ def create_app() -> FastAPI:
         if req.page_type == "table":
             # 5bo: preset-specific table layout, one A4-landscape page.
             render_table = _table_page_renderer(req.preset)
-            svg = render_table(
+            table_kwargs = dict(
                 char_loader=loader,
                 trace_fill=req.trace_fill,
                 show_grid=req.show_grid,
             )
+            # 5dw: forward the 逐字手寫 click-map to any table renderer that
+            # supports it (periodic_table reuses render_sutra_page, one glyph
+            # per 米字格). Capability-detect via signature so future
+            # single-glyph table renderers opt in for free — no hardcoded
+            # preset name, and self-drawn multi-char tables stay untouched.
+            if "emit_cellmap" in inspect.signature(render_table).parameters:
+                table_kwargs["emit_cellmap"] = req.emit_cellmap
+            svg = render_table(**table_kwargs)
         elif req.page_type == "cover":
             svg = render_sutra_cover(
                 info, char_loader=loader,

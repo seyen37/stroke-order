@@ -200,6 +200,7 @@ def render_periodic_table_page(
     char_loader: CharLoader,
     trace_fill: str = TRACE_FILL_DEFAULT,
     show_grid: bool = True,
+    emit_cellmap: bool = False,
 ) -> str:
     """Render the periodic table on a standard blank 抄經 body sheet.
 
@@ -207,6 +208,12 @@ def render_periodic_table_page(
     header + outer frame); the 118 element names are placed at their
     periodic-table cell positions and every other cell stays a blank
     米字格. ``show_grid`` / helper lines follow the 抄經 convention.
+
+    5dw: ``emit_cellmap`` forwards straight to ``render_sutra_page``. With
+    it on, each element cell (one CJK glyph per 米字格) gets a transparent
+    ``data-char`` click rect, so the 逐字手寫 popup works on the periodic
+    table exactly as it does on a 抄經 body page (preview only — download
+    buttons leave it off). Blank periodic gaps emit no rect.
     """
     geom = get_geometry("landscape")
     cells = periodic_table_cells(geom)
@@ -218,6 +225,7 @@ def render_periodic_table_page(
         show_grid=show_grid,
         show_helper_lines=show_grid,
         trace_fill=trace_fill,
+        emit_cellmap=emit_cellmap,
     )
 
 
