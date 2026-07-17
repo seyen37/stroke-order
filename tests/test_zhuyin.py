@@ -72,3 +72,37 @@ def test_api_table_page_error_mentions_zhuyin(client):
     r = client.get("/api/sutra?preset=heart_sutra&page_type=table")
     assert r.status_code == 422
     assert "zhuyin_symbols" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# 5dw: 逐字手寫 click-map on the 注音 single-symbol table page.
+# ---------------------------------------------------------------------------
+
+
+def test_zhuyin_cellmap_emitted_only_when_requested():
+    off = render_zhuyin_page(char_loader=lambda ch: None)
+    on = render_zhuyin_page(char_loader=lambda ch: None, emit_cellmap=True)
+    assert 'id="sutra-cellmap"' not in off
+    cellmap = on.split('id="sutra-cellmap"')[1]
+    assert cellmap.count('data-char="') == 37           # one per symbol
+    assert 'data-char="ㄅ"' in cellmap and 'data-char="ㄦ"' in cellmap
+    # category labels (聲/母 …) are not writable cells
+    assert 'data-char="聲"' not in cellmap
+
+
+def test_zhuyin_cellmap_does_not_break_loader_memoisation():
+    calls: list[str] = []
+    render_zhuyin_page(char_loader=lambda ch: calls.append(ch),
+                       title="", emit_cellmap=True)
+    assert len(calls) == len(set(calls))                # still one load per char
+
+
+def test_api_zhuyin_cellmap_flows_through(client, fast_null_loader):
+    on = client.get("/api/sutra?preset=zhuyin_symbols"
+                    "&page_type=table&emit_cellmap=true")
+    off = client.get("/api/sutra?preset=zhuyin_symbols&page_type=table")
+    assert on.status_code == 200 and off.status_code == 200
+    assert 'id="zy-grid"' in on.text
+    assert 'id="sutra-cellmap"' in on.text
+    assert 'id="sutra-cellmap"' not in off.text
+    assert on.text.split('id="sutra-cellmap"')[1].count('data-char="') == 37

@@ -16,6 +16,7 @@ from .patch import _char_cut_paths
 from .sutra import (
     CharLoader, get_geometry, TRACE_FILL_DEFAULT,
     _render_skeleton_glyph, _wrap_svg,
+    cellmap_rect, cellmap_group,
 )
 
 #: (category_label, keys, radicals) — parallel key/radical strings.
@@ -70,8 +71,15 @@ def render_cangjie_roots_page(
     show_grid: bool = True,
     show_group_tints: bool = True,
     title: str = "倉頡字根",
+    emit_cellmap: bool = False,
 ) -> str:
-    """Render the 25-radical Cangjie key page (SVG, mm)."""
+    """Render the 25-radical Cangjie key page (SVG, mm).
+
+    5dw: ``emit_cellmap`` adds the transparent ``#sutra-cellmap`` overlay —
+    one ``data-char`` click rect per radical cell (the category label bands
+    are not writable, so they get none) — for the 逐字手寫 popup (preview
+    only). Each radical cell is a single glyph, fitting the per-char model.
+    """
     geom = get_geometry("landscape")
     cell_w = (geom.page_w_mm - _MARGIN_L - _MARGIN_R - _LABEL_W) / _COLS
     grid_x0 = _MARGIN_L + _LABEL_W
@@ -84,6 +92,8 @@ def render_cangjie_roots_page(
         return cache[ch]
 
     bg, grid, hints, glyphs = [], [], [], []
+    cm: list[str] = []
+    cell_pos = 0
 
     title_svg = _traced(title, geom.page_w_mm / 2.0, _TITLE_CY,
                         _TITLE_SIZE, loader, fill="#333333")
@@ -108,6 +118,10 @@ def render_cangjie_roots_page(
             5.2, loader, fill="#555555"))
         for k, (key, ch) in enumerate(zip(keys, radicals)):
             x0 = grid_x0 + k * cell_w
+            if emit_cellmap:
+                cm.append(cellmap_rect(ch, x0, y0, cell_w, _CELL_H, cell_pos,
+                                       loaded=loader(ch) is not None))
+            cell_pos += 1
             if show_group_tints:
                 bg.append(
                     f'<rect x="{x0:.2f}" y="{y0:.2f}" width="{cell_w:.2f}" '
@@ -138,6 +152,7 @@ def render_cangjie_roots_page(
         f'<g id="cj-title">{title_svg}</g>'
         f'<g id="cj-hints">{"".join(hints)}</g>'
         f'<g id="cj-trace">{"".join(glyphs)}</g>'
+        f'{cellmap_group(cm)}'
     )
     return _wrap_svg(inner, geom=geom)
 

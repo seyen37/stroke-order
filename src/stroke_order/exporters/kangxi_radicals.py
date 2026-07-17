@@ -20,6 +20,7 @@ from .patch import _char_cut_paths
 from .sutra import (
     CharLoader, get_geometry, TRACE_FILL_DEFAULT,
     _render_skeleton_glyph, _wrap_svg,
+    cellmap_rect, cellmap_group,
 )
 
 #: (stroke_count, radicals) — 17 bands, 214 radicals total, MOE forms.
@@ -93,8 +94,15 @@ def render_kangxi_radicals_page(
     show_grid: bool = True,
     show_band_tints: bool = True,
     title: str = "康熙二一四部首",
+    emit_cellmap: bool = False,
 ) -> str:
-    """Render the 214-radical stroke-count-banded page (SVG, mm)."""
+    """Render the 214-radical stroke-count-banded page (SVG, mm).
+
+    5dw: ``emit_cellmap`` adds a transparent ``#sutra-cellmap`` overlay — one
+    ``data-char`` click rect per radical cell — so the 逐字手寫 popup works
+    on this page (preview only). Each cell is a single radical glyph, so the
+    per-char handwriting model fits directly.
+    """
     geom = get_geometry("landscape")
     cell_w = (geom.page_w_mm - _MARGIN_L - _MARGIN_R) / _COLS
 
@@ -106,6 +114,7 @@ def render_kangxi_radicals_page(
         return cache[ch]
 
     bg, grid, hints, glyphs = [], [], [], []
+    cm: list[str] = []
 
     title_svg = _traced(title, geom.page_w_mm / 2.0, _TITLE_CY,
                         _TITLE_SIZE, loader, fill="#333333")
@@ -115,6 +124,9 @@ def render_kangxi_radicals_page(
         col, row = pos % _COLS, pos // _COLS
         x0 = _MARGIN_L + col * cell_w
         y0 = _GRID_TOP + row * _CELL_H
+        if emit_cellmap:
+            cm.append(cellmap_rect(ch, x0, y0, cell_w, _CELL_H, pos,
+                                   loaded=loader(ch) is not None))
         if show_band_tints:
             tint = _BAND_TINTS[band_of[strokes] % len(_BAND_TINTS)]
             bg.append(
@@ -161,6 +173,7 @@ def render_kangxi_radicals_page(
         f'<g id="kr-title">{title_svg}</g>'
         f'<g id="kr-hints">{"".join(hints)}</g>'
         f'<g id="kr-trace">{"".join(glyphs)}</g>'
+        f'{cellmap_group(cm)}'
     )
     return _wrap_svg(inner, geom=geom)
 

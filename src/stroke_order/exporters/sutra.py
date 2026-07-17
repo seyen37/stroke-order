@@ -238,6 +238,43 @@ CharLoader = Callable[[str], Optional[Character]]
 
 
 # ---------------------------------------------------------------------------
+# 5dt / 5dw: 逐字手寫 click-map — single source of truth for the
+# ``#sutra-cellmap`` overlay contract. Shared by ``render_sutra_page`` (抄經
+# 內文/週期表頁) and the self-drawn single-glyph table renderers (部首/倉頡/
+# 注音) so every emitter produces identical ``data-char`` / ``data-pos`` /
+# ``data-missing`` rects — the frontend (swAttachPreviewClicks) reads exactly
+# ``#sutra-cellmap rect[data-char]`` regardless of which page drew them.
+# ---------------------------------------------------------------------------
+
+
+def cellmap_rect(ch: str, x: float, y: float, w: float, h: float,
+                 pos: int, *, loaded: bool) -> str:
+    """One transparent per-cell click rect for the 逐字手寫 overlay.
+
+    ``fill="transparent"`` so it captures clicks while staying invisible;
+    ``data-char``/``data-pos`` drive the popup's reading-order queue;
+    ``data-missing="1"`` marks 缺字 cells (no reference glyph) so the user
+    can hand-write those too.
+    """
+    esc = (ch.replace("&", "&amp;").replace("<", "&lt;")
+           .replace(">", "&gt;").replace('"', "&quot;"))
+    return (f'<rect x="{x:.3f}" y="{y:.3f}" width="{w:.3f}" '
+            f'height="{h:.3f}" fill="transparent" '
+            f'data-char="{esc}" data-pos="{pos}"'
+            + ('' if loaded else ' data-missing="1"')
+            + '/>')
+
+
+def cellmap_group(rects: Iterable[str]) -> str:
+    """Wrap cellmap rects in the ``#sutra-cellmap`` group. Drawn LAST by the
+    caller so its transparent rects sit above glyph/grid layers for reliable
+    clicks. Empty input → empty string (no group when nothing is writable).
+    """
+    joined = "".join(rects)
+    return f'<g id="sutra-cellmap">{joined}</g>' if joined else ""
+
+
+# ---------------------------------------------------------------------------
 # Phase 5bj: page geometry — landscape default + portrait variant.
 # Each orientation keeps the **same 300-cell capacity** but swaps the grid
 # shape (20×15 ↔ 15×20) and the page dimensions.
@@ -868,16 +905,9 @@ def render_sutra_page(
         # sits above the glyphs for reliable clicks). Includes 缺字 cells
         # (data-missing="1") so the user can hand-write those too.
         if emit_cellmap and ch and not ch.isspace():
-            _esc = (ch.replace("&", "&amp;").replace("<", "&lt;")
-                    .replace(">", "&gt;").replace('"', "&quot;"))
-            _loaded = char_loader(ch) is not None
-            cellmap_parts.append(
-                f'<rect x="{x0:.3f}" y="{y0:.3f}" width="{cell_w:.3f}" '
-                f'height="{cell_h:.3f}" fill="transparent" '
-                f'data-char="{_esc}" data-pos="{n}"'
-                + ('' if _loaded else ' data-missing="1"')
-                + '/>'
-            )
+            cellmap_parts.append(cellmap_rect(
+                ch, x0, y0, cell_w, cell_h, n,
+                loaded=char_loader(ch) is not None))
         # Draw the glyph if we have one
         if ch and not ch.isspace():
             c_glyph = char_loader(ch)
@@ -1007,10 +1037,7 @@ def render_sutra_page(
 
     # 5dt: click-map overlay LAST so its transparent rects capture clicks
     # above the glyph/grid layers.
-    if cellmap_parts:
-        pieces.append(
-            f'<g id="sutra-cellmap">{"".join(cellmap_parts)}</g>'
-        )
+    pieces.append(cellmap_group(cellmap_parts))
 
     return _wrap_svg("".join(pieces), geom=geom)
 
@@ -1251,6 +1278,8 @@ __all__ = [
     "PaperOrientation", "TextDirection", "PageGeometry", "get_geometry",
     # 5bv
     "MarkRenderer",
+    # 5dt / 5dw: 逐字手寫 click-map helpers (shared contract)
+    "cellmap_rect", "cellmap_group",
     "render_sutra_page",
     "render_sutra_cover",
     "render_sutra_dedication",

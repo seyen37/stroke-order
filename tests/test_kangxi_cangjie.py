@@ -122,3 +122,50 @@ def test_api_table_page_error_mentions_new_presets(client):
     assert r.status_code == 422
     assert "kangxi_radicals" in r.json()["detail"]
     assert "cangjie_roots" in r.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# 5dw: 逐字手寫 click-map on the 部首 / 倉頡 single-glyph table pages.
+# Self-drawn renderers emit the shared #sutra-cellmap overlay (one rect per
+# writable cell); the API table branch forwards emit_cellmap via 5dw
+# capability-detection (server unchanged).
+# ---------------------------------------------------------------------------
+
+
+def test_kangxi_cellmap_emitted_only_when_requested():
+    off = render_kangxi_radicals_page(char_loader=lambda ch: None)
+    on = render_kangxi_radicals_page(char_loader=lambda ch: None,
+                                     emit_cellmap=True)
+    assert 'id="sutra-cellmap"' not in off
+    assert 'id="sutra-cellmap"' in on
+    cellmap = on.split('id="sutra-cellmap"')[1]
+    assert cellmap.count('data-char="') == 214          # one per radical
+    assert 'data-char="一"' in cellmap                   # radical #1
+    assert 'data-char="龠"' in cellmap                   # radical #214
+    assert 'data-pos="0"' in cellmap and 'data-pos="213"' in cellmap
+
+
+def test_cangjie_cellmap_emitted_only_when_requested():
+    off = render_cangjie_roots_page(char_loader=lambda ch: None)
+    on = render_cangjie_roots_page(char_loader=lambda ch: None,
+                                   emit_cellmap=True)
+    assert 'id="sutra-cellmap"' not in off
+    cellmap = on.split('id="sutra-cellmap"')[1]
+    # 25 radical cells only — category label bands are NOT writable
+    assert cellmap.count('data-char="') == 25
+    assert 'data-char="日"' in cellmap and 'data-char="難"' in cellmap
+    # label chars (哲/理/類) must not become click rects
+    assert 'data-char="哲"' not in cellmap
+
+
+def test_api_kangxi_cangjie_cellmap_flows_through(client, fast_null_loader):
+    for preset, gid, count in (("kangxi_radicals", "kr-grid", 214),
+                               ("cangjie_roots", "cj-grid", 25)):
+        on = client.get(f"/api/sutra?preset={preset}"
+                        "&page_type=table&emit_cellmap=true")
+        off = client.get(f"/api/sutra?preset={preset}&page_type=table")
+        assert on.status_code == 200 and off.status_code == 200
+        assert f'id="{gid}"' in on.text                  # still the same page
+        assert 'id="sutra-cellmap"' in on.text
+        assert 'id="sutra-cellmap"' not in off.text
+        assert on.text.split('id="sutra-cellmap"')[1].count('data-char="') == count

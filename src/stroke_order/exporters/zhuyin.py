@@ -16,6 +16,7 @@ from .patch import _char_cut_paths
 from .sutra import (
     CharLoader, get_geometry, TRACE_FILL_DEFAULT,
     _render_skeleton_glyph, _wrap_svg,
+    cellmap_rect, cellmap_group,
 )
 
 #: (category_label, [(symbol, standard-keyboard key), ...])
@@ -86,8 +87,15 @@ def render_zhuyin_page(
     show_grid: bool = True,
     show_group_tints: bool = True,
     title: str = "注音符號",
+    emit_cellmap: bool = False,
 ) -> str:
-    """Render the 37-symbol Bopomofo trace page (SVG, mm)."""
+    """Render the 37-symbol Bopomofo trace page (SVG, mm).
+
+    5dw: ``emit_cellmap`` adds the transparent ``#sutra-cellmap`` overlay —
+    one ``data-char`` click rect per symbol cell (category label bands get
+    none) — for the 逐字手寫 popup (preview only). Each cell is a single
+    Bopomofo symbol, fitting the per-char handwriting model.
+    """
     geom = get_geometry("landscape")
     cell_w = (geom.page_w_mm - _MARGIN_L - _MARGIN_R - _LABEL_W) / _COLS
     grid_x0 = _MARGIN_L + _LABEL_W
@@ -100,6 +108,8 @@ def render_zhuyin_page(
         return cache[ch]
 
     bg, grid, hints, glyphs = [], [], [], []
+    cm: list[str] = []
+    cell_pos = 0
 
     title_svg = _traced(title, geom.page_w_mm / 2.0, _TITLE_CY,
                         _TITLE_SIZE, loader, fill="#333333")
@@ -129,6 +139,10 @@ def render_zhuyin_page(
             col = k % _COLS
             y0 = band_y0 + (k // _COLS) * _CELL_H
             x0 = grid_x0 + col * cell_w
+            if emit_cellmap:
+                cm.append(cellmap_rect(sym, x0, y0, cell_w, _CELL_H, cell_pos,
+                                       loaded=loader(sym) is not None))
+            cell_pos += 1
             if show_group_tints:
                 bg.append(
                     f'<rect x="{x0:.2f}" y="{y0:.2f}" width="{cell_w:.2f}" '
@@ -160,6 +174,7 @@ def render_zhuyin_page(
         f'<g id="zy-title">{title_svg}</g>'
         f'<g id="zy-hints">{"".join(hints)}</g>'
         f'<g id="zy-trace">{"".join(glyphs)}</g>'
+        f'{cellmap_group(cm)}'
     )
     return _wrap_svg(inner, geom=geom)
 

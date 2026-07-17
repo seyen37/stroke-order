@@ -1768,6 +1768,31 @@ sutraRender→118 個 cellmap rect→點「氫」→逐字手寫彈窗開、顯�
 
 ---
 
+## 27. 跨層契約要單一真相源：N 個產生端別各持一份會漂移的複本（2026-07-17 5dx 新增）
+
+把逐字手寫再延伸到部首/倉頡/注音三張表時，落地免費——這正是 §26②③ 的
+複利兌現：server 的能力偵測讓三個 renderer 簽名長出 emit_cellmap 就自動
+被餵旗標、前端契約不變。真正的新教訓在「怎麼讓三個自繪 renderer 吐出同一
+個疊層」。
+
+這三個 renderer 各自自繪版面（不重用 render_sutra_page），要吐的
+`#sutra-cellmap rect` 格式必須與抄經頁**逐字節一致**——因為前端 parser
+（swAttachPreviewClicks）只認 `#sutra-cellmap rect[data-char]` 這個確切
+結構（含 data-pos 讀序、data-missing 缺字標記）。**當 N 個產生端要吐同一個
+「由別層 parser 消費」的字串契約，把產生那段抽成一個共用 emitter，別讓每個
+產生端各持一份複本。** 這裡抽出 `cellmap_rect()`＋`cellmap_group()` 單一
+真相源，連 render_sutra_page 原本內嵌那段也改用（零行為變化、既有測試綠
+證）——契約要改時一處改、全體生效，parser 端永遠不會突然對不上。反例是
+「每個 renderer 各自 f-string 拼 rect」：4 份複本，任一處欄位漂移（少個
+data-pos、escape 規則不同）都讓前端悄悄接不到、且很難一眼看出是哪份漂了。
+
+配套一個語意邊界：cellmap 只對**可寫格**發 rect。倉頡/注音左側的分類標籤帶
+（哲理類/聲母…）不是可寫字格，要跳過——否則「哲」「聲」等標籤字會變成可點
+手寫格。測試明確斷言標籤字不出現在 cellmap。判準：**共用 emitter 解決「格式
+統一」，但「哪些格該進 cellmap」是每個頁型自己的語意，要在呼叫端界定清楚。**
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1788,9 +1813,9 @@ sutraRender→118 個 cellmap rect→點「氫」→逐字手寫彈窗開、顯�
     抄經深化弧：502 穩定性×2（sync def/loader 去重、字源工廠快取）＋
     麥克阿瑟著作權治理＋元素週期表三迭代（自繪→標準抄經紙→定位）＋
     逐字手寫互動新功能＋手寫可見修復）
-  - [`WORK_LOG_2026-07-17.md`](WORK_LOG_2026-07-17.md)（5dw
-    逐字手寫延伸到元素週期表頁：table 分支能力偵測轉發 emit_cellmap，
-    兩行落地＋Playwright 端到端）
+  - [`WORK_LOG_2026-07-17.md`](WORK_LOG_2026-07-17.md)（5dw+5dx
+    逐字手寫延伸到表格頁：5dw 週期表（table 分支能力偵測轉發 emit_cellmap）
+    ＋5dx 部首/倉頡/注音（抽共用 cellmap emitter、三自繪 renderer 各吐疊層））
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -1805,6 +1830,7 @@ sutraRender→118 個 cellmap rect→點「氫」→逐字手寫彈窗開、顯�
   - [`2026-07-15_5dm_5do_stencil_font_seal.md`](decisions/2026-07-15_5dm_5do_stencil_font_seal.md)（字模字型與切割精修弧：黑體字模＋切割風格庫＋崇羲繁簡＋佛經缺字，對應 §16–§18）
   - [`2026-07-16_5dp_5dv_sutra_periodic_handwrite.md`](decisions/2026-07-16_5dp_5dv_sutra_periodic_handwrite.md)（抄經深化弧：502 成本模型＋著作權治理＋週期表三迭代＋逐字手寫＋渲染分流，對應 §19–§25）
   - [`2026-07-17_5dw_periodic_handwrite.md`](decisions/2026-07-17_5dw_periodic_handwrite.md)（逐字手寫延伸表格頁：單一未轉發旗標＋registry 能力偵測分派＋重用複利，對應 §26）
+  - [`2026-07-17_5dx_table_handwrite.md`](decisions/2026-07-17_5dx_table_handwrite.md)（逐字手寫延伸部首/倉頡/注音：跨層契約單一真相源＋可寫格語意邊界，對應 §27）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1815,4 +1841,4 @@ sutraRender→118 個 cellmap rect→點「氫」→逐字手寫彈窗開、顯�
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§26 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§27 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界）。三者互補。
