@@ -363,6 +363,29 @@ def _content_disposition(basename: str, ext: str) -> str:
         f"filename*=UTF-8''{utf8_encoded}"
     )
 
+
+# 5dz: 下載檔名友善化——字型風格代碼 → 顯示標籤（與前端 su-style 一致）。
+_STYLE_LABELS = {
+    "kaishu": "楷書",
+    "mingti": "宋體",
+    "lishu": "隸書",
+    "bold": "粗楷",
+    "seal_script": "篆書",
+}
+
+
+def _style_label(style: str) -> str:
+    """字型風格代碼 → 中文標籤（未知代碼原樣返回）。"""
+    return _STYLE_LABELS.get(style, style or "楷書")
+
+
+def _safe_filename_part(s: str) -> str:
+    """去掉檔名不合法字元（Windows/macOS/Linux 通用），保留中英數。"""
+    out = []
+    for ch in (s or "").strip():
+        out.append("_" if ch in '\\/:*?"<>|' else ch)
+    return "".join(out).strip() or "sutra"
+
 from ..classifier import classify_character
 from ..decomposition import default_db as default_decomp_db
 from ..radicals import lookup as radical_lookup
@@ -3010,20 +3033,28 @@ def create_app() -> FastAPI:
     # Phase 5ar — bulk endpoints. Registered BEFORE ``/{char}`` so FastAPI
     # doesn't route ``/export`` and ``/import`` into the single-char getter.
     @app.get("/api/user-dict/export")
-    async def user_dict_export():
-        """Stream every user-dict entry as one ZIP."""
+    async def user_dict_export(style: str = Query("")):
+        """Stream every user-dict entry as one ZIP.
+
+        5dz: ``style`` (optional) names the download after the current 字型
+        風格 — ``{風格}_手寫字.zip`` (e.g. ``楷書_手寫字.zip``). The archive
+        content is unchanged (all handwriting), so one export imports into
+        any 經文. Without ``style`` it keeps the dated generic name.
+        """
         from datetime import datetime
         from ..sources.user_dict import UserDictSource
         src = UserDictSource()
         zip_bytes = src.export_zip_bytes()
-        stamp = datetime.now().strftime("%Y%m%d")
-        filename = f"stroke-order-user-dict-{stamp}.zip"
+        if style:
+            basename = f"{_safe_filename_part(_style_label(style))}_手寫字"
+            disposition = _content_disposition(basename, "zip")
+        else:
+            stamp = datetime.now().strftime("%Y%m%d")
+            disposition = f'attachment; filename="stroke-order-user-dict-{stamp}.zip"'
         return Response(
             content=zip_bytes,
             media_type="application/zip",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"',
-            },
+            headers={"Content-Disposition": disposition},
         )
 
     @app.post("/api/user-dict/import")
@@ -3925,10 +3956,22 @@ def create_app() -> FastAPI:
                 # 5dt: click-map overlay (preview only)
                 emit_cellmap=req.emit_cellmap,
             )
+        # 5dz: 友善下載檔名——{經典}_{字型風格}_{手寫|範例}。「手寫」＝該頁
+        # 含使用者手寫層（sutra-trace-user，見 5dv）；否則「範例」。封面/迴向
+        # 以頁型標示。前端讀 Content-Disposition 當下載檔名。
+        _title = _safe_filename_part(info.title or req.preset)
+        _slabel = _style_label(req.style)
+        if req.page_type in ("body", "table"):
+            _kind = "手寫" if "sutra-trace-user" in svg else "範例"
+            _basename = f"{_title}_{_slabel}_{_kind}"
+        elif req.page_type == "cover":
+            _basename = f"{_title}_{_slabel}_封面"
+        else:  # dedication
+            _basename = f"{_title}_{_slabel}_迴向"
         return Response(
             content=svg, media_type="image/svg+xml",
             headers={"Content-Disposition":
-                     _content_disposition(f"sutra-{req.preset}", "svg")},
+                     _content_disposition(_basename, "svg")},
         )
 
     @app.get("/api/sutra")
@@ -4171,11 +4214,17 @@ def create_app() -> FastAPI:
             append_images=images[1:],
             resolution=float(dpi),
         )
+        # 5dz: 友善下載檔名——{經典}_{字型風格}_{手寫|範例}。整本 PDF 只要
+        # 任一頁含使用者手寫層即標「手寫」，否則「範例」。
+        _title = _safe_filename_part(info.title or preset)
+        _slabel = _style_label(style)
+        _kind = "手寫" if any("sutra-trace-user" in s for s in svgs) else "範例"
+        _basename = f"{_title}_{_slabel}_{_kind}"
         return Response(
             content=buf.getvalue(),
             media_type="application/pdf",
             headers={"Content-Disposition":
-                     _content_disposition(f"sutra-{preset}", "pdf")},
+                     _content_disposition(_basename, "pdf")},
         )
 
     # =================================================================

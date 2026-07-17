@@ -9186,6 +9186,19 @@ async function sutraRender() {
   }
 }
 
+// 5dz: pull the server-provided friendly download name from Content-
+// Disposition ({經典}_{字型風格}_{手寫|範例}); RFC 5987 filename* first,
+// fall back to the caller's name if the header is absent/generic.
+function filenameFromCD(cd, fallback) {
+  if (cd) {
+    const m = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+    if (m) { try { return decodeURIComponent(m[1]); } catch (_) { /* fall through */ } }
+    const m2 = /filename="([^"]+)"/i.exec(cd);
+    if (m2 && m2[1] && !/^char\.(svg|pdf|zip)$/i.test(m2[1])) return m2[1];
+  }
+  return fallback;
+}
+
 async function sutraDownloadCurrent() {
   if (SUTRA.total_pages === 0) return;
   const status = document.getElementById("su-status");
@@ -9197,13 +9210,15 @@ async function sutraDownloadCurrent() {
       body: JSON.stringify(sutraBuildBody()),
     });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const cd = r.headers.get("content-disposition");
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     const slot = SUTRA.layout[SUTRA.current_index];
-    const fname = slot.type === "body"
+    const fallback = slot.type === "body"
       ? `sutra_${SUTRA.layout[SUTRA.current_index].body_index + 1}.svg`
       : `sutra_${slot.type}.svg`;
+    const fname = filenameFromCD(cd, fallback);
     a.href = url;
     a.download = fname;
     document.body.appendChild(a);
@@ -9235,13 +9250,20 @@ async function sutraDownloadAll() {
         body: JSON.stringify(sutraBuildBody()),
       });
       if (!r.ok) throw new Error(`page ${i + 1}: HTTP ${r.status}`);
+      const cd = r.headers.get("content-disposition");
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const fname = slot.type === "body"
-        ? `sutra_${String(slot.body_index + 1).padStart(2, "0")}.svg`
-        : (slot.type === "cover" ? "sutra_00_cover.svg"
-                                 : "sutra_99_dedication.svg");
+      // 5dz: server names each page {經典}_{風格}_{手寫|範例}; append the
+      // page number so multiple pages don't collide on the same name.
+      const serverName = filenameFromCD(cd, null);
+      const pageNo = String(i + 1).padStart(2, "0");
+      const fname = serverName
+        ? serverName.replace(/\.svg$/i, "") + `_${pageNo}.svg`
+        : (slot.type === "body"
+            ? `sutra_${pageNo}.svg`
+            : (slot.type === "cover" ? "sutra_00_cover.svg"
+                                     : "sutra_99_dedication.svg"));
       a.href = url;
       a.download = fname;
       document.body.appendChild(a);
@@ -9293,11 +9315,12 @@ async function sutraDownloadPdf() {
       const err = await r.json().catch(() => ({detail: r.statusText}));
       throw new Error(err.detail || `HTTP ${r.status}`);
     }
+    const cd = r.headers.get("content-disposition");
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sutra_${$("su-preset").value}.pdf`;
+    a.download = filenameFromCD(cd, `sutra_${$("su-preset").value}.pdf`);
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -9711,7 +9734,11 @@ function swInit() {
   $("sw-skip").onclick    = () => swNav(1, /*noSubmit=*/true);
   $("sw-submit").onclick  = swSubmitAndClose;
   $("sw-export").onclick  = () => {
-    window.location.href = `${API_BASE}/api/user-dict/export`;
+    // 5dz: name the handwriting ZIP after the current 字型風格 —
+    // {風格}_手寫字.zip (server maps the style code to its label).
+    const style = (document.getElementById("su-style") || {}).value || "";
+    const q = style ? `?style=${encodeURIComponent(style)}` : "";
+    window.location.href = `${API_BASE}/api/user-dict/export${q}`;
   };
   $("sw-import").onclick  = () => $("sw-import-file").click();
   $("sw-import-file").addEventListener("change", swImport);

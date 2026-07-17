@@ -534,3 +534,79 @@ def test_api_import_corrupt_zip_returns_400(client):
         data={"policy": "skip"},
     )
     assert r.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# 5dz: friendly download filenames
+#   - handwriting export : {字型風格}_手寫字.zip
+#   - sutra trace page   : {經典}_{字型風格}_{手寫|範例}
+# ---------------------------------------------------------------------------
+
+
+def _cd_utf8_name(headers):
+    """Decode the RFC 5987 filename* from a Content-Disposition header."""
+    import re
+    from urllib.parse import unquote
+    m = re.search(r"filename\*=UTF-8''([^;]+)", headers["content-disposition"])
+    assert m, headers["content-disposition"]
+    return unquote(m.group(1))
+
+
+def test_api_export_named_by_style(client):
+    client.post("/api/user-dict", json={
+        "char": "鱻", "format": "json",
+        "strokes": [{"track": [[100, 200], [400, 200]]}]})
+    r = client.get("/api/user-dict/export?style=kaishu")
+    assert r.status_code == 200
+    assert _cd_utf8_name(r.headers) == "楷書_手寫字.zip"
+    r2 = client.get("/api/user-dict/export?style=lishu")
+    assert _cd_utf8_name(r2.headers) == "隸書_手寫字.zip"
+
+
+def test_api_export_no_style_keeps_generic_name(client):
+    r = client.get("/api/user-dict/export")
+    assert "stroke-order-user-dict-" in r.headers["content-disposition"]
+
+
+def _smart_user_loader(monkeypatch):
+    """Load user-dict chars as handwriting; 404 everything else (no network)."""
+    import stroke_order.web.server as srv
+    from stroke_order.sources.user_dict import UserDictSource
+    from fastapi import HTTPException
+
+    def _smart(ch, *a, **k):
+        try:
+            uc = UserDictSource().get_character(ch)
+        except Exception:
+            uc = None
+        if uc is not None:
+            return (uc, None, None)
+        raise HTTPException(404, "stub")
+
+    monkeypatch.setattr(srv, "_load", _smart)
+
+
+def test_sutra_download_name_marks_example_vs_handwriting(client, monkeypatch):
+    _smart_user_loader(monkeypatch)
+    # no handwriting yet → 範例
+    r = client.get("/api/sutra?preset=periodic_table"
+                   "&page_type=table&style=kaishu")
+    assert r.status_code == 200
+    name = _cd_utf8_name(r.headers)
+    assert name.startswith("元素週期表_楷書_") and name.endswith("_範例.svg")
+    # add handwriting for an element char → 手寫
+    client.post("/api/user-dict", json={
+        "char": "氫", "format": "handwriting",
+        "handwriting": {"strokes": [[[60, 60], [300, 60]],
+                                    [[180, 40], [180, 320]]],
+                        "canvas_width": 360, "canvas_height": 360}})
+    r2 = client.get("/api/sutra?preset=periodic_table"
+                    "&page_type=table&style=kaishu")
+    assert _cd_utf8_name(r2.headers) == "元素週期表_楷書_手寫.svg"
+
+
+def test_sutra_download_name_uses_style_label(client, monkeypatch):
+    _smart_user_loader(monkeypatch)
+    r = client.get("/api/sutra?preset=periodic_table"
+                   "&page_type=table&style=lishu")
+    assert _cd_utf8_name(r.headers) == "元素週期表_隸書_範例.svg"
