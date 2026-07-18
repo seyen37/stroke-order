@@ -250,3 +250,53 @@ def test_api_wordart_style_parameter(client):
 def test_api_rejects_unknown_style(client):
     r = client.get("/api/notebook?text=永&preset=large&style=bogus")
     assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# 5ea: a single 篆書/隸書 glyph whose skeleton extraction crashes (real
+# 崇羲篆體 dense outlines can OOM/raise) must NOT propagate — the style
+# upgrade degrades gracefully to the base 楷書 char so the whole page still
+# renders instead of returning HTTP 500. Regression for the reported
+# "抄經模式選篆書 → 篆體字沒出現 + HTTP 500".
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not _HAS, reason="web deps missing")
+def test_upgrade_to_seal_swallows_skeleton_crash(monkeypatch, char_yong):
+    import stroke_order.web.server as srv
+
+    class _FakeSeal:
+        def is_ready(self):
+            return True
+
+        def get_character(self, ch):
+            return char_yong
+
+    monkeypatch.setattr(srv, "_get_seal", lambda: _FakeSeal())
+
+    def _boom(*_a, **_k):
+        raise ValueError("simulated dense-glyph seal skeleton crash")
+
+    monkeypatch.setattr(srv, "_apply_seal_mode", _boom)
+    # returns the base char (楷書 fallback) rather than raising
+    assert srv._upgrade_to_seal(char_yong, "seal_script") is char_yong
+
+
+@pytest.mark.skipif(not _HAS, reason="web deps missing")
+def test_upgrade_to_lishu_swallows_skeleton_crash(monkeypatch, char_yong):
+    import stroke_order.web.server as srv
+
+    class _FakeLishu:
+        def is_ready(self):
+            return True
+
+        def get_character(self, ch):
+            return char_yong
+
+    monkeypatch.setattr(srv, "_get_lishu", lambda: _FakeLishu())
+
+    def _boom(*_a, **_k):
+        raise ValueError("simulated lishu skeleton crash")
+
+    monkeypatch.setattr(srv, "_apply_lishu_mode", _boom)
+    assert srv._upgrade_to_lishu(char_yong, "lishu") is char_yong

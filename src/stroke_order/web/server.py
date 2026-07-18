@@ -544,9 +544,17 @@ def _upgrade_to_seal(c, style: str, *, seal_outline_mode: str = "skeleton"):
         return c
     try:
         seal_c = seal.get_character(c.char)
+        return _apply_seal_mode(seal_c, seal_outline_mode)
     except CharacterNotFound:
         return c
-    return _apply_seal_mode(seal_c, seal_outline_mode)
+    except Exception:
+        # 5ea: 真崇羲篆體某些 dense/degenerate 字形，其 skeleton/thinning
+        # （見 chongxi_seal 警語「runs slow / OOMs on dense outlines」）會
+        # 拋非 HTTPException 例外。呼叫端的 loader 只 catch HTTPException →
+        # 單一字形失敗整頁 500、篆體全不出現。這裡在根部擋住：任何處理失敗
+        # 一律退回楷書基底字（符合本函式「真篆體，或 vanilla 楷書」設計），
+        # 讓其餘字形照常出篆體、整頁不 500。
+        return c
 
 
 def _upgrade_to_lishu(c, style: str, *, lishu_outline_mode: str = "skeleton"):
@@ -568,9 +576,13 @@ def _upgrade_to_lishu(c, style: str, *, lishu_outline_mode: str = "skeleton"):
         return c
     try:
         lishu_c = lishu.get_character(c.char)
+        return _apply_lishu_mode(lishu_c, lishu_outline_mode)
     except CharacterNotFound:
         return c
-    return _apply_lishu_mode(lishu_c, lishu_outline_mode)
+    except Exception:
+        # 5ea: 同 _upgrade_to_seal——隸書亦走 skeleton 抽取（警語同上），
+        # 單一字形處理失敗一律退回楷書基底字，絕不讓整頁 500。
+        return c
 
 
 # ---------------------------------------------------------------------------
