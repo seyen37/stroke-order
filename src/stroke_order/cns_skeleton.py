@@ -271,17 +271,53 @@ def trace_skeleton(skel: np.ndarray) -> list[list[tuple[int, int]]]:
 # ---------------------------------------------------------------------------
 
 
+def chaikin_smooth(
+    points: list[tuple[float, float]],
+    iterations: int = 2,
+) -> list[tuple[float, float]]:
+    """Chaikin corner-cutting smoothing (Phase 5ed / 骨架平滑).
+
+    Zhang-Suen thinning produces staircase-jagged pixel polylines. Chaikin
+    replaces each interior corner with two points at the 1/4 and 3/4 marks
+    of its adjacent segments, rounding the staircase into a smooth path.
+    **Endpoints are preserved exactly** (so stroke start/end stay put).
+    Each iteration ~doubles the point count and halves the sharpest turns;
+    2 iterations reads smooth without over-rounding real CJK corners.
+
+    ``iterations <= 0`` or fewer than 3 points → returned unchanged, so
+    this is a safe no-op pass-through.
+    """
+    if iterations <= 0 or len(points) < 3:
+        return list(points)
+    pts = [(float(x), float(y)) for x, y in points]
+    for _ in range(iterations):
+        if len(pts) < 3:
+            break
+        smoothed = [pts[0]]
+        for i in range(len(pts) - 1):
+            (px, py), (qx, qy) = pts[i], pts[i + 1]
+            smoothed.append((px * 0.75 + qx * 0.25, py * 0.75 + qy * 0.25))
+            smoothed.append((px * 0.25 + qx * 0.75, py * 0.25 + qy * 0.75))
+        smoothed.append(pts[-1])
+        pts = smoothed
+    return pts
+
+
 def outline_to_skeleton_tracks(
     outline_cmds: list[dict],
     em_size: int = 2048,
     raster_size: int = _DEFAULT_RASTER_SIZE,
     simplify_step: int = 2,
+    chaikin_iters: int = 2,
 ) -> list[list[tuple[float, float]]]:
     """Full pipeline: outline → rasterise → thin → trace → em coords.
 
     ``simplify_step`` keeps every Nth pixel along the path to reduce
     polyline length (writing-robot G-code is bandwidth-limited).
-    Returns a list of tracks, each a list of ``(x, y)`` em-frame floats.
+    ``chaikin_iters`` (5ed 骨架平滑) then Chaikin-smooths each track so the
+    thinning staircase reads as a smooth centreline; ``0`` keeps the raw
+    jagged path. Returns a list of tracks, each a list of ``(x, y)``
+    em-frame floats.
     """
     bitmap = rasterize_outline(outline_cmds, em_size=em_size,
                                raster_size=raster_size)
@@ -304,7 +340,7 @@ def outline_to_skeleton_tracks(
         em_path = [(x * scale + scale / 2.0, y * scale + scale / 2.0)
                    for (y, x) in kept]
         if len(em_path) >= 2:
-            out.append(em_path)
+            out.append(chaikin_smooth(em_path, chaikin_iters))
     return out
 
 
@@ -713,6 +749,7 @@ def outline_to_skeleton_tracks_v2(
     simplify_step: int = 2,
     angle_threshold_deg: float = 35.0,
     spur_max_length: int = 4,
+    chaikin_iters: int = 2,
 ) -> list[list[tuple[float, float]]]:
     """Phase 5aq Path 2 pipeline.
 
@@ -755,7 +792,7 @@ def outline_to_skeleton_tracks_v2(
         em_path = [(x * scale + scale / 2.0, y * scale + scale / 2.0)
                    for (y, x) in kept]
         if len(em_path) >= 2:
-            em_tracks.append(em_path)
+            em_tracks.append(chaikin_smooth(em_path, chaikin_iters))  # 5ed
 
     return sort_writing_order(em_tracks)
 
@@ -764,6 +801,7 @@ __all__ = [
     "rasterize_outline",
     "zhang_suen",
     "trace_skeleton",
+    "chaikin_smooth",
     "outline_to_skeleton_tracks",
     # Phase 5aq
     "detect_junctions",
