@@ -2438,7 +2438,8 @@ def test_5en_handwrite_ref_uses_styled_preview_glyph():
     swDrawBase 優先用之、缺時才 fallback 系統字型 fillText。"""
     from fastapi.testclient import TestClient
     from stroke_order.web.server import app
-    html = TestClient(app).get("/").text
+    # W4-R1：逐字手寫 JS 已拆檔至 modes/handwrite.js
+    html = TestClient(app).get("/static/modes/handwrite.js").text
     assert "function swBuildRefImg" in html
     # 從抄經預覽的 範字 圖層 clone（含篆/隸 skeleton），排除 user/marks/cellmap
     assert '"sutra-glyph-reference", "sutra-trace"' in html
@@ -2463,7 +2464,8 @@ def test_5eq_handwrite_ref_prefers_filled_layer_over_thick_skeleton():
     修 5en 把三層全 opacity=1 疊起、篆/隸 成又粗又重疊、比例偏大的黑團。"""
     from fastapi.testclient import TestClient
     from stroke_order.web.server import app
-    html = TestClient(app).get("/").text
+    # W4-R1：逐字手寫 JS 已拆檔至 modes/handwrite.js
+    html = TestClient(app).get("/static/modes/handwrite.js").text
     swfn = html.split("async function swBuildRefImg")[1].split(
         "async function")[0]
     # 填實層優先集合 + 有任一填實層才用之、否則才 fallback 骨架

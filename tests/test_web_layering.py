@@ -47,6 +47,47 @@ def test_char_loading_symbols_live_only_in_pipeline():
         assert sym in pipeline_text
 
 
+MODE_SCRIPTS = [
+    "core", "stencil", "grid", "notebook", "letter", "manuscript",
+    "doodle", "grid_route", "wordart", "mandala", "patch", "stamp",
+    "sutra", "userdict", "handwrite", "fonts",
+]
+
+
+def test_index_mode_scripts_order_snapshot():
+    """W4-R1：index.html 的 modes/*.js 載入序＝拆檔前 inline 區段序。
+
+    傳統 script 靠文件序保證全域定義順序——順序變動＝行為可能變，
+    必須先來改這份快照並說明。
+    """
+    import re
+
+    html = (WEB / "static" / "index.html").read_text("utf-8")
+    found = re.findall(r'/static/modes/(\w+)\.js\?v=__V__', html)
+    assert found == MODE_SCRIPTS, (
+        f"modes script 載入序偏離快照：{found}"
+    )
+    for name in MODE_SCRIPTS:
+        f = WEB / "static" / "modes" / f"{name}.js"
+        assert f.is_file() and f.stat().st_size > 100, f"{name}.js 缺失或過小"
+
+
+def test_index_no_large_inline_script():
+    """W4-R1 防回潮：index.html 不得再長出大型 inline <script> 巨石。
+
+    允許小型 glue（≤30 行）；新前端邏輯請進 modes/*.js（傳統 script）
+    或照卡片模式開 ES modules。"""
+    import re
+
+    html = (WEB / "static" / "index.html").read_text("utf-8")
+    for m in re.finditer(r"<script>(.*?)</script>", html, re.S):
+        n = len(m.group(1).splitlines())
+        assert n <= 30, (
+            f"index.html 出現 {n} 行 inline <script>——巨石回潮。"
+            "請放進 static/modes/ 或 ES module。"
+        )
+
+
 def test_svg_media_type_written_once():
     """``image/svg+xml`` 字串在 web 層只允許出現在 responses.py。"""
     offenders = []

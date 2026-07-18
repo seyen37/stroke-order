@@ -277,8 +277,8 @@ def test_5cd_radical_route_unknown_coverset_404(client):
     assert r.status_code == 404
 
 
-def test_5cd_index_has_radical_family_ui(client):
-    html = client.get("/").text
+def test_5cd_index_has_radical_family_ui(client, index_bundle):
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert 'id="grid-radical"' in html
     assert 'id="grid-radical-fill"' in html
     assert "/api/radical-route" in html

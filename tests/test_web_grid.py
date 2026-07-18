@@ -64,9 +64,9 @@ def test_5cn_vendor_opentype_proxy(client, tmp_path, monkeypatch):
     assert st["opentype_size"] == len(fake)
 
 
-def test_5cn_index_userfont_ui_and_injection(client):
+def test_5cn_index_userfont_ui_and_injection(client, index_bundle):
     """5cn：字帖模式自訂字型 UI＋前端注入層存在。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert 'value="userfont"' in html
     assert 'id="grid-font-file"' in html
     assert "injectUserFontIntoGrid" in html
@@ -75,10 +75,10 @@ def test_5cn_index_userfont_ui_and_injection(client):
     assert "未上傳" in html                   # 隱私/版權說明
 
 
-def test_5cs_userfont_gcode_pipeline(client):
+def test_5cs_userfont_gcode_pipeline(client, index_bundle):
     """5cs：自訂字型機器軌跡——前端骨架化＋G-code 組裝存在，
     輸出慣例與 render_grid_gcode 對齊、明示非筆順。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert "fontCharTracks" in html            # 光柵化→骨架化→EM 軌跡
     assert "gridUserFontGcode" in html         # G-code 組裝
     assert "zhangSuenThin" in html             # 復用 5cg 三件組
@@ -89,10 +89,10 @@ def test_5cs_userfont_gcode_pipeline(client):
     assert "grid_userfont.gcode" in html       # blob 下載檔名
 
 
-def test_5el_userfont_smooth_ui_wired(client):
+def test_5el_userfont_smooth_ui_wired(client, index_bundle):
     """5el：自訂字型平滑度 UI——gf-smooth 數字輸入在字型 wrap；fontCharTracks
     讀值、納入 cache key、傳給 chaikinSmooth（調平滑不回舊快取）。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert 'id="gf-smooth"' in html                       # 平滑數字輸入
     assert 'getElementById("gf-smooth")' in html          # fontCharTracks 讀值
     # cache key 納入迭代數＋eps（否則調值回舊軌跡）
@@ -101,11 +101,11 @@ def test_5el_userfont_smooth_ui_wired(client):
     assert "eng.chaikinSmooth(eng.rdpSimplify(tr, rdpEps), ckIters)" in html
 
 
-def test_5em_userfont_simplify_ui_wired(client):
+def test_5em_userfont_simplify_ui_wired(client, index_bundle):
     """5em：自訂字型 RDP 簡化 UI（對稱塗鴉）——gf-simplify 數字輸入在字型
     wrap；fontCharTracks 讀值、納入 cache key、傳給 rdpSimplify（取代 hardcode
     1.5）。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert 'id="gf-simplify"' in html                     # 簡化數字輸入
     assert 'getElementById("gf-simplify")' in html        # fontCharTracks 讀值
     # eps 併入 cache key（與 iters 一起）
@@ -114,9 +114,9 @@ def test_5em_userfont_simplify_ui_wired(client):
     assert "eng.rdpSimplify(tr, rdpEps)" in html
 
 
-def test_5ct_notebook_letter_userfont_ui(client):
+def test_5ct_notebook_letter_userfont_ui(client, index_bundle):
     """5ct：筆記/信紙自訂字型 UI＋共用注入/下載接線存在。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     # 三個模式的字型選單都有 userfont 選項（grid + nb + lt）
     assert html.count('<option value="userfont">') == 3
     assert "ufPageDownloads" in html                  # 頁面型下載接線
@@ -126,7 +126,7 @@ def test_5ct_notebook_letter_userfont_ui(client):
     assert html.count('=== "userfont"') >= 5
 
 
-def test_5cu_grid_zhuyin_api_and_ui(client):
+def test_5cu_grid_zhuyin_api_and_ui(client, index_bundle):
     """5cu：/api/grid zhuyin_map 參數（前端供給、伺服器零字典）＋
     UI 轉換表/checkbox/格距標記存在。"""
     r = client.get("/api/grid?chars=永&zhuyin_map=永:ㄩㄥˇ")
@@ -136,7 +136,7 @@ def test_5cu_grid_zhuyin_api_and_ui(client):
     r0 = client.get("/api/grid?chars=永")
     assert 'data-pair-em="2048"' in r0.text           # 不帶參數＝原版面
 
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert 'id="grid-zhuyin"' in html
     assert "pinyinToZhuyin" in html
     assert "gridZhuyinMap" in html

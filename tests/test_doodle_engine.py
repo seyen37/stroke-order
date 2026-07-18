@@ -117,8 +117,8 @@ def test_5cf_engine_has_worker_offload(client):
     assert "importScripts(url)" in body
 
 
-def test_5cf_index_routes_through_render_via(client):
-    html = client.get("/").text
+def test_5cf_index_routes_through_render_via(client, index_bundle):
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert "mod.renderVia(engineVal, file, opts)" in html
 
 
@@ -169,9 +169,9 @@ def test_5eh_centerline_mode_applies_chaikin(client):
     assert "chaikinIters" in body                      # opt-out 參數
 
 
-def test_5eh_font_grid_applies_chaikin(client):
+def test_5eh_font_grid_applies_chaikin(client, index_bundle):
     """5cs 自訂字型 grid（同源 trio 的另一消費點）也套 chaikinSmooth。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert "chaikinSmooth(eng.rdpSimplify" in html
 
 
@@ -186,9 +186,9 @@ def test_5ek_index_has_chaikin_control(client):
     assert 'id="dd-cv-chaikin"' in html
 
 
-def test_5ek_chaikin_control_wired_to_cv_options(client):
+def test_5ek_chaikin_control_wired_to_cv_options(client, index_bundle):
     """dd-cv-chaikin 串進 cv.chaikinIters（→ engine cvo.chaikinIters）。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert 'chaikinIters: parseInt(document.getElementById("dd-cv-chaikin")' \
         in html
     # 納入 live-rerender 監聽（調平滑即時重繪）

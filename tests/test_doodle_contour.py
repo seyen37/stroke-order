@@ -134,9 +134,9 @@ def test_api_doodle_rejects_bad_style(client):
     assert r.status_code == 422
 
 
-def test_5ci_responsiveness_fixes(client):
+def test_5ci_responsiveness_fixes(client, index_bundle):
     """5ci：使用者複驗回報「OpenCV 無回應／解析度差」的三項修復。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     # ① 解析度：UI 預設 200 → 500（contour 在 200px 上描是糊的）
     assert 'id="dd-max-side" type="number" value="500"' in html
     # ② 巨量 SVG 不再 innerHTML 直塞（renderer frozen 40s 實測）——
@@ -276,11 +276,11 @@ def test_5cm_fetch_eval_watchdog_absolutized(client):
     assert "clearStall" in js
 
 
-def test_5cp_server_default_and_opencv_failure_memory(client):
+def test_5cp_server_default_and_opencv_failure_memory(client, index_bundle):
     """5cp：受管理電腦環境層會卡死大型腳本執行（同 bytes 於 blob
     worker 正常）——體驗保底三件：預設伺服器引擎、OpenCV 標實驗性、
     session 失敗記憶自動改用伺服器。"""
-    html = client.get("/").text
+    html = index_bundle  # W4-R1：JS 已拆檔，斷言打 html＋modes 串接
     assert '<option value="server" selected>' in html      # 預設伺服器
     assert "實驗性" in html                                 # opencv 降實驗
     assert 'sessionStorage.getItem("dd-opencv-broken")' in html
