@@ -1093,6 +1093,8 @@
       <label style="margin-left:8px;"><input type="checkbox" id="dd-cv-invert"> 反相</label>
       <label style="margin-left:8px;" title="RDP 節點簡化強度（px，0=不簡化）">簡化</label>
       <input id="dd-cv-simplify" type="number" value="1.5" min="0" max="10" step="0.1" style="width:60px;">
+      <label style="margin-left:8px;" title="中心線 Chaikin 削角平滑迭代（僅中心線模式生效）：0=關閉（原鋸齒階梯）；2=預設（讀來平滑）；越大越平滑、點數約每級×2">平滑</label>
+      <input id="dd-cv-chaikin" type="number" value="2" min="0" max="4" step="1" style="width:55px;">
       <label style="margin-left:8px;" title="忽略小於此面積（輪廓）/長度（邊緣）的雜點">去斑</label>
       <input id="dd-cv-minarea" type="number" value="30" min="0" max="500" style="width:60px;">
       <label style="margin-left:8px;" title="處理解析度（最長邊 px），越高線稿越平滑">解析度</label>
@@ -5594,6 +5596,7 @@ function collectDoodleOpts() {
       c: parseInt(document.getElementById("dd-cv-c").value, 10),
       invert: document.getElementById("dd-cv-invert").checked,
       simplifyPx: parseFloat(document.getElementById("dd-cv-simplify").value),
+      chaikinIters: parseInt(document.getElementById("dd-cv-chaikin").value, 10),
       minArea: parseFloat(document.getElementById("dd-cv-minarea").value),
       maxProcSide: parseInt(document.getElementById("dd-cv-maxside").value, 10),
     },
@@ -5727,8 +5730,8 @@ function ddLiveRerender() {
   ddLiveTimer = setTimeout(renderDoodle, 150);
 }
 ["dd-width", "dd-max-side", "dd-threshold", "dd-color", "dd-linewidth",
- "dd-cv-block", "dd-cv-c", "dd-cv-simplify", "dd-cv-minarea",
- "dd-cv-maxside"]
+ "dd-cv-block", "dd-cv-c", "dd-cv-simplify", "dd-cv-chaikin",
+ "dd-cv-minarea", "dd-cv-maxside"]
   .forEach(id => document.getElementById(id)
     .addEventListener("input", ddLiveRerender));
 ["dd-crop-whitespace", "dd-crop-border", "dd-image", "dd-engine",

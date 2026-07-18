@@ -178,3 +178,23 @@ def test_5eh_font_grid_applies_chaikin(client):
     """5cs 自訂字型 grid（同源 trio 的另一消費點）也套 chaikinSmooth。"""
     html = client.get("/").text
     assert "chaikinSmooth(eng.rdpSimplify" in html
+
+
+# ---------------------------------------------------------------------------
+# Phase 5ek — 塗鴉平滑度 UI 化（chaikinIters 數字輸入）
+# ---------------------------------------------------------------------------
+
+
+def test_5ek_index_has_chaikin_control(client):
+    """塗鴉 OpenCV 參數列有「平滑」數字輸入（dd-cv-chaikin）。"""
+    html = client.get("/").text
+    assert 'id="dd-cv-chaikin"' in html
+
+
+def test_5ek_chaikin_control_wired_to_cv_options(client):
+    """dd-cv-chaikin 串進 cv.chaikinIters（→ engine cvo.chaikinIters）。"""
+    html = client.get("/").text
+    assert 'chaikinIters: parseInt(document.getElementById("dd-cv-chaikin")' \
+        in html
+    # 納入 live-rerender 監聽（調平滑即時重繪）
+    assert '"dd-cv-chaikin"' in html
