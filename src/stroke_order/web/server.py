@@ -1599,6 +1599,9 @@ def create_app() -> FastAPI:
                                       "孔洞鑿白橋）；cutout=鏤空字（字即"
                                       "本體、斷件補連筋/掛邊框）"),
         source: str = Query("moe_kaishu"),
+        style: str = Query("physical",
+                           description="切割風格（切割策略 preset）；目前"
+                                       "physical＝物理完整（全連派、殘腔 0）"),
         char_height_mm: float = Query(50.0, ge=10, le=300),
         bridge_width_mm: float = Query(2.0, ge=0.5, le=10),
         bridge_count: int = Query(4, ge=2, le=4),
@@ -1613,11 +1616,15 @@ def create_app() -> FastAPI:
         （5ck 教訓：async def 內跑重活會凍 event loop）。"""
         from ..exporters import zentangle as _zt
         from ..exporters.stencil import (
-            render_stencil_dxf, render_stencil_gcode, render_stencil_svg,
-            stencil_geometry,
+            CUTTING_STYLES, render_stencil_dxf, render_stencil_gcode,
+            render_stencil_svg, stencil_geometry,
         )
         if source not in _zt.SOURCE_REGISTRY:
             raise HTTPException(422, detail=f"unknown source: {source}")
+        if style not in CUTTING_STYLES:
+            raise HTTPException(
+                422, detail=f"unknown cutting style: {style!r}; "
+                            f"available: {sorted(CUTTING_STYLES)}")
         char_polys = []
         loaded_chars: list[str] = []
         missing: list[str] = []
@@ -1640,6 +1647,7 @@ def create_app() -> FastAPI:
                             f"請確認字型檔已安裝或換資料源")
         loops, w_mm, h_mm, stats = stencil_geometry(
             char_polys, kind=kind,                     # type: ignore[arg-type]
+            style=style,
             char_height_mm=char_height_mm,
             bridge_width_mm=bridge_width_mm,
             bridge_count=bridge_count,
@@ -1653,6 +1661,7 @@ def create_app() -> FastAPI:
             "X-Stencil-Holes": str(stats.get("holes_bridged", -1)),
             "X-Stencil-Components": str(stats.get("components_before", -1)),
             "X-Stencil-Skipped": str(len(missing)),
+            "X-Stencil-Style": str(stats.get("style", style)),
         }
         if format == "dxf":
             body = render_stencil_dxf(loops)

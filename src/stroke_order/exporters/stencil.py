@@ -23,6 +23,7 @@ speedprint 鏤空字教學）：
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Literal, Optional
 
 import numpy as np
@@ -33,6 +34,60 @@ from .dxf import DxfPolyline, layers_to_dxf
 from .engrave import scanline_intersections
 
 StencilKind = Literal["stencil", "cutout"]
+
+# ---------------------------------------------------------------------------
+# 切割風格 registry（5ef，承 5dm STENCIL_CUTTING_STYLES.md §4/§5）
+# ---------------------------------------------------------------------------
+#
+# 5dm 把「切割策略」與「筆形字型」歸納為兩條正交軸（見文件 §7）：筆形由
+# `zentangle.SOURCE_REGISTRY`（選字型）免費提供，引擎只需管**切割策略**軸。
+# 該軸的定義參數＝`connect_depth`（連筋深度／文件 §4 R5 核心）：
+#
+#   - ``full``     ＝全連派：每個 counter 都鑿橋連通、殘腔 0（物理有效字模，
+#                    可真的噴漆／雷切）。本專案 5dm 引擎的既有唯一策略。
+#   - ``envelope`` ＝外框派（方正簡潔美學）：只斷最外圈包圍、容許深層巢狀
+#                    counter 留孤島。**尚未實作**（下一弧候選）；registry
+#                    先不收，待實作連同 UI 一起上（避免 dead 分支）。
+#
+# 本輪（5ef）為**純重構**：把「唯一策略」正名為 registry 的 ``physical``
+# preset、立好可切換的 seam，行為逐位元不變。其餘 §4 參數（bridge_axis、
+# near_wall_only、keep_primary…）目前在 carve 函式內恆為 full 值，待 envelope
+# 需要時再拉進 style struct（YAGNI：不加現在沒人讀的欄位）。
+
+CutConnectDepth = Literal["full"]
+
+
+@dataclass(frozen=True)
+class CuttingStyle:
+    """一種切割風格（切割策略軸的一個 preset）。
+
+    最小 seam：目前只承載真正**選擇程式路徑**的 ``connect_depth``（＋供
+    UI/header 顯示的 ``label``）。envelope 等新策略落地時再擴充欄位。
+    """
+
+    key: str
+    label: str
+    connect_depth: CutConnectDepth
+
+
+#: 切割風格登記處（key → CuttingStyle）。目前唯一策略＝物理完整（全連派）。
+CUTTING_STYLES: dict[str, CuttingStyle] = {
+    "physical": CuttingStyle(
+        key="physical", label="物理完整", connect_depth="full"),
+}
+
+#: 預設切割風格（維持既有行為）。
+DEFAULT_CUTTING_STYLE = "physical"
+
+
+def get_cutting_style(key: str) -> CuttingStyle:
+    """依 key 取切割風格；未知 key 拋 ``KeyError``（呼叫端轉 422）。"""
+    try:
+        return CUTTING_STYLES[key]
+    except KeyError:
+        raise KeyError(
+            f"unknown cutting style: {key!r}; "
+            f"available: {sorted(CUTTING_STYLES)}") from None
 
 #: 光柵解析度（px/mm）。5do：4→8（0.125mm/px）——黑體軸向邊的階梯步階
 #: 減半，配合較大的 RDP 容差（_STENCIL_RDP_EPS）把殘餘微凸/微凹去乾淨，
@@ -538,6 +593,7 @@ def stencil_geometry(
     char_polys: list[list[list[tuple[float, float]]]],
     *,
     kind: StencilKind = "stencil",
+    style: str = DEFAULT_CUTTING_STYLE,
     char_height_mm: float = 50.0,
     bridge_width_mm: float = 2.0,
     bridge_count: int = 4,
@@ -556,6 +612,7 @@ def stencil_geometry(
     n = len(char_polys)
     if n == 0:
         return [], 0.0, 0.0, {}
+    cut_style = get_cutting_style(style)      # 未知風格 → KeyError（呼叫端轉 422）
     ch_px = max(8, int(round(char_height_mm * px_per_mm)))
     sp_px = max(0, int(round(spacing_mm * px_per_mm)))
     if margin_mm is None:
@@ -587,7 +644,13 @@ def stencil_geometry(
         mask = _dilate(mask, bold_px)
 
     bw_px = max(2, int(round(bridge_width_mm * px_per_mm)))
-    stats: dict = {"kind": kind}
+    stats: dict = {"kind": kind, "style": cut_style.key}
+    # 切割策略 dispatch（切割風格 registry 的 seam）。目前唯一策略＝全連派
+    # （connect_depth="full"）；envelope 等新策略落地時在此加 elif 分支。
+    if cut_style.connect_depth != "full":
+        raise NotImplementedError(
+            f"cutting style {cut_style.key!r} (connect_depth="
+            f"{cut_style.connect_depth!r}) not implemented yet")
     if kind == "stencil":
         stats["holes_bridged"] = carve_stencil_bridges(
             mask, bw_px, bridge_count)

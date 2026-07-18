@@ -9,12 +9,16 @@ import numpy as np
 import pytest
 
 from stroke_order.exporters.stencil import (
+    CUTTING_STYLES,
+    DEFAULT_CUTTING_STYLE,
+    CuttingStyle,
     _hole_corners,
     _label,
     _outside,
     add_frame,
     carve_stencil_bridges,
     connect_cutout_components,
+    get_cutting_style,
     render_stencil_dxf,
     render_stencil_gcode,
     render_stencil_svg,
@@ -335,3 +339,71 @@ def test_5do_stencil_centers_ink_vertically():
     bot_gap = h - max(ys)
     assert abs(top_gap - bot_gap) <= 0.6, (
         f"墨應垂直置中：上緣 {top_gap:.2f}mm vs 下緣 {bot_gap:.2f}mm")
+
+
+# ---------------------------------------------------------------------------
+# 5ef：切割風格 registry 重構——純 seam、行為逐位元保存（承 5dm §4/§5）
+# ---------------------------------------------------------------------------
+
+
+def test_5ef_registry_contract():
+    """registry 契約：physical 存在、connect_depth=full、預設＝physical。"""
+    assert DEFAULT_CUTTING_STYLE == "physical"
+    assert "physical" in CUTTING_STYLES
+    phys = CUTTING_STYLES["physical"]
+    assert isinstance(phys, CuttingStyle)
+    assert phys.key == "physical"
+    assert phys.connect_depth == "full"
+    assert phys.label                      # 有顯示名（供 UI/header）
+    # get_cutting_style：已知回傳同物件、未知拋 KeyError
+    assert get_cutting_style("physical") is phys
+    with pytest.raises(KeyError):
+        get_cutting_style("no_such_style")
+
+
+def test_5ef_default_style_is_physical_byte_identical():
+    """行為保存鐵證：不傳 style（預設）與明示 style='physical' 產出**逐位元
+    相同**的 loops＋stats（stencil 與 cutout 兩路徑都驗）。"""
+    ring = _ring_polys()
+    for kind, kwargs in (("stencil", {}),
+                         ("cutout", {"frame": True, "frame_width_mm": 3})):
+        d_loops, d_w, d_h, d_st = stencil_geometry(
+            [ring], kind=kind, char_height_mm=40, bridge_width_mm=2, **kwargs)
+        p_loops, p_w, p_h, p_st = stencil_geometry(
+            [ring], kind=kind, style="physical",
+            char_height_mm=40, bridge_width_mm=2, **kwargs)
+        assert d_loops == p_loops, f"{kind}: 預設與 physical loops 不一致"
+        assert (d_w, d_h) == (p_w, p_h)
+        assert d_st == p_st
+        assert d_st["style"] == "physical"      # stats 記錄所用風格
+
+
+def test_5ef_unknown_connect_depth_raises(monkeypatch):
+    """seam 守衛：connect_depth 非 full 的風格 → NotImplementedError（留給
+    envelope 等未來策略；證明 dispatch 真的讀 connect_depth、非死參數）。"""
+    fake = CuttingStyle(key="envelope_fake", label="假外框",
+                        connect_depth="envelope")   # type: ignore[arg-type]
+    monkeypatch.setitem(CUTTING_STYLES, "envelope_fake", fake)
+    with pytest.raises(NotImplementedError):
+        stencil_geometry([_ring_polys()], kind="stencil",
+                         style="envelope_fake", char_height_mm=40)
+
+
+def test_5ef_api_rejects_bad_style(client):
+    """API 契約：未知切割風格 → 422（在字型載入前擋下，無需字型）。"""
+    assert client.get(
+        "/api/stencil?chars=明&style=bogus").status_code == 422
+    # 合法 physical 不因 style 被擋（缺字型會走到 400/需字型，但非 422 風格錯）
+    r = client.get("/api/stencil?chars=明&style=physical")
+    assert r.status_code != 422
+
+
+@needs_kaishu
+def test_5ef_api_style_header(client, monkeypatch):
+    """有字型時，回應帶 X-Stencil-Style 標頭＝所用風格。"""
+    monkeypatch.setenv("STROKE_ORDER_KAISHU_FONT_FILE", _TEST_KAISHU_FONT)
+    from stroke_order.sources.moe_kaishu import reset_kaishu_singleton
+    reset_kaishu_singleton()
+    r = client.get("/api/stencil?chars=明&kind=stencil&style=physical")
+    assert r.status_code == 200
+    assert r.headers["x-stencil-style"] == "physical"

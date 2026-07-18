@@ -171,8 +171,13 @@
 5. 測試：每風格各驗其不變量（`full`→殘腔0；`envelope`→外框連通、
    容許深層殘腔；皆守 R2 中段不切）。
 
-> 現況：切割參數散在引數/常數，**尚未**抽成 style registry。本文件即
-> 為該重構的規格藍圖；動工前依 QODA 提案（新增抽象＝架構級）。
+> 現況（5ef／0.14.210）：**已抽成 `CUTTING_STYLES` registry**（`stencil.py`）。
+> 目前唯一 entry＝`physical`（`connect_depth="full"`＝全連派，即原行為）；
+> `stencil_geometry(style=...)`／`/api/stencil?style=` 已可帶風格、未知風格
+> 回 422。本輪為**純重構**（行為逐位元不變，QODA 選 A）；`envelope` 等新
+> 策略連同 UI 下拉留待下一弧。§4 其餘參數（bridge_axis/near_wall/keep_primary）
+> 目前在 carve 函式內恆為 full 值，待需要它們的策略落地時再拉進 style struct
+> （YAGNI：不加現在沒程式讀的欄位）。
 
 ---
 
@@ -192,7 +197,12 @@
 - **顯式主幹判定**（R1 完整版）：目前靠「穿牆最短」間接選到交叉筆；
   遇到橫豎等厚時可能誤退主幹。可加筆向／骨架分析明確標記主幹豎筆。
 - **`connect_depth=envelope` 風格**：容許深層 counter 保留（方正美學）。
-- **style registry 重構**：把 §4 參數集中管理、UI 可切換。
+  （registry seam 已就緒——新增 = 加一個 `CUTTING_STYLES` entry ＋ 在
+  `stencil_geometry` 的 connect_depth dispatch 加一個 elif 分支 ＋ UI 下拉。）
+- ~~**style registry 重構**~~：**已完成（5ef／0.14.210）**——§4 的
+  `connect_depth` 軸抽成 `CUTTING_STYLES`（key→`CuttingStyle`）、
+  `stencil_geometry(style=)`／endpoint `style=` 帶入、未知風格 422、行為
+  逐位元保存。
 - **輪廓平順化（5do 已做）**：現管線光柵化→描邊，缺口本為階梯邊。
   5do 以**細化光柵（8px/mm）＋放大 RDP 容差（~0.25mm）**把黑體軸向邊
   的微凸/微凹去乾淨、效能仍充裕（一度嘗試的「軸向吸附」對單位步階
