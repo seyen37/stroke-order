@@ -14,6 +14,7 @@ import inspect
 
 from fastapi.routing import APIRoute
 
+from stroke_order.web.routes import iter_routes
 from stroke_order.web.server import create_app
 
 #: 允許 async 的路由端點（名稱 → 理由）
@@ -27,7 +28,7 @@ def test_no_async_route_endpoints():
     app = create_app()
     offenders = sorted(
         route.endpoint.__name__
-        for route in app.routes
+        for route in iter_routes(app)
         if isinstance(route, APIRoute)
         and inspect.iscoroutinefunction(route.endpoint)
         and route.endpoint.__name__ not in ASYNC_ALLOWLIST
@@ -44,7 +45,7 @@ def test_allowlist_entries_still_exist_and_are_async():
     app = create_app()
     async_routes = {
         route.endpoint.__name__
-        for route in app.routes
+        for route in iter_routes(app)
         if isinstance(route, APIRoute)
         and inspect.iscoroutinefunction(route.endpoint)
     }

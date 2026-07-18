@@ -2364,7 +2364,8 @@ def test_5dp_sutra_endpoints_are_sync_not_coroutine():
     app = create_app()
     targets = {"/api/sutra", "/api/sutra/pdf"}
     seen = {}
-    for r in app.routes:
+    from stroke_order.web.routes import iter_routes
+    for r in iter_routes(app):
         if isinstance(r, APIRoute) and r.path in targets:
             for m in r.methods:
                 seen[(r.path, m)] = inspect.iscoroutinefunction(r.endpoint)

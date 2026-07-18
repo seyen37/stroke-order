@@ -192,7 +192,8 @@ def test_5ck_vendor_endpoint_is_sync_def(client):
     import inspect
     from stroke_order.web.server import create_app as _ca
     app = _ca()
-    eps = [r.endpoint for r in app.routes
+    from stroke_order.web.routes import iter_routes
+    eps = [r.endpoint for r in iter_routes(app)
            if getattr(r, "path", "") == "/vendor/opencv.js"]
     assert eps, "vendor 端點不存在"
     assert not inspect.iscoroutinefunction(eps[0])
