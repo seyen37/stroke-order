@@ -1916,6 +1916,101 @@ path、排除粗骨架）。
 
 ---
 
+## 35. 立新鐵則要同輪掃全體＋配機器回歸鎖；審查最大宗技術債往往是「已知鐵則未擴散」（2026-07-19 架構健檢/5er 新增）
+
+全景健檢的核心發現：最嚴重的問題不是新缺陷，而是**已寫下的鐵則只修了案發
+現場**——§9.1（async def 內同步 I/O 凍 event loop）在 5dp 修了 sutra/stencil
+四條路由後未擴散，其餘 79 條 sync-body async 路由原樣躺了數週；§27 單一真相
+源在 SVG header（11 處手寫、格式已漂移）與 ?v=（22 處手動）同樣失守。5er 一次
+掃齊並加 `test_async_route_lock.py`：inspect 掃全部 APIRoute，async 端點必須
+在 allowlist（附理由）且 allowlist 不得有殭屍項。
+
+判準：**立鐵則的那一輪就要 grep/inspect 掃全體套齊（§13.1），且凡是「掃全體」
+型的鐵則都要配一個機器回歸鎖測試——掃描結構、比對 allowlist——讓下一個違反者
+在 CI 紅燈，而不是等下一次全景審查。**「人記得」的鐵則半衰期以週計；「機器擋」
+的鐵則才會複利。
+
+---
+
+## 36. 功能之外要驗「目標環境的資源天花板」：JSON 解析成物件有 10 倍級記憶體膨脹（2026-07-19 5es 新增）
+
+5er 把 1,830 字 g0v 筆順打包成單一 JSON bundle（gzip 4.9MB、序列化 26MB），
+功能測試全綠；部署後首次載入全量 `json.load` 實測膨脹 **305MB RSS**（track/
+outline 是海量 `{"x":…,"y":…}` 小 dict，物件開銷 10 倍級）——Render free tier
+512MB 直接 OOM、worker 被殺、全站 503。修＝格式改 gzip JSONL（每行
+hex<TAB>緊湊 JSON），載入只存原始字串（28MB），用到哪個字才 loads 哪行；
+threading.Lock 防併發首載雙倍瞬時峰值；回歸鎖＝「bundle 快取值必須是 str」。
+
+判準：**「能跑」不等於「能在目標環境跑」。引入大資料常駐結構前，量測解析後
+RSS 增量並對照部署環境記憶體上限（沙箱一行 resource.getrusage 就有答案）；
+序列化大小 ×10 是 JSON→Python 物件的合理預估。懶解析（字串進、用時才 parse）
+是通用解；並用回歸鎖把「不可預先解析」鎖成契約。**另記：/api/health 這類
+寫死 version 的端點不能當部署指標，部署簽章要用行為特徵（header/新端點）。
+
+---
+
+## 37. 0 是合法值：預設值填充別用 `||`（falsy 短路會吃掉 0），用 Number.isFinite/?? 判定（2026-07-19 5et-R4 新增）
+
+sanitizeFrame 首版 `Number(f?.padMm) || 3`——使用者把外框內距設 0（貼邊，
+完全合法）會被 falsy 短路成預設 3，靜默改掉使用者的值。JS 的 `||` 預設值
+慣用寫法對「0/空字串是合法值」的欄位都是地雷；`??` 只擋 null/undefined 但
+擋不住 NaN。修＝`Number.isFinite(raw) ? clamp(raw) : 預設`，並補「0 不可被
+預設蓋掉」的測試。
+
+判準：**寫預設值填充時先問「0（或空字串）是不是合法輸入」——是，就禁用
+`||`；要同時擋 NaN 就用 Number.isFinite 顯式判定。數值欄位的 sanitize 測試
+必含 0 邊界。**
+
+---
+
+## 38. `from __future__ import annotations` 之下，FastAPI request model 必須定義在模組層（2026-07-19 5et-R4 新增）
+
+CardPdfRequest 首版定義在 create_app() 內——future annotations 讓所有型別
+註記變成字串，FastAPI 用函式 globals 解析時找不到區域類別，參數被**靜默誤判
+成 query 參數**（POST body 直接 422 Field required in query）。全 repo 既有
+15 個 request model 都在模組層，正是同一個原因。
+
+判準：**檔案有 `from __future__ import annotations` 時，任何要被框架
+（FastAPI/pydantic/dataclass 反射類）解析型別註記的類別，一律定義在模組層；
+在 closure 內定義的 model 會以「參數位置錯亂」而非 ImportError 的形式炸，
+極難從錯誤訊息回推根因。**沿用專案慣例（model 集中模組層）本身就是防護。
+
+---
+
+## 39. 外部內容立「單一 sanitize 入口」＋跨層縱深防禦；新增匯入路徑必重跑 sanitize（2026-07-19 5et-R3/R4 新增）
+
+卡片模式吃三種外部向量內容（使用者 SVG 檔、doodle 伺服器回傳、未來可能的
+版面 JSON 匯入）。設計：`sanitizeSvgText` 是 art fragment 的**唯一合法來源**
+（元素 allowlist 排除 script/foreignObject/image/use/animate/filter＋屬性
+過濾 on*/href/style url()＋大小上限），render 層對 frag 原樣嵌入並在註解
+標明信任邊界；伺服器 /api/card/pdf 再設第二道 `_CARD_PDF_DENY`（防 SSRF，
+公開端點不能假設輸入來自自家前端）。E2E 用惡意樣本驗五威脅全剝除。
+
+判準：**外部內容進系統只許走一個 sanitize 函式，消費端註明「此欄位唯一合法
+來源」；跨信任邊界（前端→伺服器）各設各的檢查、不互相假設。新增任何匯入
+路徑（如日後的 JSON 版面匯入）時，載入端必須重跑 sanitize——「當初存進去
+時是乾淨的」不可依賴，因為存檔可能被分享/手改。**判斷函式做成純函式供
+node 直測，DOM 走訪交給真實渲染 E2E（§33）。
+
+---
+
+## 40. 編輯器類功能：畫面與匯出共用同一條（字串）渲染路徑，純函式層與 DOM 層切開（2026-07-19 5et 弧新增）
+
+卡片編輯器的渲染層全部輸出 SVG 字串：編輯畫面 innerHTML 掛載、本面 SVG
+下載、展開列印版、印刷 PDF（前端組出血＋裁切標記後送轉檔）**全走同一組
+函式**——所見即匯出，不存在「編輯畫面對了、匯出歪了」的雙軌漂移面。編輯
+專屬的 chrome（框線/把手/導引/框選 marquee）用 mode 參數附加，匯出模式
+天然不含。配套分層：geometry/model/render/判定函式零 DOM（node --test
+直測 37 項），互動與 DOM 走訪（DOMParser、pointer、IndexedDB）交給
+Playwright 真實渲染 E2E。
+
+判準：**做「編輯＋匯出」類功能時，先立「單一渲染路徑」不變式——畫面是
+匯出函式的預覽，不是另一套實作；再把可純函式化的部分全部下沉到零 DOM
+模組，讓最大面積的邏輯進快速單元測試，DOM 只留接線薄層給 E2E。**這也是
+index.html 巨石拆分（健檢 W4）的目標範式。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1944,6 +2039,11 @@ path、排除粗骨架）。
     registry 五弧（5ef 純重構→envelope→keep_primary→深度旋鈕→鏤空方向）＋
     中心線 Chaikin/RDP UI 四弧（塗鴉/字帖對稱）＋styled 逐字手寫範字三發（5en→5ep
     st/su 前綴修復→5eq 篆書範字挑對圖層別全 clone）；含 5ef~5ep 收工總結節）
+  - [`WORK_LOG_2026-07-19.md`](WORK_LOG_2026-07-19.md)（跨日大階段：
+    架構健檢全景審查＋四波路線圖→Wave 1 止血（5er async 掃全體/gzip/CI
+    缺口/g0v bundle）→5es 503 OOM 搶修（JSONL 懶解析）→5et 手寫卡片模式
+    弧五輪（/card 編輯器、三源字形、顏文字/塗鴉/SVG、版面自由度、外框/
+    印刷 PDF/PNG））
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -1961,6 +2061,8 @@ path、排除粗骨架）。
   - [`2026-07-17_5dx_table_handwrite.md`](decisions/2026-07-17_5dx_table_handwrite.md)（逐字手寫延伸部首/倉頡/注音：跨層契約單一真相源＋可寫格語意邊界，對應 §27）
   - [`2026-07-18_5ef_5ep_stencil_registry_centerline_styled.md`](decisions/2026-07-18_5ef_5ep_stencil_registry_centerline_styled.md)（切割 registry 純重構先立 seam＋Jordan 巢狀深度/blob-leak＋方向↔牆對偶/runtime 旋鈕＋同源平滑套全消費點/cache key＋styled 字形 reuse 伺服器 SVG＋真實渲染 e2e/su-st 前綴，對應 §28–§33）
   - [`2026-07-18_5eq_handwrite_ref_layer.md`](decisions/2026-07-18_5eq_handwrite_ref_layer.md)（逐字手寫篆書範字太粗——styled 範字 reuse 多圖層 SVG 要挑對代表層、別全 clone 拉 opacity=1，對應 §34）
+  - [`2026-07-19_arch_review_wave1_5es.md`](decisions/2026-07-19_arch_review_wave1_5es.md)（架構線：全景健檢＋Wave 1 止血＋503 OOM 修復，對應 §35–§38）
+  - [`2026-07-19_5et_card_mode.md`](decisions/2026-07-19_5et_card_mode.md)（5et 手寫卡片弧五輪 QODA 重放，對應 §37–§40）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1971,4 +2073,4 @@ path、排除粗骨架）。
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§34 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§40 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉）。三者互補。
