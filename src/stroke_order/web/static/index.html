@@ -436,6 +436,10 @@
                   style="font-size:12px;padding:3px 10px;background:#f4f4f4;
                          border:1px solid var(--border);border-radius:4px;
                          cursor:pointer;">▶ 播放</button>
+          <button id="sw-demo-btn" type="button" title="看標準正確筆順示範"
+                  style="font-size:12px;padding:3px 10px;background:#f4f4f4;
+                         border:1px solid var(--border);border-radius:4px;
+                         cursor:pointer;">✎ 示範</button>
         </div>
         <div style="position:relative;">
           <canvas id="sw-canvas" width="360" height="360"
@@ -445,6 +449,11 @@
           <span id="sw-canvas-info"
                 style="position:absolute;bottom:6px;right:8px;
                        color:var(--muted);font-size:11px;">0 筆畫</span>
+          <!-- 5ec: 標準筆順示範疊層（hanzi-writer）；點一下收起回手寫 -->
+          <div id="sw-demo" title="點一下收起示範"
+               style="position:absolute;top:0;left:0;width:360px;height:360px;
+                      display:none;background:white;cursor:pointer;
+                      border:1px solid var(--border);"></div>
         </div>
       </div>
       <!-- 米字格右邊：上一字 / 下一字 / 略過 + 選項 + 目前字 -->
@@ -9725,15 +9734,18 @@ const SW = {
   hadSaved: false,   // 5dy: current char had a saved user-dict entry on open
                      // → clearing + submit deletes it (reverts to 描紅範本)
   anim: null,        // 5eb: requestAnimationFrame handle while replaying 筆順
+  demoWriter: null,  // 5ec: hanzi-writer instance while showing 標準筆順示範
 };
 
 function swInit() {
   const $ = id => document.getElementById(id);
   if (!$("sw-overlay")) return;
   $("sw-close").onclick   = swClose;
-  $("sw-undo").onclick    = () => { swStopAnim(); SW.strokes.pop(); swRedraw(); swInfo(); };
-  $("sw-clear").onclick   = () => { swStopAnim(); SW.strokes = []; swRedraw(); swInfo(); };
+  $("sw-undo").onclick    = () => { swStopAnim(); swHideDemo(); SW.strokes.pop(); swRedraw(); swInfo(); };
+  $("sw-clear").onclick   = () => { swStopAnim(); swHideDemo(); SW.strokes = []; swRedraw(); swInfo(); };
   $("sw-play").onclick    = swPlayStrokes;   // 5eb: 重播你寫的筆順
+  $("sw-demo-btn").onclick = swShowDemo;     // 5ec: 標準正確筆順示範
+  $("sw-demo").onclick    = swHideDemo;      // 5ec: 點示範疊層收起回手寫
   $("sw-show-ref").onchange = swRedraw;
   $("sw-prev").onclick    = () => swNav(-1);
   $("sw-next").onclick    = () => swNav(1);
@@ -9791,6 +9803,7 @@ async function swOpen(index) {
 
 function swClose() {
   swStopAnim();   // 5eb
+  swHideDemo();   // 5ec
   document.getElementById("sw-overlay").style.display = "none";
   if (SW.dirty) {            // reflect newly-written glyphs in the preview
     SW.dirty = false;
@@ -9801,6 +9814,7 @@ function swClose() {
 // Load the current position: show char, preload existing user-dict strokes.
 async function swLoadCurrent() {
   swStopAnim();          // 5eb: switching char stops any replay
+  swHideDemo();          // 5ec: and any 標準示範 overlay
   const cur = SW.positions[SW.index];
   SW.strokes = [];
   SW.hadSaved = false;   // 5dy: reset; set true only if an entry preloads
@@ -9931,6 +9945,7 @@ function swBindCanvas() {
   const c = document.getElementById("sw-canvas");
   c.addEventListener("pointerdown", e => {
     swStopAnim();   // 5eb: starting to draw interrupts any 筆順 replay
+    swHideDemo();   // 5ec: and dismisses the 標準示範 overlay
     c.setPointerCapture(e.pointerId);
     SW.active = [swPt(e)]; SW.strokes.push(SW.active); swRedraw();
   });
@@ -10052,7 +10067,63 @@ function swPlayStrokes() {
   }
   st.textContent = "▶ 播放筆順中…";
   st.style.color = "var(--muted)";
+  swHideDemo();   // 5ec: own-stroke replay and 標準示範 are mutually exclusive
   SW.anim = requestAnimationFrame(frame);
+}
+
+// 5ec: hide/cancel the 標準筆順 demo overlay (back to the drawing canvas).
+function swHideDemo() {
+  const demo = document.getElementById("sw-demo");
+  if (!demo) return;
+  if (SW.demoWriter) {
+    try { SW.demoWriter.cancelQuiz && SW.demoWriter.cancelQuiz(); } catch (_) {}
+    SW.demoWriter = null;
+  }
+  demo.style.display = "none";
+  demo.innerHTML = "";
+}
+
+// 5ec: show the CORRECT stroke order for the current char as a hanzi-writer
+// animation overlaid on the 米字格. Data comes from /api/character (the
+// project's own g0v/教育部/CNS stroke data — far wider coverage than
+// hanzi-writer's default CDN). Chars with no stroke data degrade honestly.
+async function swShowDemo() {
+  const cur = SW.positions[SW.index];
+  if (!cur) return;
+  const st = document.getElementById("sw-status");
+  const demo = document.getElementById("sw-demo");
+  if (typeof HanziWriter === "undefined") {
+    st.textContent = "筆順示範元件未載入"; st.style.color = "var(--accent)";
+    return;
+  }
+  st.textContent = "載入標準筆順…"; st.style.color = "var(--muted)";
+  const src = (document.getElementById("su-source") || {}).value || "auto";
+  const qs = new URLSearchParams({ source: src, hook_policy: "animation" }).toString();
+  try {
+    const r = await fetch(`${API_BASE}/api/character/${encodeURIComponent(cur.char)}?${qs}`);
+    if (!r.ok) throw new Error("no-data");
+    const data = await r.json();
+    swStopAnim();          // stop own-stroke replay if running
+    demo.innerHTML = "";
+    demo.style.display = "block";
+    SW.demoWriter = HanziWriter.create(demo, cur.char, {
+      width: 360, height: 360, padding: 8,
+      strokeAnimationSpeed: 1.0,
+      delayBetweenStrokes: 220,
+      showOutline: true,
+      showCharacter: false,   // trace-style: faint outline + animate strokes in order
+      strokeColor: "#1565c0",
+      radicalColor: "#c0392b",
+      charDataLoader: (_c, onComplete) => onComplete(data),
+    });
+    SW.demoWriter.animateCharacter();
+    st.textContent = "標準筆順示範中（點畫布收起回手寫）";
+    st.style.color = "var(--muted)";
+  } catch (e) {
+    swHideDemo();
+    st.textContent = "此字無標準筆順資料，無法示範";
+    st.style.color = "var(--accent)";
+  }
 }
 
 // ============================================================
