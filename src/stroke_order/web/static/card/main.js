@@ -6,7 +6,7 @@
 // 共用 render.js 同一條字串渲染路徑。
 // ======================================================================
 
-import { CARD_PRESETS, normalizeBox } from './geometry.js';
+import { CARD_PRESETS, normalizeBox, marqueeRect } from './geometry.js';
 import {
   newCard, newTextBox, newKaomojiBox, newArtBox,
   resolvePreset, saveDraft, loadDraft, serialize,
@@ -24,6 +24,9 @@ let card = loadDraft() ?? newCard();
 let activeFace = 0;
 let selectedId = null;
 let drag = null; // {mode:'move'|'resize', boxId, startMm:{x,y}, orig:{...}}
+// R3b 框選插入：{kind:'text'|'doodle'|'svg'} → 拖矩形 →（檔案）→ 插入
+let pendingInsert = null;
+let marqueeDrag = null; // {start:{x,y}, cur:{x,y}}
 
 const glyphs = createGlyphRegistry({ requestRender: scheduleRender });
 
@@ -37,7 +40,7 @@ function scheduleRender() {
 }
 
 function preset() {
-  return resolvePreset(card.preset, card.custom);
+  return resolvePreset(card.preset, card.custom, card.portrait);
 }
 
 function face() {
@@ -62,12 +65,20 @@ function render() {
     .join('');
   tabs.style.display = p.faces.length > 1 ? '' : 'none';
   // 卡面
+  const mq = marqueeDrag ? marqueeRect(marqueeDrag.start, marqueeDrag.cur, 0.5) : null;
   $('card-stage').innerHTML = renderFaceSvg(face(), boxes(), {
     mode: 'edit',
     selectedId,
     glyphProvider: glyphs.provider,
     showGuides: $('card-guides').checked,
+    marquee: mq,
   });
+  // R3b：直式切換僅單面卡型有意義；面翻轉設定僅對折卡型顯示
+  $('card-portrait-wrap').style.display = p.sheet ? 'none' : '';
+  $('card-portrait').checked = !!card.portrait;
+  $('card-face-rotate-wrap').style.display = p.sheet ? '' : 'none';
+  if (p.sheet) $('card-face-rotate').checked = !!card.faceRotate[face().key];
+  $('card-stage').style.cursor = pendingInsert ? 'crosshair' : '';
   renderPanel();
   saveDraft(card);
 }
@@ -143,7 +154,8 @@ async function insertDoodleFromImage(file) {
     const svgText = await r.text();
     const clean = sanitizeSvgText(svgText, { dropBackgroundRect: true });
     if (clean.error) throw new Error(clean.error);
-    const box = newArtBox(face(), { ...clean, label: `線稿：${file.name}` });
+    const box = newArtBox(face(), { ...clean, label: `線稿：${file.name}` }, pendingRect ?? {});
+    pendingRect = null;
     boxes().push(box);
     selectedId = box.id;
     setInsertStatus(`✓ 已插入線稿（${file.name}）`);
@@ -158,7 +170,8 @@ async function insertSvgFile(file) {
     const text = await file.text();
     const clean = sanitizeSvgText(text);
     if (clean.error) throw new Error(clean.error);
-    const box = newArtBox(face(), { ...clean, label: `SVG：${file.name}` });
+    const box = newArtBox(face(), { ...clean, label: `SVG：${file.name}` }, pendingRect ?? {});
+    pendingRect = null;
     boxes().push(box);
     selectedId = box.id;
     setInsertStatus(`✓ 已匯入 ${file.name}（外部連結/腳本已淨化移除）`);
@@ -182,6 +195,13 @@ function toMm(evt) {
 // ---- pointer 互動：選取 / 拖移 / 右下把手縮放 ------------------------
 
 function onPointerDown(evt) {
+  if (pendingInsert) {
+    const mm = toMm(evt);
+    marqueeDrag = { start: mm, cur: mm };
+    $('card-stage').setPointerCapture?.(evt.pointerId);
+    scheduleRender();
+    return;
+  }
   const t = evt.target;
   const boxId = t.getAttribute && t.getAttribute('data-box-id');
   const mm = toMm(evt);
@@ -210,6 +230,11 @@ function onPointerDown(evt) {
 }
 
 function onPointerMove(evt) {
+  if (marqueeDrag) {
+    marqueeDrag.cur = toMm(evt);
+    scheduleRender();
+    return;
+  }
   if (!drag) return;
   const mm = toMm(evt);
   const dx = mm.x - drag.startMm.x;
@@ -227,8 +252,51 @@ function onPointerMove(evt) {
 }
 
 function onPointerUp() {
+  if (marqueeDrag && pendingInsert) {
+    const rect = marqueeRect(marqueeDrag.start, marqueeDrag.cur)
+      ?? defaultRectAt(marqueeDrag.start);
+    const insert = pendingInsert;
+    marqueeDrag = null;
+    pendingInsert = null;
+    finishInsert(insert.kind, rect);
+    scheduleRender();
+    return;
+  }
+  marqueeDrag = null;
   drag = null;
 }
+
+//: 點一下（沒拖）→ 以點擊處為中心的預設大小矩形
+function defaultRectAt(pt) {
+  const f = face();
+  return {
+    x: pt.x - f.w * 0.3, y: pt.y - 7.5,
+    w: f.w * 0.6, h: 15,
+  };
+}
+
+function armInsert(kind, hint) {
+  pendingInsert = { kind };
+  setInsertStatus(hint);
+  scheduleRender();
+}
+
+function finishInsert(kind, rect) {
+  const f = face();
+  if (kind === 'text') {
+    const box = newTextBox(f, { ...rect, text: '寫點什麼' });
+    boxes().push(box);
+    selectedId = box.id;
+    setInsertStatus('');
+  } else {
+    // doodle / svg：先記住框，選完檔案再插入
+    pendingRect = rect;
+    if (kind === 'doodle') $('card-doodle-file').click();
+    else $('card-svg-file').click();
+  }
+}
+
+let pendingRect = null;
 
 // ---- 下載 ------------------------------------------------------------
 
@@ -246,7 +314,10 @@ function downloadFaceSvg() {
 }
 
 function downloadSheetSvg() {
-  const svg = renderSheetSvg(preset(), card.boxes, { glyphProvider: glyphs.provider });
+  const svg = renderSheetSvg(preset(), card.boxes, {
+    glyphProvider: glyphs.provider,
+    faceRotate: card.faceRotate,
+  });
   if (!svg) return;
   downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `card_${card.preset}_sheet.svg`);
 }
@@ -302,24 +373,22 @@ export function init() {
     }
   };
 
-  $('card-add-text').onclick = () => {
-    const box = newTextBox(face(), { text: '寫點什麼' });
-    boxes().push(box);
-    selectedId = box.id;
-    scheduleRender();
-  };
+  $('card-add-text').onclick = () =>
+    armInsert('text', '在卡面拖出文字框範圍（點一下＝預設大小；Esc 取消）');
   buildKaomojiPicker();
   $('card-add-kaomoji').onclick = () => {
     const host = $('card-kaomoji-panel');
     host.style.display = host.style.display === 'none' ? '' : 'none';
   };
-  $('card-add-doodle').onclick = () => $('card-doodle-file').click();
+  $('card-add-doodle').onclick = () =>
+    armInsert('doodle', '在卡面拖出圖案放置區域，放開後選擇圖片（點一下＝預設大小）');
   $('card-doodle-file').addEventListener('change', (e) => {
     const f = e.target.files?.[0];
     if (f) insertDoodleFromImage(f);
     e.target.value = '';
   });
-  $('card-add-svg').onclick = () => $('card-svg-file').click();
+  $('card-add-svg').onclick = () =>
+    armInsert('svg', '在卡面拖出圖案放置區域，放開後選擇 SVG 檔（點一下＝預設大小）');
   $('card-svg-file').addEventListener('change', (e) => {
     const f = e.target.files?.[0];
     if (f) insertSvgFile(f);
@@ -355,6 +424,25 @@ export function init() {
     }
   });
   $('card-guides').addEventListener('change', scheduleRender);
+  $('card-portrait').addEventListener('change', () => {
+    card.portrait = $('card-portrait').checked;
+    // 換方向後既有框重新夾回面內
+    const f = face();
+    card.boxes[f.key] = (card.boxes[f.key] ?? []).map((b) => normalizeBox(b, f));
+    scheduleRender();
+  });
+  $('card-face-rotate').addEventListener('change', () => {
+    card.faceRotate[face().key] = $('card-face-rotate').checked;
+    scheduleRender();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && (pendingInsert || marqueeDrag)) {
+      pendingInsert = null;
+      marqueeDrag = null;
+      setInsertStatus('');
+      scheduleRender();
+    }
+  });
 
   $('card-dl-svg').onclick = downloadFaceSvg;
   $('card-dl-sheet').onclick = downloadSheetSvg;

@@ -271,3 +271,69 @@ test('R3 isBackgroundRect：滿版矩形判定（含 2% 容差）', () => {
   assert.equal(isBackgroundRect({ width: '50', height: '60' }, size), false);
   assert.equal(MAX_FRAG_CHARS >= 100000, true);
 });
+
+// ---- R3b：版面自由度（直式/左右對折/面翻轉設定/框選插入） ------------
+
+import { orientPreset, marqueeRect } from '../src/stroke_order/web/static/card/geometry.js';
+import { resolvePreset, newCard as newCard2 } from '../src/stroke_order/web/static/card/model.js';
+
+test('R3b a6_fold_lr：A5 橫式展開、垂直摺線 x=105、書式封面在右不旋轉', () => {
+  const p = CARD_PRESETS.a6_fold_lr;
+  assert.equal(p.sheet.w, 210);
+  assert.equal(p.sheet.h, 148);
+  assert.deepEqual(p.sheet.fold, { axis: 'v', at: 105 });
+  for (const f of p.faces) {
+    assert.equal(f.w, 105);
+    assert.equal(f.h, 148); // A6 直式面
+  }
+  const cover = p.sheet.placement.find((x) => x.face === 'cover');
+  assert.equal(cover.x, 105);            // 封面在右
+  assert.equal(cover.rotate180, false);  // 書式不旋轉
+  const line = sheetGuides(p.sheet);
+  assert.deepEqual(line, { x1: 105, y1: 0, x2: 105, y2: 148 });
+});
+
+test('R3b orientPreset：單面卡型寬高互換、對折卡型不吃直式旗標', () => {
+  const v = resolvePreset('business', null, true);
+  assert.equal(v.faces[0].w, 52);
+  assert.equal(v.faces[0].h, 90);
+  const fold = resolvePreset('a6_fold', null, true);
+  assert.equal(fold.faces[0].w, 148); // 不變
+  assert.equal(orientPreset(CARD_PRESETS.business, false).faces[0].w, 90);
+});
+
+test('R3b faceRotate：newCard 預設抄 preset、round-trip 保留覆寫', () => {
+  const tent = newCard2('a6_fold');
+  assert.deepEqual(tent.faceRotate, { cover: true, inside: false });
+  const lr = newCard2('a6_fold_lr');
+  assert.deepEqual(lr.faceRotate, { back: false, cover: false });
+  // 覆寫後序列化 round-trip
+  lr.faceRotate.cover = true;
+  const back = deserialize(serialize(lr));
+  assert.equal(back.faceRotate.cover, true);
+  // 直式旗標 round-trip
+  const p = newCard2('business', null, { portrait: true });
+  assert.equal(deserialize(serialize(p)).portrait, true);
+});
+
+test('R3b renderSheetSvg faceRotate 覆寫優先於 preset 預設', () => {
+  const preset = CARD_PRESETS.a6_fold_lr;
+  const boxes = { back: [], cover: [] };
+  // 預設書式：無 rotate(180)
+  assert.equal(renderSheetSvg(preset, boxes).includes('rotate(180)'), false);
+  // 覆寫封面翻轉 → 出現 rotate(180)
+  const svg = renderSheetSvg(preset, boxes, { faceRotate: { cover: true, back: false } });
+  assert.equal(svg.includes('rotate(180)'), true);
+  // 反向：tent 預設翻，覆寫關掉 → 消失
+  const tent = CARD_PRESETS.a6_fold;
+  const off = renderSheetSvg(tent, { cover: [], inside: [] }, { faceRotate: { cover: false, inside: false } });
+  assert.equal(off.includes('rotate(180)'), false);
+});
+
+test('R3b marqueeRect：正規化、太小回 null、保底最小框', () => {
+  const r = marqueeRect({ x: 30, y: 20 }, { x: 10, y: 40 });
+  assert.deepEqual(r, { x: 10, y: 20, w: 20, h: 20 });
+  assert.equal(marqueeRect({ x: 10, y: 10 }, { x: 11, y: 11 }), null); // 點一下
+  const thin = marqueeRect({ x: 0, y: 0 }, { x: 50, y: 1 }); // 拖很扁 → 高度保底
+  assert.equal(thin.h >= 8, true);
+});

@@ -61,11 +61,16 @@
         高 <input id="card-h" type="number" min="30" max="420" value="105"> mm
       </span>
       <label style="min-width:auto"><input id="card-guides" type="checkbox" checked> 安全邊界</label>
+      <label style="min-width:auto" id="card-portrait-wrap"><input id="card-portrait" type="checkbox"> 直式</label>
+      <label id="card-face-rotate-wrap" style="min-width:auto;display:none"
+             title="展開列印版中，此面是否旋轉 180°（上下對折的封面慣例要翻；左右對折書式不用）">
+        <input id="card-face-rotate" type="checkbox"> 本面列印翻轉180°</label>
     </div>
     <div id="card-face-tabs"></div>
     <div id="card-stage"></div>
-    <p class="muted">點擊文字選取框；拖曳移動、右下角把手縮放。對折卡以「面」分頁編輯，
-      「展開列印版」會把封面自動旋轉 180°（tent fold 慣例）並附摺線。</p>
+    <p class="muted">點擊內容選取框；拖曳移動、右下角把手縮放。「＋」按鈕按下後可直接在卡面
+      <b>拖出放置區域</b>（點一下＝預設大小、Esc 取消）。對折卡以「面」分頁編輯；展開列印版
+      附摺線，各面是否翻轉 180° 可用上方核取方塊調整（上下對折封面預設翻、左右對折書式預設不翻）。</p>
   </div>
 
   <aside>
@@ -139,6 +144,6 @@
   </aside>
 </div>
 
-<script type="module" src="/static/card/main.js?v=225"></script>
+<script type="module" src="/static/card/main.js?v=226"></script>
 </body>
 </html>

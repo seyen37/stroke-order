@@ -119,13 +119,23 @@ export function guidesMarkup(face) {
 
 //: 單面 SVG。mode: 'edit'（含框線/導引/選取）| 'export'（純內容）。
 export function renderFaceSvg(face, boxes, opts = {}) {
-  const { mode = 'export', selectedId = null, glyphProvider = null, showGuides = false } = opts;
+  const {
+    mode = 'export', selectedId = null, glyphProvider = null,
+    showGuides = false, marquee = null,
+  } = opts;
   const parts = [];
   parts.push(`<rect x="0" y="0" width="${face.w}" height="${face.h}" fill="#ffffff"/>`);
   if (mode === 'edit' && showGuides) parts.push(guidesMarkup(face));
   for (const box of boxes) {
     parts.push(boxContentMarkup(box, glyphProvider));
     if (mode === 'edit') parts.push(boxChromeMarkup(box, box.id === selectedId));
+  }
+  if (mode === 'edit' && marquee) {
+    parts.push(
+      `<rect x="${marquee.x}" y="${marquee.y}" width="${marquee.w}" height="${marquee.h}"` +
+      ` fill="rgba(25,118,210,0.08)" stroke="#1976d2" stroke-width="0.3"` +
+      ` stroke-dasharray="1.5 1"/>`,
+    );
   }
   return (
     `<svg xmlns="${XMLNS}" width="${face.w}mm" height="${face.h}mm"` +
@@ -137,14 +147,16 @@ export function renderFaceSvg(face, boxes, opts = {}) {
 export function renderSheetSvg(preset, boxesByFace, opts = {}) {
   const sheet = preset.sheet;
   if (!sheet) return null;
-  const { glyphProvider = null, showFoldLine = true } = opts;
+  const { glyphProvider = null, showFoldLine = true, faceRotate = null } = opts;
   const parts = [];
   parts.push(`<rect x="0" y="0" width="${sheet.w}" height="${sheet.h}" fill="#ffffff"/>`);
   for (const place of sheet.placement) {
     const face = preset.faces.find((f) => f.key === place.face);
     const boxes = boxesByFace[place.face] ?? [];
     const inner = boxes.map((b) => boxContentMarkup(b, glyphProvider)).join('');
-    const rot = place.rotate180
+    // R3b：faceRotate 覆寫優先於 preset 預設
+    const doRotate = faceRotate?.[place.face] ?? place.rotate180;
+    const rot = doRotate
       ? ` transform="translate(${place.x + face.w},${place.y + face.h}) rotate(180)"`
       : ` transform="translate(${place.x},${place.y})"`;
     parts.push(`<g${rot}>${inner}</g>`);

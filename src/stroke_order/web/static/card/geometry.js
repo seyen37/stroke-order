@@ -17,7 +17,7 @@ export const CARD_PRESETS = {
   },
   a6_fold: {
     key: 'a6_fold',
-    label: 'A6 橫式對折卡（A5 展開）',
+    label: '上下對折 → A6 橫式面（A5 直式展開）',
     faces: [
       { key: 'cover', label: '封面', w: 148, h: 105 },
       { key: 'inside', label: '內頁', w: 148, h: 105 },
@@ -26,14 +26,56 @@ export const CARD_PRESETS = {
       w: 148,
       h: 210,
       fold: { axis: 'h', at: 105 }, // 水平摺線 y=105
-      // 列印慣例：tent fold 上半面（封面）旋轉 180°，下半面（內頁）正放
+      // 列印慣例：tent fold 上半面（封面）預設旋轉 180°——
+      // R3b 起 rotate180 只是「預設值」，實際以 card.faceRotate 為準。
       placement: [
         { face: 'cover', x: 0, y: 0, rotate180: true },
         { face: 'inside', x: 0, y: 105, rotate180: false },
       ],
     },
   },
+  // R3b：左右對折（書式，QODA 定案封面在右）。A5 橫式展開沿垂直中線
+  // 對折 → 兩面 A6 直式 105×148；單面列印、印面向外，兩半皆正放不旋轉。
+  a6_fold_lr: {
+    key: 'a6_fold_lr',
+    label: '左右對折 → A6 直式面（A5 橫式展開，書式）',
+    faces: [
+      { key: 'cover', label: '封面（右半）', w: 105, h: 148 },
+      { key: 'back', label: '封底（左半）', w: 105, h: 148 },
+    ],
+    sheet: {
+      w: 210,
+      h: 148,
+      fold: { axis: 'v', at: 105 }, // 垂直摺線 x=105
+      placement: [
+        { face: 'back', x: 0, y: 0, rotate180: false },
+        { face: 'cover', x: 105, y: 0, rotate180: false },
+      ],
+    },
+  },
 };
+
+//: R3b 直式切換：單面卡型（business/custom）寬高互換；對折卡型的
+//: 方向由摺法決定（上下對折＝橫式面、左右對折＝直式面），不吃此旗標。
+export function orientPreset(preset, portrait) {
+  if (!portrait || preset.sheet) return preset;
+  return {
+    ...preset,
+    label: `${preset.label}（直式）`,
+    faces: preset.faces.map((f) => ({ ...f, w: f.h, h: f.w })),
+  };
+}
+
+//: R3b 框選插入：兩個 mm 點 → 正規化矩形；拖距太小視為「點一下」回 null
+//: （呼叫端用預設大小放在點擊處）。
+export function marqueeRect(a, b, minDragMm = 3) {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  const w = Math.abs(a.x - b.x);
+  const h = Math.abs(a.y - b.y);
+  if (w < minDragMm && h < minDragMm) return null;
+  return { x, y, w: Math.max(w, MIN_BOX_MM), h: Math.max(h, MIN_BOX_MM) };
+}
 
 export const DEFAULT_PRESET = 'business';
 export const SAFE_MARGIN_MM = 5;   // 安全邊界（參考：賀卡慣例 3–6mm）

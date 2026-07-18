@@ -18,23 +18,29 @@
 //                    （frag 僅能來自 svgimport.sanitizeSvgText 的輸出）
 // ======================================================================
 
-import { CARD_PRESETS, DEFAULT_PRESET, customPreset, normalizeBox } from './geometry.js';
+import { CARD_PRESETS, DEFAULT_PRESET, customPreset, normalizeBox, orientPreset } from './geometry.js';
 
 export const SCHEMA = 'stroke-order-card-v1';
 export const STORAGE_KEY = 'card:draft';
 
 let _seq = 0;
 
-export function newCard(presetKey = DEFAULT_PRESET, custom = null) {
-  const preset = resolvePreset(presetKey, custom);
+export function newCard(presetKey = DEFAULT_PRESET, custom = null, opts = {}) {
+  const portrait = !!opts.portrait;
+  const preset = resolvePreset(presetKey, custom, portrait);
   const boxes = {};
+  const faceRotate = {};
   for (const f of preset.faces) boxes[f.key] = [];
-  return { schema: SCHEMA, preset: presetKey, custom, boxes };
+  // R3b：每面「展開列印翻轉 180°」為可設定值，預設抄 preset placement 慣例
+  for (const pl of preset.sheet?.placement ?? []) faceRotate[pl.face] = !!pl.rotate180;
+  return { schema: SCHEMA, preset: presetKey, custom, portrait, faceRotate, boxes };
 }
 
-export function resolvePreset(presetKey, custom = null) {
-  if (presetKey === 'custom') return customPreset(custom?.w, custom?.h);
-  return CARD_PRESETS[presetKey] ?? CARD_PRESETS[DEFAULT_PRESET];
+export function resolvePreset(presetKey, custom = null, portrait = false) {
+  const base = presetKey === 'custom'
+    ? customPreset(custom?.w, custom?.h)
+    : (CARD_PRESETS[presetKey] ?? CARD_PRESETS[DEFAULT_PRESET]);
+  return orientPreset(base, portrait);
 }
 
 export function newTextBox(face, init = {}) {
@@ -117,8 +123,16 @@ export function deserialize(json) {
     return null;
   }
   if (!obj || obj.schema !== SCHEMA) return null;
-  const preset = resolvePreset(obj.preset, obj.custom);
-  const card = newCard(obj.preset in CARD_PRESETS || obj.preset === 'custom' ? obj.preset : DEFAULT_PRESET, obj.custom ?? null);
+  const portrait = !!obj.portrait;
+  const preset = resolvePreset(obj.preset, obj.custom, portrait);
+  const card = newCard(
+    obj.preset in CARD_PRESETS || obj.preset === 'custom' ? obj.preset : DEFAULT_PRESET,
+    obj.custom ?? null,
+    { portrait },
+  );
+  for (const k of Object.keys(card.faceRotate)) {
+    if (typeof obj.faceRotate?.[k] === 'boolean') card.faceRotate[k] = obj.faceRotate[k];
+  }
   for (const f of preset.faces) {
     const list = Array.isArray(obj.boxes?.[f.key]) ? obj.boxes[f.key] : [];
     card.boxes[f.key] = list
