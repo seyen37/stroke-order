@@ -2428,6 +2428,28 @@ def test_5dt_cellmap_flows_through_api(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# 5en：逐字手寫範字要符合字型風格（篆/隸…）——用預覽已渲染字形，非系統字型
+# ---------------------------------------------------------------------------
+
+
+def test_5en_handwrite_ref_uses_styled_preview_glyph():
+    """swBuildRefImg 從抄經預覽的 範字 圖層（篆/隸 skeleton 等）建 styled 範字，
+    swDrawBase 優先用之、缺時才 fallback 系統字型 fillText。"""
+    from fastapi.testclient import TestClient
+    from stroke_order.web.server import app
+    html = TestClient(app).get("/").text
+    assert "function swBuildRefImg" in html
+    # 從抄經預覽的 範字 圖層 clone（含篆/隸 skeleton），排除 user/marks/cellmap
+    assert '"sutra-glyph-reference", "sutra-trace"' in html
+    assert '"sutra-trace-skeleton"' in html
+    # swDrawBase 優先用 styled 範字（drawImage），非 styled 才 fillText fallback
+    assert "if (SW.refImg)" in html
+    assert "ctx.drawImage(SW.refImg" in html
+    # swLoadCurrent 每字重建 refImg
+    assert "swBuildRefImg(cur)" in html
+
+
+# ---------------------------------------------------------------------------
 # 5dv：逐字手寫送出後，使用者手寫（centerline）要可見，不能落到 0.03 骨架層
 # ---------------------------------------------------------------------------
 

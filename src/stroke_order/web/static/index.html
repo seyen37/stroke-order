@@ -9787,7 +9787,64 @@ const SW = {
                      // → clearing + submit deletes it (reverts to 描紅範本)
   anim: null,        // 5eb: requestAnimationFrame handle while replaying 筆順
   demoWriter: null,  // 5ec: hanzi-writer instance while showing 標準筆順示範
+  refImg: null,      // 5en: styled 範字 image (篆/隸 etc.) for the current char,
+                     // built from the preview's rendered glyph so the popup
+                     // reference matches the selected 字型風格 (not a system font)
 };
+
+// 5en: build a faint reference-glyph <img> for the current cell from the
+// ALREADY-RENDERED 抄經 preview, cropped to that cell's bbox. This makes the
+// popup 範字 match the selected 字型風格 (篆書/隸書/宋…) instead of the browser
+// system font that ctx.fillText would draw. Returns a loaded Image, or null
+// (缺字 / no preview / error) → swDrawBase falls back to fillText.
+async function swBuildRefImg(cur) {
+  try {
+    const previewEl = document.getElementById("st-preview");
+    if (!previewEl) return null;
+    const rect = previewEl.querySelector(
+      `#sutra-cellmap rect[data-pos="${cur.pos}"]`);
+    const svg = previewEl.querySelector("svg");
+    if (!rect || !svg) return null;
+    const bb = rect.getBBox();               // cell bbox in SVG user units
+    if (!bb || bb.width <= 0 || bb.height <= 0) return null;
+    const NS = "http://www.w3.org/2000/svg";
+    const out = document.createElementNS(NS, "svg");
+    out.setAttribute("xmlns", NS);
+    out.setAttribute("viewBox", `${bb.x} ${bb.y} ${bb.width} ${bb.height}`);
+    out.setAttribute("width", "360");
+    out.setAttribute("height", "360");
+    // Clone the 範字 layers (reference / trace / skeleton) — NOT the user
+    // handwriting, marks or cellmap — and recolour to a clearly-visible light
+    // grey (the print layers use very low opacity that would be invisible here).
+    let has = false;
+    for (const id of ["sutra-glyph-reference", "sutra-trace",
+                      "sutra-trace-skeleton"]) {
+      const g = svg.querySelector("#" + id);
+      if (!g) continue;
+      const clone = g.cloneNode(true);
+      clone.removeAttribute("id");
+      clone.setAttribute("opacity", "1");
+      const f = clone.getAttribute("fill");
+      const s = clone.getAttribute("stroke");
+      if (f && f !== "none") clone.setAttribute("fill", "#c8c8c8");
+      if (s && s !== "none") clone.setAttribute("stroke", "#c8c8c8");
+      out.appendChild(clone);
+      has = true;
+    }
+    if (!has) return null;
+    const xml = new XMLSerializer().serializeToString(out);
+    const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+    return await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  } catch (e) {
+    console.warn("swBuildRefImg failed", e);
+    return null;
+  }
+}
 
 function swInit() {
   const $ = id => document.getElementById(id);
@@ -9870,9 +9927,15 @@ async function swLoadCurrent() {
   const cur = SW.positions[SW.index];
   SW.strokes = [];
   SW.hadSaved = false;   // 5dy: reset; set true only if an entry preloads
+  SW.refImg = null;      // 5en: rebuild styled 範字 for this char
   document.getElementById("sw-current-char").textContent = cur.char;
   document.getElementById("sw-progress").textContent =
     `第 ${SW.index + 1} / ${SW.positions.length} 字`;
+  // 5en: styled reference glyph (篆/隸…) from the preview; drawn faint by
+  // swDrawBase so the popup 範字 matches 字型風格. Refresh before first redraw.
+  swBuildRefImg(cur).then((img) => {
+    if (SW.positions[SW.index] === cur) { SW.refImg = img; swRedraw(); }
+  });
   const st = document.getElementById("sw-status");
   st.textContent = ""; st.style.color = "var(--muted)";
   // Preload any handwriting the user already saved for this char (edit mode).
@@ -10024,13 +10087,22 @@ function swDrawBase(ctx, W, H) {
   ctx.clearRect(0, 0, W, H);
   const cur = SW.positions[SW.index];
   if (cur && document.getElementById("sw-show-ref").checked) {
-    ctx.save();
-    ctx.fillStyle = "#dcdcdc";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `${Math.round(H * 0.82)}px 'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif`;
-    ctx.fillText(cur.char, W / 2, H / 2 + H * 0.02);
-    ctx.restore();
+    if (SW.refImg) {
+      // 5en: styled 範字 (篆/隸/宋…) rendered from the preview glyph — matches
+      // the selected 字型風格 instead of a system-font fallback.
+      ctx.drawImage(SW.refImg, 0, 0, W, H);
+    } else {
+      // fallback: system font (缺字 / no preview / non-抄經 caller). Approximates
+      // kaishu/song; note it will NOT match 篆/隸 — only used when the styled
+      // glyph is unavailable.
+      ctx.save();
+      ctx.fillStyle = "#dcdcdc";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `${Math.round(H * 0.82)}px 'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif`;
+      ctx.fillText(cur.char, W / 2, H / 2 + H * 0.02);
+      ctx.restore();
+    }
   }
   // 米字格
   ctx.strokeStyle = "#e8e8e8"; ctx.lineWidth = 1;
