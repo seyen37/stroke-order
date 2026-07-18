@@ -1793,6 +1793,108 @@ data-pos、escape 規則不同）都讓前端悄悄接不到、且很難一眼�
 
 ---
 
+## 28. 宣告式 registry：先「純重構立 seam」一個 commit、再沿 seam 加功能（2026-07-18 5ef 新增）
+
+要把散落的參數（函式引數、模組常數）收斂成宣告式 registry、且接下來會長出
+多個變體時，把「搬家」和「加新演算法」拆成**兩個 commit**：先做純重構、行為
+逐位元保存（既有測試全綠即證），再引入第一個真正的新行為。5ef 先立
+`CuttingStyle`＋`CUTTING_STYLES` seam（只有 1 entry、全連派、殘腔 0，與重構前
+逐位元相同），5eg 才引入 envelope 第二風格；之後 5ei/5ej/5eo 四個功能都沿同
+一 seam 乾淨長出、每個都是小 diff。
+
+判準：**registry 只有 1 entry 常被當成 YAGNI 警訊——但當第二消費者「已規劃」
+（文件藍圖／使用者點名／已設計），它就從臆測變已規劃，值得先立。關鍵是拆
+commit：一旦沿 seam 的新演算法出錯，純重構那個 commit 讓你能一眼排除「是不是
+搬家搬壞的」。** 反面：重構與新演算法混一個 diff，鏤空幾何一錯就分不清病灶。
+
+---
+
+## 29. 單一連通 blob 上的局部幾何量測會 leak：巢狀深度用 Jordan 最小穿牆、別用形態學層剝（2026-07-18 5eg／R1 dead-end 新增）
+
+要問「這個孔被幾層墨包住」（巢狀深度），對**單一連通 blob**（漢字墨跡幾乎
+總是）要用 Jordan 曲線定理：從孔往外射四條軸向射線，被 d 層 loop 包住的孔
+任一射線至少穿 d 次牆，**最小**的那個方向恰等於 d（`_hole_depths`）。**不要**
+用形態學層剝（erode 幾次到消失）——層剝量的是「到 blob 邊界的距離」，不是
+「包覆層數」，在單一 blob 上會給出完全錯的深度。
+
+同一弧的反面教材：完整 R1（keep_primary=structural）試圖在交接處量筆畫的
+垂直 run 長度來判主幹，沙箱實測切掉了長橫主幹——因為 run 會 **blob-leak** 進
+相連筆畫，量到的是墨團尺寸不是單根筆畫長度，退化成長寬比。已 revert、未提交。
+
+判準：**在單一連通 blob 上做任何局部幾何量測前，先問「這個量測會不會漏進
+相連的結構」。孔巢狀深度有 Jordan 全域解；筆畫級量測（主幹判定）繞不開骨架
+切分——若骨架太貴（dense 字形 OOM），就別假裝局部量測能替代它。**
+
+---
+
+## 30. 切割方向↔牆是對偶：「保某方向筆畫」＝「懲罰切它的射線」，可調量放 runtime 旋鈕別放身份欄位（2026-07-18 5ei/5ej/5eo 新增）
+
+鏤空切割的射線方向與它切斷的牆**正交**——水平射線切的是豎筆、垂直射線切的是
+橫筆。所以要「直豎筆別從中切」不需要偵測每根筆畫在哪（那要骨架，見 §29），
+只需在逃逸評分 `_escape_score` 裡對「切豎筆的方向＝水平射線」加懲罰
+（BIAS 1.6）。5eo 把 physical 也統一成此 `vertical_first`。連框方向同理：
+5eo 每個 component 連最近框邊＋一根 90° 垂直方向第二 spoke，破解「連框線全同
+方向」。
+
+配套：**可調量（連筋深度 envelope_depth）是 runtime 旋鈕、不是 style 欄位。**
+CuttingStyle 定義風格身份（envelope vs physical），深度是使用者當下旋鈕值——
+塞進身份欄位會逼出 envelope-1／envelope-2… 一堆偽風格。runtime 參數覆蓋風格
+預設才是正交分解。
+
+判準：**方向性幾何操作，先找「操作方向 ↔ 受影響對象」的對偶，用加權啟發式
+取代顯式偵測；把「風格是誰」與「使用者當下調到多少」分成宣告欄位 vs runtime
+參數兩個正交軸。**
+
+---
+
+## 31. 同源演算法有多消費點：改進要一次套齊，帶快取的消費點 tuning 參數必須進 cache key（2026-07-18 5eh/5ek/5el/5em 新增）
+
+一個平滑/簡化演算法（Chaikin、RDP）常有多個等價消費點——骨架描紅（5ed）、
+塗鴉中心線、字帖自訂字型 grid。改進要**一次套齊所有消費點**否則體驗分裂；
+把強度開成 UI 旋鈕時，塗鴉與字帖要**對稱**（都給平滑＋簡化）。踩到的坑：
+`fontCharTracks` 有記憶化快取，**cache key 必須併入 tuning 參數（iters+eps）**，
+否則使用者調旋鈕會拿到舊軌跡（快取沒失效）——這是 §15.8「快取破壞要涵蓋整個
+依賴圖」在使用者可調參數上的再驗。（純 JS 靜態檔改動記得 bump `?v=` 三處
+lockstep，§15.8／收工陷阱；只改 index.html 主頁免 bump。）
+
+判準：**同源演算法改進要枚舉所有消費點一次套齊；任何「輸入→快取→輸出」的
+消費點，凡會影響輸出的 tuning 參數都必須是 cache key 的一部分，否則旋鈕失效
+於快取。**
+
+---
+
+## 32. 要顯示 styled 字形而瀏覽器無該字型時，reuse 伺服器已渲進預覽的 SVG 字形、別 canvas fillText（2026-07-18 5en 新增）
+
+逐字手寫範字要顯示篆/隸字形，但這些字形是**伺服器渲染的 SVG**、瀏覽器本地
+沒有這些字型——`ctx.fillText` 只會落回系統 sans/楷。正解：伺服器早已把正確
+字形渲進抄經預覽 SVG 了，前端 reuse 它——`swBuildRefImg` clone 範字圖層
+（glyph-reference/trace/trace-skeleton，**排除** user/marks/cellmap）、裁到
+該格 cellmap rect bbox、recolor、載成 Image 疊在 canvas。缺字→範字空白（誠實）。
+
+判準：**當前端要呈現一個「只有伺服器有正確字型/渲染能力」的 styled 字形，
+第一選擇是 reuse 伺服器已經渲染進頁面某處的那份 SVG（clone＋裁＋recolor），
+不要在前端用系統字型硬畫（只會出系統楷/黑）。**
+
+---
+
+## 33. 修「JS 讀哪個 DOM 元素」的 bug，e2e 必須對真實渲染的元素跑；注入 mock 會遷就錯誤假設而假性通過（2026-07-18 5en→5ep 新增）
+
+5en 的 `swBuildRefImg` 讀 `getElementById("st-preview")`，但 `st-`＝印章
+stamp、抄經是 `su-`（`su-preview`）——production 抓到印章預覽（抄經模式無
+cellmap）→回 null→fallback 楷書，**部署後使用者重報同一 bug**。為什麼 5en
+測試沒抓到：它的 e2e 用**注入的 mock st-preview**、pytest 只鎖字串 wiring——
+沒有一個測試對真實 sutraRender 產出的 su-preview 跑。mock 遷就了「元素叫
+st-preview」這個錯誤假設，於是假性通過。5ep 修一詞（st→su）＋補 `e2e_5ep`
+對真實 sutraRender 跑（切抄經→產生預覽→等真 `#su-preview #sutra-cellmap`→
+swOpen→驗 `SW.refImg` 為已載入 HTMLImageElement）。
+
+判準：**修「程式讀/寫哪個具名資源（DOM id、檔名、key、端點）」的 bug，端到端
+測必須對真實產生那個資源的路徑跑；用注入 mock 只會遷就你對名字的（可能錯的）
+假設而假性通過。mock 驗邏輯、真實渲染/整合驗接線，兩者缺一不可。** 記憶點：
+本專案抄經＝`su-`（sutra）、印章＝`st-`（stamp），前綴極易混。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1816,6 +1918,11 @@ data-pos、escape 規則不同）都讓前端悄悄接不到、且很難一眼�
   - [`WORK_LOG_2026-07-17.md`](WORK_LOG_2026-07-17.md)（5dw+5dx
     逐字手寫延伸到表格頁：5dw 週期表（table 分支能力偵測轉發 emit_cellmap）
     ＋5dx 部首/倉頡/注音（抽共用 cellmap emitter、三自繪 renderer 各吐疊層））
+  - [`WORK_LOG_2026-07-18.md`](WORK_LOG_2026-07-18.md)（5ea→5ep
+    全日大弧：抄經 500 修復＋逐字手寫▶播放/✎示範＋骨架/PDF 手寫層；切割風格
+    registry 五弧（5ef 純重構→envelope→keep_primary→深度旋鈕→鏤空方向）＋
+    中心線 Chaikin/RDP UI 四弧（塗鴉/字帖對稱）＋styled 逐字手寫範字（5en→5ep
+    st/su 前綴修復）；含 5ef~5ep 收工總結節）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -1831,6 +1938,7 @@ data-pos、escape 規則不同）都讓前端悄悄接不到、且很難一眼�
   - [`2026-07-16_5dp_5dv_sutra_periodic_handwrite.md`](decisions/2026-07-16_5dp_5dv_sutra_periodic_handwrite.md)（抄經深化弧：502 成本模型＋著作權治理＋週期表三迭代＋逐字手寫＋渲染分流，對應 §19–§25）
   - [`2026-07-17_5dw_periodic_handwrite.md`](decisions/2026-07-17_5dw_periodic_handwrite.md)（逐字手寫延伸表格頁：單一未轉發旗標＋registry 能力偵測分派＋重用複利，對應 §26）
   - [`2026-07-17_5dx_table_handwrite.md`](decisions/2026-07-17_5dx_table_handwrite.md)（逐字手寫延伸部首/倉頡/注音：跨層契約單一真相源＋可寫格語意邊界，對應 §27）
+  - [`2026-07-18_5ef_5ep_stencil_registry_centerline_styled.md`](decisions/2026-07-18_5ef_5ep_stencil_registry_centerline_styled.md)（切割 registry 純重構先立 seam＋Jordan 巢狀深度/blob-leak＋方向↔牆對偶/runtime 旋鈕＋同源平滑套全消費點/cache key＋styled 字形 reuse 伺服器 SVG＋真實渲染 e2e/su-st 前綴，對應 §28–§33）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1841,4 +1949,4 @@ data-pos、escape 規則不同）都讓前端悄悄接不到、且很難一眼�
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§27 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§33 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e）。三者互補。
