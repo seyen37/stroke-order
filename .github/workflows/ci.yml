@@ -56,4 +56,41 @@ jobs:
           STROKE_ORDER_AUTH_DEV_MODE: "true"
           STROKE_ORDER_AUTH_SECRET: "ci-test-secret-aaaaaaaaaaaaaaaaaaaaaaaa"
         run: |
-          pytest tests/ -v --tb=short
+          pytest tests/ -v --tb=short --junitxml=pytest-report.xml
+
+      # W1-C (arch review 2026-07-18): fonts are not fetched in CI, so
+      # font-dependent tests skip (~57). Guard against *silent* skip
+      # inflation -- a jump past the threshold means something new broke.
+      - name: Guard against silent skip inflation
+        run: |
+          python - <<'PYEOF'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("pytest-report.xml").getroot()
+          suite = root if root.tag == "testsuite" else root.find("testsuite")
+          skipped = int(suite.attrib.get("skipped", 0))
+          total = int(suite.attrib.get("tests", 0))
+          print(f"skipped {skipped} / {total}")
+          THRESHOLD = 70
+          assert skipped <= THRESHOLD, (
+              f"skip count {skipped} > {THRESHOLD}: new tests are being "
+              "silently skipped in CI -- run 'pytest -rs' locally to see why"
+          )
+          PYEOF
+
+  # W1-C (arch review 2026-07-18): the 11 tests/*.mjs files (257 node
+  # tests) previously had NO automated gate anywhere -- they only ran
+  # when someone remembered to run them by hand.
+  node-tests:
+    name: node --test (mjs)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run node tests
+        run: node --test tests/*.mjs

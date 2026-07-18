@@ -29,6 +29,17 @@ if errorlevel 1 (
 )
 
 echo.
+echo === [2b/3] node tests (tests\*.mjs) ===
+where node >nul 2>nul
+if errorlevel 1 (
+    echo WARNING: node not found -- mjs tests SKIPPED on this machine.
+    echo          CI will still run them on push.
+    pause
+) else (
+    for %%f in (tests\*.mjs) do node --test "%%f" || goto :nodefail
+)
+
+echo.
 echo === [3/3] tests green -- committing ===
 REM pick the newest prepared commit-message file automatically
 set "MSGFILE="
@@ -51,3 +62,11 @@ echo Reminder: README badges must match THIS run's pytest output
 echo           (tests count) and pyproject.toml (version). Copy the
 echo           actual numbers -- never use expected/estimated values.
 pause
+
+goto :eof
+:nodefail
+echo.
+echo ******** NODE TESTS FAILED -- NOT committing. ********
+echo ******** Paste the failures above to Claude. ********
+pause
+exit /b 1

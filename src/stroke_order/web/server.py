@@ -41,6 +41,7 @@ from fastapi.responses import (
     PlainTextResponse,
     Response,
 )
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -819,13 +820,31 @@ def create_app() -> FastAPI:
         description="中文字 → 向量筆跡轉換器（寫字機器人專用）",
     )
 
+    # W1-B（架構健檢 2026-07-18）：大型 SVG/JSON 回應壓縮。心經整頁 SVG
+    # 1.25MB → 約 150KB；zhuyin_tw.json 454KB → 約 60KB。
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+    # W1-B：/static 快取策略——帶 ?v= 版本參數的資源可長快取（URL 即快取
+    # 鍵，改版即失效，見 PRINCIPLES §11.4）；未帶版本的短快取靠 ETag 再驗證。
+    @app.middleware("http")
+    async def _static_cache_headers(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static/") and response.status_code == 200:
+            if "v" in request.query_params:
+                response.headers.setdefault(
+                    "Cache-Control", "public, max-age=604800"
+                )
+            else:
+                response.headers.setdefault("Cache-Control", "public, max-age=3600")
+        return response
+
     if STATIC_DIR.is_dir():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     # ------ root index ---------------------------------------------------
 
     @app.get("/", include_in_schema=False)
-    async def index():
+    def index():
         index_path = STATIC_DIR / "index.html"
         if not index_path.is_file():
             return PlainTextResponse(
@@ -836,7 +855,7 @@ def create_app() -> FastAPI:
 
     # 5bd: dedicated full-screen sutra editor (subpage)
     @app.get("/sutra-editor", include_in_schema=False)
-    async def sutra_editor_page():
+    def sutra_editor_page():
         page = STATIC_DIR / "sutra-editor.html"
         if not page.is_file():
             return PlainTextResponse(
@@ -851,7 +870,7 @@ def create_app() -> FastAPI:
     # especially valuable for fonts that lack real stroke-order data
     # (隸書 / 篆書 / 草書 / 行書).
     @app.get("/handwriting", include_in_schema=False)
-    async def handwriting_page():
+    def handwriting_page():
         page = STATIC_DIR / "handwriting.html"
         if not page.is_file():
             return PlainTextResponse(
@@ -864,7 +883,7 @@ def create_app() -> FastAPI:
     # ------ data endpoints ----------------------------------------------
 
     @app.get("/api/character/{char}")
-    async def character_data(
+    def character_data(
         char: str,
         source: str = Query("auto"),
         hook_policy: str = Query("animation"),
@@ -881,7 +900,7 @@ def create_app() -> FastAPI:
     # Lishu/seal force outline_mode='skip' to preserve the outline (the
     # default 'skeleton' mode would discard it — see 5bz).
     @app.get("/api/handwriting/reference/{char}")
-    async def handwriting_reference(
+    def handwriting_reference(
         char: str,
         style: str = Query("kaishu", pattern=_STYLE_PATTERN),
         source: str = Query("auto"),
@@ -907,7 +926,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/meta/{char}")
-    async def character_meta(
+    def character_meta(
         char: str,
         source: str = Query("auto"),
         hook_policy: str = Query("animation"),
@@ -930,7 +949,7 @@ def create_app() -> FastAPI:
     # Backend logic lives in stroke_order.components.
 
     @app.get("/api/components/{char}")
-    async def components_data(char: str):
+    def components_data(char: str):
         """Component decomposition for a single character.
 
         Returns:
@@ -955,13 +974,13 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/coverset/list")
-    async def coverset_list():
+    def coverset_list():
         """List built-in cover-sets (metadata only — no char lists)."""
         from ..components import list_coversets
         return {"coversets": list_coversets()}
 
     @app.get("/api/coverset/{name}")
-    async def coverset_data(name: str):
+    def coverset_data(name: str):
         """Detailed cover-set: chars + decomposition stats.
 
         Returns name, title, source, url, size, chars (trad), chars_simp,
@@ -994,7 +1013,7 @@ def create_app() -> FastAPI:
     # ------ 組件家族反查＋部首教學路線 (Phase 5cd) ---------------------
 
     @app.get("/api/components/{char}/family")
-    async def components_family(
+    def components_family(
         char: str,
         coverset: str = Query("cjk_common_808"),
         limit: int = Query(50, ge=1, le=500),
@@ -1015,7 +1034,7 @@ def create_app() -> FastAPI:
             raise HTTPException(404, detail=f"Unknown cover-set {coverset!r}")
 
     @app.get("/api/radical-route")
-    async def radical_route_endpoint(
+    def radical_route_endpoint(
         coverset: str = Query("cjk_common_808"),
         min_family: int = Query(1, ge=1),
     ):
@@ -1036,7 +1055,7 @@ def create_app() -> FastAPI:
                 "route": route}
 
     @app.post("/api/coverage/recommend")
-    async def coverage_recommend(req: CoverageRecommendRequest):
+    def coverage_recommend(req: CoverageRecommendRequest):
         """Greedy set-cover: recommend next char(s) to write.
 
         Returns top-k recommendations + overall coverage status (covered
@@ -1085,7 +1104,7 @@ def create_app() -> FastAPI:
     # ------ 筆記模式 (notebook) -----------------------------------------
 
     @app.get("/api/notebook/capacity")
-    async def notebook_capacity(
+    def notebook_capacity(
         text: str = Query("", max_length=8000),
         preset: str = Query("large", pattern="^(small|medium|large|letter)$"),
         grid_style: str = Query("square",
@@ -1151,7 +1170,7 @@ def create_app() -> FastAPI:
         return cap
 
     @app.get("/api/notebook")
-    async def notebook(
+    def notebook(
         text: str = Query(..., min_length=1, max_length=4000),
         source: str = Query("auto"),
         hook_policy: str = Query("animation"),
@@ -1310,7 +1329,7 @@ def create_app() -> FastAPI:
     # ------ Phase 5s: POST variant for zones with svg_content ------------
 
     @app.post("/api/notebook")
-    async def notebook_post(req: NotebookPostRequest):
+    def notebook_post(req: NotebookPostRequest):
         """POST variant — accepts arbitrary-sized SVG content in zones."""
         from ..exporters.notebook import (
             flow_notebook, render_notebook_page_svg,
@@ -1382,7 +1401,7 @@ def create_app() -> FastAPI:
     # ------ 信紙模式 (letter) ------------------------------------------
 
     @app.get("/api/letter/capacity")
-    async def letter_capacity(
+    def letter_capacity(
         text: str = Query("", max_length=8000),
         preset: str = Query("A4", pattern="^(A4|A5|Letter)$"),
         line_height_mm: Optional[float] = Query(None, gt=3, le=30),
@@ -1430,7 +1449,7 @@ def create_app() -> FastAPI:
         return cap
 
     @app.get("/api/letter")
-    async def letter(
+    def letter(
         text: str = Query(..., min_length=1, max_length=8000),
         source: str = Query("auto"),
         hook_policy: str = Query("animation"),
@@ -1696,7 +1715,7 @@ def create_app() -> FastAPI:
     # ------ 稿紙模式 (manuscript) ---------------------------------------
 
     @app.get("/api/manuscript/capacity")
-    async def manuscript_capacity(
+    def manuscript_capacity(
         text: str = Query("", max_length=8000),
         preset: str = Query("300", pattern="^(300|200)$",
                             description="300 字 (25×12) | 200 字 (20×10)"),
@@ -1744,7 +1763,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/manuscript")
-    async def manuscript(
+    def manuscript(
         text: str = Query(..., min_length=1, max_length=8000),
         source: str = Query("auto"),
         hook_policy: str = Query("animation"),
@@ -1880,7 +1899,7 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/api/wordart/capacity")
-    async def wordart_capacity(
+    def wordart_capacity(
         shape: str = Query("circle", pattern=_SHAPE_PATTERN),
         shape_size_mm: float = Query(140.0, ge=10, le=400),
         sides: int = Query(6, ge=3, le=20),
@@ -1978,7 +1997,7 @@ def create_app() -> FastAPI:
         return info
 
     @app.get("/api/wordart")
-    async def wordart(
+    def wordart(
         shape: str = Query("circle", pattern=_SHAPE_PATTERN),
         shape_size_mm: float = Query(140.0, ge=10, le=400),
         sides: int = Query(6, ge=3, le=20),
@@ -2290,7 +2309,7 @@ def create_app() -> FastAPI:
     # 預設: center "咒" + ring 「臨兵鬥者皆陣列在前」(九字真言, N=9)
 
     @app.get("/api/mandala")
-    async def mandala(
+    def mandala(
         center_text: str = Query("咒", max_length=10),
         ring_text: str = Query("臨兵鬥者皆陣列在前", max_length=200),
         n_fold: Optional[int] = Query(
@@ -2491,7 +2510,7 @@ def create_app() -> FastAPI:
 
     # ------ 曼陀羅 preset 主題（5b r12） ----------------------------
     @app.get("/api/mandala/presets")
-    async def mandala_presets():
+    def mandala_presets():
         """List all mandala presets。前端用 dropdown change 套設定到 inputs。"""
         from ..exporters.mandala import list_mandala_presets
         return {"presets": list_mandala_presets()}
@@ -2503,7 +2522,7 @@ def create_app() -> FastAPI:
     # 暴露但不 silent default (D-C 強紀律弱預設)。
 
     @app.get("/api/zentangle/outline")
-    async def zentangle_outline(
+    def zentangle_outline(
         char: str = Query(..., min_length=1, max_length=1, description="single CJK char"),
         source: str = Query("moe_kaishu", description="font source key"),
         samples_per_curve: int = Query(8, ge=1, le=64, description="Bezier sampling density"),
@@ -2545,7 +2564,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/zentangle/sources")
-    async def zentangle_sources():
+    def zentangle_sources():
         """List available outline sources for the UI dropdown.
 
         Each entry: ``{key, label, ready}``. ``ready=False`` means the
@@ -2612,7 +2631,7 @@ def create_app() -> FastAPI:
                 "opentype_size": ot_size}
 
     @app.post("/api/doodle")
-    async def doodle(
+    def doodle(
         image: UploadFile = File(...),
         canvas_width_mm: float = Form(150.0),
         max_side_px: int = Form(200),
@@ -2637,7 +2656,7 @@ def create_app() -> FastAPI:
         from ..layouts import Annotation
 
         # Read uploaded image
-        body = await image.read()
+        body = image.file.read()
         try:
             img = PILImage.open(io.BytesIO(body))
         except Exception as e:
@@ -2692,7 +2711,7 @@ def create_app() -> FastAPI:
     # ------ 字帖 grid mode ---------------------------------------------
 
     @app.get("/api/grid")
-    async def grid(
+    def grid(
         chars: str = Query(..., min_length=1, max_length=40,
                            description="Characters to put on worksheet"),
         source: str = Query("auto"),
@@ -2828,7 +2847,7 @@ def create_app() -> FastAPI:
     # ------ file download -----------------------------------------------
 
     @app.get("/api/export/{char}")
-    async def export(
+    def export(
         char: str,
         format: str = Query("svg", pattern="^(svg|gcode|json)$"),
         source: str = Query("auto"),
@@ -2881,7 +2900,7 @@ def create_app() -> FastAPI:
     # ------ CNS dictionary metadata (Phase 5al) -------------------------
 
     @app.get("/api/cns-status")
-    async def cns_status():
+    def cns_status():
         """Diagnostic: are the CNS fonts / Properties files present?"""
         from ..sources.cns_font import CNSFontSource, default_cns_font_dir
         from ..sources.cns_components import (
@@ -2900,7 +2919,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/seal-status")
-    async def seal_status():
+    def seal_status():
         """Phase 5at: 崇羲篆體 source state + mandatory CC BY-ND attribution.
 
         Frontend banners must surface ``attribution`` whenever
@@ -2918,7 +2937,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/lishu-status")
-    async def lishu_status():
+    def lishu_status():
         """Phase 5au: MoE 隸書 source state + mandatory attribution."""
         from ..sources.moe_lishu import default_lishu_font_path
         lishu = _get_lishu()
@@ -2932,7 +2951,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/song-status")
-    async def song_status():
+    def song_status():
         """Phase 5av: MoE 標準宋體 source state + mandatory attribution.
 
         When ``ready=True`` the layered :func:`_upgrade_to_sung` will
@@ -2951,7 +2970,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/kaishu-status")
-    async def kaishu_status():
+    def kaishu_status():
         """Phase 5aw: MoE 標準楷書 source state + mandatory attribution.
 
         When ``ready=True`` the source is wired into AutoSource as a
@@ -2971,7 +2990,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/decompose/{char}")
-    async def cns_decompose(char: str):
+    def cns_decompose(char: str):
         """Return ``CNS_component.txt`` decomposition for ``char``."""
         from ..sources.cns_components import CNSComponents
         if len(char) != 1:
@@ -2987,7 +3006,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/cns-stroke-diagnostics/{char}")
-    async def cns_stroke_diagnostics(char: str):
+    def cns_stroke_diagnostics(char: str):
         """Phase 5ap-A3a: compare canonical stroke spec vs actual skeleton.
 
         Returns canonical N-stroke layout (from CNS_strokes_sequence.txt)
@@ -3039,7 +3058,7 @@ def create_app() -> FastAPI:
     # ------ User dictionary CRUD (Phase 5ak) ----------------------------
 
     @app.get("/api/user-dict")
-    async def user_dict_list():
+    def user_dict_list():
         """Return the list of user-authored characters with previews."""
         from ..sources.user_dict import UserDictSource
         src = UserDictSource()
@@ -3060,7 +3079,7 @@ def create_app() -> FastAPI:
     # Phase 5ar — bulk endpoints. Registered BEFORE ``/{char}`` so FastAPI
     # doesn't route ``/export`` and ``/import`` into the single-char getter.
     @app.get("/api/user-dict/export")
-    async def user_dict_export(style: str = Query("")):
+    def user_dict_export(style: str = Query("")):
         """Stream every user-dict entry as one ZIP.
 
         5dz: ``style`` (optional) names the download after the current 字型
@@ -3085,7 +3104,7 @@ def create_app() -> FastAPI:
         )
 
     @app.post("/api/user-dict/import")
-    async def user_dict_import(
+    def user_dict_import(
         file: UploadFile = File(...),
         policy: str = Form("skip"),
     ):
@@ -3096,7 +3115,7 @@ def create_app() -> FastAPI:
                 422, detail=f"policy must be 'skip' or 'replace', got {policy!r}",
             )
         try:
-            zip_bytes = await file.read()
+            zip_bytes = file.file.read()
         except Exception as e:   # pragma: no cover
             raise HTTPException(400, detail=f"failed to read upload: {e}") from e
         src = UserDictSource()
@@ -3111,7 +3130,7 @@ def create_app() -> FastAPI:
         return summary
 
     @app.get("/api/user-dict/{char}")
-    async def user_dict_get(char: str):
+    def user_dict_get(char: str):
         from ..sources.user_dict import UserDictSource
         if len(char) != 1:
             raise HTTPException(400, detail="char must be a single character")
@@ -3136,7 +3155,7 @@ def create_app() -> FastAPI:
         }
 
     @app.post("/api/user-dict")
-    async def user_dict_post(req: UserDictPostRequest):
+    def user_dict_post(req: UserDictPostRequest):
         """Add or replace a user-dict entry. Three input formats:
 
         - ``json``        : ``strokes`` is the canonical track list
@@ -3195,7 +3214,7 @@ def create_app() -> FastAPI:
         }
 
     @app.delete("/api/user-dict/{char}")
-    async def user_dict_delete(char: str):
+    def user_dict_delete(char: str):
         from ..sources.user_dict import UserDictSource
         if len(char) != 1:
             raise HTTPException(400, detail="char must be a single character")
@@ -3220,7 +3239,7 @@ def create_app() -> FastAPI:
     _PATCH_FORMAT_PATTERN = "^(svg|gcode_cut|gcode_write|dxf)$"
 
     @app.get("/api/patch/capacity")
-    async def patch_capacity_endpoint(
+    def patch_capacity_endpoint(
         preset: str = Query("rectangle", pattern=_PATCH_PRESET_PATTERN),
         patch_width_mm: float = Query(80.0, ge=10, le=500),
         patch_height_mm: float = Query(40.0, ge=10, le=500),
@@ -3243,7 +3262,7 @@ def create_app() -> FastAPI:
         )
 
     @app.post("/api/patch")
-    async def patch_post(req: PatchPostRequest):
+    def patch_post(req: PatchPostRequest):
         """POST variant — needed because GET URL length caps at ~2KB
         and a single base64-embedded SVG decoration easily blows past."""
         from ..exporters.patch import (
@@ -3319,7 +3338,7 @@ def create_app() -> FastAPI:
                                  _content_disposition("patch_write", "gcode")})
 
     @app.get("/api/patch")
-    async def patch_get(
+    def patch_get(
         text: str = Query("", max_length=2000),
         preset: str = Query("rectangle", pattern=_PATCH_PRESET_PATTERN),
         patch_width_mm: float = Query(80.0, ge=10, le=500),
@@ -3354,7 +3373,7 @@ def create_app() -> FastAPI:
             format=format,
             show_border=show_border,
         )
-        return await patch_post(req)
+        return patch_post(req)
 
     # ------ 印章 (stamp) — Phase 5ay --------------------------------------
 
@@ -3376,7 +3395,7 @@ def create_app() -> FastAPI:
     _STAMP_OFF_SHORTCOL_PATTERN = "^(right|middle|left|mid-right|mid-left)$"
 
     @app.get("/api/stamp/capacity")
-    async def stamp_capacity_endpoint(
+    def stamp_capacity_endpoint(
         preset: str = Query("square_name", pattern=_STAMP_PRESET_PATTERN),
         stamp_width_mm: float = Query(25.0, ge=5, le=200),
         stamp_height_mm: float = Query(25.0, ge=5, le=200),
@@ -3395,7 +3414,7 @@ def create_app() -> FastAPI:
         )
 
     @app.post("/api/stamp")
-    async def stamp_post(req: StampPostRequest):
+    def stamp_post(req: StampPostRequest):
         from ..exporters.stamp import (
             render_stamp_svg, render_stamp_gcode, render_stamp_dxf,
         )
@@ -3525,7 +3544,7 @@ def create_app() -> FastAPI:
                                  _content_disposition("stamp", "gcode")})
 
     @app.get("/api/stamp")
-    async def stamp_get(
+    def stamp_get(
         text: str = Query("", max_length=200),
         preset: str = Query("square_name", pattern=_STAMP_PRESET_PATTERN),
         stamp_width_mm: float = Query(25.0, ge=5, le=200),
@@ -3581,7 +3600,7 @@ def create_app() -> FastAPI:
                 ln for ln in oval_body_lines.split("||") if ln
             ] if oval_body_lines else [],
         )
-        return await stamp_post(req)
+        return stamp_post(req)
 
     # ------ 抄經 (sutra) — Phase 5az / 5bb -------------------------------
 
@@ -3623,7 +3642,7 @@ def create_app() -> FastAPI:
         return None
 
     @app.get("/api/sutra/categories")
-    async def sutra_categories_endpoint():
+    def sutra_categories_endpoint():
         """List the seven fixed categories + their preset counts."""
         from ..sutras import CATEGORY_ORDER, CATEGORY_LABELS, grouped_presets
         groups = grouped_presets()
@@ -3636,7 +3655,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/sutra/closing-templates")
-    async def sutra_closing_templates_endpoint():
+    def sutra_closing_templates_endpoint():
         """5bg: list the closing-page template per category.
 
         UI uses this to populate the «載入分類預設模板» dropdown / button.
@@ -3657,7 +3676,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/sutra/presets")
-    async def sutra_presets_endpoint(grouped: bool = Query(False)):
+    def sutra_presets_endpoint(grouped: bool = Query(False)):
         """List all sutra presets (builtin + user) with load status.
 
         ``grouped=true`` returns ``categories`` array (UI optgroup);
@@ -3688,7 +3707,7 @@ def create_app() -> FastAPI:
     # page's "經典" material picker. Returns plain UTF-8 text (no
     # rendering / no slicing — caller decides per-char iteration).
     @app.get("/api/sutra/text/{preset}")
-    async def sutra_text_endpoint(
+    def sutra_text_endpoint(
         preset: str = ApiPath(..., pattern=_SUTRA_PRESET_PATTERN),
     ):
         from ..sutras import get_sutra_info, load_text
@@ -3710,7 +3729,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/api/sutra/capacity")
-    async def sutra_capacity_endpoint(
+    def sutra_capacity_endpoint(
         preset: str = Query("heart_sutra", pattern=_SUTRA_PRESET_PATTERN),
         include_cover: bool = Query(False),
         include_dedication: bool = Query(False),
@@ -3742,7 +3761,7 @@ def create_app() -> FastAPI:
     # --- User-uploaded preset CRUD -------------------------------------
 
     @app.post("/api/sutra/upload")
-    async def sutra_upload_endpoint(req: SutraUploadRequest):
+    def sutra_upload_endpoint(req: SutraUploadRequest):
         """Save a new user-uploaded sutra. Returns the assigned key."""
         from ..sutras import save_user_preset, sanitize_key, CATEGORY_ORDER
         if req.category not in CATEGORY_ORDER:
@@ -3773,7 +3792,7 @@ def create_app() -> FastAPI:
         return {"key": key, "ok": True}
 
     @app.get("/api/sutra/user/{key}")
-    async def sutra_user_get_endpoint(key: str):
+    def sutra_user_get_endpoint(key: str):
         from ..sutras import (
             get_sutra_info, read_user_text, _info_to_dict,
         )
@@ -3788,7 +3807,7 @@ def create_app() -> FastAPI:
     # 5bd: read access to a builtin preset (metadata + raw text).
     # 5be: GET applies override; PUT writes override JSON / overwrites .txt.
     @app.get("/api/sutra/builtin/{key}")
-    async def sutra_builtin_get_endpoint(key: str):
+    def sutra_builtin_get_endpoint(key: str):
         from ..sutras import (
             BUILTIN_SUTRAS, _info_to_dict, _resolve_builtin_path,
             get_sutra_info,
@@ -3801,7 +3820,7 @@ def create_app() -> FastAPI:
         return {**_info_to_dict(info), "raw_text": raw_text}
 
     @app.put("/api/sutra/builtin/{key}")
-    async def sutra_builtin_put_endpoint(key: str, patch: SutraBuiltinPatch):
+    def sutra_builtin_put_endpoint(key: str, patch: SutraBuiltinPatch):
         """Persist metadata override + (optionally) overwrite the .txt file.
 
         Locked fields (key/filename/is_builtin/category/is_mantra_repeat/
@@ -3828,7 +3847,7 @@ def create_app() -> FastAPI:
         }
 
     @app.delete("/api/sutra/builtin/{key}")
-    async def sutra_builtin_delete_endpoint(key: str):
+    def sutra_builtin_delete_endpoint(key: str):
         """Builtins cannot be deleted (5be). Always 405."""
         raise HTTPException(
             405, detail="builtin presets cannot be deleted; "
@@ -3836,7 +3855,7 @@ def create_app() -> FastAPI:
         )
 
     @app.put("/api/sutra/user/{key}")
-    async def sutra_user_put_endpoint(key: str, patch: SutraMetaPatch):
+    def sutra_user_put_endpoint(key: str, patch: SutraMetaPatch):
         from ..sutras import update_user_meta, get_sutra_info, CATEGORY_ORDER
         info = get_sutra_info(key)
         if info is None or info.is_builtin:
@@ -3849,7 +3868,7 @@ def create_app() -> FastAPI:
         return {"ok": ok}
 
     @app.delete("/api/sutra/user/{key}")
-    async def sutra_user_delete_endpoint(key: str):
+    def sutra_user_delete_endpoint(key: str):
         from ..sutras import delete_user_preset, get_sutra_info
         info = get_sutra_info(key)
         if info is None or info.is_builtin:
@@ -4299,7 +4318,7 @@ def create_app() -> FastAPI:
     # ----- /gallery (SPA shell) ----------------------------------------
 
     @app.get("/gallery", include_in_schema=False)
-    async def gallery_page():
+    def gallery_page():
         page = STATIC_DIR / "gallery.html"
         if not page.is_file():
             return PlainTextResponse(
@@ -4328,7 +4347,7 @@ def create_app() -> FastAPI:
         return {"ok": True, "message": "登入連結已寄出，請查收信箱"}
 
     @app.get("/api/gallery/auth/consume", include_in_schema=False)
-    async def gallery_auth_consume(token: str = Query(...)):
+    def gallery_auth_consume(token: str = Query(...)):
         user_id = consume_login_token(token)
         if user_id is None:
             return PlainTextResponse(
@@ -4350,7 +4369,7 @@ def create_app() -> FastAPI:
         return resp
 
     @app.post("/api/gallery/auth/logout")
-    async def gallery_auth_logout(
+    def gallery_auth_logout(
         psd_session: Optional[str] = Cookie(default=None),
     ):
         invalidate_session(psd_session)
@@ -4361,7 +4380,7 @@ def create_app() -> FastAPI:
     # ----- profile -----------------------------------------------------
 
     @app.get("/api/gallery/me")
-    async def gallery_me(
+    def gallery_me(
         psd_session: Optional[str] = Cookie(default=None),
     ):
         user = _resolve_user(psd_session)
@@ -4370,7 +4389,7 @@ def create_app() -> FastAPI:
         return {"logged_in": True, "user": user}
 
     @app.put("/api/gallery/me")
-    async def gallery_me_update(
+    def gallery_me_update(
         patch: GalleryProfilePatch,
         psd_session: Optional[str] = Cookie(default=None),
     ):
@@ -4388,7 +4407,7 @@ def create_app() -> FastAPI:
     # ----- public profile (Phase 5b r29d) ------------------------------
 
     @app.get("/api/gallery/users/{user_id}")
-    async def gallery_user_profile(user_id: int):
+    def gallery_user_profile(user_id: int):
         """Public user profile + stats（任何人都可看，不需登入）。"""
         try:
             return gallery_service.get_user_profile(user_id)
@@ -4398,14 +4417,14 @@ def create_app() -> FastAPI:
     # ----- avatar (Phase 5b r29j) --------------------------------------
 
     @app.post("/api/gallery/me/avatar")
-    async def gallery_me_avatar_upload(
+    def gallery_me_avatar_upload(
         file: UploadFile = File(...),
         psd_session: Optional[str] = Cookie(default=None),
     ):
         """Upload / replace own avatar (PNG / JPEG，max 2MB raw)。"""
         user = _require_user(psd_session)
         # FastAPI UploadFile.read() async；type 從 content_type
-        file_bytes = await file.read()
+        file_bytes = file.file.read()
         try:
             updated = gallery_service.update_avatar(
                 user_id=user["id"],
@@ -4417,7 +4436,7 @@ def create_app() -> FastAPI:
         return {"user": updated}
 
     @app.delete("/api/gallery/me/avatar")
-    async def gallery_me_avatar_delete(
+    def gallery_me_avatar_delete(
         psd_session: Optional[str] = Cookie(default=None),
     ):
         """Remove own avatar — fall back to initials display。"""
@@ -4429,7 +4448,7 @@ def create_app() -> FastAPI:
         return {"user": updated}
 
     @app.get("/api/gallery/users/{user_id}/avatar")
-    async def gallery_user_avatar_get(user_id: int):
+    def gallery_user_avatar_get(user_id: int):
         """Serve avatar PNG file. 404 if user has no avatar uploaded.
 
         Cache header `max-age=86400` 但 client 用 ?v=<nonce> URL 強制
@@ -4446,7 +4465,7 @@ def create_app() -> FastAPI:
     # ----- uploads -----------------------------------------------------
 
     @app.get("/api/gallery/uploads")
-    async def gallery_uploads_list(
+    def gallery_uploads_list(
         page: int = Query(1, ge=1),
         size: int = Query(20, ge=1, le=100),
         # Phase 5b r28: 可選 kind filter (psd / mandala)；未傳 = 全部
@@ -4496,7 +4515,7 @@ def create_app() -> FastAPI:
             _gallery_error_to_http(e)
 
     @app.post("/api/gallery/uploads")
-    async def gallery_uploads_create(
+    def gallery_uploads_create(
         file: UploadFile = File(...),
         title: str = Form(...),
         comment: str = Form(""),
@@ -4505,7 +4524,7 @@ def create_app() -> FastAPI:
         psd_session: Optional[str] = Cookie(default=None),
     ):
         user = _require_user(psd_session)
-        content = await file.read()
+        content = file.file.read()
         # Phase 5b r28d: 用 state-aware loader factory，loader 跟 user 在
         # mandala 模式看到的字體一致（讀 state.style.font / source /
         # cns_outline_mode）。State 缺欄位 fall back 到 server default。
@@ -4533,7 +4552,7 @@ def create_app() -> FastAPI:
         return {"upload": record}
 
     @app.get("/api/gallery/uploads/{upload_id}")
-    async def gallery_uploads_get(
+    def gallery_uploads_get(
         upload_id: int,
         psd_session: Optional[str] = Cookie(default=None),
     ):
@@ -4555,7 +4574,7 @@ def create_app() -> FastAPI:
         return {"upload": upload}
 
     @app.get("/api/gallery/uploads/{upload_id}/download")
-    async def gallery_uploads_download(upload_id: int):
+    def gallery_uploads_download(upload_id: int):
         try:
             upload = gallery_service.get_upload(upload_id)
         except gallery_service.GalleryError as e:
@@ -4595,7 +4614,7 @@ def create_app() -> FastAPI:
 
     # Phase 5b r29: like toggle endpoint（需登入）
     @app.post("/api/gallery/uploads/{upload_id}/like")
-    async def gallery_uploads_like(
+    def gallery_uploads_like(
         upload_id: int,
         psd_session: Optional[str] = Cookie(default=None),
     ):
@@ -4610,7 +4629,7 @@ def create_app() -> FastAPI:
 
     # Phase 5b r29b: bookmark toggle endpoint（需登入）
     @app.post("/api/gallery/uploads/{upload_id}/bookmark")
-    async def gallery_uploads_bookmark(
+    def gallery_uploads_bookmark(
         upload_id: int,
         psd_session: Optional[str] = Cookie(default=None),
     ):
@@ -4625,7 +4644,7 @@ def create_app() -> FastAPI:
 
     # Phase 5b r28b: thumbnail endpoint（mandala+svg upload 才有；其他回 404）
     @app.get("/api/gallery/uploads/{upload_id}/thumbnail")
-    async def gallery_uploads_thumbnail(upload_id: int):
+    def gallery_uploads_thumbnail(upload_id: int):
         try:
             upload = gallery_service.get_upload(upload_id)
         except gallery_service.GalleryError as e:
@@ -4644,7 +4663,7 @@ def create_app() -> FastAPI:
         )
 
     @app.delete("/api/gallery/uploads/{upload_id}")
-    async def gallery_uploads_delete(
+    def gallery_uploads_delete(
         upload_id: int,
         psd_session: Optional[str] = Cookie(default=None),
     ):
@@ -4660,7 +4679,7 @@ def create_app() -> FastAPI:
     # ------ health ------------------------------------------------------
 
     @app.get("/api/health")
-    async def health():
+    def health():
         return {"ok": True, "version": "0.3.0"}
 
     return app

@@ -18,6 +18,7 @@ Coordinate system is 2048×2048 em square (already canonical), Y-down.
 """
 from __future__ import annotations
 
+import gzip
 import json
 import logging
 import os
@@ -33,6 +34,11 @@ log = logging.getLogger(__name__)
 
 #: g0v hosted JSON base URL. Hex codepoint (lowercase) + .json appended.
 G0V_BASE_URL = "http://g0v.github.io/zh-stroke-data/json/"
+
+#: 隨 repo 部署的預抓 bundle（單一 gzip 檔，hex codepoint → strokes 陣列）。
+#: 由 scripts/prefetch_g0v.py 產生；W1-D（架構健檢 2026-07-18）：讓常用字
+#: 零網路命中，消除線上冷路徑（實測冷 82s vs 暖 48ms）。
+G0V_BUNDLE_FILENAME = "g0v_bundle.json.gz"
 
 
 class CharacterNotFound(Exception):
@@ -55,18 +61,26 @@ class G0VSource:
         Value for HTTP User-Agent header (some CDNs reject empty UAs).
     """
 
+    #: per-process bundle 快取：path str → dict[hex, strokes]（懶載一次）
+    _bundle_cache: dict[str, dict] = {}
+
     def __init__(
         self,
         cache_dir: Optional[str | Path] = None,
         allow_network: bool = True,
         user_agent: str = "stroke-order/0.1 (+https://github.com/seyen37)",
-        timeout: float = 10.0,
+        timeout: float = 3.0,
+        bundle_path: Optional[str | Path] = None,
     ) -> None:
         if cache_dir is None:
             # default: <project-root>/data/g0v_cache/
             cache_dir = Path(__file__).resolve().parents[3] / "data" / "g0v_cache"
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        if bundle_path is None:
+            # default: cache_dir 旁的 data/g0v_bundle.json.gz
+            bundle_path = self.cache_dir.parent / G0V_BUNDLE_FILENAME
+        self.bundle_path = Path(bundle_path)
         self.allow_network = allow_network
         self.user_agent = user_agent
         self.timeout = timeout
@@ -97,9 +111,13 @@ class G0VSource:
             with path.open("r", encoding="utf-8") as f:
                 return json.load(f)
 
+        bundled = self._bundle().get(hex_code)
+        if bundled is not None:
+            return bundled
+
         if not self.allow_network:
             raise CharacterNotFound(
-                f"U+{hex_code.upper()} not in cache and network disabled"
+                f"U+{hex_code.upper()} not in cache/bundle and network disabled"
             )
 
         data = self._fetch(hex_code)
@@ -110,6 +128,22 @@ class G0VSource:
         except OSError as e:
             log.warning("could not write cache %s: %s", path, e)
         return data
+
+    def _bundle(self) -> dict:
+        """懶載入 bundle（每 process 每路徑一次）；缺檔/壞檔靜默降級為空。"""
+        key = str(self.bundle_path)
+        cached = G0VSource._bundle_cache.get(key)
+        if cached is None:
+            cached = {}
+            if self.bundle_path.is_file():
+                try:
+                    with gzip.open(self.bundle_path, "rt", encoding="utf-8") as f:
+                        cached = json.load(f)
+                    log.info("g0v bundle loaded: %d chars", len(cached))
+                except (OSError, ValueError) as e:
+                    log.warning("could not read g0v bundle %s: %s", self.bundle_path, e)
+            G0VSource._bundle_cache[key] = cached
+        return cached
 
     def _fetch(self, hex_code: str) -> list[dict]:
         url = f"{G0V_BASE_URL}{hex_code}.json"
@@ -123,7 +157,10 @@ class G0VSource:
                     f"U+{hex_code.upper()} not in g0v dataset (HTTP 404)"
                 ) from e
             raise
-        except urllib.error.URLError as e:
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            # W1-D 修：socket 讀取逾時（連線成功、讀取停滯）丟的是裸
+            # TimeoutError（⊄ URLError），先前會炸穿到路由層。
+            # URLError ⊂ OSError，一併涵蓋連線重設等其餘網路層錯誤。
             raise CharacterNotFound(
                 f"network error fetching U+{hex_code.upper()}: {e}"
             ) from e
