@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from stroke_order.components.coverset import COVERSET_SIZES
+
 from stroke_order.components import (
     CoverSet,
     collect_components,
@@ -52,9 +54,10 @@ def cs808() -> CoverSet:
 
 
 def test_cs808_has_808_chars(cs808):
-    assert cs808.size == 808
-    assert len(cs808.chars) == 808
-    assert len(cs808.chars_simp) == 808
+    n = COVERSET_SIZES["cjk_common_808"]
+    assert cs808.size == n
+    assert len(cs808.chars) == n
+    assert len(cs808.chars_simp) == n
 
 
 def test_cs808_metadata_present(cs808):
@@ -195,7 +198,7 @@ def test_list_coversets_includes_edu_4808():
 
 def test_edu_4808_exact_size(cs_edu):
     """MOE 標準表 is exactly 4,808 chars (this is in the title)."""
-    assert cs_edu.size == 4808
+    assert cs_edu.size == COVERSET_SIZES["educational_4808"]
 
 
 def test_edu_4808_metadata(cs_edu):
@@ -236,7 +239,7 @@ def test_list_coversets_includes_bentu():
 
 def test_bentu_exact_size(cs_bentu):
     """本土語言字表 is exactly 6,792 chars per official 113 年公告."""
-    assert cs_bentu.size == 6792
+    assert cs_bentu.size == COVERSET_SIZES["bentu_6792"]
 
 
 def test_bentu_metadata(cs_bentu):
@@ -259,7 +262,7 @@ def test_bentu_cns11643_metadata(cs_bentu):
     This is the cover-set's distinguishing metadata — it ensures
     Taiwan-variant integrity at the encoding level, not just visual char.
     """
-    assert len(cs_bentu.entries) == 6792
+    assert len(cs_bentu.entries) == COVERSET_SIZES["bentu_6792"]
     cns_count = sum(1 for e in cs_bentu.entries if e.get("cns11643"))
     # Almost all should have CNS code; allow a few PUA exceptions
     assert cns_count >= 6700, (
@@ -323,7 +326,7 @@ def test_list_coversets_includes_moe_elementary():
 def test_moe_elementary_size_after_dedupe(cs_moe_freq):
     """Original publication says 5,021 chars; 3 editorial duplicates removed
     → 5,018 unique chars."""
-    assert cs_moe_freq.size == 5018
+    assert cs_moe_freq.size == COVERSET_SIZES["moe_elementary_5021"]
 
 
 def test_moe_elementary_metadata_publication_count(cs_moe_freq):
@@ -350,3 +353,18 @@ def test_moe_elementary_top_30_match_known_high_freq(cs_moe_freq):
     # studies — order may vary slightly but presence is robust.
     for c in "的一是不我有在人來大":
         assert c in top30, f"{c} should be in top 30 elementary frequency"
+
+
+def test_coverset_sizes_single_source_of_truth():
+    """W4-R2 機制鎖：每個內建字集實載筆數＝COVERSET_SIZES（單一真相源）。
+
+    換版資料集時改 src 的 COVERSET_SIZES 一處；本測試保證常數與資料檔
+    永不漂移，其他測試引用常數即可（不得自帶字面量）。
+    """
+    from stroke_order.components.coverset import _BUILTIN_NAMES, load_coverset
+
+    assert set(_BUILTIN_NAMES) == set(COVERSET_SIZES)
+    for name in _BUILTIN_NAMES:
+        cs = load_coverset(name)
+        assert cs.size == COVERSET_SIZES[name], name
+        assert len(cs.chars) == COVERSET_SIZES[name], name

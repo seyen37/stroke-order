@@ -139,7 +139,8 @@ def test_kangxi_cellmap_emitted_only_when_requested():
     assert 'id="sutra-cellmap"' not in off
     assert 'id="sutra-cellmap"' in on
     cellmap = on.split('id="sutra-cellmap"')[1]
-    assert cellmap.count('data-char="') == 214          # one per radical
+    from stroke_order.exporters.kangxi_radicals import RADICALS
+    assert cellmap.count('data-char="') == len(RADICALS)  # one per radical（同源）
     assert 'data-char="一"' in cellmap                   # radical #1
     assert 'data-char="龠"' in cellmap                   # radical #214
     assert 'data-pos="0"' in cellmap and 'data-pos="213"' in cellmap

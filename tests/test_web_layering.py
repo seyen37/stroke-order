@@ -53,6 +53,9 @@ MODE_SCRIPTS = [
     "sutra", "userdict", "handwrite", "fonts",
 ]
 
+#: W4-R2 起已轉 ES module 的模式檔（零被依賴四檔先轉）。
+ES_MODULE_MODES = {"stencil", "grid_route", "doodle", "mandala"}
+
 
 def test_index_mode_scripts_order_snapshot():
     """W4-R1：index.html 的 modes/*.js 載入序＝拆檔前 inline 區段序。
@@ -70,6 +73,15 @@ def test_index_mode_scripts_order_snapshot():
     for name in MODE_SCRIPTS:
         f = WEB / "static" / "modes" / f"{name}.js"
         assert f.is_file() and f.stat().st_size > 100, f"{name}.js 缺失或過小"
+
+    # W4-R2：module 化狀態快照——classic↔module 的翻轉是語意變更
+    # （嚴格模式＋自有作用域＋deferred），必須先過「零被依賴＋嚴格
+    # 模式掃描」再來改這份集合。
+    modules = set(re.findall(
+        r'<script type="module" src="/static/modes/(\w+)\.js', html))
+    assert modules == ES_MODULE_MODES, (
+        f"module 化集合偏離快照：{sorted(modules)}"
+    )
 
 
 def test_index_no_large_inline_script():

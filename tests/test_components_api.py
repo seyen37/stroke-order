@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pytest
 
+from stroke_order.components.coverset import COVERSET_SIZES
+
 try:
     from fastapi.testclient import TestClient
     from stroke_order.web.server import create_app
@@ -106,9 +108,10 @@ def test_coverset_detail_808(client):
     assert r.status_code == 200
     d = r.json()
     assert d["name"] == "cjk_common_808"
-    assert d["size"] == 808
-    assert len(d["chars"]) == 808
-    assert len(d["chars_simp"]) == 808
+    n = COVERSET_SIZES["cjk_common_808"]
+    assert d["size"] == n
+    assert len(d["chars"]) == n
+    assert len(d["chars_simp"]) == n
     # Per docs/analysis 808_coverage_report.md: 194 distinct components.
     # Allow some drift from future ids-data updates (150-250 range).
     assert 150 <= d["distinct_components"] <= 250

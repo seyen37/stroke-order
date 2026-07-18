@@ -3230,15 +3230,15 @@
      傳統 script（非 module）＋原文件序載入＝全域語意與執行順序不變；
      拆檔時串接位元組驗證與拆前一致。R2 起逐模式 ES modules 化。 -->
 <script src="/static/modes/core.js?v=__V__"></script>
-<script src="/static/modes/stencil.js?v=__V__"></script>
+<script type="module" src="/static/modes/stencil.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
 <script src="/static/modes/grid.js?v=__V__"></script>
 <script src="/static/modes/notebook.js?v=__V__"></script>
 <script src="/static/modes/letter.js?v=__V__"></script>
 <script src="/static/modes/manuscript.js?v=__V__"></script>
-<script src="/static/modes/doodle.js?v=__V__"></script>
-<script src="/static/modes/grid_route.js?v=__V__"></script>
+<script type="module" src="/static/modes/doodle.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
+<script type="module" src="/static/modes/grid_route.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
 <script src="/static/modes/wordart.js?v=__V__"></script>
-<script src="/static/modes/mandala.js?v=__V__"></script>
+<script type="module" src="/static/modes/mandala.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
 <script src="/static/modes/patch.js?v=__V__"></script>
 <script src="/static/modes/stamp.js?v=__V__"></script>
 <script src="/static/modes/sutra.js?v=__V__"></script>

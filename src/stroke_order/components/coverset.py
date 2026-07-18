@@ -91,6 +91,19 @@ _BUILTIN_NAMES: tuple[str, ...] = (
     "wuqian_5000",
 )
 
+#: W4-R2（架構健檢 §11「寫死長度斷言」結構解）：資料集筆數單一真相源。
+#: 換版資料集（如教育部字表更新）改這裡一處，引用同源的測試自動跟上；
+#: 測試不得再自帶字面量。演算法輸出期望（「這個輸入該切 4 段」）不在
+#: 此列——那類寫死是規格、本來就該寫死。
+#: 注意 moe_elementary_5021 名稱取自公告字數、實收 5,018（資料檔實測）。
+COVERSET_SIZES: dict[str, int] = {
+    "cjk_common_808": 808,
+    "educational_4808": 4808,
+    "moe_elementary_5021": 5018,
+    "bentu_6792": 6792,
+    "wuqian_5000": 3716,   # 5000 會意字經 CJK 過濾後實收
+}
+
 
 def _builtin_path(name: str) -> Path:
     """Resolve the bundled JSON path for a built-in cover-set."""
