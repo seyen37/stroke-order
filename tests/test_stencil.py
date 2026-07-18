@@ -568,3 +568,64 @@ def test_5ei_envelope_count_unchanged_by_bias():
         [nested], kind="stencil", style="envelope",
         char_height_mm=50, bridge_width_mm=2)
     assert env["holes_bridged"] == 1        # 同 5eg（depth-1 only）
+
+
+# ---------------------------------------------------------------------------
+# 5ej：envelope 連筋深度可調——envelope_depth 覆蓋（連到第幾層）
+# ---------------------------------------------------------------------------
+
+
+def _triple_ring_polys(em: float = 2048.0):
+    """三層巢狀（六同心方框 even-odd → 三墨環＋三白孔 depth 1/2/3）。"""
+    def sq(f):
+        return [(f, f), (em - f, f), (em - f, em - f), (f, em - f)]
+    return [sq(em * 0.06), sq(em * 0.14), sq(em * 0.24),
+            sq(em * 0.32), sq(em * 0.40), sq(em * 0.46)]
+
+
+def test_5ej_envelope_depth_adjustable():
+    """三層巢狀：envelope_depth=1/2/3 → 只鑿深度 ≤N 的孔（1/2/3 道橋）。"""
+    triple = _triple_ring_polys()
+    got = []
+    for d in (1, 2, 3):
+        _l, _w, _h, st = stencil_geometry(
+            [triple], kind="stencil", style="envelope",
+            envelope_depth=d, char_height_mm=60, bridge_width_mm=2)
+        got.append(st["holes_bridged"])
+        assert st["max_depth"] == d
+    assert got == [1, 2, 3]                 # 連越深、鑿越多孔
+
+
+def test_5ej_physical_ignores_envelope_depth():
+    """physical（全連）不受 envelope_depth 影響——恆鑿全部孔、max_depth=0。"""
+    triple = _triple_ring_polys()
+    for d in (1, 3):
+        _l, _w, _h, st = stencil_geometry(
+            [triple], kind="stencil", style="physical",
+            envelope_depth=d, char_height_mm=60, bridge_width_mm=2)
+        assert st["holes_bridged"] == 3     # 三孔全連
+        assert st["max_depth"] == 0         # None → 0（全連、無深度上限）
+
+
+def test_5ej_default_envelope_depth_is_one():
+    """不傳 envelope_depth（預設 1）＝明示 1（5eg 原 envelope 行為）。"""
+    nested = _nested_ring_polys()
+    _l, _w, _h, a = stencil_geometry(
+        [nested], kind="stencil", style="envelope", char_height_mm=50)
+    _l2, _w2, _h2, b = stencil_geometry(
+        [nested], kind="stencil", style="envelope", envelope_depth=1,
+        char_height_mm=50)
+    assert a["holes_bridged"] == b["holes_bridged"] == 1
+
+
+def test_5ej_api_envelope_depth(client):
+    """API：envelope_depth 合法值 200/非 422；界外（0、9）→ 422。"""
+    assert client.get(
+        "/api/stencil?chars=國&style=envelope&envelope_depth=2"
+    ).status_code != 422
+    assert client.get(
+        "/api/stencil?chars=國&style=envelope&envelope_depth=0"
+    ).status_code == 422
+    assert client.get(
+        "/api/stencil?chars=國&style=envelope&envelope_depth=9"
+    ).status_code == 422

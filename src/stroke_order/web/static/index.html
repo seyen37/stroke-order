@@ -1311,6 +1311,12 @@
         <option value="physical" selected>物理完整（殘腔0）</option>
         <option value="envelope">方正簡潔（只外框）</option>
       </select>
+      <span id="sc-depth-wrap" style="display:none;margin-left:10px;">
+        <label style="font-size:12px;"
+               title="方正簡潔連筋深度：只鑿深度 ≤ 此值的孔、深層留島。1＝只最外圈（最多留島）；越大連越深、留越少島，調到該字最大深度＝等同物理完整">連筋深度</label>
+        <input id="sc-depth" type="number" value="1" min="1" max="8"
+               step="1" style="width:56px;">
+      </span>
       <span id="sc-style-note" style="display:none;margin-left:10px;
             color:#b8860b;font-size:12px;">⚠ 深層孔留島·非物理完整（深層料會掉，宜展示/厚料）</span>
     </div>
@@ -3501,6 +3507,7 @@ function scParams() {
     kind: g("sc-kind"),
     source: g("sc-source"),
     style: g("sc-style"),
+    envelope_depth: g("sc-depth"),
     char_height_mm: g("sc-height"),
     bridge_width_mm: g("sc-bridgew"),
     bridge_count: g("sc-bridgen"),
@@ -3551,13 +3558,16 @@ async function renderStencil() {
 document.getElementById("sc-render")
   .addEventListener("click", renderStencil);
 
-// 切割風格＝方正簡潔（envelope）時，顯示「非物理完整」免責提示。
+// 切割風格＝方正簡潔（envelope）時，顯示免責提示＋連筋深度輸入。
 (function () {
   const sel = document.getElementById("sc-style");
   const note = document.getElementById("sc-style-note");
+  const depth = document.getElementById("sc-depth-wrap");
   if (sel && note) {
     const sync = () => {
-      note.style.display = sel.value === "envelope" ? "" : "none";
+      const isEnv = sel.value === "envelope";
+      note.style.display = isEnv ? "" : "none";
+      if (depth) depth.style.display = isEnv ? "" : "none";
     };
     sel.addEventListener("change", sync);
     sync();

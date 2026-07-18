@@ -134,7 +134,7 @@
 | `near_wall_only` | 只穿近牆 | `True` | `True` | 關掉＝可穿腔到對側（不建議） |
 | `bridge_width_mm` | 橋寬 | 2.0（可調） | ≈筆寬 | 脆料加寬 |
 | `bridge_count_max` | 每孔橋數上限 | 4（自動取最少） | 1~2 | 大孔 2、小孔 1 |
-| `connect_depth` | 連筋深度 | `full`（全連通、殘腔0） | `envelope`（只外框） | **R5 核心軸**（5eg 已接 registry） |
+| `connect_depth` | 連筋深度 | `full`（全連通、殘腔0） | `envelope`（只外框） | **R5 核心軸**（5eg 已接 registry；5ej envelope 深度 runtime 可調 `envelope_depth`＝連到第幾層、1..N） |
 | `keep_primary` | 保主幹策略 | `thinnest_wall`（隱含） | `vertical_first`（顯式） | **5ei 已接 registry**（physical=thinnest_wall、envelope=vertical_first；垂直優先啟發式 ×BIAS，非骨架分析） |
 | `frame_strategy` | 鏤空外框接法 | `nearest_spoke`（垂直輻條） | `nearest_spoke` | cutout 專用 |
 | `min_feature_mm` | 去斑門檻 | 橋寬²/4 | — | 濾光柵碎點 |

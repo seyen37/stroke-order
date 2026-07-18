@@ -694,6 +694,7 @@ def stencil_geometry(
     *,
     kind: StencilKind = "stencil",
     style: str = DEFAULT_CUTTING_STYLE,
+    envelope_depth: int = 1,
     char_height_mm: float = 50.0,
     bridge_width_mm: float = 2.0,
     bridge_count: int = 4,
@@ -751,7 +752,14 @@ def stencil_geometry(
         raise NotImplementedError(
             f"cutting style {cut_style.key!r} (connect_depth="
             f"{cut_style.connect_depth!r}) not implemented yet")
-    max_depth = _CONNECT_DEPTH_MAX[cut_style.connect_depth]
+    base_depth = _CONNECT_DEPTH_MAX[cut_style.connect_depth]
+    # 5ej：envelope 連筋深度可調——深度限制風格（envelope，base 非 None）時
+    # 用 envelope_depth 覆蓋預設 1（連到第幾層；越大連越深、留越少島，調到該
+    # 字最大深度＝等同全連）；physical（base=None、全連）不受 envelope_depth
+    # 影響。預設 envelope_depth=1＝原 envelope 行為（逐位元不變）。
+    max_depth = (max(1, int(envelope_depth))
+                 if base_depth is not None else None)
+    stats["max_depth"] = max_depth if max_depth is not None else 0
     if kind == "stencil":
         stats["holes_bridged"] = carve_stencil_bridges(
             mask, bw_px, bridge_count, max_depth=max_depth,
