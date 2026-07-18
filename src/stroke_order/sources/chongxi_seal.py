@@ -40,6 +40,7 @@ better than the over-engineered v2 splitter.
 from __future__ import annotations
 
 import os
+from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional
@@ -295,6 +296,35 @@ class ChongxiSealSource:
             return False
 
 
+#: 5eu（架構健檢 W2）：trace/skeleton 抽取是整條篆書渲染鏈的熱點
+#: （Zhang-Suen thinning 每字每請求重跑＝篆書整頁 26s 的主因）。字型檔
+#: 在行程內固定 → (char, mode) 決定 tracks。只快取**凍結 tuple 的幾何**、
+#: Character 仍每次 deepcopy 重建——呼叫端拿到的是新物件，無共享突變風險。
+_MODE_TRACKS_CACHE: "OrderedDict[tuple[str, str], tuple]" = OrderedDict()
+_MODE_TRACKS_CACHE_MAX = 4096
+
+
+def _cached_mode_tracks(char: str, mode: str, outline) -> tuple:
+    key = (char, mode)
+    hit = _MODE_TRACKS_CACHE.get(key)
+    if hit is not None:
+        _MODE_TRACKS_CACHE.move_to_end(key)
+        return hit
+    if mode == "trace":
+        from .cns_font import _outline_to_polylines
+        tracks = _outline_to_polylines(outline)
+    else:  # skeleton (default)
+        from ..cns_skeleton import outline_to_skeleton_tracks
+        tracks = outline_to_skeleton_tracks(outline)
+    frozen = tuple(
+        tuple((float(x), float(y)) for x, y in t) for t in tracks
+    )
+    _MODE_TRACKS_CACHE[key] = frozen
+    while len(_MODE_TRACKS_CACHE) > _MODE_TRACKS_CACHE_MAX:
+        _MODE_TRACKS_CACHE.popitem(last=False)
+    return frozen
+
+
 def apply_seal_outline_mode(c: Character, mode: str = "skeleton") -> Character:
     """Convert a seal-font character to writable centerlines.
 
@@ -322,12 +352,7 @@ def apply_seal_outline_mode(c: Character, mode: str = "skeleton") -> Character:
         return c
 
     new_c = deepcopy(c)
-    if mode == "trace":
-        from .cns_font import _outline_to_polylines
-        tracks = _outline_to_polylines(src.outline)
-    else:  # skeleton (default)
-        from ..cns_skeleton import outline_to_skeleton_tracks
-        tracks = outline_to_skeleton_tracks(src.outline)
+    tracks = _cached_mode_tracks(c.char, mode, src.outline)
 
     new_strokes: list[Stroke] = []
     for idx, track in enumerate(tracks):
@@ -366,6 +391,10 @@ def reset_seal_singleton() -> None:
     """Drop the cached singleton (used by tests that monkeypatch the path)."""
     global _SINGLETON
     _SINGLETON = None
+    # 5eu：字型檔可能換了 → 幾何快取一併作廢，並通知跨層快取失效
+    _MODE_TRACKS_CACHE.clear()
+    from ..cache_bus import bump
+    bump()
 
 
 __all__ = [

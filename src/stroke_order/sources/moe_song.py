@@ -211,6 +211,8 @@ def get_song_source() -> MoeSongSource:
 def reset_song_singleton() -> None:
     global _SINGLETON
     _SINGLETON = None
+    from ..cache_bus import bump  # 5eu：跨層快取失效訊號
+    bump()
 
 
 __all__ = [

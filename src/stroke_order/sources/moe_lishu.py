@@ -25,6 +25,7 @@ frame, so :func:`_transform_cmd` only needs the Y-flip (no scale).
 from __future__ import annotations
 
 import os
+from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional
@@ -159,6 +160,33 @@ class MoeLishuSource:
             return False
 
 
+#: 5eu（架構健檢 W2）：同 chongxi_seal——skeleton/trace 抽取每字每請求
+#: 重跑是隸書渲染熱點；快取凍結幾何、Character 每次重建（無共享突變）。
+_MODE_TRACKS_CACHE: "OrderedDict[tuple[str, str], tuple]" = OrderedDict()
+_MODE_TRACKS_CACHE_MAX = 4096
+
+
+def _cached_mode_tracks(char: str, mode: str, outline) -> tuple:
+    key = (char, mode)
+    hit = _MODE_TRACKS_CACHE.get(key)
+    if hit is not None:
+        _MODE_TRACKS_CACHE.move_to_end(key)
+        return hit
+    if mode == "trace":
+        from .cns_font import _outline_to_polylines
+        tracks = _outline_to_polylines(outline)
+    else:  # skeleton
+        from ..cns_skeleton import outline_to_skeleton_tracks
+        tracks = outline_to_skeleton_tracks(outline)
+    frozen = tuple(
+        tuple((float(x), float(y)) for x, y in t) for t in tracks
+    )
+    _MODE_TRACKS_CACHE[key] = frozen
+    while len(_MODE_TRACKS_CACHE) > _MODE_TRACKS_CACHE_MAX:
+        _MODE_TRACKS_CACHE.popitem(last=False)
+    return frozen
+
+
 def apply_lishu_outline_mode(c: Character, mode: str = "skeleton") -> Character:
     """Convert a MoE-lishu character to writable centerlines.
 
@@ -179,12 +207,7 @@ def apply_lishu_outline_mode(c: Character, mode: str = "skeleton") -> Character:
         return c
 
     new_c = deepcopy(c)
-    if mode == "trace":
-        from .cns_font import _outline_to_polylines
-        tracks = _outline_to_polylines(src.outline)
-    else:  # skeleton
-        from ..cns_skeleton import outline_to_skeleton_tracks
-        tracks = outline_to_skeleton_tracks(src.outline)
+    tracks = _cached_mode_tracks(c.char, mode, src.outline)
 
     new_strokes: list[Stroke] = []
     for idx, track in enumerate(tracks):
@@ -221,6 +244,10 @@ def get_lishu_source() -> MoeLishuSource:
 def reset_lishu_singleton() -> None:
     global _SINGLETON
     _SINGLETON = None
+    # 5eu：字型檔可能換了 → 幾何快取作廢＋跨層失效訊號
+    _MODE_TRACKS_CACHE.clear()
+    from ..cache_bus import bump
+    bump()
 
 
 __all__ = [

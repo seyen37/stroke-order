@@ -25,11 +25,13 @@ Run with::
 """
 from __future__ import annotations
 
+import hashlib
 import inspect
 import io
 import os
 import re
 import threading
+from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote
@@ -437,6 +439,7 @@ from ..sources.moe_kaishu import (
     get_kaishu_source as _get_kaishu_font,
     attribution_notice as _kaishu_attribution,
 )
+from .. import cache_bus
 from ..styles import STYLES as _STYLES, apply_style as _apply_style
 from ..validation import apply_known_bug_fix, validate_character
 
@@ -451,6 +454,25 @@ _STYLE_PATTERN = "^(" + "|".join(sorted(_STYLES)) + ")$"
 
 WEB_ROOT = Path(__file__).resolve().parent
 STATIC_DIR = WEB_ROOT / "static"
+
+# ---------------------------------------------------------------------------
+# 5eu（架構健檢 W2）：重渲染回應快取常數。模組層以便測試 monkeypatch。
+# 可快取＝GET 且輸出完全由 query 決定的渲染/資料端點；gallery/認證類刻意
+# 不在列。資料異動入口有二：HTTP 變更端點（下方 MUTATING 前綴，middleware
+# 自己看得到）與直接呼叫 reset_*_singleton()（測試換字型）——後者經
+# cache_bus.bump() 通知，epoch 納入快取 key 即自然失效。
+RENDER_CACHE_PREFIXES = (
+    "/api/sutra", "/api/grid", "/api/notebook", "/api/letter",
+    "/api/manuscript", "/api/wordart", "/api/mandala", "/api/patch",
+    "/api/stamp", "/api/stencil", "/api/export",
+    "/api/handwriting/reference",
+)
+RENDER_CACHE_MUTATING_PREFIXES = (
+    "/api/user-dict", "/api/sutra/upload", "/api/sutra/user",
+    "/api/sutra/builtin",
+)
+RENDER_CACHE_MAX_ITEM = 4 * 1024 * 1024    # 單條上限（篆書整頁 ~3.4MB）
+RENDER_CACHE_MAX_TOTAL = 48 * 1024 * 1024  # 總預算（Render free 512MB 下保守）
 
 
 def _load(char: str, source: str, hook_policy: str, auto_fix: bool = True):
@@ -834,6 +856,136 @@ def create_app() -> FastAPI:
         version="0.3.0",
         description="中文字 → 向量筆跡轉換器（寫字機器人專用）",
     )
+
+    # 5eu（W2）：重渲染回應快取＋ETag。**純 ASGI middleware**、不用
+    # BaseHTTPMiddleware——後者會把所有回應轉成無 content-length 的
+    # streaming，讓外層 GZip 的 minimum_size 失效（小回應也被壓）。
+    # 純 ASGI 讓不匹配路徑原封穿過；只有可快取渲染路徑才緩衝本體。
+    # 註冊在 GZip 之前＝最內層：存未壓縮本體，壓縮仍由外層 GZip 處理。
+    render_cache: "OrderedDict[str, tuple[bytes, list]]" = OrderedDict()
+    render_cache_stat = {"bytes": 0, "hits": 0, "misses": 0}
+
+    def _render_cache_evict():
+        while (
+            render_cache_stat["bytes"] > RENDER_CACHE_MAX_TOTAL and render_cache
+        ):
+            _, (old_body, _h) = render_cache.popitem(last=False)
+            render_cache_stat["bytes"] -= len(old_body)
+
+    class _RenderCacheMiddleware:
+        def __init__(self, app):
+            self.app = app
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] != "http":
+                return await self.app(scope, receive, send)
+            path = scope["path"]
+            method = scope["method"]
+
+            if method != "GET":
+                if not path.startswith(RENDER_CACHE_MUTATING_PREFIXES):
+                    return await self.app(scope, receive, send)
+                # 資料異動端點：成功（<400）才 bump 全域失效
+                seen = {}
+
+                async def send_watch(message):
+                    if message["type"] == "http.response.start":
+                        seen["status"] = message["status"]
+                    await send(message)
+
+                await self.app(scope, receive, send_watch)
+                if seen.get("status", 500) < 400:
+                    cache_bus.bump()
+                return
+
+            if not path.startswith(RENDER_CACHE_PREFIXES):
+                return await self.app(scope, receive, send)
+
+            query = scope.get("query_string", b"").decode("latin-1")
+            key = f"{cache_bus.epoch()}|{path}?{query}"
+            req_headers = {
+                k.decode("latin-1").lower(): v.decode("latin-1")
+                for k, v in scope.get("headers", [])
+            }
+
+            hit = render_cache.get(key)
+            if hit is not None:
+                body, headers = hit
+                render_cache.move_to_end(key)
+                render_cache_stat["hits"] += 1
+                etag = dict(headers)["etag"]
+                if req_headers.get("if-none-match") == etag:
+                    await _send_simple(send, 304, [(b"etag", etag.encode())], b"")
+                    return
+                out = [
+                    (k.encode(), v.encode()) for k, v in headers
+                    if k != "etag"
+                ]
+                out += [
+                    (b"content-length", str(len(body)).encode()),
+                    (b"etag", etag.encode()),
+                    (b"x-render-cache", b"hit"),
+                ]
+                await _send_simple(send, 200, out, body)
+                return
+
+            # miss：緩衝完整回應 → 計 ETag → 入庫 → 補 header 後送出
+            cap = {"status": None, "headers": [], "body": bytearray()}
+
+            async def send_capture(message):
+                if message["type"] == "http.response.start":
+                    cap["status"] = message["status"]
+                    cap["headers"] = list(message.get("headers", []))
+                elif message["type"] == "http.response.body":
+                    cap["body"] += message.get("body", b"")
+                    if message.get("more_body"):
+                        return
+                # 全部收齊才動作（在結尾統一送出）
+
+            await self.app(scope, receive, send_capture)
+            body = bytes(cap["body"])
+            status = cap["status"] if cap["status"] is not None else 500
+            hdr_pairs = [
+                (k.decode("latin-1").lower(), v.decode("latin-1"))
+                for k, v in cap["headers"]
+            ]
+            hdr_map = dict(hdr_pairs)
+            if status != 200 or "set-cookie" in hdr_map:
+                out = [
+                    (k.encode(), v.encode()) for k, v in hdr_pairs
+                ]
+                await _send_simple(send, status, out, body)
+                return
+
+            render_cache_stat["misses"] += 1
+            etag = f'W/"{hashlib.md5(body).hexdigest()[:20]}"'
+            keep = [
+                (k, v) for k, v in hdr_pairs
+                if k in ("content-type", "content-disposition")
+                or k.startswith("x-")
+            ]
+            if len(body) <= RENDER_CACHE_MAX_ITEM:
+                render_cache[key] = (body, keep + [("etag", etag)])
+                render_cache_stat["bytes"] += len(body)
+                _render_cache_evict()
+            out = [(k.encode(), v.encode()) for k, v in keep]
+            out += [
+                (b"content-length", str(len(body)).encode()),
+                (b"etag", etag.encode()),
+                (b"x-render-cache", b"miss"),
+            ]
+            await _send_simple(send, 200, out, body)
+
+    async def _send_simple(send, status, headers, body):
+        await send({
+            "type": "http.response.start",
+            "status": status,
+            "headers": headers,
+        })
+        await send({"type": "http.response.body", "body": body})
+
+    app.add_middleware(_RenderCacheMiddleware)
+    app.state.render_cache_stat = render_cache_stat
 
     # W1-B（架構健檢 2026-07-18）：大型 SVG/JSON 回應壓縮。心經整頁 SVG
     # 1.25MB → 約 150KB；zhuyin_tw.json 454KB → 約 60KB。

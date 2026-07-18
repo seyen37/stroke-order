@@ -182,6 +182,8 @@ def get_kaishu_source() -> MoeKaishuSource:
 def reset_kaishu_singleton() -> None:
     global _SINGLETON
     _SINGLETON = None
+    from ..cache_bus import bump  # 5eu：跨層快取失效訊號
+    bump()
 
 
 __all__ = [

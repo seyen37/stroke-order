@@ -504,6 +504,8 @@ def reset_cns_singletons() -> None:
     global _KAI_SINGLETON, _SUNG_SINGLETON
     _KAI_SINGLETON = None
     _SUNG_SINGLETON = None
+    from ..cache_bus import bump  # 5eu：跨層快取失效訊號
+    bump()
 
 
 __all__ = [
