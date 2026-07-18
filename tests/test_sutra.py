@@ -2456,6 +2456,24 @@ def test_5en_handwrite_ref_uses_styled_preview_glyph():
     assert 'getElementById("st-preview")' not in swfn
 
 
+def test_5eq_handwrite_ref_prefers_filled_layer_over_thick_skeleton():
+    """5eq：swBuildRefImg 只複製填實字形層（reference/trace），骨架
+    （sutra-trace-skeleton＝12% 粗中線、預覽 0.03）僅在無填實層時 fallback。
+    修 5en 把三層全 opacity=1 疊起、篆/隸 成又粗又重疊、比例偏大的黑團。"""
+    from fastapi.testclient import TestClient
+    from stroke_order.web.server import app
+    html = TestClient(app).get("/").text
+    swfn = html.split("async function swBuildRefImg")[1].split(
+        "async function")[0]
+    # 填實層優先集合 + 有任一填實層才用之、否則才 fallback 骨架
+    assert '_filledIds = ["sutra-glyph-reference", "sutra-trace"]' in swfn
+    assert "_filledIds.some(" in swfn
+    assert ': ["sutra-trace-skeleton"]' in swfn
+    # 迴圈跑「選定集合」，不再無條件把三層（含粗骨架）並列複製
+    assert "for (const id of _useIds)" in swfn
+    assert '["sutra-glyph-reference", "sutra-trace",' not in swfn
+
+
 # ---------------------------------------------------------------------------
 # 5dv：逐字手寫送出後，使用者手寫（centerline）要可見，不能落到 0.03 骨架層
 # ---------------------------------------------------------------------------

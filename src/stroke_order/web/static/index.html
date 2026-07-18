@@ -9815,12 +9815,22 @@ async function swBuildRefImg(cur) {
     out.setAttribute("viewBox", `${bb.x} ${bb.y} ${bb.width} ${bb.height}`);
     out.setAttribute("width", "360");
     out.setAttribute("height", "360");
-    // Clone the 範字 layers (reference / trace / skeleton) — NOT the user
-    // handwriting, marks or cellmap — and recolour to a clearly-visible light
-    // grey (the print layers use very low opacity that would be invisible here).
+    // 5eq: use the FILLED letterform (reference / trace) as the popup 範字 — a
+    // clean, thin seal/kaishu shape matching the grid 描紅. The skeleton layer
+    // (sutra-trace-skeleton) is a thick 12%-of-char_size centreline drawing kept
+    // at 0.03 opacity in the preview; 5en forced ALL layers to opacity 1 and
+    // stacked them, so 篆/隸 turned into a heavy, merged blob whose round-cap
+    // strokes also overran the glyph bbox (實機回報：太粗、筆畫重疊、比例偏大).
+    // Clone ONLY the filled layer(s) when present; fall back to the skeleton
+    // centreline only when no filled letterform exists (rare).
+    // NOT the user handwriting, marks or cellmap. Recolour to a clearly-visible
+    // light grey (print layers use very low opacity that would be invisible).
     let has = false;
-    for (const id of ["sutra-glyph-reference", "sutra-trace",
-                      "sutra-trace-skeleton"]) {
+    const _filledIds = ["sutra-glyph-reference", "sutra-trace"];
+    const _useIds = _filledIds.some(id => svg.querySelector("#" + id))
+      ? _filledIds
+      : ["sutra-trace-skeleton"];
+    for (const id of _useIds) {
       const g = svg.querySelector("#" + id);
       if (!g) continue;
       const clone = g.cloneNode(true);
