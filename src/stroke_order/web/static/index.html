@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.20.4/dist/index.js"></script>
   <!-- 5cj: ?v= cache-busting — 舊快取 JS 會殘留死 CDN 位址 -->
-  <script src="/static/doodle_engine.js?v=161"></script>
+  <script src="/static/doodle_engine.js?v=162"></script>
   <style>
     :root {
       --bg: #fafafa;
@@ -3967,8 +3967,10 @@ function fontCharTracks(ch) {
   const tracks = [];
   for (const tr of traced) {
     if (tr.length < 4) continue;             // 去雜點
-    tracks.push(eng.rdpSimplify(tr, 1.5)
-      .map((pt) => [pt[0] * emScale, pt[1] * emScale]));
+    // 5eh：RDP 後套 Chaikin 削角（同塗鴉 centerline），細線化階梯的殘餘
+    // 尖角讀成平滑中心線；端點保留、iters=2。
+    const simp = eng.chaikinSmooth(eng.rdpSimplify(tr, 1.5), 2);
+    tracks.push(simp.map((pt) => [pt[0] * emScale, pt[1] * emScale]));
   }
   _fontTrackCache.set(key, tracks);
   return tracks;

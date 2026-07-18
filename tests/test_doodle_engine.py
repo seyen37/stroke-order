@@ -151,3 +151,30 @@ def test_5cg_centerline_mode_wired(client):
 def test_5cg_index_has_centerline_option(client):
     html = client.get("/").text
     assert 'value="centerline"' in html
+
+
+# ---------------------------------------------------------------------------
+# Phase 5eh — 塗鴉中心線 Chaikin 平滑（鏡射 5ed Python cns_skeleton.chaikin）
+# ---------------------------------------------------------------------------
+
+
+def test_5eh_engine_exports_chaikin(client):
+    """chaikinSmooth 純函式存在且掛上公開 api（node parity/單元入口）。"""
+    body = client.get("/static/doodle_engine.js").text
+    assert "function chaikinSmooth" in body
+    assert "chaikinSmooth: chaikinSmooth" in body      # api 匯出
+    # 端點保留 + 1/4、3/4 削角（Chaikin 本體特徵）
+    assert "0.75" in body and "0.25" in body
+
+
+def test_5eh_centerline_mode_applies_chaikin(client):
+    """塗鴉 centerline 模式：RDP 後套 chaikinSmooth；chaikinIters=0 可 opt-out。"""
+    body = client.get("/static/doodle_engine.js").text
+    assert "chaikinSmooth(simp" in body                # 套在 RDP 之後
+    assert "chaikinIters" in body                      # opt-out 參數
+
+
+def test_5eh_font_grid_applies_chaikin(client):
+    """5cs 自訂字型 grid（同源 trio 的另一消費點）也套 chaikinSmooth。"""
+    html = client.get("/").text
+    assert "chaikinSmooth(eng.rdpSimplify" in html

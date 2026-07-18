@@ -493,6 +493,30 @@ function rdpSimplify(pts, eps) {
   return out;
 }
 
+/** Chaikin 削角平滑（5eh／塗鴉中心線平滑，鏡射 Python cns_skeleton.
+ *  chaikin_smooth）。Zhang-Suen 細線化＋RDP 後仍是階梯折線在真轉角留
+ *  90° 尖角；Chaikin 把每個**內部**轉角換成相鄰段 1/4、3/4 兩點，鋸齒
+ *  90°→26.6°（2 迭代）讀來平滑。**端點精確保留**（筆畫起訖不移）；每
+ *  迭代約倍增點數。iterations<=0 或 <3 點 → 原樣返回（安全 no-op）。 */
+function chaikinSmooth(pts, iterations) {
+  var iters = iterations === undefined ? 2 : iterations;
+  if (iters <= 0 || pts.length < 3) return pts;
+  var cur = pts;
+  for (var it = 0; it < iters; it++) {
+    if (cur.length < 3) break;
+    var out = [cur[0]];                       // 端點保留
+    for (var i = 0; i < cur.length - 1; i++) {
+      var px = cur[i][0], py = cur[i][1];
+      var qx = cur[i + 1][0], qy = cur[i + 1][1];
+      out.push([px * 0.75 + qx * 0.25, py * 0.75 + qy * 0.25]);
+      out.push([px * 0.25 + qx * 0.75, py * 0.25 + qy * 0.75]);
+    }
+    out.push(cur[cur.length - 1]);            // 端點保留
+    cur = out;
+  }
+  return cur;
+}
+
 /* ------------------------------------------------------------
  * 瀏覽器 adapter：File → 解碼 → auto_crop → 縮圖 → 核心管線
  * ------------------------------------------------------------ */
@@ -793,12 +817,15 @@ async function renderInOpenCV(file, opts) {
       var traced = traceCenterlines(skel, s.w, s.h);
       var minLen = cvo.minArea === undefined ? 30 : cvo.minArea;
       var eps2 = cvo.simplifyPx === undefined ? 1.5 : cvo.simplifyPx;
+      // 5eh：RDP 後套 Chaikin 削角，把細線化階梯的殘餘 90° 尖角讀成平滑
+      // 中心線（default 2 迭代；chaikinIters=0 保留原鋸齒 opt-out）。
+      var ck = cvo.chaikinIters === undefined ? 2 : cvo.chaikinIters;
       var cpolys = [];
       for (var ti = 0; ti < traced.length; ti++) {
         var tp = traced[ti];
         if (tp.length < 2 || tp.length < minLen) continue;
-        cpolys.push({points: eps2 > 0 ? rdpSimplify(tp, eps2) : tp,
-                     closed: false});
+        var simp = eps2 > 0 ? rdpSimplify(tp, eps2) : tp;
+        cpolys.push({points: chaikinSmooth(simp, ck), closed: false});
       }
       var csvg = contoursToSvg(cpolys, s.w, s.h, {
         canvasWidthMm: opts.canvasWidthMm,
@@ -919,7 +946,7 @@ var DoodleEngines = {
  * 前端引擎整組失敗 → UI 層再退伺服器（既有 fallback）。
  * ------------------------------------------------------------ */
 
-var WORKER_URL = "/static/doodle_worker.js?v=161";   // 5db cache-bust
+var WORKER_URL = "/static/doodle_worker.js?v=162";   // 5db cache-bust
 var _worker = null;
 var _workerBroken = false;
 var _msgSeq = 0;
@@ -1039,10 +1066,11 @@ var api = {
   buildDoodleSvg: buildDoodleSvg,
   contoursToSvg: contoursToSvg,
   canvasGeom: canvasGeom,
-  // 5cg centerline 三件組
+  // 5cg centerline 三件組（5eh：＋Chaikin 平滑）
   zhangSuenThin: zhangSuenThin,
   traceCenterlines: traceCenterlines,
   rdpSimplify: rdpSimplify,
+  chaikinSmooth: chaikinSmooth,
 };
 
 if (typeof module !== "undefined" && module.exports) {
