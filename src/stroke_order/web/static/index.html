@@ -432,6 +432,10 @@
                   style="font-size:12px;padding:3px 10px;background:#f4f4f4;
                          border:1px solid var(--border);border-radius:4px;
                          cursor:pointer;">清空</button>
+          <button id="sw-play" type="button" title="重播你寫的筆順"
+                  style="font-size:12px;padding:3px 10px;background:#f4f4f4;
+                         border:1px solid var(--border);border-radius:4px;
+                         cursor:pointer;">▶ 播放</button>
         </div>
         <div style="position:relative;">
           <canvas id="sw-canvas" width="360" height="360"
@@ -9720,14 +9724,16 @@ const SW = {
   dirty: false,      // any successful write this session → refresh preview
   hadSaved: false,   // 5dy: current char had a saved user-dict entry on open
                      // → clearing + submit deletes it (reverts to 描紅範本)
+  anim: null,        // 5eb: requestAnimationFrame handle while replaying 筆順
 };
 
 function swInit() {
   const $ = id => document.getElementById(id);
   if (!$("sw-overlay")) return;
   $("sw-close").onclick   = swClose;
-  $("sw-undo").onclick    = () => { SW.strokes.pop(); swRedraw(); swInfo(); };
-  $("sw-clear").onclick   = () => { SW.strokes = []; swRedraw(); swInfo(); };
+  $("sw-undo").onclick    = () => { swStopAnim(); SW.strokes.pop(); swRedraw(); swInfo(); };
+  $("sw-clear").onclick   = () => { swStopAnim(); SW.strokes = []; swRedraw(); swInfo(); };
+  $("sw-play").onclick    = swPlayStrokes;   // 5eb: 重播你寫的筆順
   $("sw-show-ref").onchange = swRedraw;
   $("sw-prev").onclick    = () => swNav(-1);
   $("sw-next").onclick    = () => swNav(1);
@@ -9784,6 +9790,7 @@ async function swOpen(index) {
 }
 
 function swClose() {
+  swStopAnim();   // 5eb
   document.getElementById("sw-overlay").style.display = "none";
   if (SW.dirty) {            // reflect newly-written glyphs in the preview
     SW.dirty = false;
@@ -9793,6 +9800,7 @@ function swClose() {
 
 // Load the current position: show char, preload existing user-dict strokes.
 async function swLoadCurrent() {
+  swStopAnim();          // 5eb: switching char stops any replay
   const cur = SW.positions[SW.index];
   SW.strokes = [];
   SW.hadSaved = false;   // 5dy: reset; set true only if an entry preloads
@@ -9922,6 +9930,7 @@ async function swImport(e) {
 function swBindCanvas() {
   const c = document.getElementById("sw-canvas");
   c.addEventListener("pointerdown", e => {
+    swStopAnim();   // 5eb: starting to draw interrupts any 筆順 replay
     c.setPointerCapture(e.pointerId);
     SW.active = [swPt(e)]; SW.strokes.push(SW.active); swRedraw();
   });
@@ -9942,12 +9951,10 @@ function swInfo() {
   document.getElementById("sw-canvas-info").textContent =
     `${SW.strokes.filter(s => s.length >= 2).length} 筆畫`;
 }
-function swRedraw() {
-  const c = document.getElementById("sw-canvas");
-  const ctx = c.getContext("2d");
-  const W = c.width, H = c.height;
+// 5eb: draw the canvas backdrop (faint reference char + 米字格) without ink.
+// Shared by swRedraw and the 筆順 replay animation so both look identical.
+function swDrawBase(ctx, W, H) {
   ctx.clearRect(0, 0, W, H);
-  // faint reference char behind the grid
   const cur = SW.positions[SW.index];
   if (cur && document.getElementById("sw-show-ref").checked) {
     ctx.save();
@@ -9967,6 +9974,13 @@ function swRedraw() {
   ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H);
   ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);
   ctx.stroke();
+}
+
+function swRedraw() {
+  const c = document.getElementById("sw-canvas");
+  const ctx = c.getContext("2d");
+  const W = c.width, H = c.height;
+  swDrawBase(ctx, W, H);
   // ink
   ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
   ctx.lineCap = "round"; ctx.lineJoin = "round";
@@ -9977,6 +9991,68 @@ function swRedraw() {
     for (let i = 1; i < s.length; i++) ctx.lineTo(s[i][0], s[i][1]);
     ctx.stroke();
   }
+}
+
+// 5eb: cancel any in-flight 筆順 replay.
+function swStopAnim() {
+  if (SW.anim) { cancelAnimationFrame(SW.anim); SW.anim = null; }
+}
+
+// 5eb: replay the user's OWN handwriting stroke-by-stroke — progressively
+// draw SW.strokes in write order (with a red pen-tip dot at the leading
+// edge), paced by total point count. Works for any char since it plays
+// back the user's own captured raw_track, not a font.
+function swPlayStrokes() {
+  const valid = SW.strokes.filter(s => s.length >= 2);
+  const st = document.getElementById("sw-status");
+  if (!valid.length) {
+    st.textContent = "（尚無筆跡可播放，先寫幾筆再播）";
+    st.style.color = "var(--muted)";
+    return;
+  }
+  swStopAnim();
+  const c = document.getElementById("sw-canvas");
+  const ctx = c.getContext("2d");
+  const W = c.width, H = c.height;
+  const totalPts = valid.reduce((a, s) => a + s.length, 0);
+  const DURATION = Math.min(4500, Math.max(1400, totalPts * 14));  // ms
+  let t0 = null;
+  function frame(now) {
+    if (t0 == null) t0 = now;
+    const prog = Math.min(1, (now - t0) / DURATION);
+    const showN = Math.round(prog * totalPts);
+    swDrawBase(ctx, W, H);
+    ctx.strokeStyle = "#222"; ctx.lineWidth = 4;
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    let count = 0, tip = null;
+    for (const s of valid) {
+      if (count >= showN) break;
+      const take = Math.min(s.length, showN - count);
+      if (take >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(s[0][0], s[0][1]);
+        for (let i = 1; i < take; i++) ctx.lineTo(s[i][0], s[i][1]);
+        ctx.stroke();
+      }
+      if (take >= 1 && take < s.length) tip = s[take - 1];  // pen still on this stroke
+      count += s.length;
+    }
+    if (tip) {
+      ctx.save();
+      ctx.fillStyle = "#c0392b";
+      ctx.beginPath(); ctx.arc(tip[0], tip[1], 5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    if (prog < 1) {
+      SW.anim = requestAnimationFrame(frame);
+    } else {
+      SW.anim = null;
+      swRedraw();   // settle to the clean full-ink state (no pen tip)
+    }
+  }
+  st.textContent = "▶ 播放筆順中…";
+  st.style.color = "var(--muted)";
+  SW.anim = requestAnimationFrame(frame);
 }
 
 // ============================================================
