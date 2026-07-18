@@ -45,16 +45,20 @@ StencilKind = Literal["stencil", "cutout"]
 #
 #   - ``full``     ＝全連派：每個 counter 都鑿橋連通、殘腔 0（物理有效字模，
 #                    可真的噴漆／雷切）。本專案 5dm 引擎的既有唯一策略。
-#   - ``envelope`` ＝外框派（方正簡潔美學）：只斷最外圈包圍、容許深層巢狀
-#                    counter 留孤島。**尚未實作**（下一弧候選）；registry
-#                    先不收，待實作連同 UI 一起上（避免 dead 分支）。
+#   - ``envelope`` ＝外框派（方正簡潔美學，5eg 實作）：只斷最外圈包圍
+#                    （深度 1 的孔），深層巢狀 counter（回的中心、國/圖的
+#                    內件）留成孤島。斷點最少、最像手寫連筋字，但**非物理
+#                    完整**（深層料會掉）——適合展示／厚料，UI 有免責提示。
 #
-# 本輪（5ef）為**純重構**：把「唯一策略」正名為 registry 的 ``physical``
-# preset、立好可切換的 seam，行為逐位元不變。其餘 §4 參數（bridge_axis、
-# near_wall_only、keep_primary…）目前在 carve 函式內恆為 full 值，待 envelope
-# 需要時再拉進 style struct（YAGNI：不加現在沒人讀的欄位）。
+# 5ef 為純重構立好 seam；5eg 加入 envelope 第二策略（新演算法＝孔巢狀深度
+# 偵測＋深度過濾，見 `_hole_depths`／`carve_stencil_bridges(max_depth=)`）。
+# 其餘 §4 參數（bridge_axis、near_wall_only、keep_primary…）目前在 carve
+# 函式內恆為 full 值，待需要它們的策略落地時再拉進 style struct（YAGNI）。
 
-CutConnectDepth = Literal["full"]
+CutConnectDepth = Literal["full", "envelope"]
+
+#: connect_depth → carve_stencil_bridges 的 max_depth（None＝全連、1＝只外框）。
+_CONNECT_DEPTH_MAX: dict[str, Optional[int]] = {"full": None, "envelope": 1}
 
 
 @dataclass(frozen=True)
@@ -70,10 +74,13 @@ class CuttingStyle:
     connect_depth: CutConnectDepth
 
 
-#: 切割風格登記處（key → CuttingStyle）。目前唯一策略＝物理完整（全連派）。
+#: 切割風格登記處（key → CuttingStyle）。physical＝物理完整（全連派、殘腔
+#: 0）；envelope＝方正簡潔（只外框、深層留島、非物理完整）。
 CUTTING_STYLES: dict[str, CuttingStyle] = {
     "physical": CuttingStyle(
         key="physical", label="物理完整", connect_depth="full"),
+    "envelope": CuttingStyle(
+        key="envelope", label="方正簡潔", connect_depth="envelope"),
 }
 
 #: 預設切割風格（維持既有行為）。
@@ -322,8 +329,52 @@ def _carve_cross_bridges(mask: np.ndarray, outside: np.ndarray,
 _TWO_BRIDGE_MIN_PX = 30
 
 
+def _count_true_runs(arr: np.ndarray) -> int:
+    """1D 布林陣列中 True 連續段（run）數＝上升緣數。"""
+    if arr.size == 0:
+        return 0
+    return int(arr[0]) + int(np.count_nonzero(arr[1:] & ~arr[:-1]))
+
+
+def _hole_depths(mask: np.ndarray, holes_lab: np.ndarray,
+                 n_holes: int) -> dict[int, int]:
+    """每個封閉孔的**巢狀深度**＝到板外的最少穿牆數（5eg／envelope 風格用）。
+
+    幾何依據（Jordan 曲線）：一個被 d 層封閉筆畫包住的孔，任一射線到板外
+    必**至少**穿越 d 道牆；存在一條「乾淨」方向恰穿 d 道。故對每孔取多個
+    樣本像素、往四軸向各射一線、數該線的墨 run（＝穿牆數），**全取最小**
+    ＝該孔深度。depth 1＝最外圈孔（穿一道牆即出板）、depth≥2＝深層巢狀。
+
+    純 numpy（軸向射線用列/行切片，無斜向穿角漏數問題）；只在 envelope
+    需要時呼叫。
+    """
+    depths: dict[int, int] = {}
+    for hid in range(1, n_holes + 1):
+        ys, xs = np.nonzero(holes_lab == hid)
+        if len(ys) == 0:
+            depths[hid] = 1
+            continue
+        step = max(1, len(ys) // 9)          # 最多 ~9 個樣本像素
+        best: Optional[int] = None
+        for idx in range(0, len(ys), step):
+            y0, x0 = int(ys[idx]), int(xs[idx])
+            rays = (
+                mask[y0, x0 + 1:],            # →
+                mask[y0, :x0][::-1],          # ←
+                mask[y0 + 1:, x0],            # ↓
+                mask[:y0, x0][::-1],          # ↑
+            )
+            for ray in rays:
+                wc = _count_true_runs(ray)
+                if wc >= 1 and (best is None or wc < best):
+                    best = wc
+        depths[hid] = best if best is not None else 1
+    return depths
+
+
 def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
-                          bridge_count: int = 4) -> int:
+                          bridge_count: int = 4,
+                          max_depth: Optional[int] = None) -> int:
     """噴漆模板：每個封閉孔洞鑿白橋接回外部。In-place；回傳孔洞數。
 
     5dl（使用者實測回饋：截斷切筆畫中段、破壞可讀性）——「最短垂直橋＋
@@ -337,12 +388,26 @@ def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
     改動要點（vs 5dg）：橋數自動取最少（1~2，不再一律 bridge_count）、
     改以「最短穿牆」而非「角度最開」選橋——截口落在筆畫最細的交接處、
     直筆中段幾乎不切。
+
+    5eg（envelope 切割風格）：``max_depth`` 為 None＝全連派（每個孔都鑿橋、
+    殘腔 0，物理有效字模）；給整數（envelope＝1）＝只鑿**深度 ≤ max_depth**
+    的孔（最外圈環），深層巢狀孔（回的中心、國/圖的內件）**留成孤島**——
+    方正簡潔美學、斷點最少，但**非物理完整**（深層料會掉）。回傳**實際鑿
+    橋的孔數**（full 時＝總孔數；envelope 時＜總孔數）。
     """
     outside = _outside(mask)
     holes_lab, n_holes = _label(~mask & ~outside)
+    # envelope：先在**原始 mask**上快照全孔深度（鑿橋會改 mask、影響後續
+    # 孔深度判定，故必須先算），再據以跳過深層孔。
+    depths = (_hole_depths(mask, holes_lab, n_holes)
+              if max_depth is not None else None)
+    bridged = 0
     half = max(1, bridge_px // 2)
     h_, w_ = mask.shape
     for hid in range(1, n_holes + 1):
+        if depths is not None and depths.get(hid, 1) > max_depth:
+            continue                          # envelope：深層孔留島、不鑿
+        bridged += 1
         hole = holes_lab == hid
         ys, xs = np.nonzero(hole)
         fcy, fcx = float(ys.mean()), float(xs.mean())
@@ -404,7 +469,7 @@ def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
             for py, px in path:
                 mask[max(0, py - half):min(h_, py + half + 1),
                      max(0, px - half):min(w_, px + half + 1)] = False
-    return n_holes
+    return bridged
 
 
 def _ang_diff(a: float, b: float) -> float:
@@ -645,16 +710,19 @@ def stencil_geometry(
 
     bw_px = max(2, int(round(bridge_width_mm * px_per_mm)))
     stats: dict = {"kind": kind, "style": cut_style.key}
-    # 切割策略 dispatch（切割風格 registry 的 seam）。目前唯一策略＝全連派
-    # （connect_depth="full"）；envelope 等新策略落地時在此加 elif 分支。
-    if cut_style.connect_depth != "full":
+    # 切割策略 dispatch（切割風格 registry 的 seam）。connect_depth → max_depth：
+    # full＝None（全連派、殘腔 0）；envelope＝1（只鑿最外圈、深層留島）。
+    if cut_style.connect_depth not in _CONNECT_DEPTH_MAX:
         raise NotImplementedError(
             f"cutting style {cut_style.key!r} (connect_depth="
             f"{cut_style.connect_depth!r}) not implemented yet")
+    max_depth = _CONNECT_DEPTH_MAX[cut_style.connect_depth]
     if kind == "stencil":
         stats["holes_bridged"] = carve_stencil_bridges(
-            mask, bw_px, bridge_count)
+            mask, bw_px, bridge_count, max_depth=max_depth)
     else:
+        # cutout（字即本體、連筋掛框）：envelope 的「深層留島」對 cutout 會讓
+        # 字件掉光＝壞字，故 cutout 恆走全連（忽略 connect_depth 的深度限制）。
         _labels, before = _label(mask)
         stats["components_before"] = before
         if frame:

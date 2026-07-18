@@ -1305,6 +1305,14 @@
         <option value="cns_kai">CNS 楷書</option>
         <option value="chongxi_seal">崇羲篆書</option>
       </select>
+      <label style="margin-left:16px;"
+             title="切割策略（噴漆字模用）：物理完整＝每個封閉孔都連通、殘腔 0，可真的噴漆／雷切；方正簡潔＝只斷最外圈、深層巢狀孔（回的中心、國/圖的內件）留成孤島，斷點最少最像手寫連筋字，但非物理完整、深層料會掉，適合展示或厚料">切割風格</label>
+      <select id="sc-style">
+        <option value="physical" selected>物理完整（殘腔0）</option>
+        <option value="envelope">方正簡潔（只外框）</option>
+      </select>
+      <span id="sc-style-note" style="display:none;margin-left:10px;
+            color:#b8860b;font-size:12px;">⚠ 深層孔留島·非物理完整（深層料會掉，宜展示/厚料）</span>
     </div>
     <div class="row">
       <label>字高 (mm)</label>
@@ -3492,6 +3500,7 @@ function scParams() {
     chars: g("sc-chars"),
     kind: g("sc-kind"),
     source: g("sc-source"),
+    style: g("sc-style"),
     char_height_mm: g("sc-height"),
     bridge_width_mm: g("sc-bridgew"),
     bridge_count: g("sc-bridgen"),
@@ -3541,6 +3550,19 @@ async function renderStencil() {
 }
 document.getElementById("sc-render")
   .addEventListener("click", renderStencil);
+
+// 切割風格＝方正簡潔（envelope）時，顯示「非物理完整」免責提示。
+(function () {
+  const sel = document.getElementById("sc-style");
+  const note = document.getElementById("sc-style-note");
+  if (sel && note) {
+    const sync = () => {
+      note.style.display = sel.value === "envelope" ? "" : "none";
+    };
+    sel.addEventListener("change", sync);
+    sync();
+  }
+})();
 
 // ============================================================
 // Grid (字帖) mode

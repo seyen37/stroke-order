@@ -379,14 +379,15 @@ def test_5ef_default_style_is_physical_byte_identical():
 
 
 def test_5ef_unknown_connect_depth_raises(monkeypatch):
-    """seam 守衛：connect_depth 非 full 的風格 → NotImplementedError（留給
-    envelope 等未來策略；證明 dispatch 真的讀 connect_depth、非死參數）。"""
-    fake = CuttingStyle(key="envelope_fake", label="假外框",
-                        connect_depth="envelope")   # type: ignore[arg-type]
-    monkeypatch.setitem(CUTTING_STYLES, "envelope_fake", fake)
+    """seam 守衛：connect_depth 非已實作值的風格 → NotImplementedError（證明
+    dispatch 真的讀 connect_depth、非死參數；full/envelope 皆已實作，故用一個
+    尚未實作的假 depth）。"""
+    fake = CuttingStyle(key="depth_fake", label="假深度",
+                        connect_depth="not_a_real_depth")  # type: ignore[arg-type]
+    monkeypatch.setitem(CUTTING_STYLES, "depth_fake", fake)
     with pytest.raises(NotImplementedError):
         stencil_geometry([_ring_polys()], kind="stencil",
-                         style="envelope_fake", char_height_mm=40)
+                         style="depth_fake", char_height_mm=40)
 
 
 def test_5ef_api_rejects_bad_style(client):
@@ -407,3 +408,101 @@ def test_5ef_api_style_header(client, monkeypatch):
     r = client.get("/api/stencil?chars=明&kind=stencil&style=physical")
     assert r.status_code == 200
     assert r.headers["x-stencil-style"] == "physical"
+
+
+# ---------------------------------------------------------------------------
+# 5eg：envelope（方正簡潔）第二切割風格——只斷外框、深層 counter 留島
+# ---------------------------------------------------------------------------
+
+
+def _nested_ring_mask(n: int = 120):
+    """回狀雙環：外環(ink)＋內環(ink)；中間環白孔(depth1)＋中心白孔(depth2)。"""
+    m = np.zeros((n, n), dtype=bool)
+    m[10:n - 10, 10:n - 10] = True
+    m[25:n - 25, 25:n - 25] = False          # 外方塊挖空 → 外環
+    m[40:n - 40, 40:n - 40] = True           # 內方塊
+    m[52:n - 52, 52:n - 52] = False          # 內方塊挖空 → 內環
+    return m
+
+
+def _nested_ring_polys(em: float = 2048.0):
+    """回：四同心方框（even-odd → 外環＋內環兩圈墨、中間環＋中心兩白孔）。"""
+    def sq(f):
+        return [(f, f), (em - f, f), (em - f, em - f), (f, em - f)]
+    return [sq(em * 0.08), sq(em * 0.20), sq(em * 0.34), sq(em * 0.44)]
+
+
+def test_5eg_hole_depth_nested():
+    """孔巢狀深度：回狀外環 depth1、中心 depth2；單環＝depth1。"""
+    from stroke_order.exporters.stencil import _hole_depths
+    m = _nested_ring_mask()
+    lab, n = _label(~m & ~_outside(m))
+    assert n == 2
+    assert sorted(_hole_depths(m, lab, n).values()) == [1, 2]
+    # 單環（口）只有一個 depth1 孔
+    s = _ring_mask()
+    labs, ns = _label(~s & ~_outside(s))
+    assert ns == 1
+    assert list(_hole_depths(s, labs, ns).values()) == [1]
+
+
+def test_5eg_envelope_leaves_deep_island():
+    """envelope（max_depth=1）只鑿最外圈、深層孔留島；full 全鑿殘腔 0。"""
+    m = _nested_ring_mask()
+    full = m.copy()
+    b_full = carve_stencil_bridges(full, 6, max_depth=None)
+    env = m.copy()
+    b_env = carve_stencil_bridges(env, 6, max_depth=1)
+    assert (b_full, _n_holes(full)) == (2, 0)     # 全連派：2 橋、殘腔 0
+    assert (b_env, _n_holes(env)) == (1, 1)       # 外框派：1 橋、中心留 1 島
+
+
+def test_5eg_envelope_equals_full_on_single_ring():
+    """單環字（口/日）envelope 與 full 無異——都只有 depth1 孔、都鑿。"""
+    s = _ring_mask()
+    full = s.copy()
+    env = s.copy()
+    assert carve_stencil_bridges(full, 6, max_depth=None) == 1
+    assert carve_stencil_bridges(env, 6, max_depth=1) == 1
+    assert _n_holes(full) == _n_holes(env) == 0
+
+
+def test_5eg_registry_has_envelope():
+    assert "envelope" in CUTTING_STYLES
+    env = CUTTING_STYLES["envelope"]
+    assert env.connect_depth == "envelope"
+    assert env.label == "方正簡潔"
+
+
+def test_5eg_geometry_style_dispatch():
+    """stencil_geometry：巢狀字 physical 鑿全部孔、envelope 只鑿外圈。"""
+    nested = _nested_ring_polys()
+    _l, _w, _h, phys = stencil_geometry(
+        [nested], kind="stencil", style="physical",
+        char_height_mm=50, bridge_width_mm=2)
+    _l2, _w2, _h2, env = stencil_geometry(
+        [nested], kind="stencil", style="envelope",
+        char_height_mm=50, bridge_width_mm=2)
+    assert phys["holes_bridged"] == 2 and phys["style"] == "physical"
+    assert env["holes_bridged"] == 1 and env["style"] == "envelope"
+
+
+def test_5eg_cutout_ignores_envelope():
+    """cutout 恆全連（envelope 的深層留島會讓字件掉光）——兩風格結果相同。"""
+    ring = _ring_polys()
+    _l, _w, _h, phys = stencil_geometry(
+        [ring, ring], kind="cutout", style="physical",
+        char_height_mm=40, frame=True, frame_width_mm=3)
+    _l2, _w2, _h2, env = stencil_geometry(
+        [ring, ring], kind="cutout", style="envelope",
+        char_height_mm=40, frame=True, frame_width_mm=3)
+    assert phys["bridges_added"] == env["bridges_added"]
+    assert phys["components_before"] == env["components_before"]
+
+
+def test_5eg_api_accepts_envelope(client):
+    """API：style=envelope 合法（非 422）；未知風格仍 422。"""
+    assert client.get(
+        "/api/stencil?chars=明&style=envelope").status_code != 422
+    assert client.get(
+        "/api/stencil?chars=明&style=nope").status_code == 422

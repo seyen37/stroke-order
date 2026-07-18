@@ -141,10 +141,12 @@
 
 **風格對照（示意）**：
 
-- **風格「物理優先」（現行 5dm 預設）**：`connect_depth=full`——保證每個
+- **風格「物理完整」（`physical`，預設）**：`connect_depth=full`——保證每個
   counter 都不掉料，適合真的要噴漆／雷切的字模。
-- **風格「方正簡潔」（未來可加）**：`connect_depth=envelope`、`keep_primary=
-  vertical_first`——最少斷點、最像手寫連筋字，適合展示或厚料。
+- **風格「方正簡潔」（`envelope`，5eg 已加）**：`connect_depth=envelope`——
+  只鑿 depth-1 孔（最外圈）、深層巢狀孔留島，最少斷點、最像手寫連筋字，
+  適合展示或厚料（非物理完整）。（`keep_primary=vertical_first` 等更細的
+  §4 參數尚未拉進 style struct，待需要時再加——YAGNI。）
 - **風格「筆順對齊」（未來）**：`bridge_axis=stroke_aligned`——缺口順著
   筆畫方向，需筆向資料（見 §6）。
 
@@ -171,13 +173,14 @@
 5. 測試：每風格各驗其不變量（`full`→殘腔0；`envelope`→外框連通、
    容許深層殘腔；皆守 R2 中段不切）。
 
-> 現況（5ef／0.14.210）：**已抽成 `CUTTING_STYLES` registry**（`stencil.py`）。
-> 目前唯一 entry＝`physical`（`connect_depth="full"`＝全連派，即原行為）；
-> `stencil_geometry(style=...)`／`/api/stencil?style=` 已可帶風格、未知風格
-> 回 422。本輪為**純重構**（行為逐位元不變，QODA 選 A）；`envelope` 等新
-> 策略連同 UI 下拉留待下一弧。§4 其餘參數（bridge_axis/near_wall/keep_primary）
-> 目前在 carve 函式內恆為 full 值，待需要它們的策略落地時再拉進 style struct
-> （YAGNI：不加現在沒程式讀的欄位）。
+> 現況（5eg／0.14.211）：**已抽成 `CUTTING_STYLES` registry**（`stencil.py`），
+> 且已有**兩個切割策略**：`physical`（`connect_depth="full"`＝全連派、殘腔 0）
+> 與 `envelope`（`connect_depth="envelope"`＝只斷最外圈、深層 counter 留島、
+> 非物理完整）。`stencil_geometry(style=...)`／`/api/stencil?style=` 帶風格、
+> 未知風格回 422；UI（index.html）有「切割風格」下拉＋envelope 免責提示。
+> registry seam＝5ef 純重構（QODA 選 A）；envelope 第二策略＝5eg（QODA 選 A：
+> depth-1 射線法）。§4 其餘參數（bridge_axis/near_wall/keep_primary）目前在
+> carve 函式內恆為 full 值，待需要它們的策略落地時再拉進 style struct（YAGNI）。
 
 ---
 
@@ -196,9 +199,13 @@
 
 - **顯式主幹判定**（R1 完整版）：目前靠「穿牆最短」間接選到交叉筆；
   遇到橫豎等厚時可能誤退主幹。可加筆向／骨架分析明確標記主幹豎筆。
-- **`connect_depth=envelope` 風格**：容許深層 counter 保留（方正美學）。
-  （registry seam 已就緒——新增 = 加一個 `CUTTING_STYLES` entry ＋ 在
-  `stencil_geometry` 的 connect_depth dispatch 加一個 elif 分支 ＋ UI 下拉。）
+- ~~**`connect_depth=envelope` 風格**：容許深層 counter 保留（方正美學）。~~
+  **已完成（5eg／0.14.211）**——`envelope` ＝只鑿 depth-1 孔（最外圈）、深層
+  巢狀孔留島。深度用 `_hole_depths`（每孔 4 軸向射線數最少穿牆數＝巢狀深度，
+  Jordan 曲線保證：depth 層封閉筆畫包住的孔，任一射線到板外至少穿 depth 道牆、
+  存在一條恰穿 depth 道）；`carve_stencil_bridges(max_depth=1)` 跳過深層孔。
+  **stencil-only**（cutout 恆全連，否則字件掉光）。非物理完整（深層料會掉、
+  宜展示/厚料），UI 有免責。
 - ~~**style registry 重構**~~：**已完成（5ef／0.14.210）**——§4 的
   `connect_depth` 軸抽成 `CUTTING_STYLES`（key→`CuttingStyle`）、
   `stencil_geometry(style=)`／endpoint `style=` 帶入、未知風格 422、行為
