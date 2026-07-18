@@ -506,3 +506,65 @@ def test_5eg_api_accepts_envelope(client):
         "/api/stencil?chars=明&style=envelope").status_code != 422
     assert client.get(
         "/api/stencil?chars=明&style=nope").status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# 5ei：keep_primary 保主幹——vertical_first 切橫保豎（§4 R1 顯式版啟發式）
+# ---------------------------------------------------------------------------
+
+
+def _wall_bands(m):
+    """100×100 口環：回傳 (橫牆墨, 豎牆墨)（不含四角）。"""
+    horiz = int(m[10:30, 30:70].sum()) + int(m[70:90, 30:70].sum())
+    vert = int(m[30:70, 10:30].sum()) + int(m[30:70, 70:90].sum())
+    return horiz, vert
+
+
+def test_5ei_escape_score_bias():
+    """thinnest_wall＝原長；vertical_first 懲罰水平射線（dyf==0＝切豎筆）、
+    垂直射線（dyf≠0＝切橫筆）不罰。"""
+    from stroke_order.exporters.stencil import (
+        _escape_score, _VERTICAL_FIRST_BIAS)
+    assert _escape_score(10, 0.0, "thinnest_wall") == 10.0
+    assert _escape_score(10, 1.0, "thinnest_wall") == 10.0
+    assert _escape_score(10, 0.0, "vertical_first") == 10 * _VERTICAL_FIRST_BIAS
+    assert _escape_score(10, 1.0, "vertical_first") == 10.0   # 垂直不罰
+
+
+def test_5ei_vertical_first_keeps_vertical_trunk():
+    """口環（四壁等厚）：vertical_first 切橫牆（保豎主幹）、thinnest_wall 切
+    豎牆——證明 keep_primary 真的改變選牆。"""
+    h0, v0 = _wall_bands(_ring_mask())
+    mt = _ring_mask()
+    carve_stencil_bridges(mt, 6, keep_primary="thinnest_wall")
+    ht, vt = _wall_bands(mt)
+    mv = _ring_mask()
+    carve_stencil_bridges(mv, 6, keep_primary="vertical_first")
+    hv, vv = _wall_bands(mv)
+    # vertical_first：橫牆被切較多、豎牆保留（保豎主幹）
+    assert (h0 - hv) > (v0 - vv)
+    # thinnest_wall：反之（等厚 tie 落在 _ESCAPE_AXES 順序＝先水平＝切豎牆）
+    assert (v0 - vt) > (h0 - ht)
+
+
+def test_5ei_default_keep_primary_is_thinnest_wall():
+    """預設（不傳 keep_primary）＝thinnest_wall 逐位元不變。"""
+    a = _ring_mask()
+    b = _ring_mask()
+    carve_stencil_bridges(a, 6)
+    carve_stencil_bridges(b, 6, keep_primary="thinnest_wall")
+    assert np.array_equal(a, b)
+
+
+def test_5ei_registry_keep_primary():
+    assert CUTTING_STYLES["physical"].keep_primary == "thinnest_wall"
+    assert CUTTING_STYLES["envelope"].keep_primary == "vertical_first"
+
+
+def test_5ei_envelope_count_unchanged_by_bias():
+    """envelope 改用 vertical_first 不影響鑿橋孔數（只變切哪面牆）。"""
+    nested = _nested_ring_polys()
+    _l, _w, _h, env = stencil_geometry(
+        [nested], kind="stencil", style="envelope",
+        char_height_mm=50, bridge_width_mm=2)
+    assert env["holes_bridged"] == 1        # 同 5eg（depth-1 only）

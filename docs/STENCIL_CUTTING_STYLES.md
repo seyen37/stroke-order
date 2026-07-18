@@ -134,8 +134,8 @@
 | `near_wall_only` | 只穿近牆 | `True` | `True` | 關掉＝可穿腔到對側（不建議） |
 | `bridge_width_mm` | 橋寬 | 2.0（可調） | ≈筆寬 | 脆料加寬 |
 | `bridge_count_max` | 每孔橋數上限 | 4（自動取最少） | 1~2 | 大孔 2、小孔 1 |
-| `connect_depth` | 連筋深度 | `full`（全連通、殘腔0） | `envelope`（只外框） | **R5 核心軸** |
-| `keep_primary` | 保主幹策略 | `thinnest_wall`（隱含） | `vertical_first`（顯式） | 見 §6 |
+| `connect_depth` | 連筋深度 | `full`（全連通、殘腔0） | `envelope`（只外框） | **R5 核心軸**（5eg 已接 registry） |
+| `keep_primary` | 保主幹策略 | `thinnest_wall`（隱含） | `vertical_first`（顯式） | **5ei 已接 registry**（physical=thinnest_wall、envelope=vertical_first；垂直優先啟發式 ×BIAS，非骨架分析） |
 | `frame_strategy` | 鏤空外框接法 | `nearest_spoke`（垂直輻條） | `nearest_spoke` | cutout 專用 |
 | `min_feature_mm` | 去斑門檻 | 橋寬²/4 | — | 濾光柵碎點 |
 
@@ -197,8 +197,12 @@
 
 待強化（未來風格會用到）：
 
-- **顯式主幹判定**（R1 完整版）：目前靠「穿牆最短」間接選到交叉筆；
-  遇到橫豎等厚時可能誤退主幹。可加筆向／骨架分析明確標記主幹豎筆。
+- ~~**顯式主幹判定**（R1 完整版）：目前靠「穿牆最短」間接選到交叉筆；
+  遇到橫豎等厚時可能誤退主幹。~~ **5ei 已加啟發式版**（`keep_primary=
+  vertical_first`）：對水平射線（切豎筆主幹）加 BIAS(1.6) 懲罰，橫豎近等厚
+  時偏好垂直射線（切橫筆保豎），豎筆明顯較薄仍照切（有界）。envelope 用
+  之、physical 維持 thinnest_wall。**完整骨架筆向分析仍待強化**（啟發式假設
+  主幹為豎筆＝CJK 通例，非鐵律；真要標非豎主幹字才需骨架，另評估）。
 - ~~**`connect_depth=envelope` 風格**：容許深層 counter 保留（方正美學）。~~
   **已完成（5eg／0.14.211）**——`envelope` ＝只鑿 depth-1 孔（最外圈）、深層
   巢狀孔留島。深度用 `_hole_depths`（每孔 4 軸向射線數最少穿牆數＝巢狀深度，

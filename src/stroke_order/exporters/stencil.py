@@ -60,27 +60,37 @@ CutConnectDepth = Literal["full", "envelope"]
 #: connect_depth → carve_stencil_bridges 的 max_depth（None＝全連、1＝只外框）。
 _CONNECT_DEPTH_MAX: dict[str, Optional[int]] = {"full": None, "envelope": 1}
 
+#: 保主幹策略（§4 keep_primary，5ei）：
+#:   - ``thinnest_wall``  ＝隱含版（現行）：每轉角挑最短穿牆，不管橫豎。
+#:   - ``vertical_first`` ＝顯式版（R1）：偏好垂直射線（切橫筆）、保豎筆主幹，
+#:     橫豎近等厚時仍保豎；豎筆明顯較薄時 BIAS 有界仍照切（不做荒謬長切）。
+CutKeepPrimary = Literal["thinnest_wall", "vertical_first"]
+
 
 @dataclass(frozen=True)
 class CuttingStyle:
     """一種切割風格（切割策略軸的一個 preset）。
 
-    最小 seam：目前只承載真正**選擇程式路徑**的 ``connect_depth``（＋供
-    UI/header 顯示的 ``label``）。envelope 等新策略落地時再擴充欄位。
+    承載真正**改變輸出**的策略參數：``connect_depth``（連筋深度／5eg）與
+    ``keep_primary``（保主幹策略／5ei）。``label`` 供 UI/header 顯示。§4
+    其餘參數（bridge_axis、near_wall_only…）待有策略需要時再拉進（YAGNI）。
     """
 
     key: str
     label: str
     connect_depth: CutConnectDepth
+    keep_primary: CutKeepPrimary = "thinnest_wall"
 
 
 #: 切割風格登記處（key → CuttingStyle）。physical＝物理完整（全連派、殘腔
-#: 0）；envelope＝方正簡潔（只外框、深層留島、非物理完整）。
+#: 0、最短穿牆）；envelope＝方正簡潔（只外框、深層留島、切橫保豎主幹）。
 CUTTING_STYLES: dict[str, CuttingStyle] = {
     "physical": CuttingStyle(
-        key="physical", label="物理完整", connect_depth="full"),
+        key="physical", label="物理完整", connect_depth="full",
+        keep_primary="thinnest_wall"),
     "envelope": CuttingStyle(
-        key="envelope", label="方正簡潔", connect_depth="envelope"),
+        key="envelope", label="方正簡潔", connect_depth="envelope",
+        keep_primary="vertical_first"),
 }
 
 #: 預設切割風格（維持既有行為）。
@@ -328,6 +338,21 @@ def _carve_cross_bridges(mask: np.ndarray, outside: np.ndarray,
 #: 5dl 孔洞夠大才給第二道橋（px）——小孔一道即固定、可讀性優先。
 _TWO_BRIDGE_MIN_PX = 30
 
+#: 5ei keep_primary="vertical_first" 的水平逃逸懲罰倍率。水平射線（切豎筆
+#: 主幹）的穿牆長度 ×BIAS 再比較——橫豎近等厚時偏好垂直射線（切橫筆、保豎），
+#: 但豎筆若明顯較薄（<1/BIAS）仍照切（有界、不做荒謬長切）。1.6＝橫筆需比
+#: 豎筆薄逾 37.5% 才會改切橫（保豎主幹的合理門檻）。
+_VERTICAL_FIRST_BIAS = 1.6
+
+
+def _escape_score(path_len: int, dyf: float, keep_primary: str) -> float:
+    """逃逸方向的**選牆分數**（越小越優先）＝穿牆長度，`vertical_first` 時
+    對水平射線（``dyf == 0``＝切豎筆主幹）乘上 BIAS 懲罰。thinnest_wall
+    回傳原長＝現行行為（逐位元不變）。"""
+    if keep_primary == "vertical_first" and dyf == 0.0:
+        return path_len * _VERTICAL_FIRST_BIAS
+    return float(path_len)
+
 
 def _count_true_runs(arr: np.ndarray) -> int:
     """1D 布林陣列中 True 連續段（run）數＝上升緣數。"""
@@ -374,7 +399,8 @@ def _hole_depths(mask: np.ndarray, holes_lab: np.ndarray,
 
 def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
                           bridge_count: int = 4,
-                          max_depth: Optional[int] = None) -> int:
+                          max_depth: Optional[int] = None,
+                          keep_primary: str = "thinnest_wall") -> int:
     """噴漆模板：每個封閉孔洞鑿白橋接回外部。In-place；回傳孔洞數。
 
     5dl（使用者實測回饋：截斷切筆畫中段、破壞可讀性）——「最短垂直橋＋
@@ -394,6 +420,10 @@ def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
     的孔（最外圈環），深層巢狀孔（回的中心、國/圖的內件）**留成孤島**——
     方正簡潔美學、斷點最少，但**非物理完整**（深層料會掉）。回傳**實際鑿
     橋的孔數**（full 時＝總孔數；envelope 時＜總孔數）。
+
+    5ei（keep_primary 保主幹）：``thinnest_wall``（現行）純挑最短穿牆；
+    ``vertical_first`` 對水平射線（切豎筆主幹）加 BIAS 懲罰，橫豎近等厚時
+    偏好垂直射線（切橫筆、保豎主幹＝R1），豎筆明顯較薄仍照切（BIAS 有界）。
     """
     outside = _outside(mask)
     holes_lab, n_holes = _label(~mask & ~outside)
@@ -428,7 +458,7 @@ def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
             # 取最短穿牆者。最短軸向逃逸＝垂直穿越最薄的牆（橫或豎筆），
             # 缺口為乾淨矩形、像被內縮的筆畫端——保留字形交接處可讀特徵，
             # 取代 5dl 的 ±70° 斜向扇形（斜橋在複雜字會糊成一團）。
-            best: Optional[tuple[int, list[tuple[int, int]]]] = None
+            best: Optional[tuple[float, list[tuple[int, int]]]] = None
             for dxf, dyf in _ESCAPE_AXES:
                 # 只走「近牆」：往該方向須立即進入墨（牆）內。若第一步落在
                 # 孔洞空腔（自由空間），此方向會穿越整個孔、鑿到對側遠牆——
@@ -440,8 +470,13 @@ def carve_stencil_bridges(mask: np.ndarray, bridge_px: int,
                     continue
                 path = _radial_escape(mask, outside, (corner_x, corner_y),
                                       (dxf, dyf))
-                if path and (best is None or len(path) < best[0]):
-                    best = (len(path), path)
+                if not path:
+                    continue
+                # 5ei：以選牆分數（vertical_first 懲罰水平射線＝保豎主幹）而
+                # 非原始長度比較；thinnest_wall 時分數＝長度（行為不變）。
+                score = _escape_score(len(path), dyf, keep_primary)
+                if best is None or score < best[0]:
+                    best = (score, path)
             if best:
                 cands.append((best[0], (int(round(corner_y)),
                                         int(round(corner_x))), best[1]))
@@ -719,7 +754,8 @@ def stencil_geometry(
     max_depth = _CONNECT_DEPTH_MAX[cut_style.connect_depth]
     if kind == "stencil":
         stats["holes_bridged"] = carve_stencil_bridges(
-            mask, bw_px, bridge_count, max_depth=max_depth)
+            mask, bw_px, bridge_count, max_depth=max_depth,
+            keep_primary=cut_style.keep_primary)
     else:
         # cutout（字即本體、連筋掛框）：envelope 的「深層留島」對 cutout 會讓
         # 字件掉光＝壞字，故 cutout 恆走全連（忽略 connect_depth 的深度限制）。
