@@ -25,7 +25,7 @@
 import {
   SPEC_LINE, SPEC_CURVE, SPEC_S_SHAPE, SPEC_ORB, SPEC_DOT,
   SPEC_POLYLINE, SPEC_TRI,
-} from "./tangle.mjs?v=187";
+} from "./tangle.mjs?v=__V__";
 
 // 可用的延伸技法 key（UI toggle 據此生成；registry 哲學＝單一事實源）。
 // 5dj-2：第二批四技法（sparkle/perfs/coffering/dewdrop）併入。

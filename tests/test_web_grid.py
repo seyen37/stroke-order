@@ -13,11 +13,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(scope="module")
-def client():
-    return TestClient(create_app())
-
-
 def test_grid_basic(client):
     r = client.get("/api/grid?chars=永")
     assert r.status_code == 200

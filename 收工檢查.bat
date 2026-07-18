@@ -19,7 +19,7 @@ echo  Run "git pull" first, then re-run this script.)
 echo.
 
 echo === [2/3] full pytest ===
-python -m pytest tests/ -q
+python -m pytest tests/ -q --junitxml=pytest_report.xml
 if errorlevel 1 (
     echo.
     echo ******** TESTS FAILED -- NOT committing. ********
@@ -37,6 +37,13 @@ if errorlevel 1 (
     pause
 ) else (
     for %%f in (tests\*.mjs) do node --test "%%f" || goto :nodefail
+)
+
+echo.
+echo === [2c/3] auto-update README badges (from THIS run) ===
+python scripts\update_readme_badges.py pytest_report.xml
+if errorlevel 1 (
+    echo WARNING: badge update failed -- check README badges by hand.
 )
 
 echo.
@@ -58,9 +65,9 @@ echo.
 echo === done. last 3 commits: ===
 git log --oneline -3
 echo.
-echo Reminder: README badges must match THIS run's pytest output
-echo           (tests count) and pyproject.toml (version). Copy the
-echo           actual numbers -- never use expected/estimated values.
+echo Note: README badges were auto-updated from THIS run's pytest
+echo       report and pyproject.toml (scripts\update_readme_badges.py).
+echo       Frontend cache keys (?v=) auto-track the version too.
 pause
 
 goto :eof

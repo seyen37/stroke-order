@@ -4,14 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-from stroke_order.web.server import create_app, STATIC_DIR
-
-
-@pytest.fixture(scope="module")
-def client():
-    return TestClient(create_app())
+from stroke_order.web.server import STATIC_DIR
 
 
 def test_card_page_serves(client):

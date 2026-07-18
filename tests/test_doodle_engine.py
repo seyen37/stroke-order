@@ -21,11 +21,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(scope="module")
-def client():
-    return TestClient(create_app())
-
-
 def test_doodle_engine_js_serves(client):
     r = client.get("/static/doodle_engine.js")
     assert r.status_code == 200

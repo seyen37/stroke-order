@@ -1,10 +1,10 @@
 # stroke-order
 
 [![CI](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml/badge.svg)](https://github.com/seyen37/stroke-order/actions/workflows/ci.yml)
-![tests](https://img.shields.io/badge/tests-1794%20passed-brightgreen)
+![tests](https://img.shields.io/badge/tests-1802%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![license](https://img.shields.io/badge/license-MIT-yellow)
-![version](https://img.shields.io/badge/version-0.14.222-orange)
+![version](https://img.shields.io/badge/version-0.14.229-orange)
 
 ## 🌟 核心願景
 
@@ -38,7 +38,7 @@
 
 ---
 
-## 目前版本：0.14.172 (Phase 1 → 5df-1 + Phase A 組件分析器 + zentangle 6z)
+## 目前版本：見上方 version badge（單一事實源＝pyproject.toml，收工時自動同步）
 
 > **Web UI 9 模式**：單字 / 字帖 / 筆記 / 信紙 / 稿紙 / 塗鴉 / 文字雲 / **筆順練習** (5d) / **公眾分享庫** (5g)。
 >
@@ -384,7 +384,7 @@ stroke_order/
 │   └── web/
 │       ├── server.py                  # FastAPI
 │       └── static/index.html          # 7 模式單頁前端
-├── tests/                             # 666 個單元測試
+├── tests/                             # 完整測試套件（數量見上方 tests badge）
 ├── samples/                           # 各 phase 視覺驗證輸出
 └── data/                              # g0v/mmh/kanjivg cache + 5000.TXT
 ```

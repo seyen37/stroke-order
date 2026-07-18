@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stroke-order"
-version = "0.14.228"
+version = "0.14.229"
 description = "中文字元 → 向量筆跡轉換器（給寫字機器人用）"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,22 +33,15 @@ gif = [
     "cairosvg>=2.7",
     "Pillow>=10.0",
 ]
+# 5ev（W2b）：extras 自引用收斂——web 是唯一實體清單，all/dev 引用它
+# （先前四份近乎重複的清單改版本要改多處、CI 用 dev 與 Render 用 web
+# 可能漂移）。pip >= 21.2 支援 self-referential extras。
 all = [
-    "fastapi>=0.110",
-    "uvicorn[standard]>=0.27",
-    "httpx>=0.25",
-    "python-multipart>=0.0.9",
-    "cairosvg>=2.7",
-    "Pillow>=10.0",
+    "stroke-order[web]",
 ]
 dev = [
+    "stroke-order[web]",
     "pytest>=7",
-    "fastapi>=0.110",
-    "uvicorn[standard]>=0.27",
-    "httpx>=0.25",
-    "python-multipart>=0.0.9",
-    "cairosvg>=2.7",
-    "Pillow>=10.0",
 ]
 
 [project.scripts]

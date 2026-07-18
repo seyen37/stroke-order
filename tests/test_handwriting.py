@@ -21,19 +21,12 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-from stroke_order.web.server import create_app
 
 
 # ---------------------------------------------------------------------------
 # fixtures
 # ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def client():
-    return TestClient(create_app())
 
 
 @pytest.fixture

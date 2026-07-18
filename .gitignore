@@ -121,3 +121,6 @@ _to_delete/
 # Workspace cleanup (2026-07-15): archive folder + cleanup script stay untracked
 /_archive_scratch/
 /清理工作區.ps1
+
+# 5ev: junitxml for badge auto-update (transient)
+pytest_report.xml

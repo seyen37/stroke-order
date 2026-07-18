@@ -59,7 +59,11 @@ test("5di: clearRegions ＝全部留白、非刪除；退出切分模式", () =>
 });
 
 test("§11.4: index.html 載入 zentangle.js 帶版本 query 且 ≥180", () => {
-  const m = INDEX.match(/zentangle\/zentangle\.js\?v=(\d+)/);
-  assert.ok(m, "zentangle.js 必須帶 ?v= cache-busting query");
-  assert.ok(parseInt(m[1], 10) >= 186, `?v=${m[1]} 應 ≥ 186（5dk）`);
+  // 5ev：?v= 改由伺服器執行期注入（檔內為 __V__ 佔位符，吐出時換
+  // pyproject 版本）——磁碟上的檔必須帶佔位符或數字版本 query
+  const m = INDEX.match(/zentangle\/zentangle\.js\?v=(__V__|\d+)/);
+  assert.ok(m, "zentangle.js 必須帶 ?v= cache-busting query（__V__ 佔位符或版本號）");
+  if (m[1] !== "__V__") {
+    assert.ok(parseInt(m[1], 10) >= 186, `?v=${m[1]} 應 ≥ 186（5dk）`);
+  }
 });

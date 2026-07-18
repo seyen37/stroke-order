@@ -13,11 +13,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.fixture(scope="module")
-def client():
-    return TestClient(create_app())
-
-
 def test_health(client):
     r = client.get("/api/health")
     assert r.status_code == 200

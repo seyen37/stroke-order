@@ -455,6 +455,90 @@ _STYLE_PATTERN = "^(" + "|".join(sorted(_STYLES)) + ")$"
 WEB_ROOT = Path(__file__).resolve().parent
 STATIC_DIR = WEB_ROOT / "static"
 
+
+def _resolve_app_version() -> str:
+    """5ev（W2b）：?v= 快取鍵的單一事實源＝pyproject 版本。
+
+    ⚠ 順序刻意「pyproject 優先、importlib.metadata 後備」：editable
+    install（pip install -e）的 metadata 凍結在安裝當下，pyproject 升版
+    不會反映——本機 .venv 會拿到舊版本號。checkout 內直讀 pyproject
+    永遠是現值；wheel 部署（無 pyproject 同行）才退 metadata。
+    """
+    try:
+        import tomllib
+        root = WEB_ROOT.parents[2]  # src/stroke_order/web → repo root
+        with open(root / "pyproject.toml", "rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except Exception:
+        pass
+    try:
+        from importlib.metadata import version
+        return version("stroke-order")
+    except Exception:
+        return "dev"
+
+
+APP_VERSION = _resolve_app_version()
+
+#: 前端檔案裡的 ?v=__V__ 佔位符，吐出時換成 APP_VERSION。
+#: vendor pin（opencv 4.11.0／opentype 1.3.4）是語意版本、刻意不用佔位符
+#: ——換成 app 版本會讓每次升版重抓 10MB 級大檔。
+_VERSION_PLACEHOLDER = "?v=__V__"
+_INJECT_SUFFIXES = (".js", ".mjs", ".html", ".css")
+#: (path str) → (mtime_ns, version, body bytes, etag)
+_versioned_cache: dict = {}
+
+
+def _versioned_text(full_path: Path) -> tuple[bytes, str]:
+    """讀檔＋佔位符注入，帶 (mtime, version) 快取。"""
+    st = full_path.stat()
+    key = str(full_path)
+    hit = _versioned_cache.get(key)
+    if hit and hit[0] == st.st_mtime_ns and hit[1] == APP_VERSION:
+        return hit[2], hit[3]
+    text = full_path.read_text("utf-8")
+    body = text.replace(_VERSION_PLACEHOLDER, f"?v={APP_VERSION}").encode("utf-8")
+    etag = f'W/"{st.st_mtime_ns:x}-{APP_VERSION}"'
+    _versioned_cache[key] = (st.st_mtime_ns, APP_VERSION, body, etag)
+    return body, etag
+
+
+_MEDIA_BY_SUFFIX = {
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+}
+
+
+def _versioned_page(full_path: Path, if_none_match: str | None = None) -> Response:
+    body, etag = _versioned_text(full_path)
+    if if_none_match == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+    return Response(
+        content=body,
+        media_type=_MEDIA_BY_SUFFIX.get(full_path.suffix, "text/plain"),
+        headers={"ETag": etag},
+    )
+
+
+class _VersionedStaticFiles(StaticFiles):
+    """5ev：只攔 .js/.mjs/.html/.css 做 ?v=__V__ 注入；其餘（json/圖/字型）
+    原封走 StaticFiles（保留 Range／304 條件請求等原生行為）。"""
+
+    async def get_response(self, path: str, scope):
+        if not path.endswith(_INJECT_SUFFIXES):
+            return await super().get_response(path, scope)
+        base = Path(self.directory).resolve()
+        full = (base / path).resolve()
+        if not str(full).startswith(str(base) + os.sep) or not full.is_file():
+            return await super().get_response(path, scope)  # 404/traversal 交回原邏輯
+        req_headers = {
+            k.decode("latin-1").lower(): v.decode("latin-1")
+            for k, v in scope.get("headers", [])
+        }
+        return _versioned_page(full, req_headers.get("if-none-match"))
+
 # ---------------------------------------------------------------------------
 # 5eu（架構健檢 W2）：重渲染回應快取常數。模組層以便測試 monkeypatch。
 # 可快取＝GET 且輸出完全由 query 決定的渲染/資料端點；gallery/認證類刻意
@@ -1006,7 +1090,10 @@ def create_app() -> FastAPI:
         return response
 
     if STATIC_DIR.is_dir():
-        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+        # 5ev：版本注入型靜態服務（?v=__V__ → APP_VERSION）
+        app.mount(
+            "/static", _VersionedStaticFiles(directory=STATIC_DIR), name="static"
+        )
 
     # ------ root index ---------------------------------------------------
 
@@ -1018,7 +1105,7 @@ def create_app() -> FastAPI:
                 "Web UI not bundled. See source at /api/character/{char}",
                 status_code=200,
             )
-        return FileResponse(index_path)
+        return _versioned_page(index_path)
 
     # 5bd: dedicated full-screen sutra editor (subpage)
     @app.get("/sutra-editor", include_in_schema=False)
@@ -1029,7 +1116,7 @@ def create_app() -> FastAPI:
                 "Editor page missing — static/sutra-editor.html not bundled.",
                 status_code=404,
             )
-        return FileResponse(page)
+        return _versioned_page(page)
 
     # 5d-1: dedicated handwriting practice page (PSD — Personal Stroke
     # Database). Independent web app; collects stroke trajectories with
@@ -1045,7 +1132,7 @@ def create_app() -> FastAPI:
                 "static/handwriting.html not bundled.",
                 status_code=404,
             )
-        return FileResponse(page)
+        return _versioned_page(page)
 
     # 5et: 手寫卡片編輯器（獨立頁，ES modules——照 handwriting/ 慣例）
     @app.get("/card", include_in_schema=False)
@@ -1056,7 +1143,7 @@ def create_app() -> FastAPI:
                 "Card editor page missing — static/card.html not bundled.",
                 status_code=404,
             )
-        return FileResponse(page)
+        return _versioned_page(page)
 
     # 5et-R4：卡片印刷 PDF——前端組好含出血/裁切標記的 SVG，此端點只做
     # SVG→PDF 轉檔（cairosvg，與抄經 PDF 同管線）。安全：拒收任何外部

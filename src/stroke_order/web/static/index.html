@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.20.4/dist/index.js"></script>
   <!-- 5cj: ?v= cache-busting — 舊快取 JS 會殘留死 CDN 位址 -->
-  <script src="/static/doodle_engine.js?v=162"></script>
+  <script src="/static/doodle_engine.js?v=__V__"></script>
   <style>
     :root {
       --bg: #fafafa;
@@ -3650,7 +3650,7 @@ let zyTwLoading = null;
 function ensureZhuyinTw() {
   if (zyTwDict) return Promise.resolve(zyTwDict);
   if (!zyTwLoading) {
-    zyTwLoading = fetch("/static/zhuyin_tw.json?v=163")
+    zyTwLoading = fetch("/static/zhuyin_tw.json?v=__V__")
       .then(r => {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
@@ -10853,7 +10853,7 @@ async function renderCnsDecomposition(char) {
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，
      舊快取的 zentangle.js 不認得區段模型，改版時同步 bump。 -->
-<script type="module" src="/static/zentangle/zentangle.js?v=187"></script>
+<script type="module" src="/static/zentangle/zentangle.js?v=__V__"></script>
 
 </body>
 </html>

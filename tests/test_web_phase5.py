@@ -14,11 +14,6 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not _HAS, reason="web deps missing")
 
 
-@pytest.fixture(scope="module")
-def client():
-    return TestClient(create_app())
-
-
 def test_notebook_short_text_single_page(client):
     r = client.get("/api/notebook?text=春眠不覺曉&preset=small")
     assert r.status_code == 200

@@ -20,14 +20,14 @@ import {
   computeBbox,
   mapContourToTile,
   contoursAreClosed,
-} from "./outline.mjs?v=187";
+} from "./outline.mjs?v=__V__";
 import {
   TANGLES,
   buildTangle,
   buildTangleOriented,
   renderTangleSpecs,
   listTangles,
-} from "./tangle.mjs?v=187";
+} from "./tangle.mjs?v=__V__";
 import {
   computeGlyphRegions,
   computeBgRegions,
@@ -35,7 +35,7 @@ import {
   pickSpacing,
   resolveRegionAt,
   splitRegionByPolyline,
-} from "./regions.mjs?v=187";
+} from "./regions.mjs?v=__V__";
 import {
   applyPseudo3DToSpecs,
   isValidDepthDir,
@@ -43,7 +43,7 @@ import {
   applyCurveModeToSpecs,
   isValidCurveMode,
   VALID_CURVE_MODES,
-} from "./pseudo3d.mjs?v=187";
+} from "./pseudo3d.mjs?v=__V__";
 import {
   ENHANCERS,
   ENHANCER_LABELS,
@@ -54,14 +54,14 @@ import {
   defaultEnhancerParams,
   paramsToOpts,
   COMBOS,
-} from "./enhancers.mjs?v=187";
+} from "./enhancers.mjs?v=__V__";
 import {
   TILE_MM,
   collectExportPaths,
   pathsToSvg,
   pathsToGcode,
   pathsToDxf,
-} from "./exporters.mjs?v=187";
+} from "./exporters.mjs?v=__V__";
 
 // 5dj-3: 全域延伸參數（per-session；一組滑桿套用到所有已勾技法的區段）。
 let _enhancerParams = defaultEnhancerParams();
