@@ -2447,6 +2447,13 @@ def test_5en_handwrite_ref_uses_styled_preview_glyph():
     assert "ctx.drawImage(SW.refImg" in html
     # swLoadCurrent 每字重建 refImg
     assert "swBuildRefImg(cur)" in html
+    # 5ep 修：抄經預覽是 #su-preview（su-＝sutra），非 #st-preview（印章 stamp）。
+    # 5en 誤用 st-preview → production 回 null、fallback 楷書；鎖 swBuildRefImg
+    # 讀 su-preview（st-preview 是印章模式合法使用、不能全域禁）。
+    swfn = html.split("async function swBuildRefImg")[1].split(
+        "async function")[0]
+    assert 'getElementById("su-preview")' in swfn
+    assert 'getElementById("st-preview")' not in swfn
 
 
 # ---------------------------------------------------------------------------

@@ -9799,7 +9799,9 @@ const SW = {
 // (缺字 / no preview / error) → swDrawBase falls back to fillText.
 async function swBuildRefImg(cur) {
   try {
-    const previewEl = document.getElementById("st-preview");
+    // 5ep 修：抄經預覽是 #su-preview（su-＝sutra）；5en 誤用 #st-preview
+    // （st-＝印章 stamp）→ production 查無、回 null、fallback 系統字型楷書。
+    const previewEl = document.getElementById("su-preview");
     if (!previewEl) return null;
     const rect = previewEl.querySelector(
       `#sutra-cellmap rect[data-pos="${cur.pos}"]`);
