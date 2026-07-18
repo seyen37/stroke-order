@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手寫卡片 · stroke-order</title>
+<style>
+  :root { --border: #d7dde3; --accent: #1976d2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif;
+         background: #f2f4f7; color: #222; }
+  header { padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--border);
+           display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  header a { color: var(--accent); text-decoration: none; font-size: 13px; }
+  .layout { display: flex; gap: 12px; padding: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .stage-wrap { flex: 1 1 520px; background: #fff; border: 1px solid var(--border);
+                border-radius: 8px; padding: 12px; }
+  #card-face-tabs button { margin-right: 6px; padding: 4px 12px; border: 1px solid var(--border);
+                background: #fff; border-radius: 6px; cursor: pointer; }
+  #card-face-tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #card-stage { margin-top: 8px; }
+  #card-stage svg { width: 100%; height: auto; max-height: 72vh; display: block;
+                    box-shadow: 0 1px 6px rgba(0,0,0,.12); touch-action: none; cursor: default; }
+  aside { flex: 0 0 280px; display: flex; flex-direction: column; gap: 10px; }
+  .panel { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .panel h2 { font-size: 13px; margin: 0 0 8px; color: #556; }
+  .row { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 13px; flex-wrap: wrap; }
+  .row label { min-width: 4.5em; }
+  select, input[type=number], textarea { border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 6px; font: inherit; }
+  input[type=number] { width: 70px; }
+  textarea { width: 100%; min-height: 64px; resize: vertical; }
+  button.act { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
+    background: #fff; cursor: pointer; }
+  button.act.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.act.danger { color: #c0392b; }
+  .muted { color: #789; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>手寫卡片模式 <span class="muted">5et · R1+R2</span></h1>
+  <a href="/">← 回主頁</a>
+  <a href="/handwriting" target="_blank">開啟手寫練習頁（寫自己的字）</a>
+</header>
+
+<div class="layout">
+  <div class="stage-wrap">
+    <div class="row">
+      <label>卡型</label>
+      <select id="card-preset"></select>
+      <span id="card-custom-row" style="display:none">
+        寬 <input id="card-w" type="number" min="30" max="420" value="148"> mm
+        高 <input id="card-h" type="number" min="30" max="420" value="105"> mm
+      </span>
+      <label style="min-width:auto"><input id="card-guides" type="checkbox" checked> 安全邊界</label>
+    </div>
+    <div id="card-face-tabs"></div>
+    <div id="card-stage"></div>
+    <p class="muted">點擊文字選取框；拖曳移動、右下角把手縮放。對折卡以「面」分頁編輯，
+      「展開列印版」會把封面自動旋轉 180°（tent fold 慣例）並附摺線。</p>
+  </div>
+
+  <aside>
+    <div class="panel">
+      <h2>加入</h2>
+      <button id="card-add-text" class="act primary">＋ 文字框</button>
+      <button id="card-del-box" class="act danger">刪除選取框</button>
+    </div>
+
+    <div class="panel" id="card-box-panel" style="display:none">
+      <h2>選取的文字框</h2>
+      <textarea id="card-text" placeholder="輸入文字，可換行"></textarea>
+      <div class="row">
+        <label>字高</label>
+        <input id="card-size" type="number" min="3" max="100" step="1"> mm
+        <label style="min-width:auto"><input id="card-vertical" type="checkbox"> 直書</label>
+      </div>
+      <div class="row">
+        <label>字形來源</label>
+        <select id="card-glyph-source">
+          <option value="system">系統字型（預覽）</option>
+          <option value="handwriting">自己的手寫字</option>
+          <option value="userfont">本機字型檔</option>
+          <option value="style">內建筆順風格</option>
+        </select>
+        <select id="card-glyph-style">
+          <option value="kaishu">楷書</option>
+          <option value="bold">粗體</option>
+          <option value="mingti">明體</option>
+          <option value="lishu">隸書</option>
+          <option value="seal_script">篆書</option>
+        </select>
+      </div>
+      <div class="row" id="card-font-row" style="display:none">
+        <input id="card-font-file" type="file" accept=".ttf,.otf,font/ttf,font/otf">
+        <span id="card-font-status" class="muted"></span>
+      </div>
+      <p class="muted">「自己的手寫字」讀取手寫練習頁存過的字；沒寫過的字會以系統字型墊底顯示。</p>
+    </div>
+
+    <div class="panel">
+      <h2>下載</h2>
+      <div class="row">
+        <button id="card-dl-svg" class="act">⤓ 本面 SVG</button>
+        <button id="card-dl-sheet" class="act">⤓ 展開列印版</button>
+      </div>
+      <div class="row">
+        <button id="card-dl-json" class="act">⤓ 版面 JSON</button>
+        <button id="card-reset" class="act danger">清空</button>
+      </div>
+      <p class="muted">SVG 為實體 mm 尺寸（與全站契約一致），可進雷雕／寫字機工作流。
+        草稿自動存在瀏覽器。</p>
+    </div>
+  </aside>
+</div>
+
+<script type="module" src="/static/card/main.js?v=224"></script>
+</body>
+</html>

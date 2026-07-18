@@ -880,6 +880,17 @@ def create_app() -> FastAPI:
             )
         return FileResponse(page)
 
+    # 5et: 手寫卡片編輯器（獨立頁，ES modules——照 handwriting/ 慣例）
+    @app.get("/card", include_in_schema=False)
+    def card_page():
+        page = STATIC_DIR / "card.html"
+        if not page.is_file():
+            return PlainTextResponse(
+                "Card editor page missing — static/card.html not bundled.",
+                status_code=404,
+            )
+        return FileResponse(page)
+
     # ------ data endpoints ----------------------------------------------
 
     @app.get("/api/character/{char}")
