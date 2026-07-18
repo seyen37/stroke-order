@@ -9,7 +9,7 @@
 // （2048 EM 座標、原點左上）或 null（fallback 系統字型 <text>）。
 // ======================================================================
 
-import { faceGuides, sheetGuides, layoutTextBox, EM } from './geometry.js';
+import { faceGuides, sheetGuides, layoutTextBox, contentRect, EM } from './geometry.js';
 import { fitTextLength } from './kaomoji.js';
 
 const XMLNS = 'http://www.w3.org/2000/svg';
@@ -43,22 +43,71 @@ function round(v) {
   return Math.round(v * 1000) / 1000;
 }
 
-//: 框內容（不含編輯框線）——依 kind 分派。
+//: 框內容（不含編輯框線）——R4：先畫裝飾外框，內容排進 contentRect。
 export function boxContentMarkup(box, glyphProvider) {
-  let inner;
+  const rect = contentRect(box);
+  const inner = { ...box, ...rect };
+  let content;
   if (box.kind === 'kaomoji') {
-    inner = kaomojiMarkup(box);
+    content = kaomojiMarkup(inner);
   } else if (box.kind === 'art') {
-    inner = artMarkup(box);
+    content = artMarkup(inner);
   } else {
     const cells = layoutTextBox(
-      box,
+      inner,
       box.text,
       { sizeMm: box.sizeMm, vertical: box.vertical },
     );
-    inner = cells.map((c) => cellMarkup(c, box.glyph, glyphProvider)).join('');
+    content = cells.map((c) => cellMarkup(c, box.glyph, glyphProvider)).join('');
   }
-  return `<g data-box-id="${esc(box.id)}" fill="#1a1a1a">${inner}</g>`;
+  return (
+    `<g data-box-id="${esc(box.id)}" fill="#1a1a1a">` +
+    `${frameMarkup(box)}${content}</g>`
+  );
+}
+
+//: R4 裝飾外框（匯出內容的一部分，非編輯 chrome）。
+export function frameMarkup(box) {
+  const f = box.frame;
+  if (!f || f.style === 'none') return '';
+  const sw = f.strokeMm;
+  const base = ` fill="none" stroke="#1a1a1a" stroke-width="${sw}"`;
+  const inset = sw / 2; // 框線畫在框界內
+  const x = r3(box.x + inset);
+  const y = r3(box.y + inset);
+  const w = r3(box.w - sw);
+  const h = r3(box.h - sw);
+  switch (f.style) {
+    case 'solid':
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}"${base}/>`;
+    case 'rounded': {
+      const rx = r3(Math.min(box.w, box.h) * 0.12);
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}"${base}/>`;
+    }
+    case 'dashed':
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}"${base} stroke-dasharray="2.2 1.4"/>`;
+    case 'double': {
+      const gap = Math.max(sw * 2, 1.2);
+      const x2 = r3(box.x + inset + gap);
+      const y2 = r3(box.y + inset + gap);
+      const w2 = r3(box.w - sw - 2 * gap);
+      const h2 = r3(box.h - sw - 2 * gap);
+      return (
+        `<rect x="${x}" y="${y}" width="${w}" height="${h}"${base}/>` +
+        `<rect x="${x2}" y="${y2}" width="${w2}" height="${h2}"${base}/>`
+      );
+    }
+    case 'ellipse': {
+      const cx = r3(box.x + box.w / 2);
+      const cy = r3(box.y + box.h / 2);
+      return (
+        `<ellipse cx="${cx}" cy="${cy}" rx="${r3(box.w / 2 - inset)}"` +
+        ` ry="${r3(box.h / 2 - inset)}"${base}/>`
+      );
+    }
+    default:
+      return '';
+  }
 }
 
 //: R3 顏文字：整串單行置中；近似寬度超框時用 textLength 擠壓。
@@ -141,6 +190,63 @@ export function renderFaceSvg(face, boxes, opts = {}) {
     `<svg xmlns="${XMLNS}" width="${face.w}mm" height="${face.h}mm"` +
     ` viewBox="0 0 ${face.w} ${face.h}">${parts.join('')}</svg>`
   );
+}
+
+//: R4 印刷版：內容外擴出血 bleedMm、四角裁切標記（落在出血邊內）。
+//: source: {kind:'face', face, boxes} | {kind:'sheet', preset, boxesByFace}
+export function renderPrintSvg(source, opts = {}) {
+  const { bleedMm = 3, glyphProvider = null, faceRotate = null } = opts;
+  const b = Math.max(0, bleedMm);
+  let w;
+  let h;
+  let content;
+  if (source.kind === 'sheet') {
+    const inner = renderSheetSvg(source.preset, source.boxesByFace, {
+      glyphProvider, faceRotate,
+    });
+    if (!inner) return null;
+    const sheet = source.preset.sheet;
+    w = sheet.w;
+    h = sheet.h;
+    content = stripSvgWrapper(inner);
+  } else {
+    w = source.face.w;
+    h = source.face.h;
+    content = stripSvgWrapper(renderFaceSvg(source.face, source.boxes, {
+      mode: 'export', glyphProvider,
+    }));
+  }
+  const W = w + 2 * b;
+  const H = h + 2 * b;
+  const marks = b >= 1.5 ? cropMarks(b, w, h) : '';
+  return (
+    `<svg xmlns="${XMLNS}" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}">` +
+    `<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>` +
+    `<g transform="translate(${b},${b})">${content}</g>` +
+    `${marks}</svg>`
+  );
+}
+
+//: 去掉外層 <svg …> 包裝，取內容（同渲染路徑產物，結構可信）。
+function stripSvgWrapper(svg) {
+  return svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+}
+
+//: 四角裁切標記：8 段短線，沿修裁邊延伸線畫在出血區內、離修裁角 0.5mm。
+function cropMarks(b, w, h) {
+  const L = b - 0.5; // 線長（不觸及修裁區）
+  if (L <= 0) return '';
+  const seg = (x1, y1, x2, y2) =>
+    `<line x1="${r3(x1)}" y1="${r3(y1)}" x2="${r3(x2)}" y2="${r3(y2)}"` +
+    ' stroke="#000" stroke-width="0.2"/>';
+  const xs = [b, b + w];
+  const ys = [b, b + h];
+  const H = 2 * b + h;
+  const W = 2 * b + w;
+  let out = '';
+  for (const x of xs) out += seg(x, 0, x, L) + seg(x, H - L, x, H);
+  for (const y of ys) out += seg(0, y, L, y) + seg(W - L, y, W);
+  return out;
 }
 
 //: 展開列印版（對折卡）：各面依 placement 擺入，rotate180 面旋轉。

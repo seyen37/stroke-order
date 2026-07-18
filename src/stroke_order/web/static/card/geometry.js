@@ -171,6 +171,25 @@ export function normalizeBox(box, face) {
   return { ...box, x, y, w, h };
 }
 
+//: R4 外框樣式：框有裝飾外框時，內容排進內縮矩形。
+export const FRAME_STYLES = ['none', 'solid', 'rounded', 'double', 'dashed', 'ellipse'];
+
+export function contentRect(box) {
+  const f = box.frame;
+  if (!f || f.style === 'none') return { x: box.x, y: box.y, w: box.w, h: box.h };
+  const pad = clamp(Number(f.padMm) || 0, 0, Math.min(box.w, box.h) / 2 - 1);
+  // 橢圓框：內接矩形再乘 0.72（√2/2 近似），避免四角出框
+  const k = f.style === 'ellipse' ? 0.72 : 1;
+  const w = (box.w - 2 * pad) * k;
+  const h = (box.h - 2 * pad) * k;
+  return {
+    x: box.x + (box.w - w) / 2,
+    y: box.y + (box.h - h) / 2,
+    w,
+    h,
+  };
+}
+
 //: EM 字形 → cell 的 transform 參數（SVG: translate + scale）。
 export function cellTransform(cell) {
   const s = cell.size / EM;

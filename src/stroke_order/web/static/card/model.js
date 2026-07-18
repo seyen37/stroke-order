@@ -16,9 +16,11 @@
 //   kind="kaomoji" ＋ text, sizeMm                          // R3：單行置中
 //   kind="art"     ＋ art: { frag, vx, vy, vw, vh, label }  // R3：塗鴉/SVG
 //                    （frag 僅能來自 svgimport.sanitizeSvgText 的輸出）
+//   共同（R4）    ＋ frame: { style, strokeMm, padMm }        // 裝飾外框
+//                    大框包小框＝大框畫外框樣式、再於其內畫小框，視覺疊層
 // ======================================================================
 
-import { CARD_PRESETS, DEFAULT_PRESET, customPreset, normalizeBox, orientPreset } from './geometry.js';
+import { CARD_PRESETS, DEFAULT_PRESET, customPreset, normalizeBox, orientPreset, FRAME_STYLES } from './geometry.js';
 
 export const SCHEMA = 'stroke-order-card-v1';
 export const STORAGE_KEY = 'card:draft';
@@ -57,6 +59,7 @@ export function newTextBox(face, init = {}) {
       sizeMm: init.sizeMm ?? 8,
       vertical: !!init.vertical,
       glyph: init.glyph ?? { source: 'system', style: 'kaishu' },
+      frame: sanitizeFrame(init.frame),
     },
     face,
   );
@@ -75,6 +78,7 @@ export function newKaomojiBox(face, init = {}) {
       h: init.h ?? 12,
       text: init.text ?? '(＾▽＾)',
       sizeMm: init.sizeMm ?? 8,
+      frame: sanitizeFrame(init.frame),
     },
     face,
   );
@@ -103,6 +107,7 @@ export function newArtBox(face, art, init = {}) {
         vh: Number(art.vh),
         label: String(art.label ?? ''),
       },
+      frame: sanitizeFrame(init.frame),
     },
     face,
   );
@@ -154,6 +159,7 @@ function reviveBox(b, face) {
     y: Number(b.y) || 0,
     w: Number(b.w) || 10,
     h: Number(b.h) || 10,
+    frame: sanitizeFrame(b.frame),
   };
   if (b.kind === 'text') {
     return normalizeBox({
@@ -188,6 +194,18 @@ function reviveBox(b, face) {
       label: String(a.label ?? ''),
     },
   }, face);
+}
+
+//: R4 外框欄位驗證；未知樣式回 none。
+export function sanitizeFrame(f) {
+  const style = FRAME_STYLES.includes(f?.style) ? f.style : 'none';
+  const strokeRaw = Number(f?.strokeMm);
+  const strokeMm = Number.isFinite(strokeRaw) && strokeRaw > 0
+    ? Math.min(3, Math.max(0.2, strokeRaw)) : 0.5;
+  const padRaw = Number(f?.padMm);
+  // 0 是合法內距——不可用 || 預設（0 falsy 會被誤換）
+  const padMm = Number.isFinite(padRaw) ? Math.min(20, Math.max(0, padRaw)) : 3;
+  return { style, strokeMm, padMm };
 }
 
 const GLYPH_SOURCES = new Set(['system', 'handwriting', 'userfont', 'style']);

@@ -13,7 +13,7 @@ import {
 } from './model.js';
 import { KAOMOJI_CATEGORIES } from './kaomoji.js';
 import { sanitizeSvgText } from './svgimport.js';
-import { renderFaceSvg, renderSheetSvg } from './render.js';
+import { renderFaceSvg, renderSheetSvg, renderPrintSvg } from './render.js';
 import { createGlyphRegistry } from './glyphs.js';
 
 const $ = (id) => document.getElementById(id);
@@ -112,6 +112,12 @@ function renderPanel() {
   } else {
     $('card-font-row').style.display = 'none';
   }
+  // R4：外框樣式（全部 kind 適用）
+  const fr = box.frame ?? { style: 'none', strokeMm: 0.5, padMm: 3 };
+  $('card-frame-style').value = fr.style;
+  $('card-frame-stroke').value = fr.strokeMm;
+  $('card-frame-pad').value = fr.padMm;
+  $('card-frame-detail').style.display = fr.style === 'none' ? 'none' : '';
 }
 
 // ---- R3：顏文字選盤 / 塗鴉插入 / SVG 匯入 ----------------------------
@@ -322,6 +328,65 @@ function downloadSheetSvg() {
   downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `card_${card.preset}_sheet.svg`);
 }
 
+//: R4 PNG：同一條渲染路徑的 SVG → Image → canvas（pxPerMm=8 ≈ 203dpi）
+function svgToPngBlob(svgStr, wMm, hMm, pxPerMm = 8) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(new Blob([svgStr], { type: 'image/svg+xml' }));
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(wMm * pxPerMm);
+      canvas.height = Math.round(hMm * pxPerMm);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG 轉換失敗'))), 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG 載入失敗')); };
+    img.src = url;
+  });
+}
+
+async function downloadPng() {
+  try {
+    const f = face();
+    const svg = renderFaceSvg(f, boxes(), { mode: 'export', glyphProvider: glyphs.provider });
+    const blob = await svgToPngBlob(svg, f.w, f.h);
+    downloadBlob(blob, `card_${card.preset}_${f.key}.png`);
+  } catch (err) {
+    setInsertStatus(`PNG 匯出失敗：${err.message}`);
+  }
+}
+
+//: R4 印刷 PDF：對折卡＝展開版；單面卡＝本面。出血 3mm＋裁切標記。
+async function downloadPrintPdf() {
+  const p = preset();
+  const source = p.sheet
+    ? { kind: 'sheet', preset: p, boxesByFace: card.boxes }
+    : { kind: 'face', face: face(), boxes: boxes() };
+  const svg = renderPrintSvg(source, {
+    glyphProvider: glyphs.provider,
+    faceRotate: card.faceRotate,
+  });
+  if (!svg) return;
+  setInsertStatus('PDF 轉檔中…');
+  try {
+    const r = await fetch('/api/card/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svg, filename: `card_${card.preset}_print` }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    downloadBlob(await r.blob(), `card_${card.preset}_print.pdf`);
+    setInsertStatus('✓ 印刷 PDF 已下載（含 3mm 出血＋裁切標記）');
+  } catch (err) {
+    setInsertStatus(`PDF 轉檔失敗：${err.message}`);
+  }
+}
+
 function downloadJson() {
   downloadBlob(new Blob([serialize(card)], { type: 'application/json' }), 'card_layout.json');
 }
@@ -444,7 +509,21 @@ export function init() {
     }
   });
 
+  $('card-frame-style').addEventListener('change', () => mutateSelected((b) => {
+    b.frame = { ...(b.frame ?? {}), style: $('card-frame-style').value,
+      strokeMm: Number($('card-frame-stroke').value) || 0.5,
+      padMm: Number($('card-frame-pad').value) || 3 };
+  }));
+  $('card-frame-stroke').addEventListener('change', () => mutateSelected((b) => {
+    b.frame = { ...(b.frame ?? { style: 'none' }), strokeMm: Number($('card-frame-stroke').value) || 0.5 };
+  }));
+  $('card-frame-pad').addEventListener('change', () => mutateSelected((b) => {
+    b.frame = { ...(b.frame ?? { style: 'none' }), padMm: Number($('card-frame-pad').value) || 0 };
+  }));
+
   $('card-dl-svg').onclick = downloadFaceSvg;
+  $('card-dl-png').onclick = downloadPng;
+  $('card-dl-pdf').onclick = downloadPrintPdf;
   $('card-dl-sheet').onclick = downloadSheetSvg;
   $('card-dl-json').onclick = downloadJson;
   $('card-reset').onclick = () => {

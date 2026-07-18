@@ -40,3 +40,35 @@ def test_card_reference_style_endpoint_available(client):
     data = r.json()
     assert data["em_size"] == 2048
     assert isinstance(data["strokes"], list)
+
+
+def test_card_pdf_endpoint(client):
+    """R4：SVG→PDF 轉檔（cairosvg）＋安全拒收契約。"""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="96mm" height="58mm"'
+        ' viewBox="0 0 96 58"><rect width="96" height="58" fill="#fff"/>'
+        '<path d="M10 10L80 40" stroke="#000" stroke-width="1"/></svg>'
+    )
+    r = client.post("/api/card/pdf", json={"svg": svg, "filename": "測試卡"})
+    assert r.status_code == 200
+    assert r.content.startswith(b"%PDF-")
+    assert r.headers["content-type"] == "application/pdf"
+
+
+def test_card_pdf_rejects_external_refs(client):
+    """SSRF 面：href/url()/script/image 一律 422。"""
+    bad = [
+        '<svg xmlns="x"><image href="http://evil/x.png"/></svg>',
+        '<svg xmlns="x"><script>1</script></svg>',
+        '<svg xmlns="x"><rect style="fill:url(#g)"/></svg>',
+        '<svg xmlns="x"><use xlink:href="#a"/></svg>',
+        "not svg at all",
+    ]
+    for svg in bad:
+        r = client.post("/api/card/pdf", json={"svg": svg})
+        assert r.status_code == 422, svg
+
+
+def test_card_pdf_size_limit(client):
+    r = client.post("/api/card/pdf", json={"svg": "<svg" + "x" * 2_100_000})
+    assert r.status_code == 413

@@ -28,6 +28,7 @@ from __future__ import annotations
 import inspect
 import io
 import os
+import re
 import threading
 from pathlib import Path
 from typing import Optional
@@ -102,6 +103,20 @@ class PatchDecorationSpec(BaseModel):
     h_mm: float
     # 12m-7 r30: 圓戳章內框圖用，True = clip 成 inscribed circle
     clip_circle: bool = False
+
+
+# 5et-R4：卡片印刷 PDF 請求（⚠ 必須在模組層——from __future__ import
+# annotations 下，create_app 內的區域類別無法被 FastAPI 解析型別註記，
+# 會被誤判成 query 參數）。
+_CARD_PDF_DENY = re.compile(
+    r"(xlink:href|href\s*=|url\s*\(|<\s*(script|image|foreignObject|iframe|use|embed|object))",
+    re.IGNORECASE,
+)
+
+
+class CardPdfRequest(BaseModel):
+    svg: str
+    filename: str = "card"
 
 
 class PatchPostRequest(BaseModel):
@@ -890,6 +905,39 @@ def create_app() -> FastAPI:
                 status_code=404,
             )
         return FileResponse(page)
+
+    # 5et-R4：卡片印刷 PDF——前端組好含出血/裁切標記的 SVG，此端點只做
+    # SVG→PDF 轉檔（cairosvg，與抄經 PDF 同管線）。安全：拒收任何外部
+    # 參照/腳本模式（防 SSRF/XXE 面）；正常前端產物不含這些字樣。
+    @app.post("/api/card/pdf")
+    def card_pdf(req: CardPdfRequest):
+        svg = req.svg.strip()
+        if len(svg) > 2_000_000:
+            raise HTTPException(413, detail="SVG 過大（>2MB）")
+        if not svg.startswith("<svg"):
+            raise HTTPException(422, detail="不是 SVG 內容")
+        m = _CARD_PDF_DENY.search(svg)
+        if m:
+            raise HTTPException(
+                422,
+                detail=f"SVG 含不允許的外部參照/腳本模式（{m.group(0)!r}）",
+            )
+        try:
+            import cairosvg
+        except ImportError as e:
+            raise HTTPException(503, detail=f"cairosvg 不可用：{e}") from e
+        try:
+            pdf_bytes = cairosvg.svg2pdf(bytestring=svg.encode("utf-8"))
+        except Exception as e:
+            raise HTTPException(422, detail=f"SVG 轉 PDF 失敗：{e}") from e
+        safe = _safe_filename_part(req.filename) or "card"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": _content_disposition(safe, "pdf"),
+            },
+        )
 
     # ------ data endpoints ----------------------------------------------
 

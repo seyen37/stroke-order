@@ -46,7 +46,7 @@
 </head>
 <body>
 <header>
-  <h1>手寫卡片模式 <span class="muted">5et · R1~R3</span></h1>
+  <h1>手寫卡片模式 <span class="muted">5et · R1~R4</span></h1>
   <a href="/">← 回主頁</a>
   <a href="/handwriting" target="_blank">開啟手寫練習頁（寫自己的字）</a>
 </header>
@@ -121,6 +121,21 @@
           <option value="seal_script">篆書</option>
         </select>
       </div>
+      <div class="row">
+        <label>外框樣式</label>
+        <select id="card-frame-style">
+          <option value="none">無</option>
+          <option value="solid">實線框</option>
+          <option value="rounded">圓角框</option>
+          <option value="double">雙線框</option>
+          <option value="dashed">虛線框</option>
+          <option value="ellipse">圓／橢圓框</option>
+        </select>
+        <span id="card-frame-detail" style="display:none">
+          線寬 <input id="card-frame-stroke" type="number" min="0.2" max="3" step="0.1" value="0.5" style="width:56px"> mm
+          內距 <input id="card-frame-pad" type="number" min="0" max="20" step="1" value="3" style="width:56px"> mm
+        </span>
+      </div>
       <div class="row" id="card-font-row" style="display:none">
         <input id="card-font-file" type="file" accept=".ttf,.otf,font/ttf,font/otf">
         <span id="card-font-status" class="muted"></span>
@@ -135,6 +150,10 @@
         <button id="card-dl-sheet" class="act">⤓ 展開列印版</button>
       </div>
       <div class="row">
+        <button id="card-dl-png" class="act">⤓ 本面 PNG</button>
+        <button id="card-dl-pdf" class="act">⤓ 印刷 PDF（出血+裁切線）</button>
+      </div>
+      <div class="row">
         <button id="card-dl-json" class="act">⤓ 版面 JSON</button>
         <button id="card-reset" class="act danger">清空</button>
       </div>
@@ -144,6 +163,6 @@
   </aside>
 </div>
 
-<script type="module" src="/static/card/main.js?v=226"></script>
+<script type="module" src="/static/card/main.js?v=227"></script>
 </body>
 </html>

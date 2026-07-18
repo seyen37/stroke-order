@@ -337,3 +337,71 @@ test('R3b marqueeRect：正規化、太小回 null、保底最小框', () => {
   const thin = marqueeRect({ x: 0, y: 0 }, { x: 50, y: 1 }); // 拖很扁 → 高度保底
   assert.equal(thin.h >= 8, true);
 });
+
+// ---- R4：外框樣式＋印刷版出血 ----------------------------------------
+
+import { FRAME_STYLES, contentRect } from '../src/stroke_order/web/static/card/geometry.js';
+import { sanitizeFrame } from '../src/stroke_order/web/static/card/model.js';
+import { frameMarkup, renderPrintSvg } from '../src/stroke_order/web/static/card/render.js';
+
+test('R4 sanitizeFrame：未知樣式回 none、數值夾範圍', () => {
+  assert.deepEqual(sanitizeFrame(null), { style: 'none', strokeMm: 0.5, padMm: 3 });
+  assert.equal(sanitizeFrame({ style: 'evil' }).style, 'none');
+  assert.equal(sanitizeFrame({ style: 'solid', strokeMm: 99 }).strokeMm, 3);
+  assert.equal(sanitizeFrame({ style: 'solid', padMm: -5 }).padMm, 0);
+  assert.equal(sanitizeFrame({ style: 'solid', padMm: 0 }).padMm, 0); // 0 合法不可被預設蓋掉
+  assert.equal(FRAME_STYLES.length, 6);
+});
+
+test('R4 contentRect：無框原樣、有框內縮置中、橢圓再乘內接係數', () => {
+  const box = { x: 10, y: 10, w: 40, h: 20 };
+  assert.deepEqual(contentRect({ ...box, frame: { style: 'none' } }), box);
+  const solid = contentRect({ ...box, frame: { style: 'solid', padMm: 4 } });
+  assert.deepEqual(solid, { x: 14, y: 14, w: 32, h: 12 });
+  const ell = contentRect({ ...box, frame: { style: 'ellipse', padMm: 0 } });
+  assert.equal(ell.w < 40 && ell.h < 20, true);
+  assert.equal(Math.abs((ell.x - 10) * 2 + ell.w - 40) < 0.01, true); // 置中
+});
+
+test('R4 frameMarkup：五樣式輸出契約', () => {
+  const box = { x: 0, y: 0, w: 40, h: 20 };
+  assert.equal(frameMarkup({ ...box, frame: { style: 'none' } }), '');
+  assert.match(frameMarkup({ ...box, frame: { style: 'solid', strokeMm: 0.5 } }), /<rect/);
+  assert.match(frameMarkup({ ...box, frame: { style: 'rounded', strokeMm: 0.5 } }), /rx=/);
+  assert.match(frameMarkup({ ...box, frame: { style: 'dashed', strokeMm: 0.5 } }), /stroke-dasharray/);
+  const dbl = frameMarkup({ ...box, frame: { style: 'double', strokeMm: 0.5 } });
+  assert.equal((dbl.match(/<rect/g) || []).length, 2);
+  assert.match(frameMarkup({ ...box, frame: { style: 'ellipse', strokeMm: 0.5 } }), /<ellipse/);
+});
+
+test('R4 外框內容連動：文字 cell 排進內縮矩形', () => {
+  const face = { key: 'f', w: 90, h: 52 };
+  const box = { id: 'b', kind: 'text', x: 10, y: 10, w: 40, h: 20, text: '賀',
+    sizeMm: 8, vertical: false, glyph: { source: 'system' },
+    frame: { style: 'solid', strokeMm: 0.5, padMm: 5 } };
+  const svg = renderFaceSvg(face, [box]);
+  // cell x 應為 10+5=15（text-anchor 中心 = 15+4=19）
+  assert.equal(svg.includes('x="19"'), true);
+});
+
+test('R4 renderPrintSvg：單面出血 3mm＋8 段裁切線＋mm 契約', () => {
+  const face = { key: 'front', w: 90, h: 52 };
+  const svg = renderPrintSvg({ kind: 'face', face, boxes: [] });
+  assert.match(svg, /width="96mm" height="58mm"/);
+  assert.match(svg, /viewBox="0 0 96 58"/);
+  assert.equal((svg.match(/<line/g) || []).length, 8);
+  assert.equal(svg.includes('translate(3,3)'), true);
+});
+
+test('R4 renderPrintSvg：展開版含摺線＋faceRotate 傳遞；出血 <1.5 無裁切線', () => {
+  const preset = CARD_PRESETS.a6_fold_lr;
+  const svg = renderPrintSvg(
+    { kind: 'sheet', preset, boxesByFace: { back: [], cover: [] } },
+    { faceRotate: { cover: true, back: false } },
+  );
+  assert.match(svg, /width="216mm" height="154mm"/);
+  assert.equal(svg.includes('rotate(180)'), true);       // faceRotate 覆寫傳遞
+  assert.equal(svg.includes('stroke-dasharray="3 2"'), true); // 摺線保留
+  const noMarks = renderPrintSvg({ kind: 'face', face: { key: 'f', w: 90, h: 52 }, boxes: [] }, { bleedMm: 1 });
+  assert.equal((noMarks.match(/<line/g) || []).length, 0);
+});
