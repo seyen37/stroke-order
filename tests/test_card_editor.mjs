@@ -172,3 +172,102 @@ test('outlineFragment / traceFragment：空資料回 null、有料出片段', ()
   assert.match(tf, /stroke-width="40"/);
   assert.match(tf, /polyline points="1,2 3,4"/);
 });
+
+// ---- R3：顏文字 / 塗鴉/SVG 插入 --------------------------------------
+
+import { KAOMOJI_CATEGORIES, approxWidthMm, fitTextLength } from '../src/stroke_order/web/static/card/kaomoji.js';
+import { ALLOWED_TAGS, isAllowedAttr, parseSvgSize, isBackgroundRect, MAX_FRAG_CHARS } from '../src/stroke_order/web/static/card/svgimport.js';
+import { newKaomojiBox, newArtBox } from '../src/stroke_order/web/static/card/model.js';
+import { kaomojiMarkup, artMarkup } from '../src/stroke_order/web/static/card/render.js';
+
+test('R3 kaomoji 庫：5 類、每類 8 條、無反斜線與雙引號（跳脫地雷）', () => {
+  assert.equal(KAOMOJI_CATEGORIES.length, 5);
+  for (const cat of KAOMOJI_CATEGORIES) {
+    assert.equal(cat.items.length, 8);
+    for (const k of cat.items) {
+      assert.equal(k.includes('\\'), false, k);
+      assert.equal(k.includes('"'), false, k);
+      assert.equal(k.length > 0, true);
+    }
+  }
+});
+
+test('R3 fitTextLength：放得下回 null、超框回擠壓值', () => {
+  assert.equal(fitTextLength('ab', 8, 60), null);
+  const tl = fitTextLength('(๑•̀ㅂ•́)و✧', 10, 20);
+  assert.equal(tl !== null && tl <= 20, true);
+  assert.equal(approxWidthMm('abcd', 10) > 0, true);
+});
+
+test('R3 kaomojiMarkup：置中 text、超框帶 textLength、XSS 跳脫', () => {
+  const box = { id: 'k1', kind: 'kaomoji', x: 10, y: 10, w: 20, h: 12, text: '(<&>)', sizeMm: 10 };
+  const m = kaomojiMarkup(box);
+  assert.match(m, /text-anchor="middle"/);
+  assert.match(m, /textLength=/);
+  assert.equal(m.includes('(<&>)'), false);
+  assert.equal(m.includes('&lt;&amp;&gt;'), true);
+});
+
+test('R3 artMarkup：等比縮放置中＋viewBox 位移補償', () => {
+  const box = { id: 'a1', kind: 'art', x: 10, y: 10, w: 40, h: 20,
+    art: { frag: '<path d="M0 0L10 10"/>', vx: 5, vy: 0, vw: 20, vh: 20 } };
+  const m = artMarkup(box);
+  // scale = min(40/20, 20/20) = 1；tx = 10 + (40-20)/2 - 5*1 = 15
+  assert.match(m, /translate\(15,10\) scale\(1\.000000\)/);
+  assert.equal(m.includes('<path d="M0 0L10 10"/>'), true);
+});
+
+test('R3 model：kaomoji/art round-trip；壞 art 整框丟棄', () => {
+  const face = CARD_PRESETS.business.faces[0];
+  const card = newCard('business');
+  card.boxes.front.push(newKaomojiBox(face, { text: 'ʕ•ᴥ•ʔ' }));
+  card.boxes.front.push(newArtBox(face, { frag: '<circle r="5"/>', vx: 0, vy: 0, vw: 10, vh: 10, label: 'x' }));
+  const back = deserialize(serialize(card));
+  assert.equal(back.boxes.front.length, 2);
+  assert.equal(back.boxes.front[0].kind, 'kaomoji');
+  assert.equal(back.boxes.front[1].art.vw, 10);
+  // 壞 art：vw=0 → 丟棄
+  const bad = JSON.parse(serialize(card));
+  bad.boxes.front[1].art.vw = 0;
+  assert.equal(deserialize(JSON.stringify(bad)).boxes.front.length, 1);
+});
+
+test('R3 newArtBox 依長寬比給預設框（直圖限高、橫圖限寬）', () => {
+  const face = { key: 'front', label: '', w: 148, h: 105 };
+  const tall = newArtBox(face, { frag: '<g/>', vx: 0, vy: 0, vw: 10, vh: 20 });
+  assert.equal(Math.abs(tall.h - 52.5) < 0.01, true);
+  assert.equal(Math.abs(tall.w - 26.25) < 0.01, true);
+  const wide = newArtBox(face, { frag: '<g/>', vx: 0, vy: 0, vw: 20, vh: 10 });
+  assert.equal(Math.abs(wide.w - 52.5) < 0.01, true);
+});
+
+test('R3 svgimport allowlist：危險標籤不在列、事件/href/style url 拒收', () => {
+  for (const bad of ['script', 'foreignObject', 'image', 'use', 'animate', 'filter', 'iframe']) {
+    assert.equal(ALLOWED_TAGS.has(bad), false, bad);
+  }
+  assert.equal(ALLOWED_TAGS.has('path') && ALLOWED_TAGS.has('g'), true);
+  assert.equal(isAllowedAttr('onclick', 'x()'), false);
+  assert.equal(isAllowedAttr('onLoad', 'x()'), false);
+  assert.equal(isAllowedAttr('href', '#a'), false);
+  assert.equal(isAllowedAttr('xlink:href', 'http://evil'), false);
+  assert.equal(isAllowedAttr('style', 'fill:url(#g)'), false);
+  assert.equal(isAllowedAttr('style', 'fill:#f00'), true);
+  assert.equal(isAllowedAttr('fill', 'red'), true);
+});
+
+test('R3 parseSvgSize：viewBox 優先、退 width/height 剝單位、無效回 null', () => {
+  assert.deepEqual(parseSvgSize('0 0 100 50', null, null), { vx: 0, vy: 0, vw: 100, vh: 50 });
+  assert.deepEqual(parseSvgSize('10,20,30,40', null, null), { vx: 10, vy: 20, vw: 30, vh: 40 });
+  assert.deepEqual(parseSvgSize(null, '80mm', '40mm'), { vx: 0, vy: 0, vw: 80, vh: 40 });
+  assert.equal(parseSvgSize('0 0 0 50', null, null), null);
+  assert.equal(parseSvgSize(null, null, null), null);
+});
+
+test('R3 isBackgroundRect：滿版矩形判定（含 2% 容差）', () => {
+  const size = { vx: 0, vy: 0, vw: 100, vh: 60 };
+  assert.equal(isBackgroundRect({ x: '0', y: '0', width: '100', height: '60' }, size), true);
+  assert.equal(isBackgroundRect({ width: '100', height: '59.5' }, size), true);
+  assert.equal(isBackgroundRect({ x: '10', y: '0', width: '100', height: '60' }, size), false);
+  assert.equal(isBackgroundRect({ width: '50', height: '60' }, size), false);
+  assert.equal(MAX_FRAG_CHARS >= 100000, true);
+});

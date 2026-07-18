@@ -8,8 +8,11 @@
 
 import { CARD_PRESETS, normalizeBox } from './geometry.js';
 import {
-  newCard, newTextBox, resolvePreset, saveDraft, loadDraft, serialize,
+  newCard, newTextBox, newKaomojiBox, newArtBox,
+  resolvePreset, saveDraft, loadDraft, serialize,
 } from './model.js';
+import { KAOMOJI_CATEGORIES } from './kaomoji.js';
+import { sanitizeSvgText } from './svgimport.js';
 import { renderFaceSvg, renderSheetSvg } from './render.js';
 import { createGlyphRegistry } from './glyphs.js';
 
@@ -73,13 +76,96 @@ function renderPanel() {
   const box = selectedBox();
   $('card-box-panel').style.display = box ? '' : 'none';
   if (!box) return;
-  if (document.activeElement !== $('card-text')) $('card-text').value = box.text;
-  $('card-size').value = box.sizeMm;
-  $('card-vertical').checked = box.vertical;
-  $('card-glyph-source').value = box.glyph.source;
-  $('card-glyph-style').value = box.glyph.style;
-  $('card-glyph-style').style.display = box.glyph.source === 'style' ? '' : 'none';
-  $('card-font-row').style.display = box.glyph.source === 'userfont' ? '' : 'none';
+  const isText = box.kind === 'text';
+  const isKao = box.kind === 'kaomoji';
+  const isArt = box.kind === 'art';
+  $('card-text-row').style.display = isArt ? 'none' : '';
+  $('card-size-row').style.display = isArt ? 'none' : '';
+  $('card-glyph-row').style.display = isText ? '' : 'none';
+  $('card-vertical').parentElement.style.display = isText ? '' : 'none';
+  $('card-art-row').style.display = isArt ? '' : 'none';
+  if (isArt) {
+    $('card-art-label').textContent = box.art.label || '（圖案）';
+  } else {
+    if (document.activeElement !== $('card-text')) $('card-text').value = box.text;
+    $('card-size').value = box.sizeMm;
+  }
+  if (isKao) $('card-text').setAttribute('rows', '1');
+  else $('card-text').removeAttribute('rows');
+  if (isText) {
+    $('card-vertical').checked = box.vertical;
+    $('card-glyph-source').value = box.glyph.source;
+    $('card-glyph-style').value = box.glyph.style;
+    $('card-glyph-style').style.display = box.glyph.source === 'style' ? '' : 'none';
+    $('card-font-row').style.display = box.glyph.source === 'userfont' ? '' : 'none';
+  } else {
+    $('card-font-row').style.display = 'none';
+  }
+}
+
+// ---- R3：顏文字選盤 / 塗鴉插入 / SVG 匯入 ----------------------------
+
+function buildKaomojiPicker() {
+  const host = $('card-kaomoji-panel');
+  host.innerHTML = KAOMOJI_CATEGORIES.map((cat) =>
+    `<div class="kao-cat"><div class="kao-cat-label">${cat.label}</div>` +
+    cat.items.map((k) =>
+      `<button type="button" class="kao-item" data-kao="${k.replace(/"/g, '&quot;')}">${k
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')}</button>`).join('') +
+    '</div>').join('');
+  host.addEventListener('click', (e) => {
+    const k = e.target.getAttribute?.('data-kao');
+    if (!k) return;
+    const box = newKaomojiBox(face(), { text: k });
+    boxes().push(box);
+    selectedId = box.id;
+    host.style.display = 'none';
+    scheduleRender();
+  });
+}
+
+function setInsertStatus(msg) {
+  $('card-insert-status').textContent = msg ?? '';
+}
+
+async function insertDoodleFromImage(file) {
+  setInsertStatus(`線稿轉換中…（${file.name}）`);
+  try {
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('canvas_width_mm', '100');
+    fd.append('auto_crop_whitespace', 'true');
+    const r = await fetch('/api/doodle', { method: 'POST', body: fd });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+    const svgText = await r.text();
+    const clean = sanitizeSvgText(svgText, { dropBackgroundRect: true });
+    if (clean.error) throw new Error(clean.error);
+    const box = newArtBox(face(), { ...clean, label: `線稿：${file.name}` });
+    boxes().push(box);
+    selectedId = box.id;
+    setInsertStatus(`✓ 已插入線稿（${file.name}）`);
+    scheduleRender();
+  } catch (err) {
+    setInsertStatus(`線稿轉換失敗：${err.message}`);
+  }
+}
+
+async function insertSvgFile(file) {
+  try {
+    const text = await file.text();
+    const clean = sanitizeSvgText(text);
+    if (clean.error) throw new Error(clean.error);
+    const box = newArtBox(face(), { ...clean, label: `SVG：${file.name}` });
+    boxes().push(box);
+    selectedId = box.id;
+    setInsertStatus(`✓ 已匯入 ${file.name}（外部連結/腳本已淨化移除）`);
+    scheduleRender();
+  } catch (err) {
+    setInsertStatus(`SVG 匯入失敗：${err.message}`);
+  }
 }
 
 // ---- 座標換算：clientX/Y → 面 mm ------------------------------------
@@ -222,6 +308,23 @@ export function init() {
     selectedId = box.id;
     scheduleRender();
   };
+  buildKaomojiPicker();
+  $('card-add-kaomoji').onclick = () => {
+    const host = $('card-kaomoji-panel');
+    host.style.display = host.style.display === 'none' ? '' : 'none';
+  };
+  $('card-add-doodle').onclick = () => $('card-doodle-file').click();
+  $('card-doodle-file').addEventListener('change', (e) => {
+    const f = e.target.files?.[0];
+    if (f) insertDoodleFromImage(f);
+    e.target.value = '';
+  });
+  $('card-add-svg').onclick = () => $('card-svg-file').click();
+  $('card-svg-file').addEventListener('change', (e) => {
+    const f = e.target.files?.[0];
+    if (f) insertSvgFile(f);
+    e.target.value = '';
+  });
   $('card-del-box').onclick = () => {
     const list = boxes();
     const i = list.findIndex((b) => b.id === selectedId);

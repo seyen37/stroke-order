@@ -10,6 +10,7 @@
 // ======================================================================
 
 import { faceGuides, sheetGuides, layoutTextBox, EM } from './geometry.js';
+import { fitTextLength } from './kaomoji.js';
 
 const XMLNS = 'http://www.w3.org/2000/svg';
 
@@ -42,15 +43,55 @@ function round(v) {
   return Math.round(v * 1000) / 1000;
 }
 
-//: 文字框內容（不含編輯框線）。
+//: 框內容（不含編輯框線）——依 kind 分派。
 export function boxContentMarkup(box, glyphProvider) {
-  const cells = layoutTextBox(
-    box,
-    box.text,
-    { sizeMm: box.sizeMm, vertical: box.vertical },
-  );
-  const inner = cells.map((c) => cellMarkup(c, box.glyph, glyphProvider)).join('');
+  let inner;
+  if (box.kind === 'kaomoji') {
+    inner = kaomojiMarkup(box);
+  } else if (box.kind === 'art') {
+    inner = artMarkup(box);
+  } else {
+    const cells = layoutTextBox(
+      box,
+      box.text,
+      { sizeMm: box.sizeMm, vertical: box.vertical },
+    );
+    inner = cells.map((c) => cellMarkup(c, box.glyph, glyphProvider)).join('');
+  }
   return `<g data-box-id="${esc(box.id)}" fill="#1a1a1a">${inner}</g>`;
+}
+
+//: R3 顏文字：整串單行置中；近似寬度超框時用 textLength 擠壓。
+export function kaomojiMarkup(box) {
+  const size = box.sizeMm ?? 8;
+  const cx = box.x + box.w / 2;
+  const y = box.y + box.h / 2 + size * 0.32;
+  const tl = fitTextLength(box.text, size, box.w);
+  const squeeze = tl !== null
+    ? ` textLength="${Math.round(tl * 100) / 100}" lengthAdjust="spacingAndGlyphs"`
+    : '';
+  return (
+    `<text x="${Math.round(cx * 1000) / 1000}" y="${Math.round(y * 1000) / 1000}"` +
+    ` font-size="${size}" text-anchor="middle"` +
+    ` font-family="'Noto Sans TC','Segoe UI Symbol',system-ui,sans-serif"${squeeze}>` +
+    `${esc(box.text)}</text>`
+  );
+}
+
+//: R3 塗鴉/SVG：等比縮放置中嵌入（frag 已經 svgimport 淨化，唯一合法來源）。
+export function artMarkup(box) {
+  const a = box.art;
+  if (!a || !a.frag) return '';
+  const s = Math.min(box.w / a.vw, box.h / a.vh);
+  const tx = box.x + (box.w - a.vw * s) / 2 - a.vx * s;
+  const ty = box.y + (box.h - a.vh * s) / 2 - a.vy * s;
+  return (
+    `<g transform="translate(${r3(tx)},${r3(ty)}) scale(${s.toFixed(6)})">${a.frag}</g>`
+  );
+}
+
+function r3(v) {
+  return Math.round(v * 1000) / 1000;
 }
 
 //: 編輯層附加物：框線＋縮放把手（匯出時不含）。
