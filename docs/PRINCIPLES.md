@@ -1895,6 +1895,27 @@ swOpen→驗 `SW.refImg` 為已載入 HTMLImageElement）。
 
 ---
 
+## 34. reuse 多圖層 SVG 當 styled 範字時，要挑對「代表該風格的那一層」、別全 clone 並拉 opacity=1（2026-07-18 5eq 新增）
+
+承 §32：5en reuse 抄經預覽 SVG 當逐字手寫 styled 範字時，一次 clone 三個範字層
+並把 opacity **全設 1**——`sutra-glyph-reference`（填實外框、預覽 opacity 0.55）、
+`sutra-trace`、`sutra-trace-skeleton`（中線骨架、stroke-width＝char_size×0.12＝粗、
+預覽 opacity **0.03**）。篆書是 skeleton 模式：格子靠 0.55 填實層呈現細灰篆形、
+0.03 粗骨架只是幾乎透明的 hint。popup 把 opacity 全拉到 1 → 填實層變重＋12% 粗
+骨架全顯、疊在一起＝又粗又重疊的黑團，且骨架 round-cap 端點超出字形 bbox → 比例
+偏大（實機三症狀同源）。5eq 修＝只 clone 填實層（有 `sutra-glyph-reference`/
+`sutra-trace` 任一即用、否則才 fallback 骨架），篆書拿到細填實篆形＝格子描紅。
+
+判準：**reuse 一份「各層 opacity/stroke 是為原用途（印刷描紅疊合）調好」的多圖層
+SVG 到另一用途（螢幕 styled 範字）時，別平權全 clone 再統一拉 opacity=1——那會把
+原本的 hint 層（0.03 的粗骨架）放大成主體。先辨識「哪一層代表你要的那個東西」
+（篆書＝填實外框、不是那條粗中線），只取那層。** 各層權重帶著原用途的假設，換用途
+就要重挑，不能無腦繼承。驗證循 §8.15/§33＝對真實渲染跑（e2e_5eq：注入「填實＋粗
+骨架並存」的篆書情境 mock、解碼 swBuildRefImg 回傳 Image 的 data-URL、斷言含填實
+path、排除粗骨架）。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -1918,11 +1939,11 @@ swOpen→驗 `SW.refImg` 為已載入 HTMLImageElement）。
   - [`WORK_LOG_2026-07-17.md`](WORK_LOG_2026-07-17.md)（5dw+5dx
     逐字手寫延伸到表格頁：5dw 週期表（table 分支能力偵測轉發 emit_cellmap）
     ＋5dx 部首/倉頡/注音（抽共用 cellmap emitter、三自繪 renderer 各吐疊層））
-  - [`WORK_LOG_2026-07-18.md`](WORK_LOG_2026-07-18.md)（5ea→5ep
+  - [`WORK_LOG_2026-07-18.md`](WORK_LOG_2026-07-18.md)（5ea→5eq
     全日大弧：抄經 500 修復＋逐字手寫▶播放/✎示範＋骨架/PDF 手寫層；切割風格
     registry 五弧（5ef 純重構→envelope→keep_primary→深度旋鈕→鏤空方向）＋
-    中心線 Chaikin/RDP UI 四弧（塗鴉/字帖對稱）＋styled 逐字手寫範字（5en→5ep
-    st/su 前綴修復）；含 5ef~5ep 收工總結節）
+    中心線 Chaikin/RDP UI 四弧（塗鴉/字帖對稱）＋styled 逐字手寫範字三發（5en→5ep
+    st/su 前綴修復→5eq 篆書範字挑對圖層別全 clone）；含 5ef~5ep 收工總結節）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -1939,6 +1960,7 @@ swOpen→驗 `SW.refImg` 為已載入 HTMLImageElement）。
   - [`2026-07-17_5dw_periodic_handwrite.md`](decisions/2026-07-17_5dw_periodic_handwrite.md)（逐字手寫延伸表格頁：單一未轉發旗標＋registry 能力偵測分派＋重用複利，對應 §26）
   - [`2026-07-17_5dx_table_handwrite.md`](decisions/2026-07-17_5dx_table_handwrite.md)（逐字手寫延伸部首/倉頡/注音：跨層契約單一真相源＋可寫格語意邊界，對應 §27）
   - [`2026-07-18_5ef_5ep_stencil_registry_centerline_styled.md`](decisions/2026-07-18_5ef_5ep_stencil_registry_centerline_styled.md)（切割 registry 純重構先立 seam＋Jordan 巢狀深度/blob-leak＋方向↔牆對偶/runtime 旋鈕＋同源平滑套全消費點/cache key＋styled 字形 reuse 伺服器 SVG＋真實渲染 e2e/su-st 前綴，對應 §28–§33）
+  - [`2026-07-18_5eq_handwrite_ref_layer.md`](decisions/2026-07-18_5eq_handwrite_ref_layer.md)（逐字手寫篆書範字太粗——styled 範字 reuse 多圖層 SVG 要挑對代表層、別全 clone 拉 opacity=1，對應 §34）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -1949,4 +1971,4 @@ swOpen→驗 `SW.refImg` 為已載入 HTMLImageElement）。
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§33 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§34 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone）。三者互補。
