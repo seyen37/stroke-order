@@ -100,10 +100,23 @@ def test_5el_userfont_smooth_ui_wired(client):
     html = client.get("/").text
     assert 'id="gf-smooth"' in html                       # 平滑數字輸入
     assert 'getElementById("gf-smooth")' in html          # fontCharTracks 讀值
-    # cache key 納入迭代數（否則調值回舊軌跡）
-    assert 'gridUserFontName + ":" + ch + ":" + ckIters' in html
+    # cache key 納入迭代數＋eps（否則調值回舊軌跡）
+    assert 'gridUserFontName + ":" + ch + ":" + ckIters + ":" + rdpEps' in html
     # 迭代數餵給 Chaikin（取代原 hardcode 2）
-    assert "eng.chaikinSmooth(eng.rdpSimplify(tr, 1.5), ckIters)" in html
+    assert "eng.chaikinSmooth(eng.rdpSimplify(tr, rdpEps), ckIters)" in html
+
+
+def test_5em_userfont_simplify_ui_wired(client):
+    """5em：自訂字型 RDP 簡化 UI（對稱塗鴉）——gf-simplify 數字輸入在字型
+    wrap；fontCharTracks 讀值、納入 cache key、傳給 rdpSimplify（取代 hardcode
+    1.5）。"""
+    html = client.get("/").text
+    assert 'id="gf-simplify"' in html                     # 簡化數字輸入
+    assert 'getElementById("gf-simplify")' in html        # fontCharTracks 讀值
+    # eps 併入 cache key（與 iters 一起）
+    assert '":" + ckIters + ":" + rdpEps' in html
+    # eps 餵給 RDP（取代原 hardcode 1.5）
+    assert "eng.rdpSimplify(tr, rdpEps)" in html
 
 
 def test_5ct_notebook_letter_userfont_ui(client):
