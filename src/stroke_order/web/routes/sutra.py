@@ -5,29 +5,133 @@ W3-R1（架構健檢 Wave 3）：自 server.py create_app() 機械搬遷，行�
 """
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 import inspect
 from fastapi import HTTPException, Path as ApiPath, Query
 from fastapi.responses import Response
 from typing import Optional
 from fastapi import APIRouter
 
-from .. import server as _server
-from ..server import (
-    SutraBuiltinPatch,
-    SutraMetaPatch,
-    SutraPostRequest,
-    SutraUploadRequest,
+from ..char_pipeline import (
     _STYLE_PATTERN,
-    _apply_style,
     _build_sutra_outline_loader,
-    _content_disposition,
     _memoize_char_loader,
+    make_char_loader,
+)
+from ..responses import (
+    svg_response,
+    _content_disposition,
     _safe_filename_part,
     _style_label,
-    _upgrade_to_lishu,
-    _upgrade_to_seal,
-    _upgrade_to_sung,
 )
+
+class SutraPostRequest(BaseModel):
+    """抄經模式 (Phase 5az) — 單頁 SVG 渲染請求。"""
+    preset: str = "heart_sutra"
+    page_index: int = 0
+    page_type: str = "body"          # cover | body | dedication
+    style: str = "kaishu"
+    source: str = "auto"
+    hook_policy: str = "animation"
+    scribe: str = ""
+    date_str: str = ""
+    dedicator: str = ""
+    target: str = ""
+    signature: str = ""              # 5bh: empty by default; user may add
+    show_grid: bool = True
+    show_helper_lines: bool = True
+    # 5bm: default to no cover so the trace pages are immediately useful
+    # for plotter output (cover/dedication are opt-in).
+    include_cover: bool = False
+    include_dedication: bool = False
+    trace_fill: str = "#cccccc"
+    dedication_verse: str = ""       # empty → no faded verse on dedication page
+    # 5bh / 5bi: text processing mode
+    # compact | compact_marks | with_punct | raw
+    text_mode: str = "compact_marks"
+    # 5bj: page geometry
+    paper_orientation: str = "landscape"   # landscape | portrait
+    text_direction: str = "vertical"       # vertical | horizontal
+    # 5bz: when True, lay a faded outline of the original lishu/seal
+    # letterform behind the skeleton tracks so the user sees the full
+    # glyph shape (preview + PDF). False keeps the SVG as pure skeleton
+    # tracks (the writing-robot/plotter format). No effect on
+    # outline-bearing styles (kaishu/sung) — they already render filled.
+    show_original_glyph: bool = False
+    # 5dt: emit a transparent per-cell click-map (data-char/data-pos) so the
+    # browser preview can make each 描紅 cell clickable (逐字手寫). Preview
+    # sets this True; SVG/PDF downloads leave it False.
+    emit_cellmap: bool = False
+
+
+class ClosingPageSpec(BaseModel):
+    """5bg: 結語頁設定（單一經典 override 用）。"""
+    title: str = ""
+    verse: str = ""
+    blank1_label: str = ""
+    blank2_label: str = ""
+
+
+class SutraUploadRequest(BaseModel):
+    """抄經自訂上傳 (Phase 5bb / 5bd / 5bg) — 純文字 + metadata + 學術欄位。"""
+    text: str
+    title: str = ""
+    subtitle: str = "手抄本"
+    category: str = "user_custom"
+    source: str = ""
+    description: str = ""
+    language: str = "zh-TW"
+    is_mantra_repeat: bool = False
+    repeat_count: int = 1
+    tags: list[str] = []
+    desired_key: str = ""        # blank → derive from title
+    # 5bd scholarly metadata
+    author: str = ""
+    editor: str = ""
+    notes: str = ""
+    source_url: str = ""
+    # 5bg closing override (None → use category template)
+    closing: Optional[ClosingPageSpec] = None
+
+
+class SutraMetaPatch(BaseModel):
+    """抄經自訂 metadata 局部更新 (Phase 5bb / 5bd / 5bg)."""
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    category: Optional[str] = None
+    source: Optional[str] = None
+    description: Optional[str] = None
+    language: Optional[str] = None
+    is_mantra_repeat: Optional[bool] = None
+    repeat_count: Optional[int] = None
+    tags: Optional[list[str]] = None
+    # 5bd scholarly metadata
+    author: Optional[str] = None
+    editor: Optional[str] = None
+    notes: Optional[str] = None
+    source_url: Optional[str] = None
+    # 5bg closing override
+    closing: Optional[ClosingPageSpec] = None
+
+
+class SutraBuiltinPatch(BaseModel):
+    """內建經文 metadata override + 內文覆寫 (Phase 5be / 5bg)."""
+    # Same metadata fields as SutraMetaPatch, plus optional `text` for
+    # overwriting the builtin's .txt content.
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    source: Optional[str] = None
+    description: Optional[str] = None
+    language: Optional[str] = None
+    tags: Optional[list[str]] = None
+    author: Optional[str] = None
+    editor: Optional[str] = None
+    notes: Optional[str] = None
+    source_url: Optional[str] = None
+    closing: Optional[ClosingPageSpec] = None
+    text: Optional[str] = None
+
 
 router = APIRouter()
 
@@ -332,19 +436,9 @@ def sutra_post(req: SutraPostRequest):
                    "multiplication_table, solar_terms, "
                    "kangxi_radicals, cangjie_roots, zhuyin_symbols)")
 
-    def _loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, req.source, req.hook_policy)
-            c = _upgrade_to_sung(c, req.style)
-            c = _upgrade_to_seal(c, req.style)
-            c = _upgrade_to_lishu(c, req.style)
-            if req.style != "kaishu":
-                c = _apply_style(c, req.style)
-            return c
-        except HTTPException:
-            return None
-
-    loader = _memoize_char_loader(_loader)   # 5dp：每字只載一次
+    # 5dp：每字只載一次
+    loader = make_char_loader(
+        req.source, req.hook_policy, req.style, memoize=True)
 
     if req.page_type == "table":
         # 5bo: preset-specific table layout, one A4-landscape page.
@@ -443,11 +537,8 @@ def sutra_post(req: SutraPostRequest):
         _basename = f"{_title}_{_slabel}_封面"
     else:  # dedication
         _basename = f"{_title}_{_slabel}_迴向"
-    return Response(
-        content=svg, media_type="image/svg+xml",
-        headers={"Content-Disposition":
-                 _content_disposition(_basename, "svg")},
-    )
+    return svg_response(svg, headers={"Content-Disposition":
+                 _content_disposition(_basename, "svg")})
 
 @router.get("/api/sutra")
 def sutra_get(       # 5dp：sync def（見 sutra_post）
@@ -566,20 +657,8 @@ def sutra_pdf_endpoint(       # 5dp：sync def（見 sutra_post；PDF 最重）
                    "into the sutra dir",
         )
 
-    def _loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, source, hook_policy)
-            c = _upgrade_to_sung(c, style)
-            c = _upgrade_to_seal(c, style)
-            c = _upgrade_to_lishu(c, style)
-            if style != "kaishu":
-                c = _apply_style(c, style)
-            return c
-        except HTTPException:
-            return None
-
     # 5dp：跨頁共用、每字只載一次（多頁 PDF 省最多）。
-    loader = _memoize_char_loader(_loader)
+    loader = make_char_loader(source, hook_policy, style, memoize=True)
 
     # 5bz: outline-bearing companion loader for the reference layer
     # (隸/篆 with mode="skip"). None when the user opts out.

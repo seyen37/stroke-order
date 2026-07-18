@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     # import 放在 dest 確立之後——_ensure_vendor_cached 讀環境變數
-    from stroke_order.web.server import (
+    from stroke_order.web.routes.pages import (
         _OPENCV_CACHE_FNAME,
         _OPENCV_MIN_BYTES,
         _OPENCV_SOURCES,
@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         _ensure_vendor_cached,
     )
 
-    # 5da：opencv 快取檔名帶版本（單一事實源在 server.py）——
+    # 5da：opencv 快取檔名帶版本（單一事實源在 web/routes/pages.py）——
     # pin 升級時 build 自動抓新檔，舊檔閒置無妨
     for fname, sources, min_bytes in (
         (_OPENCV_CACHE_FNAME, _OPENCV_SOURCES, _OPENCV_MIN_BYTES),

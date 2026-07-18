@@ -154,7 +154,7 @@ def client():
 def fast_null_loader(monkeypatch):
     """Stub the per-char loader so API-routing tests don't pay the full
     118-glyph render cost. Cells render empty; grid/frame still full."""
-    import stroke_order.web.server as srv
+    import stroke_order.web.char_pipeline as srv  # W3-R2：載字鏈移居 char_pipeline（patch 目標唯一）
 
     def _null_load(char, source, hook_policy, auto_fix=True):
         from fastapi import HTTPException

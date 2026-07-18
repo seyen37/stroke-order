@@ -123,7 +123,7 @@ def test_lishu_style_short_circuits_on_moe_lishu_data_source():
 
 def test_upgrade_no_op_when_style_is_not_lishu():
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_lishu
+    from stroke_order.web.char_pipeline import _upgrade_to_lishu
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
     for style in ("kaishu", "mingti", "bold", "seal_script"):
         assert _upgrade_to_lishu(base, style) is base
@@ -131,7 +131,7 @@ def test_upgrade_no_op_when_style_is_not_lishu():
 
 def test_upgrade_falls_back_when_font_missing(tmp_path, monkeypatch):
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_lishu
+    from stroke_order.web.char_pipeline import _upgrade_to_lishu
     monkeypatch.setenv("STROKE_ORDER_LISHU_FONT_FILE", str(tmp_path / "nope.ttf"))
     reset_lishu_singleton()
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
@@ -141,7 +141,7 @@ def test_upgrade_falls_back_when_font_missing(tmp_path, monkeypatch):
 @needs_lishu
 def test_upgrade_swaps_to_moe_lishu_when_available(lishu_env):
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_lishu
+    from stroke_order.web.char_pipeline import _upgrade_to_lishu
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
     out = _upgrade_to_lishu(base, "lishu")
     assert out is not base

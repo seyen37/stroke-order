@@ -164,7 +164,7 @@ def test_5cj_vendor_proxy_and_same_origin_first(client, tmp_path,
     """
     vendor = tmp_path / "vendor"
     vendor.mkdir()
-    from stroke_order.web.server import _OPENCV_CACHE_FNAME
+    from stroke_order.web.routes.pages import _OPENCV_CACHE_FNAME
     fake = b"/* fake opencv.js */" + b"x" * 1_100_000
     (vendor / _OPENCV_CACHE_FNAME).write_bytes(fake)     # 5da：檔名帶版本
     monkeypatch.setenv("STROKE_ORDER_VENDOR_DIR", str(vendor))
@@ -217,7 +217,7 @@ def test_5ck_vendor_status_observability(client, tmp_path, monkeypatch):
     body = r.json()
     assert body["opencv_cached"] is False and body["size"] == 0
 
-    from stroke_order.web.server import _OPENCV_CACHE_FNAME
+    from stroke_order.web.routes.pages import _OPENCV_CACHE_FNAME
     fake = b"/* fake */" + b"x" * 1_100_000
     (vendor / _OPENCV_CACHE_FNAME).write_bytes(fake)     # 5da：檔名帶版本
     body = client.get("/vendor/status").json()
@@ -233,7 +233,7 @@ def test_5cl_fetch_sources_datacenter_friendly(client):
     備援並補瀏覽器 UA；瀏覽器端備援清單第二位也加 jsDelivr
     （校網常放行 cdn.jsdelivr.net）。
     """
-    from stroke_order.web.server import (
+    from stroke_order.web.routes.pages import (
         _OPENCV_FETCH_HEADERS,
         _OPENCV_SOURCES,
     )
@@ -304,7 +304,7 @@ def test_5cq_fetch_vendor_build_script(tmp_path, monkeypatch):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    from stroke_order.web.server import _OPENCV_CACHE_FNAME
+    from stroke_order.web.routes.pages import _OPENCV_CACHE_FNAME
     vendor = tmp_path / "baked"
     vendor.mkdir()
     (vendor / _OPENCV_CACHE_FNAME).write_bytes(b"x" * 1_100_000)
@@ -320,7 +320,7 @@ def test_5cq_fetch_vendor_build_script(tmp_path, monkeypatch):
 
 def test_5ck_ensure_cached_hits_cache_without_network(tmp_path, monkeypatch):
     """5ck：快取命中時 _ensure_opencv_cached 不碰網路直接回。"""
-    from stroke_order.web.server import (
+    from stroke_order.web.routes.pages import (
         _OPENCV_CACHE_FNAME,
         _ensure_opencv_cached,
     )

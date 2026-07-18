@@ -1,8 +1,13 @@
-"""W3-R1：路由分組套件——七群 APIRouter（機械搬遷自 server.py）。
+"""路由分組套件——七群 APIRouter（W3-R1 機械搬遷、W3-R2 去重複）。
 
 include 順序＝拆檔前路由註冊順序（Starlette 依註冊序匹配）。
+R2 起共用 helpers 住 ``..char_pipeline``／``..responses``／
+``..versioning``——routes 不再 import ``..server``，循環已解，
+一律正常模組層 import。
 """
 from __future__ import annotations
+
+from . import gallery, meta, modes_art, modes_text, pages, sutra, user_dict
 
 
 def iter_routes(router_or_app):
@@ -24,12 +29,7 @@ def iter_routes(router_or_app):
 
 
 def all_routers():
-    """延遲 import：routes 模組需要 ``..server`` 的模組頭 helpers，
-    server.create_app() 又要 include 這裡的 router——模組層互相 import
-    會循環。create_app 呼叫時 server 模組已初始化完畢，屆時再載入即可。
-    （R2 把共用 helpers 移出 server 後可改回模組層 import。）
-    """
-    from . import pages, meta, modes_text, modes_art, user_dict, sutra, gallery
+    """七群 router，依拆檔前註冊順序。"""
     return [
         pages.router,
         meta.router,

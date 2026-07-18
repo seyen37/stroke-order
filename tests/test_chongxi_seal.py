@@ -225,21 +225,21 @@ def test_apply_mode_passes_through_non_seal_data_source():
 
 def test_upgrade_no_op_when_style_is_not_seal_script():
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_seal
+    from stroke_order.web.char_pipeline import _upgrade_to_seal
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
     for style in ("kaishu", "mingti", "lishu", "bold"):
         assert _upgrade_to_seal(base, style) is base
 
 
 def test_upgrade_returns_none_for_none_input():
-    from stroke_order.web.server import _upgrade_to_seal
+    from stroke_order.web.char_pipeline import _upgrade_to_seal
     assert _upgrade_to_seal(None, "seal_script") is None
 
 
 def test_upgrade_falls_back_when_font_missing(tmp_path, monkeypatch):
     """No OTF → upgrade silently returns the original kaishu Character."""
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_seal
+    from stroke_order.web.char_pipeline import _upgrade_to_seal
     monkeypatch.setenv("STROKE_ORDER_SEAL_FONT_FILE", str(tmp_path / "nope.otf"))
     reset_seal_singleton()
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
@@ -250,7 +250,7 @@ def test_upgrade_falls_back_when_font_missing(tmp_path, monkeypatch):
 def test_upgrade_swaps_to_seal_when_available(seal_env):
     """End-to-end: g0v Character + style=seal_script → seal outline."""
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_seal
+    from stroke_order.web.char_pipeline import _upgrade_to_seal
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
     out = _upgrade_to_seal(base, "seal_script")
     assert out is not base

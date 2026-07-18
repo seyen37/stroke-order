@@ -5,29 +5,52 @@ W3-R1（架構健檢 Wave 3）：自 server.py create_app() 機械搬遷，行�
 """
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from fastapi import HTTPException, Query
 from typing import Optional
 from fastapi import APIRouter
 
-from .. import server as _server
-from ..server import (
-    CoverageRecommendRequest,
+from ...exporters.hanzi_writer import character_to_hanzi_writer_dict
+from ...exporters.json_polyline import character_to_dict
+from ...sources.chongxi_seal import (
+    attribution_notice as _seal_attribution,
+    get_seal_source as _get_seal,
+)
+from ...sources.moe_kaishu import (
+    attribution_notice as _kaishu_attribution,
+    get_kaishu_source as _get_kaishu_font,
+)
+from ...sources.moe_lishu import (
+    attribution_notice as _lishu_attribution,
+    get_lishu_source as _get_lishu,
+)
+from ...sources.moe_song import (
+    attribution_notice as _song_attribution,
+    get_song_source as _get_song,
+)
+from .. import char_pipeline as _pipeline
+from ..char_pipeline import (
     _STYLE_PATTERN,
     _apply_style,
-    _get_kaishu_font,
-    _get_lishu,
-    _get_seal,
-    _get_song,
-    _kaishu_attribution,
-    _lishu_attribution,
-    _seal_attribution,
-    _song_attribution,
     _upgrade_to_lishu,
     _upgrade_to_seal,
     _upgrade_to_sung,
-    character_to_dict,
-    character_to_hanzi_writer_dict,
 )
+
+class CoverageRecommendRequest(BaseModel):
+    """POST body for /api/coverage/recommend.
+
+    Attributes:
+        written_chars: Concatenated string of characters the user has
+            already written (e.g. ``"明林永"``). Order doesn't matter.
+        coverset: Built-in cover-set name (default ``"cjk_common_808"``).
+        top_k: How many recommendations to return (default 5).
+    """
+    written_chars: str = ""
+    coverset: str = "cjk_common_808"
+    top_k: int = 5
+
 
 router = APIRouter()
 
@@ -40,7 +63,7 @@ def character_data(
     hook_policy: str = Query("animation"),
 ):
     """hanzi-writer-compatible stroke data (for the front-end canvas)."""
-    c, _r, _ = _server._load(char, source, hook_policy)
+    c, _r, _ = _pipeline._load(char, source, hook_policy)
     return character_to_hanzi_writer_dict(c)
 
 # 5d-7: outline-only character data in native EM 2048 (Y-down) for the
@@ -59,7 +82,7 @@ def handwriting_reference(
 ):
     from ...ir import EM_SIZE
     try:
-        c, _r, _ = _server._load(char, source, hook_policy)
+        c, _r, _ = _pipeline._load(char, source, hook_policy)
         c = _upgrade_to_sung(c, style)
         c = _upgrade_to_seal(c, style, seal_outline_mode="skip")
         c = _upgrade_to_lishu(c, style, lishu_outline_mode="skip")
@@ -83,7 +106,7 @@ def character_meta(
     hook_policy: str = Query("animation"),
 ):
     """Diagnostics — classification codes, bbox, validation notes."""
-    c, report, applied_fix = _server._load(char, source, hook_policy)
+    c, report, applied_fix = _pipeline._load(char, source, hook_policy)
     d = character_to_dict(c)
     d["validation"] = {
         "is_valid": report.is_valid,

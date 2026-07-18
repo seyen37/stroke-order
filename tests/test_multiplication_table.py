@@ -86,7 +86,7 @@ def client():
 
 @pytest.fixture()
 def fast_null_loader(monkeypatch):
-    import stroke_order.web.server as srv
+    import stroke_order.web.char_pipeline as srv  # W3-R2：載字鏈移居 char_pipeline（patch 目標唯一）
 
     def _null_load(char, source, hook_policy, auto_fix=True):
         from fastapi import HTTPException

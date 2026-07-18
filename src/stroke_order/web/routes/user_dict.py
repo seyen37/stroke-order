@@ -5,16 +5,33 @@ W3-R1（架構健檢 Wave 3）：自 server.py create_app() 機械搬遷，行�
 """
 from __future__ import annotations
 
+from typing import Optional
+
+from pydantic import BaseModel
+
 from fastapi import File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from fastapi import APIRouter
-from ..server import (
-    CharacterNotFound,
-    UserDictPostRequest,
+from ...sources import CharacterNotFound
+from ..responses import (
     _content_disposition,
     _safe_filename_part,
     _style_label,
 )
+
+class UserDictPostRequest(BaseModel):
+    """Phase 5ak: POST /api/user-dict body. Three input formats:
+
+    - ``format=json``        : ``strokes`` is the canonical track list
+    - ``format=svg``         : ``svg_content`` is parsed by svgpathtools
+    - ``format=handwriting`` : ``handwriting`` carries canvas-coord points
+    """
+    char: str
+    format: str = "json"
+    strokes: Optional[list[dict]] = None
+    svg_content: Optional[str] = None
+    handwriting: Optional[dict] = None
+
 
 router = APIRouter()
 

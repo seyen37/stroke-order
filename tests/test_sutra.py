@@ -1805,7 +1805,7 @@ def test_5bl_marks_larger_than_one_third_of_glyph(stub_loader):
 
 def test_5bm_include_cover_default_is_false():
     """5bm: cover-page is now opt-in. Default request should NOT include cover."""
-    from stroke_order.web.server import SutraPostRequest
+    from stroke_order.web.routes.sutra import SutraPostRequest
     req = SutraPostRequest()
     assert req.include_cover is False
 
@@ -2340,7 +2340,7 @@ def test_5bp_env_disable_restores_not_loaded(temp_sutra_dir):
 
 def test_5dp_memoize_char_loader_resolves_once_per_unique():
     """每個唯一字只解析一次；同字回同一物件。"""
-    from stroke_order.web.server import _memoize_char_loader
+    from stroke_order.web.char_pipeline import _memoize_char_loader
     calls = []
 
     def raw(ch):

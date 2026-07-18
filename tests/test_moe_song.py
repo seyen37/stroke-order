@@ -120,7 +120,7 @@ def test_mingti_style_short_circuits_on_moe_song_data_source():
 
 def test_upgrade_no_op_when_style_is_not_mingti():
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_sung
+    from stroke_order.web.char_pipeline import _upgrade_to_sung
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
     for style in ("kaishu", "lishu", "bold", "seal_script"):
         assert _upgrade_to_sung(base, style) is base
@@ -130,7 +130,7 @@ def test_upgrade_falls_back_when_no_song_or_sung(tmp_path, monkeypatch):
     """Both MoE Song and CNS Sung absent → original kaishu unchanged."""
     from stroke_order.ir import Character
     from stroke_order.sources.cns_font import reset_cns_singletons
-    from stroke_order.web.server import _upgrade_to_sung
+    from stroke_order.web.char_pipeline import _upgrade_to_sung
     monkeypatch.setenv("STROKE_ORDER_SONG_FONT_FILE", str(tmp_path / "nope.ttf"))
     monkeypatch.setenv("STROKE_ORDER_CNS_FONT_DIR", str(tmp_path / "no-cns"))
     reset_song_singleton()
@@ -143,7 +143,7 @@ def test_upgrade_falls_back_when_no_song_or_sung(tmp_path, monkeypatch):
 def test_upgrade_prefers_moe_song_over_cns_sung(song_env):
     """When both fonts loaded, MoE Song wins for chars it covers."""
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_sung
+    from stroke_order.web.char_pipeline import _upgrade_to_sung
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
     out = _upgrade_to_sung(base, "mingti")
     assert out is not base

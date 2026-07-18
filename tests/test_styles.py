@@ -263,7 +263,7 @@ def test_api_rejects_unknown_style(client):
 
 @pytest.mark.skipif(not _HAS, reason="web deps missing")
 def test_upgrade_to_seal_swallows_skeleton_crash(monkeypatch, char_yong):
-    import stroke_order.web.server as srv
+    import stroke_order.web.char_pipeline as srv  # W3-R2：載字鏈移居 char_pipeline（patch 目標唯一）
 
     class _FakeSeal:
         def is_ready(self):
@@ -284,7 +284,7 @@ def test_upgrade_to_seal_swallows_skeleton_crash(monkeypatch, char_yong):
 
 @pytest.mark.skipif(not _HAS, reason="web deps missing")
 def test_upgrade_to_lishu_swallows_skeleton_crash(monkeypatch, char_yong):
-    import stroke_order.web.server as srv
+    import stroke_order.web.char_pipeline as srv  # W3-R2：載字鏈移居 char_pipeline（patch 目標唯一）
 
     class _FakeLishu:
         def is_ready(self):

@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from stroke_order.web.server import APP_VERSION, STATIC_DIR
+from stroke_order.web.versioning import APP_VERSION, STATIC_DIR
 
 
 def test_app_version_matches_pyproject():

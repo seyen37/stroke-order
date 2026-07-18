@@ -5,26 +5,111 @@ W3-R1（架構健檢 Wave 3）：自 server.py create_app() 機械搬遷，行�
 """
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 import io
 from fastapi import File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 from typing import Optional
 from fastapi import APIRouter
 
-from .. import server as _server
-from ..server import (
-    PatchPostRequest,
-    StampPostRequest,
+from ..char_pipeline import (
     _CNS_MODE_PATTERN,
     _STYLE_PATTERN,
-    _apply_cns_mode,
-    _apply_style,
-    _content_disposition,
-    _upgrade_to_lishu,
-    _upgrade_to_seal,
-    _upgrade_to_sung,
     build_mandala_char_loader,
+    make_char_loader,
 )
+from ..responses import SVG_MEDIA_TYPE, _content_disposition, svg_response
+
+class PatchDecorationSpec(BaseModel):
+    svg_content: str
+    x_mm: float
+    y_mm: float
+    w_mm: float
+    h_mm: float
+    # 12m-7 r30: 圓戳章內框圖用，True = clip 成 inscribed circle
+    clip_circle: bool = False
+
+
+class PatchPostRequest(BaseModel):
+    # 5de：auto 字級——字少自動放大、字多自動縮小（造型感知，
+    # 見 patch._fit_row_to_shape）；False＝沿用 char_size_mm 上限
+    auto_size: bool = False
+    text: str = ""
+    preset: str = "rectangle"
+    patch_width_mm: float = 80.0
+    patch_height_mm: float = 40.0
+    char_size_mm: float = 18.0
+    text_position: str = "center"
+    style: str = "kaishu"
+    source: str = "auto"
+    hook_policy: str = "animation"
+    decorations: list[PatchDecorationSpec] = []
+    tile_rows: int = 1
+    tile_cols: int = 1
+    tile_gap_mm: float = 5.0
+    page_width_mm: float = 210.0
+    page_height_mm: float = 297.0
+    format: str = "svg"
+    show_border: bool = True
+
+
+class StampPostRequest(BaseModel):
+    text: str = ""
+    preset: str = "square_name"
+    stamp_width_mm: float = 25.0
+    stamp_height_mm: float = 25.0
+    char_size_mm: float = 10.0
+    show_border: bool = True
+    double_border: bool = False
+    border_padding_mm: float = 0.8  # 12b-6: 對齊業界小章 inset
+    style: str = "kaishu"
+    source: str = "auto"
+    hook_policy: str = "animation"
+    decorations: list[PatchDecorationSpec] = []
+    laser_power: int = 255
+    feed: float = 1500.0
+    format: str = "svg"   # svg | gcode | pdf
+    engrave_mode: str = "concave"  # 12c: concave (陰刻) | convex (陽刻)
+    line_pitch_mm: float = 0.1     # 12c: convex 光柵掃描密度
+    layout_5char: str = "2plus3"   # 12f: 5 字 layout 2plus3 (姓名章預設) | 3plus2 (職名章變體)
+    layout_2char: str = "horizontal"  # 12h: 2 字 layout horizontal (預設右起讀) | vertical (上下)
+    # 12l: 公司章短列位置升級成 list (預設 ["right"]，可複選 / 集中短)。
+    # 接受 list[str] 或單一 str（向後兼容 12k）：
+    #   3-col (7-12 字): right|middle|left
+    #   4-col (13-16 字): right|mid-right|mid-left|left
+    layout_official_short_col: list[str] | str = ["right"]
+    char_offsets: list[list[float]] = []  # 12g: 每字 [dx, dy] mm 微調（list of [dx, dy]）
+    # 12m-1: 橢圓章結構化欄位（preset=oval 時使用，否則忽略）。
+    # 任一非空 → 走業界標準 layout（上弧 + 中央 1-3 行 + 下弧）；
+    # 全空 → fallback 既有 1-2 行 horizontal layout（向後兼容）。
+    oval_arc_top: str = ""           # 上弧文（典型：公司名稱）
+    oval_arc_bottom: str = ""        # 下弧文（典型：地址 / 統一編號）
+    oval_body_lines: list[str] = []  # 中央 1-3 行水平文字（順序 = 上→下）
+    # 12m-1 patch r12: 中央 1/2/3 加粗 flags（list of 3 bool；False default）。
+    oval_body_bold: list[bool] = []
+    # 12m-1 patch r13: 裝飾符號 — 'plum'/'star'/'circle'/'none'
+    oval_decoration: str = "plum"
+    # 12m-1 patch r18: 鋸齒外框（zigzag tooth pattern on outer ellipse）
+    oval_sawtooth: bool = False
+    # 12m-7: tax_invoice 上方標題（如「統一發票專用章」）
+    oval_top_title: str = ""
+    # 12m-7: tax_invoice 縣市名（如「台北市」）
+    oval_location: str = ""
+    # 12m-7: 縣市位置 — "bottom" (中央 3 下方) | "left" (左側直立)
+    oval_location_position: str = "bottom"
+    # 12m-7 r26: 圓戳章單圓周模式 — 上弧文 wrap 300° + 單一梅花在底部
+    round_continuous_arc: bool = False
+    # 12m-7 r31: 動態 body slot overrides — 圓戳章內框圖搭配 body 文字時，
+    # frontend 計算 case-specific slot y/height 後傳入。dict 鍵：
+    # "slot_0", "slot_1", "slot_2"。值 = [y_ratio, max_h_ratio]
+    body_slot_overrides: dict = {}
+    # 12m-7 r39: 職名章 (rectangle_title) 2-column 欄位
+    rect_left_line1: str = ""
+    rect_left_line2: str = ""
+    rect_right: str = ""
+    rect_left_2rows: bool = False
+
 
 router = APIRouter()
 
@@ -270,19 +355,8 @@ def wordart(
                    cone_invert=cone_invert,
                    capsule_orientation=capsule_orientation)
 
-    def loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, source, hook_policy)
-            c = _upgrade_to_sung(c, style)   # Phase 5am: real Sung outline
-            c = _upgrade_to_seal(c, style)   # Phase 5at: real seal outline
-            c = _upgrade_to_lishu(c, style)  # Phase 5au: real lishu outline
-            if style != "kaishu":
-                c = _apply_style(c, style)
-            if cns_outline_mode != "skip":
-                c = _apply_cns_mode(c, cns_outline_mode)
-            return c
-        except HTTPException:
-            return None
+    loader = make_char_loader(
+        source, hook_policy, style, cns_outline_mode=cns_outline_mode)
 
     # Dispatch by layout
     placed: list = []
@@ -448,8 +522,7 @@ def wordart(
         headers["Content-Disposition"] = _content_disposition(
             f"wordart-{shape}-{layout}", "svg"
         )
-    return Response(content=svg, media_type="image/svg+xml",
-                    headers=headers)
+    return svg_response(svg, headers=headers)
 
 # ------ 曼陀羅模式 (mandala) — Phase 5b r4 ------------------------
 # Case B: 中心 1 字 + 字環 N 字 + 外圍半圓交織 mandala band
@@ -645,7 +718,7 @@ def mandala(
         ext, mime = "gcode", "text/plain"
         content = gcode_text
     else:
-        ext, mime = "svg", "image/svg+xml"
+        ext, mime = "svg", SVG_MEDIA_TYPE
         content = svg
 
     if download:
@@ -799,8 +872,7 @@ def doodle(
         headers["Content-Disposition"] = _content_disposition(
             "doodle", "svg"
         )
-    return Response(content=svg, media_type="image/svg+xml",
-                    headers=headers)
+    return svg_response(svg, headers=headers)
 
 
 # ------ 布章 (patch) — Phase 5ax -----------------------------------
@@ -847,17 +919,7 @@ def patch_post(req: PatchPostRequest):
     if req.format not in ("svg", "gcode_cut", "gcode_write", "dxf"):
         raise HTTPException(422, detail=f"unknown format {req.format!r}")
 
-    def loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, req.source, req.hook_policy)
-            c = _upgrade_to_sung(c, req.style)
-            c = _upgrade_to_seal(c, req.style)
-            c = _upgrade_to_lishu(c, req.style)
-            if req.style != "kaishu":
-                c = _apply_style(c, req.style)
-            return c
-        except HTTPException:
-            return None
+    loader = make_char_loader(req.source, req.hook_policy, req.style)
 
     decorations = [
         SvgDecoration(
@@ -886,8 +948,7 @@ def patch_post(req: PatchPostRequest):
             page_width_mm=req.page_width_mm,
             page_height_mm=req.page_height_mm,
         )
-        return Response(content=svg, media_type="image/svg+xml",
-                        headers={"Content-Disposition":
+        return svg_response(svg, headers={"Content-Disposition":
                                  _content_disposition("patch", "svg")})
     if req.format == "dxf":
         # 5bq: layered DXF R12 — CUT/ENGRAVE/WRITE, one file.
@@ -997,22 +1058,14 @@ def stamp_post(req: StampPostRequest):
     if req.format not in ("svg", "gcode", "pdf", "dxf"):
         raise HTTPException(422, detail=f"unknown format {req.format!r}")
 
-    def loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, req.source, req.hook_policy)
-            c = _upgrade_to_sung(c, req.style)
-            # stamp 是 outline-only 渲染（_char_cut_paths 只看 stroke.outline，
-            # 跳過 stroke.raw_track）。預設 *_outline_mode="skeleton" 會把 outline
-            # 轉成 centerline polylines → stamp 渲染時跳過 → 預覽空白。
-            # 用 "skip" 保留原 outline 才能被 stamp 雕刻 path 渲染。
-            # 對應 patch endpoint 的設計（line 594-595）。
-            c = _upgrade_to_seal(c, req.style, seal_outline_mode="skip")
-            c = _upgrade_to_lishu(c, req.style, lishu_outline_mode="skip")
-            if req.style != "kaishu":
-                c = _apply_style(c, req.style)
-            return c
-        except HTTPException:
-            return None
+    # stamp 是 outline-only 渲染（_char_cut_paths 只看 stroke.outline，
+    # 跳過 stroke.raw_track）。預設 *_outline_mode="skeleton" 會把 outline
+    # 轉成 centerline polylines → stamp 渲染時跳過 → 預覽空白。
+    # 用 "skip" 保留原 outline 才能被 stamp 雕刻 path 渲染（對應 patch
+    # endpoint 的設計）。
+    loader = make_char_loader(
+        req.source, req.hook_policy, req.style,
+        seal_outline_mode="skip", lishu_outline_mode="skip")
 
     decorations = [
         SvgDecoration(svg_content=d.svg_content, x_mm=d.x_mm, y_mm=d.y_mm,
@@ -1086,8 +1139,7 @@ def stamp_post(req: StampPostRequest):
 
     if req.format == "svg":
         svg = render_stamp_svg(**common)
-        return Response(content=svg, media_type="image/svg+xml",
-                        headers={"Content-Disposition":
+        return svg_response(svg, headers={"Content-Disposition":
                                  _content_disposition("stamp", "svg")})
     if req.format == "pdf":
         # 12b-4: SVG → PDF 直出（cairosvg svg2pdf）。印章是單頁，

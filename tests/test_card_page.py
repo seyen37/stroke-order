@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from stroke_order.web.server import STATIC_DIR
+from stroke_order.web.versioning import STATIC_DIR
 
 
 def test_card_page_serves(client):

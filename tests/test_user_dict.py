@@ -570,7 +570,7 @@ def test_api_export_no_style_keeps_generic_name(client):
 
 def _smart_user_loader(monkeypatch):
     """Load user-dict chars as handwriting; 404 everything else (no network)."""
-    import stroke_order.web.server as srv
+    import stroke_order.web.char_pipeline as srv  # W3-R2：載字鏈移居 char_pipeline（patch 目標唯一）
     from stroke_order.sources.user_dict import UserDictSource
     from fastapi import HTTPException
 

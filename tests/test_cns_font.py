@@ -401,14 +401,14 @@ def test_apply_cns_outline_mode_handles_sung_data_source():
 def test_upgrade_to_sung_no_op_when_style_is_not_mingti():
     """Server helper: only mingti triggers the swap."""
     from stroke_order.ir import Character
-    from stroke_order.web.server import _upgrade_to_sung
+    from stroke_order.web.char_pipeline import _upgrade_to_sung
     base = Character(char="永", unicode_hex="6c38", data_source="g0v")
     for style in ("kaishu", "lishu", "bold"):
         assert _upgrade_to_sung(base, style) is base
 
 
 def test_upgrade_to_sung_returns_none_for_none_input():
-    from stroke_order.web.server import _upgrade_to_sung
+    from stroke_order.web.char_pipeline import _upgrade_to_sung
     assert _upgrade_to_sung(None, "mingti") is None
 
 
@@ -421,7 +421,7 @@ def test_upgrade_to_sung_falls_back_when_no_sung_source_available(tmp_path, monk
     from stroke_order.ir import Character
     from stroke_order.sources.cns_font import reset_cns_singletons
     from stroke_order.sources.moe_song import reset_song_singleton
-    from stroke_order.web.server import _upgrade_to_sung
+    from stroke_order.web.char_pipeline import _upgrade_to_sung
     monkeypatch.setenv("STROKE_ORDER_CNS_FONT_DIR", str(tmp_path / "no-cns"))
     monkeypatch.setenv("STROKE_ORDER_SONG_FONT_FILE",
                        str(tmp_path / "no-song.ttf"))
@@ -438,7 +438,7 @@ def test_upgrade_to_sung_swaps_to_cns_sung_when_only_cns_available(
     """When MoE Song is unavailable, layered chain falls through to CNS Sung."""
     from stroke_order.ir import Character
     from stroke_order.sources.moe_song import reset_song_singleton
-    from stroke_order.web.server import _upgrade_to_sung
+    from stroke_order.web.char_pipeline import _upgrade_to_sung
     monkeypatch.setenv("STROKE_ORDER_SONG_FONT_FILE",
                        str(tmp_path / "no-song.ttf"))
     reset_song_singleton()

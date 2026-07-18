@@ -5,28 +5,60 @@ W3-R1（架構健檢 Wave 3）：自 server.py create_app() 機械搬遷，行�
 """
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from fastapi import HTTPException, Query
 from fastapi.responses import Response
 from typing import Optional
 from fastapi import APIRouter
 
-from .. import server as _server
-from ..server import (
-    GCodeOptions,
-    NotebookPostRequest,
+from ...exporters.gcode import GCodeOptions, characters_to_gcode
+from ...exporters.json_polyline import character_to_json
+from ...exporters.svg import character_to_svg
+from .. import char_pipeline as _pipeline
+from ..char_pipeline import (
     _CNS_MODE_PATTERN,
     _STYLE_PATTERN,
-    _apply_cns_mode,
     _apply_style,
-    _content_disposition,
     _parse_zhuyin_map,
     _upgrade_to_lishu,
     _upgrade_to_seal,
     _upgrade_to_sung,
-    character_to_json,
-    character_to_svg,
-    characters_to_gcode,
+    make_char_loader,
 )
+from ..capacity import capacity_summary
+from ..responses import svg_response, _content_disposition
+
+class ZoneSpec(BaseModel):
+    x: float
+    y: float
+    w: float
+    h: float
+    label: Optional[str] = None
+    svg_content: Optional[str] = None
+    content_viewbox: Optional[list[float]] = None
+    stretch: bool = False
+
+
+class NotebookPostRequest(BaseModel):
+    """JSON body for POST /api/notebook — supports arbitrary-sized
+    svg_content per zone (vs. the URL-length-limited GET variant)."""
+    text: str
+    preset: str = "large"
+    grid_style: str = "square"
+    line_height_mm: Optional[float] = None
+    margin_mm: Optional[float] = None
+    cell_style: str = "ghost"
+    direction: str = "horizontal"
+    lines_per_page: Optional[int] = None
+    first_line_offset_mm: Optional[float] = None
+    source: str = "auto"
+    hook_policy: str = "animation"
+    zones: list[ZoneSpec] = []
+    page: Optional[int] = None
+    format: str = "svg"   # Phase 5v: svg | gcode | json
+    style: str = "kaishu"
+
 
 router = APIRouter()
 
@@ -57,7 +89,6 @@ def notebook_capacity(
     """Preflight: how many chars fit per page with these settings?"""
     import json
     from ...exporters.notebook import build_notebook_layout
-    from ...layouts import layout_capacity, estimate_pages
 
     zones_list = None
     if zones_json:
@@ -79,10 +110,7 @@ def notebook_capacity(
         direction=direction,  # type: ignore
         zones=zones_list,
     )
-    cap = layout_capacity(layout, direction=direction)  # type: ignore
-    cap["total_chars"] = sum(1 for c in text if not c.isspace())
-    cap["pages_estimated"] = estimate_pages(text, layout,
-                                            direction=direction)  # type: ignore
+    cap = capacity_summary(text, layout, direction=direction)  # type: ignore
     cap["page_size_mm"] = [layout.size.width_mm, layout.size.height_mm]
     cap["line_height_mm"] = layout.line_height_mm
     cap["margin_mm"] = {
@@ -151,19 +179,8 @@ def notebook(
     from ...exporters.multi_page import render_pages_as_single_or_zip
     from ...layouts import layout_capacity
 
-    def loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, source, hook_policy)
-            c = _upgrade_to_sung(c, style)   # Phase 5am: real Sung outline
-            c = _upgrade_to_seal(c, style)   # Phase 5at: real seal outline
-            c = _upgrade_to_lishu(c, style)  # Phase 5au: real lishu outline
-            if style != "kaishu":
-                c = _apply_style(c, style)
-            if cns_outline_mode != "skip":
-                c = _apply_cns_mode(c, cns_outline_mode)
-            return c
-        except HTTPException:
-            return None
+    loader = make_char_loader(
+        source, hook_policy, style, cns_outline_mode=cns_outline_mode)
 
     import json as _json
     zones_list = None
@@ -234,8 +251,7 @@ def notebook(
             headers["Content-Disposition"] = _content_disposition(
                 f"notebook-page-{page:02d}", "svg"
             )
-        return Response(content=svg, media_type="image/svg+xml",
-                        headers=headers)
+        return svg_response(svg, headers=headers)
 
     def _render(p):
         return render_notebook_page_svg(p, cell_style=cell_style,
@@ -266,19 +282,9 @@ def notebook_post(req: NotebookPostRequest):
     )
     from ...exporters.multi_page import render_pages_as_single_or_zip
 
-    def loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, req.source, req.hook_policy)
-            c = _upgrade_to_sung(c, req.style)   # Phase 5am
-            c = _upgrade_to_seal(c, req.style)   # Phase 5at
-            c = _upgrade_to_lishu(c, req.style)  # Phase 5au
-            if req.style != "kaishu":
-                c = _apply_style(c, req.style)
-            # Phase 5al: NotebookPostRequest doesn't expose cns_outline_mode
-            # yet; default "skip" matches the existing behaviour.
-            return c
-        except HTTPException:
-            return None
+    # Phase 5al: NotebookPostRequest doesn't expose cns_outline_mode yet;
+    # factory default "skip" matches the existing behaviour.
+    loader = make_char_loader(req.source, req.hook_policy, req.style)
 
     zones_dicts = [z.model_dump() for z in req.zones]
 
@@ -313,8 +319,7 @@ def notebook_post(req: NotebookPostRequest):
             )
         svg = render_notebook_page_svg(
             pages[req.page - 1], cell_style=req.cell_style)  # type: ignore
-        return Response(content=svg, media_type="image/svg+xml",
-                        headers={"X-Stroke-Order-Pages": str(len(pages))})
+        return svg_response(svg, headers={"X-Stroke-Order-Pages": str(len(pages))})
 
     def _render(p):
         return render_notebook_page_svg(p, cell_style=req.cell_style)  # type: ignore
@@ -345,7 +350,6 @@ def letter_capacity(
     ),
 ):
     from ...exporters.letter import build_letter_layout
-    from ...layouts import layout_capacity, estimate_pages
     layout = build_letter_layout(
         preset=preset, line_height_mm=line_height_mm,  # type: ignore
         margin_mm=margin_mm,
@@ -354,10 +358,7 @@ def letter_capacity(
         direction=direction,  # type: ignore
         lines_per_page=lines_per_page,
     )
-    cap = layout_capacity(layout, direction=direction)  # type: ignore
-    cap["total_chars"] = sum(1 for c in text if not c.isspace())
-    cap["pages_estimated"] = estimate_pages(text, layout,
-                                            direction=direction)  # type: ignore
+    cap = capacity_summary(text, layout, direction=direction)  # type: ignore
     cap["page_size_mm"] = [layout.size.width_mm, layout.size.height_mm]
     cap["line_height_mm"] = layout.line_height_mm
     cap["margin_mm"] = {
@@ -436,19 +437,8 @@ def letter(
     from ...exporters.multi_page import render_pages_as_single_or_zip
     from ...layouts import layout_capacity
 
-    def loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, source, hook_policy)
-            c = _upgrade_to_sung(c, style)   # Phase 5am: real Sung outline
-            c = _upgrade_to_seal(c, style)   # Phase 5at: real seal outline
-            c = _upgrade_to_lishu(c, style)  # Phase 5au: real lishu outline
-            if style != "kaishu":
-                c = _apply_style(c, style)
-            if cns_outline_mode != "skip":
-                c = _apply_cns_mode(c, cns_outline_mode)
-            return c
-        except HTTPException:
-            return None
+    loader = make_char_loader(
+        source, hook_policy, style, cns_outline_mode=cns_outline_mode)
 
     zmap, zchars = _parse_zhuyin_map(zhuyin_map, source, hook_policy)
 
@@ -524,8 +514,7 @@ def letter(
             headers["Content-Disposition"] = _content_disposition(
                 f"letter-page-{page:02d}", "svg"
             )
-        return Response(content=svg, media_type="image/svg+xml",
-                        headers=headers)
+        return svg_response(svg, headers=headers)
 
     body, mime, ext = render_pages_as_single_or_zip(
         pages, _render, filename_prefix="letter-page"
@@ -638,8 +627,7 @@ def api_stencil(
     if download:
         headers["Content-Disposition"] = _content_disposition(
             basename, "svg")
-    return Response(content=svg, media_type="image/svg+xml",
-                    headers=headers)
+    return svg_response(svg, headers=headers)
 
 # ------ 稿紙模式 (manuscript) ---------------------------------------
 
@@ -733,19 +721,8 @@ def manuscript(
     )
     from ...exporters.multi_page import render_pages_as_single_or_zip
 
-    def loader(ch: str):
-        try:
-            c, _r, _ = _server._load(ch, source, hook_policy)
-            c = _upgrade_to_sung(c, style)   # Phase 5am: real Sung outline
-            c = _upgrade_to_seal(c, style)   # Phase 5at: real seal outline
-            c = _upgrade_to_lishu(c, style)  # Phase 5au: real lishu outline
-            if style != "kaishu":
-                c = _apply_style(c, style)
-            if cns_outline_mode != "skip":
-                c = _apply_cns_mode(c, cns_outline_mode)
-            return c
-        except HTTPException:
-            return None
+    loader = make_char_loader(
+        source, hook_policy, style, cns_outline_mode=cns_outline_mode)
 
     try:
         pages = flow_manuscript(
@@ -797,8 +774,7 @@ def manuscript(
             headers["Content-Disposition"] = _content_disposition(
                 f"manuscript-page-{page:02d}", "svg"
             )
-        return Response(content=svg, media_type="image/svg+xml",
-                        headers=headers)
+        return svg_response(svg, headers=headers)
 
     body, mime, ext = render_pages_as_single_or_zip(
         pages, _render, filename_prefix="manuscript-page"
@@ -872,7 +848,7 @@ def grid(
         if ch.isspace():
             continue
         try:
-            c, _r, _ = _server._load(ch, source, hook_policy)
+            c, _r, _ = _pipeline._load(ch, source, hook_policy)
             c = _upgrade_to_sung(c, style)   # Phase 5am: real Sung outline
             c = _upgrade_to_seal(c, style)   # Phase 5at: real seal outline
             c = _upgrade_to_lishu(c, style)  # Phase 5au: real lishu outline
@@ -944,8 +920,7 @@ def grid(
         headers["Content-Disposition"] = _content_disposition(
             basename, "svg"
         )
-    return Response(content=svg, media_type="image/svg+xml",
-                    headers=headers)
+    return svg_response(svg, headers=headers)
 
 # ------ file download -----------------------------------------------
 
@@ -964,20 +939,16 @@ def export(
     # 省略時維持既有 300px 行為（Web 預覽相容）。
     size_mm: Optional[float] = Query(None, gt=0.1, le=500.0),
 ):
-    c, _r, _ = _server._load(char, source, hook_policy)
+    c, _r, _ = _pipeline._load(char, source, hook_policy)
 
     if format == "svg":
         payload = character_to_svg(
             c, mode=mode, show_numbers=show_numbers, rainbow=rainbow,
             size_mm=size_mm,
         )
-        return Response(
-            content=payload,
-            media_type="image/svg+xml",
-            headers={
+        return svg_response(payload, headers={
                 "Content-Disposition": _content_disposition(char, "svg"),
-            },
-        )
+            })
     if format == "gcode":
         payload = characters_to_gcode(
             [c], GCodeOptions(char_size_mm=char_size, feed_rate=feed_rate)

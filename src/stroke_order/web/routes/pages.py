@@ -5,24 +5,30 @@ W3-R1（架構健檢 Wave 3）：自 server.py create_app() 機械搬遷，行�
 """
 from __future__ import annotations
 
+import os
+import re
+import threading
+from pathlib import Path
+from typing import Optional
+
+from pydantic import BaseModel
+
 from fastapi import HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 from fastapi import APIRouter
-from ..server import (
-    CardPdfRequest,
-    STATIC_DIR,
-    _CARD_PDF_DENY,
-    _OPENCV_MIN_BYTES,
-    _OPENTYPE_MIN_BYTES,
-    _content_disposition,
-    _ensure_opencv_cached,
-    _ensure_opentype_cached,
-    _opencv_cache_path,
-    _prewarm_opencv_cache,
-    _safe_filename_part,
-    _vendor_cache_path,
-    _versioned_page,
+from ..responses import _content_disposition, _safe_filename_part
+from ..versioning import STATIC_DIR, _versioned_page
+
+_CARD_PDF_DENY = re.compile(
+    r"(xlink:href|href\s*=|url\s*\(|<\s*(script|image|foreignObject|iframe|use|embed|object))",
+    re.IGNORECASE,
 )
+
+
+class CardPdfRequest(BaseModel):
+    svg: str
+    filename: str = "card"
+
 
 router = APIRouter()
 
@@ -108,6 +114,137 @@ def card_pdf(req: CardPdfRequest):
             "Content-Disposition": _content_disposition(safe, "pdf"),
         },
     )
+
+
+# ---- Phase 5cj/5ck: OpenCV.js 同源代抓 --------------------------------
+#
+# 5cj：校網防火牆擋外部 CDN → 本伺服器代抓＋落地快取（同源永不被擋）。
+# 5ck：使用者實測仍卡「產生中…」，兩個根因一起修：
+#   ① 原端點 async def ＋ 同步 requests.get —— 下載 11MB 期間整個
+#      event loop 被凍住，全站無回應（最壞 120s×2 來源）。
+#   ② 惰性下載 —— Render 免費 tier 每次部署/喚醒後快取皆空，第一個
+#      使用者要全程陪等。
+# 修法：抓檔邏輯抽到模組層同步函式（threadpool 與背景執行緒共用）、
+# 啟動時背景預熱、串流下載＋原子換檔、/vendor/status 可觀察性。
+
+# 5cl：Render 實測 docs.opencv.org 對資料中心出站回 403（bot 防護；
+# 4.x 還會轉跳 4.13.0 再 403）。改以 npm 鏡像為主源——
+# @techstark/opencv-js 的 dist/opencv.js 是官方原檔（其 README
+# 明載），bits 相同、CDN 對 hotlink/資料中心友善。
+# docs.opencv.org 降末位備援並補瀏覽器 UA（其 403 疑似 UA 過濾）。
+#
+# 5da：家用機實測破案——4.9.0-release.3 的 WASM runtime init 在
+# 新版 Chrome（149 實測）永久懸掛：importScripts 數百 ms 完成、
+# cv Promise 永不 resolve；微型 WASM 模組同機秒過＝非 WASM 封鎖。
+# 4.11.0-release.1 同機同管道 759ms 完整就緒（cv.Mat ready）。
+# 回頭看，先前判定的「受管理電腦環境層懸掛」極可能一直就是這個
+# 版本不相容。pin 升 4.11，且把版本寫進快取檔名——升級自動失效
+# 舊快取（Render 燒入檔與本機 ~/.stroke-order/vendor 都適用）。
+_OPENCV_VERSION = "4.11.0-release.1"
+_OPENCV_CACHE_FNAME = "opencv-4.11.0.js"
+# 5da：docs.opencv.org 退出清單——實測只掛 4.9.0/4.13.0（4.11.0
+# 回 404），且它對資料中心 403（5cl）、4.9.0 又會懸掛；同源＋
+# 兩個 npm CDN 已足（§8.2：實測不存在的 URL 不入 pin 清單）。
+_OPENCV_SOURCES = (
+    f"https://cdn.jsdelivr.net/npm/@techstark/opencv-js@{_OPENCV_VERSION}"
+    "/dist/opencv.js",
+    f"https://unpkg.com/@techstark/opencv-js@{_OPENCV_VERSION}"
+    "/dist/opencv.js",
+)
+_OPENCV_FETCH_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/126.0 Safari/537.36"),
+}
+_OPENCV_MIN_BYTES = 1_000_000
+
+# 5cn：opentype.js（MIT）——「自訂字型」瀏覽器端解析 TTF/OTF 用。
+# 同一套同源代抓管線（校網/防火牆免疫、零執行期外網依賴給前端）。
+_OPENTYPE_SOURCES = (
+    "https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js",
+    "https://unpkg.com/opentype.js@1.3.4/dist/opentype.min.js",
+)
+_OPENTYPE_MIN_BYTES = 100_000
+_vendor_fetch_lock = threading.Lock()
+_opencv_prewarm_started = False
+
+
+def _vendor_cache_path(fname: str) -> Path:
+    vendor_dir = Path(os.environ.get(
+        "STROKE_ORDER_VENDOR_DIR",
+        str(Path.home() / ".stroke-order" / "vendor")))
+    return vendor_dir / fname
+
+
+def _opencv_cache_path() -> Path:
+    # 5da：檔名帶版本——pin 升級自動失效舊快取
+    return _vendor_cache_path(_OPENCV_CACHE_FNAME)
+
+
+def _ensure_vendor_cached(fname: str, sources: tuple[str, ...],
+                          min_bytes: int, timeout: float = 90.0) -> Path:
+    """確保 vendor 檔已落地快取；缺檔時同步代抓（可重入）。
+
+    - 快取命中：不進鎖直接回（熱路徑零開銷）。
+    - 缺檔：單一執行緒下載（鎖防預熱與端點重複抓），串流寫入
+      .part 暫存檔、驗尺寸後原子 replace——絕不 serve 半檔。
+    """
+    cache = _vendor_cache_path(fname)
+    if cache.is_file() and cache.stat().st_size >= min_bytes:
+        return cache
+    import requests as _rq
+    with _vendor_fetch_lock:
+        if cache.is_file() and cache.stat().st_size >= min_bytes:
+            return cache                    # 等鎖期間別人已抓完
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        last_err: Optional[Exception] = None
+        for url in sources:
+            try:
+                with _rq.get(url, timeout=(10, timeout), stream=True,
+                             headers=_OPENCV_FETCH_HEADERS) as r:
+                    r.raise_for_status()
+                    tmp = cache.with_name(fname + ".part")
+                    size = 0
+                    with open(tmp, "wb") as f:
+                        for chunk in r.iter_content(1 << 16):
+                            f.write(chunk)
+                            size += len(chunk)
+                    if size < min_bytes:
+                        raise ValueError(f"{fname} 過小：{size}B")
+                    tmp.replace(cache)
+                    return cache
+            except Exception as e:          # noqa: BLE001 — 逐源重試
+                last_err = e
+        raise RuntimeError(f"{fname} 代抓失敗：{last_err}")
+
+
+def _ensure_opencv_cached(timeout: float = 90.0) -> Path:
+    return _ensure_vendor_cached(
+        _OPENCV_CACHE_FNAME, _OPENCV_SOURCES, _OPENCV_MIN_BYTES, timeout)
+
+
+def _ensure_opentype_cached(timeout: float = 90.0) -> Path:
+    return _ensure_vendor_cached(
+        "opentype.min.js", _OPENTYPE_SOURCES, _OPENTYPE_MIN_BYTES, timeout)
+
+
+def _prewarm_opencv_cache() -> None:
+    """5ck：啟動時背景預熱（daemon thread；失敗不影響服務，
+    端點屆時會在 threadpool 內補抓）。每個行程只啟動一次。
+    5cn：一併預熱 opentype.min.js。"""
+    global _opencv_prewarm_started
+    if _opencv_prewarm_started or os.environ.get("STROKE_ORDER_NO_PREFETCH"):
+        return
+    _opencv_prewarm_started = True
+
+    def _job() -> None:
+        for fn in (_ensure_opencv_cached, _ensure_opentype_cached):
+            try:
+                fn()
+            except Exception:               # noqa: BLE001 — 預熱盡力而為
+                pass
+
+    threading.Thread(target=_job, name="vendor-prewarm", daemon=True).start()
 
 
 async def _startup_prewarm_opencv():    # pragma: no cover — 真啟動才跑

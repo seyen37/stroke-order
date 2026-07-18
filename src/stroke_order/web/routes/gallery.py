@@ -5,16 +5,24 @@ W3-R1（架構健檢 Wave 3）：自 server.py create_app() 機械搬遷，行�
 """
 from __future__ import annotations
 
+from pydantic import BaseModel
+
 from fastapi import File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from typing import Optional
 from fastapi import APIRouter
-from ..server import (
-    GalleryLoginRequest,
-    GalleryProfilePatch,
-    STATIC_DIR,
-    build_mandala_char_loader,
-)
+from ..char_pipeline import build_mandala_char_loader
+from ..responses import SVG_MEDIA_TYPE
+from ..versioning import STATIC_DIR
+
+class GalleryLoginRequest(BaseModel):
+    email: str
+
+
+class GalleryProfilePatch(BaseModel):
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
+
 
 router = APIRouter()
 
@@ -350,7 +358,7 @@ def gallery_uploads_download(upload_id: int):
     media_map = {
         ".json": "application/json",
         ".md":   "text/markdown",
-        ".svg":  "image/svg+xml",
+        ".svg":  SVG_MEDIA_TYPE,
     }
     media_type = media_map.get(real_ext, "application/octet-stream")
     nice_name = (upload.get("filename") or
