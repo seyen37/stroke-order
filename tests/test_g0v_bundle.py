@@ -17,11 +17,11 @@ FAKE_STROKES = [
 
 
 def _make_source(tmp_path, with_bundle: bool, char: str = "永") -> G0VSource:
-    bundle_path = tmp_path / "g0v_bundle.json.gz"
+    bundle_path = tmp_path / "g0v_bundle.jsonl.gz"
     if with_bundle:
-        payload = {f"{ord(char):x}": FAKE_STROKES}
+        line = f"{ord(char):x}\t" + json.dumps(FAKE_STROKES, separators=(",", ":"))
         with gzip.open(bundle_path, "wt", encoding="utf-8") as f:
-            json.dump(payload, f)
+            f.write(line + "\n")
     return G0VSource(
         cache_dir=tmp_path / "cache",
         allow_network=False,
@@ -53,7 +53,7 @@ def test_file_cache_takes_precedence_over_bundle(tmp_path):
 
 
 def test_corrupt_bundle_degrades_gracefully(tmp_path):
-    bundle_path = tmp_path / "g0v_bundle.json.gz"
+    bundle_path = tmp_path / "g0v_bundle.jsonl.gz"
     bundle_path.write_bytes(b"not gzip at all")
     src = G0VSource(
         cache_dir=tmp_path / "cache", allow_network=False, bundle_path=bundle_path
@@ -79,3 +79,20 @@ def test_socket_timeout_maps_to_character_not_found(tmp_path, monkeypatch):
     src = G0VSource(cache_dir=tmp_path / "cache", allow_network=True)
     with pytest.raises(CharacterNotFound):
         src.get_character("\U000203b5")  # 罕字，不會在 cache/bundle
+
+
+def test_bundle_cache_keeps_lazy_strings(tmp_path):
+    """記憶體回歸鎖：bundle 快取必須存「原始 JSON 字串」、不可預先解析。
+
+    背景：單一大 JSON 全量解析 1,830 字實測膨脹 305MB RSS，在 Render
+    free tier（512MB）OOM→503（2026-07-19 線上事故）。JSONL 懶解析
+    把常駐記憶體壓回 ~26MB 字串。
+    """
+    src = _make_source(tmp_path, with_bundle=True)
+    src.get_character("永")
+    cached = G0VSource._bundle_cache[str(src.bundle_path)]
+    assert cached, "bundle 應已載入"
+    assert all(isinstance(v, str) for v in cached.values()), (
+        "bundle 快取值必須是原始字串（懶解析）——預先解析會在小記憶體"
+        "環境 OOM"
+    )

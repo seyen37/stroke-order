@@ -22,6 +22,7 @@ import gzip
 import json
 import logging
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -35,10 +36,13 @@ log = logging.getLogger(__name__)
 #: g0v hosted JSON base URL. Hex codepoint (lowercase) + .json appended.
 G0V_BASE_URL = "http://g0v.github.io/zh-stroke-data/json/"
 
-#: 隨 repo 部署的預抓 bundle（單一 gzip 檔，hex codepoint → strokes 陣列）。
-#: 由 scripts/prefetch_g0v.py 產生；W1-D（架構健檢 2026-07-18）：讓常用字
-#: 零網路命中，消除線上冷路徑（實測冷 82s vs 暖 48ms）。
-G0V_BUNDLE_FILENAME = "g0v_bundle.json.gz"
+#: 隨 repo 部署的預抓 bundle。由 scripts/prefetch_g0v.py 產生；
+#: W1-D（架構健檢 2026-07-18）：讓常用字零網路命中，消除線上冷路徑。
+#: 格式＝gzip JSONL：每行「hex<TAB>該字 strokes 的緊湊 JSON」。
+#: ⚠ 刻意不用單一大 JSON——全量解析 1,830 字實測膨脹 305MB RSS，
+#: 在 Render free tier（512MB）直接 OOM→503（2026-07-19 線上事故）。
+#: JSONL 只把「原始字串」留在記憶體（~26MB），用到哪個字才 loads 哪行。
+G0V_BUNDLE_FILENAME = "g0v_bundle.jsonl.gz"
 
 
 class CharacterNotFound(Exception):
@@ -61,8 +65,9 @@ class G0VSource:
         Value for HTTP User-Agent header (some CDNs reject empty UAs).
     """
 
-    #: per-process bundle 快取：path str → dict[hex, strokes]（懶載一次）
+    #: per-process bundle 快取：path str → dict[hex, 原始 JSON 字串]（懶載一次）
     _bundle_cache: dict[str, dict] = {}
+    _bundle_lock = threading.Lock()
 
     def __init__(
         self,
@@ -113,7 +118,9 @@ class G0VSource:
 
         bundled = self._bundle().get(hex_code)
         if bundled is not None:
-            return bundled
+            # 每字懶解析（緊湊 JSON 字串 → 物件）；解析結果不長存，
+            # 上層 per-request memoize 已擋重複解析。
+            return json.loads(bundled)
 
         if not self.allow_network:
             raise CharacterNotFound(
@@ -130,19 +137,38 @@ class G0VSource:
         return data
 
     def _bundle(self) -> dict:
-        """懶載入 bundle（每 process 每路徑一次）；缺檔/壞檔靜默降級為空。"""
+        """懶載入 bundle（每 process 每路徑一次）；缺檔/壞檔靜默降級為空。
+
+        回傳 dict[hex, 原始 JSON 字串]——刻意不預先解析（見
+        G0V_BUNDLE_FILENAME 註解的 OOM 教訓）。threading.Lock 防止
+        threadpool 併發首載時重複讀檔（雙載＝雙倍瞬時記憶體）。
+        """
         key = str(self.bundle_path)
         cached = G0VSource._bundle_cache.get(key)
         if cached is None:
-            cached = {}
-            if self.bundle_path.is_file():
-                try:
-                    with gzip.open(self.bundle_path, "rt", encoding="utf-8") as f:
-                        cached = json.load(f)
-                    log.info("g0v bundle loaded: %d chars", len(cached))
-                except (OSError, ValueError) as e:
-                    log.warning("could not read g0v bundle %s: %s", self.bundle_path, e)
-            G0VSource._bundle_cache[key] = cached
+            with G0VSource._bundle_lock:
+                cached = G0VSource._bundle_cache.get(key)
+                if cached is None:
+                    cached = {}
+                    if self.bundle_path.is_file():
+                        try:
+                            with gzip.open(
+                                self.bundle_path, "rt", encoding="utf-8"
+                            ) as f:
+                                for line in f:
+                                    line = line.rstrip("\n")
+                                    if not line:
+                                        continue
+                                    hex_code, _, payload = line.partition("\t")
+                                    if payload:
+                                        cached[hex_code] = payload
+                            log.info("g0v bundle loaded: %d chars", len(cached))
+                        except (OSError, ValueError) as e:
+                            log.warning(
+                                "could not read g0v bundle %s: %s",
+                                self.bundle_path, e,
+                            )
+                    G0VSource._bundle_cache[key] = cached
         return cached
 
     def _fetch(self, hex_code: str) -> list[dict]:

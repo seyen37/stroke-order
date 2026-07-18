@@ -1,4 +1,4 @@
-"""預抓 g0v 筆順資料進單一 bundle（data/g0v_bundle.json.gz）。
+"""預抓 g0v 筆順資料進單一 bundle（data/g0v_bundle.jsonl.gz）。
 
 W1-D（架構健檢 2026-07-18）：讓常用字零網路命中，消除線上冷路徑。
 
@@ -13,7 +13,7 @@ W1-D（架構健檢 2026-07-18）：讓常用字零網路命中，消除線上�
 
 字集來源：data/5000_wuqian.txt 依「出現順序」取唯一 CJK 字（近似頻序），
 另合併 data/g0v_cache/*.json 既有字與既有 bundle（可續跑、增量）。
-輸出為 deterministic gzip（mtime=0、sort_keys）——重跑同字集位元組相同，
+輸出為 deterministic gzip JSONL（mtime=0、hex 排序）——重跑同字集位元組相同，
 不會汙染 git diff。
 """
 from __future__ import annotations
@@ -30,7 +30,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
-BUNDLE = DATA / "g0v_bundle.json.gz"
+BUNDLE = DATA / "g0v_bundle.jsonl.gz"
+LEGACY_BUNDLE = DATA / "g0v_bundle.json.gz"  # 舊格式（單一大 JSON，OOM 教訓）
 CACHE_DIR = DATA / "g0v_cache"
 WUQIAN = DATA / "5000_wuqian.txt"
 BASE_URL = "http://g0v.github.io/zh-stroke-data/json/"
@@ -54,15 +55,29 @@ def common_chars(limit: int) -> list[str]:
     return list(seen)
 
 
-def load_existing() -> dict[str, list]:
-    bundle: dict[str, list] = {}
+def _compact(data) -> str:
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+
+
+def load_existing() -> dict[str, str]:
+    """回傳 dict[hex, 緊湊 JSON 字串]；相容讀取舊單一 JSON 格式。"""
+    bundle: dict[str, str] = {}
     if BUNDLE.is_file():
         with gzip.open(BUNDLE, "rt", encoding="utf-8") as f:
-            bundle.update(json.load(f))
+            for line in f:
+                line = line.rstrip("\n")
+                if line:
+                    hex_code, _, payload = line.partition("\t")
+                    if payload:
+                        bundle[hex_code] = payload
+    elif LEGACY_BUNDLE.is_file():
+        with gzip.open(LEGACY_BUNDLE, "rt", encoding="utf-8") as f:
+            for hex_code, data in json.load(f).items():
+                bundle[hex_code] = _compact(data)
     for p in sorted(CACHE_DIR.glob("*.json")):
         if p.stem not in bundle:
             try:
-                bundle[p.stem] = json.loads(p.read_text(encoding="utf-8"))
+                bundle[p.stem] = _compact(json.loads(p.read_text(encoding="utf-8")))
             except ValueError:
                 print(f"  跳過壞檔 {p.name}", file=sys.stderr)
     return bundle
@@ -91,14 +106,12 @@ def fetch(hex_code: str) -> list | None:
     return None
 
 
-def write_bundle(bundle: dict[str, list]) -> None:
-    raw = json.dumps(
-        bundle, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+def write_bundle(bundle: dict[str, str]) -> None:
+    """JSONL：每行「hex<TAB>緊湊 JSON」；hex 排序＋mtime=0 → deterministic。"""
+    lines = "".join(f"{h}\t{bundle[h]}\n" for h in sorted(bundle))
     buf = io.BytesIO()
-    # mtime=0 → deterministic 輸出，重跑同內容位元組相同
     with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0) as gz:
-        gz.write(raw)
+        gz.write(lines.encode("utf-8"))
     BUNDLE.write_bytes(buf.getvalue())
 
 
@@ -123,7 +136,7 @@ def main() -> int:
             if data is None:
                 misses.append(ch)
             else:
-                bundle[hex_code] = data
+                bundle[hex_code] = _compact(data)
                 fetched += 1
             if i % 100 == 0:
                 print(f"  {i}/{len(todo)}（成功 {fetched}、缺 {len(misses)}）")
