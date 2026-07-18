@@ -82,12 +82,14 @@ class CuttingStyle:
     keep_primary: CutKeepPrimary = "thinnest_wall"
 
 
-#: 切割風格登記處（key → CuttingStyle）。physical＝物理完整（全連派、殘腔
-#: 0、最短穿牆）；envelope＝方正簡潔（只外框、深層留島、切橫保豎主幹）。
+#: 切割風格登記處（key → CuttingStyle）。physical＝物理完整（全連派、殘腔 0、
+#: 切橫保豎）；envelope＝方正簡潔（只外框、深層留島、切橫保豎主幹）。
+#: 5eo（使用者實機回饋：不要把直豎筆從中切開）：physical 由 thinnest_wall 改
+#: vertical_first——盡量把缺口落在橫筆（退橫）、保直豎主幹完整（仍全連殘腔 0）。
 CUTTING_STYLES: dict[str, CuttingStyle] = {
     "physical": CuttingStyle(
         key="physical", label="物理完整", connect_depth="full",
-        keep_primary="thinnest_wall"),
+        keep_primary="vertical_first"),
     "envelope": CuttingStyle(
         key="envelope", label="方正簡潔", connect_depth="envelope",
         keep_primary="vertical_first"),
@@ -312,9 +314,14 @@ def _radial_escape(mask: np.ndarray, outside: np.ndarray,
 def _carve_cross_bridges(mask: np.ndarray, outside: np.ndarray,
                          cy: int, cx: int, half: int,
                          bridge_count: int) -> None:
-    """5dc 原十字/上下鑿橋（保留為無轉角孔洞的 fallback）。"""
+    """5dc 原十字/上下鑿橋（保留為無轉角孔洞的 fallback，如圓孔）。
+
+    5eo（使用者回饋：至多切 2 塊）：無轉角孔（圓/橢圓字腔）**只鑿上下兩極
+    2 道**（如 O 的上下極點），不再依 bridge_count 鑿十字四方——斷點最少、
+    最像手寫連筋，且圓孔本無「轉折」可落、兩極是最自然的斷點。
+    """
     h, w = mask.shape
-    dirs = _DIRS_4 if bridge_count >= 4 else _DIRS_2
+    dirs = _DIRS_2                            # 5eo：恆上下兩極、≤2 道
     for dy, dx in dirs:
         y, x = cy, cx
         path: list[tuple[int, int]] = []
@@ -528,48 +535,72 @@ def _thick_line(mask: np.ndarray, a: tuple[int, int], b: tuple[int, int],
              max(0, x - half):min(w, x + half + 1)] = True
 
 
+#: 5eo 接框輻條方向（cutout）：每字件連「最近的框邊」的軸向垂直輻條。
+_FRAME_EDGES = ("top", "bottom", "left", "right")
+
+
+def _spoke_to_edge(mask: np.ndarray, comp: np.ndarray, edge: str,
+                   half: int) -> None:
+    """5eo：從字件朝指定框邊畫一條**軸向（垂直該邊、偏 90°）** 的短輻條到
+    畫布邊（穿過該側框帶＝接上外框）。取該側最外一排像素的中位位置當錨點，
+    輻條乾淨垂直、不斜跨。"""
+    h, w = mask.shape
+    ys, xs = comp[:, 0], comp[:, 1]
+    if edge == "top":
+        y0 = int(ys.min())
+        x = int(np.median(xs[ys <= y0 + 2]))
+        _thick_line(mask, (y0, x), (0, x), half)             # type: ignore
+    elif edge == "bottom":
+        y1 = int(ys.max())
+        x = int(np.median(xs[ys >= y1 - 2]))
+        _thick_line(mask, (y1, x), (h - 1, x), half)         # type: ignore
+    elif edge == "left":
+        x0 = int(xs.min())
+        y = int(np.median(ys[xs <= x0 + 2]))
+        _thick_line(mask, (y, x0), (y, 0), half)             # type: ignore
+    else:  # right
+        x1 = int(xs.max())
+        y = int(np.median(ys[xs >= x1 - 2]))
+        _thick_line(mask, (y, x1), (y, w - 1), half)         # type: ignore
+
+
 def _connect_to_frame(mask: np.ndarray, labels: np.ndarray, n: int,
                       frame_ids: set[int], half: int, ties: int) -> int:
-    """5dl：含邊框時，每個字元件直接以**最近框邊的垂直輻條**接上外框。
+    """5dl/5eo：含邊框時，每個字元件以**軸向垂直輻條**接上外框。
 
-    每件連 1~2 條短輻條、皆指向最近的框邊材料——輻條放射狀、彼此
-    不交叉（取代舊的全域最近點對貪婪連接，那會讓字件間的連筋斜跨
-    交叉）。``ties >= 2`` 時補第二輻條：取與第一錨點分隔夠遠的字件
-    像素、連到它自己最近的框邊。
+    5eo（使用者實機回饋：連筋方向太單一、全垂直上下接框）——改為：
+    - 輻條 1：連字件**最近的框邊**（上/下/左/右四選一，依到各邊間隙），
+      方向隨字件位置變化（左側字件可連左框、頂部件連上框…）、不再一律垂直。
+    - 輻條 2（``ties >= 2``）：連**垂直於輻條 1 的那組邊**中較近者（偏 90°），
+      給每字件一縱一橫兩向支撐＝方向有變化、更穩、不擠同向。
+
+    取代舊「全域最近點對斜線」——輻條皆軸向垂直框邊（偏 90°）、乾淨不斜跨。
     """
+    h, w = mask.shape
     added = 0
-    frame_mask = np.isin(labels, list(frame_ids))
-    fpts = np.argwhere(frame_mask)
-    fstep = max(1, len(fpts) // 4000)
-    fpool = fpts[::fstep]
     for cid in range(1, n + 1):
         if cid in frame_ids:
             continue
         comp = np.argwhere(labels == cid)
-        cstep = max(1, len(comp) // 800)
-        cpool = comp[::cstep]
-        # 輻條 1：字件→外框全域最近點對（最短連接）。
-        d2 = ((cpool[:, None, :] - fpool[None, :, :]) ** 2).sum(-1)
-        k = int(d2.argmin())
-        i, j = divmod(k, d2.shape[1])
-        a1 = tuple(cpool[i])
-        _thick_line(mask, a1, tuple(fpool[j]), half)  # type: ignore[arg-type]
+        if len(comp) == 0:
+            continue
+        ys, xs = comp[:, 0], comp[:, 1]
+        gaps = {
+            "top": int(ys.min()),
+            "bottom": h - 1 - int(ys.max()),
+            "left": int(xs.min()),
+            "right": w - 1 - int(xs.max()),
+        }
+        e1 = min(_FRAME_EDGES, key=lambda e: gaps[e])   # 最近框邊
+        _spoke_to_edge(mask, comp, e1, half)
         added += 1
         if ties < 2:
             continue
-        # 輻條 2：離 a1 夠遠的字件像素中、離框最近者（第二支撐、不擠）。
-        span = max(int(comp[:, 0].max() - comp[:, 0].min()),
-                   int(comp[:, 1].max() - comp[:, 1].min()))
-        sep2 = max(8.0, span * 0.4) ** 2
-        da = ((cpool - np.asarray(a1)) ** 2).sum(1)
-        far = cpool[da > sep2]
-        if len(far) == 0:
-            continue
-        d2b = ((far[:, None, :] - fpool[None, :, :]) ** 2).sum(-1)
-        kk = int(d2b.argmin())
-        ii, jj = divmod(kk, d2b.shape[1])
-        _thick_line(mask, tuple(far[ii]), tuple(fpool[jj]),  # type: ignore
-                    half)
+        # 輻條 2：垂直於輻條 1 的那組邊中較近者（偏 90°）。
+        perp = (("left", "right") if e1 in ("top", "bottom")
+                else ("top", "bottom"))
+        e2 = min(perp, key=lambda e: gaps[e])
+        _spoke_to_edge(mask, comp, e2, half)
         added += 1
     return added
 

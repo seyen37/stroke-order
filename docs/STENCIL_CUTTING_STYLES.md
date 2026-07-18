@@ -135,8 +135,8 @@
 | `bridge_width_mm` | 橋寬 | 2.0（可調） | ≈筆寬 | 脆料加寬 |
 | `bridge_count_max` | 每孔橋數上限 | 4（自動取最少） | 1~2 | 大孔 2、小孔 1 |
 | `connect_depth` | 連筋深度 | `full`（全連通、殘腔0） | `envelope`（只外框） | **R5 核心軸**（5eg 已接 registry；5ej envelope 深度 runtime 可調 `envelope_depth`＝連到第幾層、1..N） |
-| `keep_primary` | 保主幹策略 | `thinnest_wall`（隱含） | `vertical_first`（顯式） | **5ei 已接 registry**（physical=thinnest_wall、envelope=vertical_first；垂直優先啟發式 ×BIAS，非骨架分析） |
-| `frame_strategy` | 鏤空外框接法 | `nearest_spoke`（垂直輻條） | `nearest_spoke` | cutout 專用 |
+| `keep_primary` | 保主幹策略 | `vertical_first`（5eo 起） | `vertical_first` | **5ei 接 registry、5eo 起 physical 也用 vertical_first**（使用者實機回饋「不要把直豎筆從中切開」；垂直優先啟發式 ×BIAS，非骨架分析） |
+| `frame_strategy` | 鏤空外框接法 | `nearest_edge_spoke`（5eo：連最近框邊軸向輻條＋90°第二支） | 同左 | cutout 專用（5eo：取代舊全域最近點斜線，方向隨字件位置變化） |
 | `min_feature_mm` | 去斑門檻 | 橋寬²/4 | — | 濾光柵碎點 |
 
 **風格對照（示意）**：

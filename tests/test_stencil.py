@@ -557,7 +557,8 @@ def test_5ei_default_keep_primary_is_thinnest_wall():
 
 
 def test_5ei_registry_keep_primary():
-    assert CUTTING_STYLES["physical"].keep_primary == "thinnest_wall"
+    # 5eo（使用者實機回饋：保直豎筆）：physical 由 thinnest_wall 改 vertical_first。
+    assert CUTTING_STYLES["physical"].keep_primary == "vertical_first"
     assert CUTTING_STYLES["envelope"].keep_primary == "vertical_first"
 
 
@@ -629,3 +630,48 @@ def test_5ej_api_envelope_depth(client):
     assert client.get(
         "/api/stencil?chars=國&style=envelope&envelope_depth=9"
     ).status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# 5eo：實機回饋——圓孔 fallback 只鑿上下兩極 ≤2；cutout 接框軸向輻條連通
+# ---------------------------------------------------------------------------
+
+
+def _circle_ring(n=120, ro=48, ri=28):
+    yy, xx = np.mgrid[0:n, 0:n]
+    r = np.hypot(xx - n / 2, yy - n / 2)
+    return (r <= ro) & (r >= ri)
+
+
+def test_5eo_circular_hole_bridges_two_poles_only():
+    """圓環（O）無轉角→ fallback；5eo 只鑿**上下兩極**（≤2），不鑿左右四方。"""
+    m = _circle_ring()
+    n = m.shape[0]
+    c = n // 2
+    carve_stencil_bridges(m, 6)              # 預設 bridge_count=4，舊版會鑿十字
+    # 上下極點鑿白（連出）、左右極點保留墨（不鑿）＝只 2 道
+    assert not m[c - 38, c] and not m[c + 38, c], "上下兩極應鑿白"
+    assert m[c, c - 38] and m[c, c + 38], "左右不應鑿（≤2 道、非十字四方）"
+    assert _n_holes(m) == 0                  # 仍連通（殘腔 0）
+
+
+def test_5eo_physical_keeps_vertical_via_keep_primary():
+    """physical 現用 vertical_first：口環（等厚）鑿橫牆保豎（同 5ei 的行為）。"""
+    from stroke_order.exporters.stencil import get_cutting_style
+    assert get_cutting_style("physical").keep_primary == "vertical_first"
+    h0, v0 = _wall_bands(_ring_mask())
+    m = _ring_mask()
+    carve_stencil_bridges(m, 6, keep_primary="vertical_first")
+    h1, v1 = _wall_bands(m)
+    assert (h0 - h1) > (v0 - v1)             # 切橫保豎
+
+
+def test_5eo_cutout_frame_spokes_keep_connected():
+    """cutout 接框改軸向輻條後，全字件仍連上外框（1 連通塊、不脫落）。"""
+    ring = _ring_polys()
+    _l, _w, _h, st = stencil_geometry(
+        [ring, ring], kind="cutout", char_height_mm=40,
+        frame=True, frame_width_mm=3)
+    # bridges_added 記錄輻條數（每件 1~2 支），且輸出仍有效
+    assert st["bridges_added"] >= 1
+    assert st["cut_loops"] >= 1
