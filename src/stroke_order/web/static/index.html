@@ -550,6 +550,10 @@
                 title="字型檔僅在瀏覽器內解析，不會上傳；輸出請依字型授權自用">選字型檔…</button>
         <span id="grid-font-name"
               style="color:var(--muted);font-size:12px;"></span>
+        <label style="margin-left:10px;font-size:12px;"
+               title="自訂字型 G-code 骨架化中心線的 Chaikin 削角平滑迭代：0=關閉（原鋸齒階梯）；2=預設（讀來平滑）；越大越平滑、點數約每級×2（G-code 變長）">平滑</label>
+        <input id="gf-smooth" type="number" value="2" min="0" max="4"
+               step="1" style="width:55px;">
       </span>
       <label style="margin-left:16px;"
              title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
@@ -3951,7 +3955,11 @@ function injectUserFontIntoGrid(svgRoot) {
 const _fontTrackCache = new Map();   // `${fontName}:${ch}` → EM 2048 折線集
 
 function fontCharTracks(ch) {
-  const key = gridUserFontName + ":" + ch;
+  // 5el：平滑度可調——Chaikin 迭代從 UI 讀（預設 2）。cache key 納入迭代數，
+  // 調平滑後不回舊軌跡（否則換值仍出舊快取＝bug）。
+  const smEl = document.getElementById("gf-smooth");
+  const ckIters = smEl ? Math.max(0, parseInt(smEl.value, 10) || 0) : 2;
+  const key = gridUserFontName + ":" + ch + ":" + ckIters;
   if (_fontTrackCache.has(key)) return _fontTrackCache.get(key);
   const eng = window.DoodleEngine;
   const P = 384;                             // 光柵解析度（5cg 800² 0.4s → 384² 快）
@@ -3980,8 +3988,8 @@ function fontCharTracks(ch) {
   for (const tr of traced) {
     if (tr.length < 4) continue;             // 去雜點
     // 5eh：RDP 後套 Chaikin 削角（同塗鴉 centerline），細線化階梯的殘餘
-    // 尖角讀成平滑中心線；端點保留、iters=2。
-    const simp = eng.chaikinSmooth(eng.rdpSimplify(tr, 1.5), 2);
+    // 尖角讀成平滑中心線；端點保留。5el：迭代數由 UI 可調（gf-smooth）。
+    const simp = eng.chaikinSmooth(eng.rdpSimplify(tr, 1.5), ckIters);
     tracks.push(simp.map((pt) => [pt[0] * emScale, pt[1] * emScale]));
   }
   _fontTrackCache.set(key, tracks);

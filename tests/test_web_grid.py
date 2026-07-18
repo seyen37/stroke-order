@@ -94,6 +94,18 @@ def test_5cs_userfont_gcode_pipeline(client):
     assert "grid_userfont.gcode" in html       # blob 下載檔名
 
 
+def test_5el_userfont_smooth_ui_wired(client):
+    """5el：自訂字型平滑度 UI——gf-smooth 數字輸入在字型 wrap；fontCharTracks
+    讀值、納入 cache key、傳給 chaikinSmooth（調平滑不回舊快取）。"""
+    html = client.get("/").text
+    assert 'id="gf-smooth"' in html                       # 平滑數字輸入
+    assert 'getElementById("gf-smooth")' in html          # fontCharTracks 讀值
+    # cache key 納入迭代數（否則調值回舊軌跡）
+    assert 'gridUserFontName + ":" + ch + ":" + ckIters' in html
+    # 迭代數餵給 Chaikin（取代原 hardcode 2）
+    assert "eng.chaikinSmooth(eng.rdpSimplify(tr, 1.5), ckIters)" in html
+
+
 def test_5ct_notebook_letter_userfont_ui(client):
     """5ct：筆記/信紙自訂字型 UI＋共用注入/下載接線存在。"""
     html = client.get("/").text
