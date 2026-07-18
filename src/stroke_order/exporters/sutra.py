@@ -80,32 +80,41 @@ _SKELETON_TRACE_OPACITY = 0.03
 
 
 def _render_skeleton_glyph(c: Character, x_mm: float, y_mm: float,
-                            size_mm: float) -> str:
+                            size_mm: float,
+                            stroke_width_mm: Optional[float] = None) -> str:
     """Render a Character via its centerline ``raw_track`` polylines —
     used by sutra body when ``_char_cut_paths`` returns empty (skeleton-
-    mode 隸書/篆書 produce no outline data).
+    mode 隸書/篆書 and 逐字手寫 produce no outline data).
 
     The glyph is wrapped in a ``<g transform="... scale(EM→mm)">`` to
-    place each track in mm space. Crucially, every ``<polyline>`` carries
-    ``vector-effect="non-scaling-stroke"`` so the outer trace-skeleton
-    group's ``stroke-width`` (in mm) is honoured regardless of the inner
-    scale transform — without this, the stroke would shrink by ~217×
-    (EM_SIZE / size_mm) and render as a sub-pixel hairline. cairosvg ≥
-    2.5 honours this attribute, matching browser behaviour.
+    place each track in mm space.
+
+    ``stroke_width_mm`` (5ee): when given, each ``<polyline>`` carries an
+    **explicit** ``stroke-width = stroke_width_mm / scale`` so that after the
+    inner EM→mm scale transform the effective width is exactly
+    ``stroke_width_mm`` mm — in ANY rasteriser. This is the fix for the PDF
+    (cairosvg) dropping the handwriting: ``vector-effect="non-scaling-stroke"``
+    (the fallback below) is honoured by browsers but NOT by cairosvg, which
+    scales the stroke down to a sub-pixel hairline → the 逐字手寫 layer
+    vanished in the downloaded PDF while showing fine in the browser preview.
+    When ``stroke_width_mm`` is None the legacy ``vector-effect`` form is kept
+    for callers that set the width on the outer group (backward-compatible).
     """
     if not c.strokes:
         return ""
     scale = size_mm / EM_SIZE
     half = size_mm / 2.0
+    if stroke_width_mm is not None and scale > 0:
+        # explicit inner width survives the scale in browsers AND cairosvg
+        _attr = f'stroke-width="{stroke_width_mm / scale:.3f}"'
+    else:
+        _attr = 'vector-effect="non-scaling-stroke"'
     parts: list[str] = []
     for stroke in c.strokes:
         track = stroke.smoothed_track or stroke.raw_track
         if track and len(track) >= 2:
             pts = " ".join(f"{p.x:.2f},{p.y:.2f}" for p in track)
-            parts.append(
-                f'<polyline points="{pts}" '
-                f'vector-effect="non-scaling-stroke"/>'
-            )
+            parts.append(f'<polyline points="{pts}" {_attr}/>')
     if not parts:
         return ""
     return (f'<g transform="translate({x_mm - half:.3f},{y_mm - half:.3f}) '
@@ -922,8 +931,12 @@ def render_sutra_page(
                     # Use the local helper that adds vector-effect so the
                     # outer group's mm stroke-width survives the inner
                     # EM→mm scale transform.
+                    # 5ee: pass an explicit mm stroke-width so the centerline
+                    # survives cairosvg's scale (vector-effect alone → PDF
+                    # hairline → 逐字手寫 vanished in the downloaded PDF).
                     poly_svg = _render_skeleton_glyph(
                         c_glyph, cx, cy, char_size,
+                        stroke_width_mm=char_size * _SKELETON_TRACE_STROKE_RATIO,
                     )
                     # 5dv: 逐字手寫的字（user dict）也是 centerline-only，但
                     # 使用者「就是要看到自己寫的字」——不能走 隸/篆 那條

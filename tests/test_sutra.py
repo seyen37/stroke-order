@@ -2236,26 +2236,25 @@ def test_5by_skeleton_stroke_width_scales_with_char_size():
     )
 
 
-def test_5bx_skeleton_polylines_carry_non_scaling_stroke():
-    """Each <polyline> in the skeleton group must declare
-    vector-effect="non-scaling-stroke", otherwise the inner scale()
-    transform shrinks the stroke to a hairline and the page looks blank.
+def test_5ee_skeleton_polylines_carry_explicit_stroke_width():
+    """Each <polyline> in the skeleton group must carry an **explicit**
+    stroke-width (5ee), so the inner scale() transform yields the intended
+    mm width in ANY rasteriser. The old ``vector-effect="non-scaling-
+    stroke"`` form is browser-only — cairosvg ignores it and shrinks the
+    stroke to a sub-pixel hairline, so the skeleton / 逐字手寫 vanished in
+    the downloaded PDF. Guards against that blank-page regression.
     """
     loader = _skeleton_only_loader()
     svg = render_sutra_page(["天", "地"], char_loader=loader)
-    # Locate every polyline inside the trace-skeleton group.
     start = svg.find('<g id="sutra-trace-skeleton"')
     assert start >= 0, "skeleton group missing"
-    end = svg.find("</g>", start) + len("</g>")
-    # The skeleton group itself contains multiple inner <g> wrappers —
-    # walk to the *outer* close. Easier: just count polylines after start.
     fragment = svg[start:]
     polylines = [m for m in fragment.split("<polyline")[1:]]
     assert polylines, "no polylines emitted in skeleton group"
     for p in polylines:
         head = p.split(">", 1)[0]
-        assert 'vector-effect="non-scaling-stroke"' in head, (
-            f"polyline missing vector-effect: {head!r}"
+        assert "stroke-width=" in head, (
+            f"polyline missing explicit stroke-width: {head!r}"
         )
 
 
@@ -2473,3 +2472,53 @@ def test_5dv_lishu_skeleton_still_near_invisible(tmp_path):
                             char_loader=lambda ch: lishu if ch == "度" else None)
     assert 'id="sutra-trace-skeleton"' in svg
     assert 'id="sutra-trace-user"' not in svg
+
+
+# ---------------------------------------------------------------------------
+# 5ee: 逐字手寫層必須在 PDF（cairosvg 光柵化）真的可見——不能只是瀏覽器
+# vector-effect 髮絲線、下載的 PDF 卻空白。
+# ---------------------------------------------------------------------------
+
+
+def test_5ee_skeleton_glyph_explicit_width_defeats_vector_effect():
+    from stroke_order.exporters.sutra import _render_skeleton_glyph
+    from stroke_order.ir import Character, Stroke, Point
+    c = Character(char="永", unicode_hex="6c38",
+                  strokes=[Stroke(index=0,
+                                  raw_track=[Point(300, 300), Point(1700, 300),
+                                             Point(1700, 1700)],
+                                  outline=[], kind_code=9, kind_name="其他",
+                                  has_hook=False)],
+                  data_source="user_dict")
+    # explicit mm width → concrete stroke-width, no vector-effect dependency
+    with_w = _render_skeleton_glyph(c, 50, 50, 12, stroke_width_mm=1.44)
+    assert "stroke-width=" in with_w
+    assert "vector-effect" not in with_w
+    # legacy path (no width) keeps vector-effect for browser callers
+    legacy = _render_skeleton_glyph(c, 50, 50, 12)
+    assert "vector-effect=" in legacy
+
+
+def test_5ee_user_handwriting_renders_in_cairosvg_raster(tmp_path):
+    cairosvg = pytest.importorskip("cairosvg")
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("PIL")
+    import io
+    from PIL import Image
+    from stroke_order.exporters.sutra import render_sutra_page
+
+    hand = _user_handwriting_char(tmp_path)
+
+    def _ink(svg: str) -> int:
+        png = cairosvg.svg2png(bytestring=svg.encode(), output_width=1000,
+                               output_height=700, background_color="white")
+        arr = np.array(Image.open(io.BytesIO(png)).convert("L"))
+        return int((arr < 250).sum())   # any non-white ink
+
+    hw = render_sutra_page(["度"],
+                           char_loader=lambda ch: hand if ch == "度" else None)
+    blank = render_sutra_page(["度"], char_loader=lambda ch: None)
+    assert 'id="sutra-trace-user"' in hw
+    # the handwriting must add visible ink beyond the (identical) grid/frame —
+    # regression: it used to vanish as a cairosvg hairline (increment == 0).
+    assert _ink(hw) > _ink(blank)
