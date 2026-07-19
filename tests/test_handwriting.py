@@ -436,10 +436,8 @@ def test_5fc_layout_round2(client):
         'hw-canvas-wrap')[0]
     # 左欄不再有「格線」區塊標題
     assert ">格線</h2>" not in page
-    # 資料抽屜首列：統計｜清空（中）｜公眾提交（右）
-    assert "hw-drawer-top" in page
-    top = page.split("hw-drawer-top")[1].split("hw-data-row-inline")[0]
-    assert "clear-all" in top and "submit-public" in top
+    # 資料抽屜首列規格已被 5fj 取代（統計/提交移左欄、匯入/清空移
+    # 畫布右下）——見 5fj 重排測試
     # 深連結一致化＋返回鈕改名進請寫列
     assert "showSourcePanel('input')" in page
     assert "逐字手寫';" in page              # back.textContent
@@ -462,6 +460,35 @@ def test_5fe_layout_and_version_sync(client):
     # 來源提示插在畫布 grid 之外（否則撐爆右欄）
     assert "hw-from-hint" in page
     assert "insertBefore(st, _row)" in page
+
+
+def test_5fj_data_area_relayout(client):
+    """5fj：資料區重排——統計＋提交移左欄（組件覆蓋下）；匯入＋清空移
+    畫布框外右下；抽屜剩匯出列。id/data-action 全保留（JS 綁定不斷）。"""
+    page = client.get("/handwriting").text
+    # 左欄：組件覆蓋 → 我的資料（統計＋提交）順序
+    aside = page.split("<aside", 1)[1].split("</aside>", 1)[0]
+    assert 'id="hw-side-data"' in aside
+    assert aside.index("hw-coverset") < aside.index('id="hw-side-data"')
+    side = aside.split('id="hw-side-data"')[1]
+    assert 'id="hw-db-count"' in side and 'id="hw-db-unique"' in side
+    assert 'data-action="submit-public"' in side
+    assert side.index('id="hw-db-count"') < side.index("submit-public")
+    # 畫布右下：canvas-wrap 之後 hw-canvas-bottom（匯入在上、清空在下）
+    col = page.split("hw-canvas-wrap", 1)[1]
+    assert "hw-canvas-bottom" in col
+    bottom = col.split("hw-canvas-bottom")[1]
+    assert 'id="hw-import-file"' in bottom
+    assert 'data-action="clear-all"' in bottom
+    assert bottom.index("hw-import-file") < bottom.index("clear-all")
+    # 抽屜：只剩匯出（無統計/清空/提交/匯入）
+    drawer = page.split('id="hw-drawer"')[1].split("</section>")[0]
+    assert "export-json" in drawer
+    for gone in ("hw-db-count", "clear-all", "submit-public", "hw-import-file"):
+        assert gone not in drawer, gone
+    # CSS：右下區靠右
+    css = client.get("/static/handwriting/handwriting.css").text
+    assert "hw-canvas-bottom" in css and "align-items: flex-end" in css
 
 
 def test_5fi_index_version_label(client):

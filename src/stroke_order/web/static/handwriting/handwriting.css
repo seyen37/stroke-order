@@ -524,20 +524,29 @@ input:focus, select:focus, button:focus-visible {
 }
 
 
-/* 5fc：我的資料抽屜首列——統計（左）、清空（中）、公眾提交（右） */
-.hw-drawer-top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* 5fj：資料區重排（使用者規格三輪定案）——統計＋公眾提交移左欄
+   （組件覆蓋下方常駐可見）；匯入＋清空移畫布框外右下；抽屜剩匯出。
+   5fc 的 .hw-drawer-top 三欄規則隨 DOM 移除一併退場。 */
+#hw-side-data .hw-data-stats {
+  border-bottom: none;
+  padding-bottom: 0;
   flex-wrap: wrap;
 }
-/* 左右兩欄等寬彈性（flex-basis 0）→ 中間的清空鈕真置中 */
-.hw-drawer-top .hw-data-stats { flex: 1 1 0; }
-.hw-drawer-top .hw-drawer-right {
-  flex: 1 1 0;
-  display: flex;
-  justify-content: flex-end;
+#hw-side-data .hw-submit-public {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 12px;
 }
+.hw-canvas-bottom {
+  grid-column: 1;
+  grid-row: 3;                    /* 畫布正下方（框外右下） */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;          /* 靠框右緣 */
+  gap: 8px;
+  margin-top: 8px;
+}
+.hw-canvas-bottom .hw-data-import { margin-left: 0; }
 
 /* 5fc：請寫列——「逐字手寫」返回鈕靠最右 */
 .hw-prompt-row { display: flex; align-items: center; gap: 8px; }
