@@ -444,3 +444,13 @@ def test_5fc_layout_round2(client):
     assert "showSourcePanel('input')" in page
     assert "逐字手寫';" in page              # back.textContent
     assert "hw-prompt-row')?.appendChild(back)" in page
+
+
+def test_5fd_deeplink_material_routing(client):
+    """5fd：深連結分流——帶 preset 走經典（定位該字）；無 preset 走字串。"""
+    page = client.get("/handwriting").text
+    assert "_hasPreset" in page
+    assert "loadSutraMaterial(_presetParam)" in page          # 經典路
+    assert "chars.indexOf(_deepChar)" in page                 # 定位到該字
+    assert "showSourcePanel('sutra')" in page
+    assert "showSourcePanel('input')" in page                 # 字串路保留

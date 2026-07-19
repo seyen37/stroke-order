@@ -1088,44 +1088,53 @@
   const _params = new URLSearchParams(location.search);
   const _deepChar = (_params.get('char') || '').trim();
   if (_deepChar) {
-    // 5fc：素材狀態一致化——radio 切「字串」＋填入該字（原本只換
-    // material、radio 仍停「經典」，使用者一點經典就把單字教材蓋掉）
-    state.sourceType = 'input';
-    const _inRadio = document.querySelector(
-      'input[name="source-type"][value="input"]');
-    if (_inRadio) _inRadio.checked = true;
-    $('hw-input-string').value = _deepChar;
-    showSourcePanel('input');
-    state.material = loadInputMaterial(_deepChar);
+    // 5fd：深連結素材分流（使用者規格）——
+    //   帶 preset（抄經）→ 素材切「經典」載入該經典、定位到該字；
+    //   無 preset（字帖/筆記等其他模式）→ 素材切「字串」帶入該字。
+    // 兩路都帶字體（style）。radio/面板/教材三者狀態一致（5fc 原則）。
+    const _styleParam = (_params.get('style') || '').trim();
+    const _presetParam = (_params.get('preset') || '').trim();
+    const _presetSel = document.getElementById('hw-sutra-preset');
+    const _hasPreset = !!(_presetParam && _presetSel &&
+      [..._presetSel.options].some(o => o.value === _presetParam));
+    if (_hasPreset) {
+      // ── 經典帶入：radio 經典＋下拉指到該經典＋教材定位到該字
+      state.sourceType = 'sutra';
+      const _suRadio = document.querySelector(
+        'input[name="source-type"][value="sutra"]');
+      if (_suRadio) _suRadio.checked = true;
+      _presetSel.value = _presetParam;
+      showSourcePanel('sutra');
+      state.material = await loadSutraMaterial(_presetParam);
+      const _at = state.material.chars.indexOf(_deepChar);
+      if (_at >= 0) state.material.index = _at;   // 定位；查無留在句首
+    } else {
+      // ── 字串帶入（5fc）：radio 字串＋字填入輸入欄
+      state.sourceType = 'input';
+      const _inRadio = document.querySelector(
+        'input[name="source-type"][value="input"]');
+      if (_inRadio) _inRadio.checked = true;
+      $('hw-input-string').value = _deepChar;
+      showSourcePanel('input');
+      state.material = loadInputMaterial(_deepChar);
+      if (_presetParam) window._hwDesiredPreset = _presetParam;  // 邊角：選項未就緒
+    }
     state.practiceMode = 'trace';
     const modeRadio = document.querySelector(
       'input[name="practice-mode"][value="trace"]');
     if (modeRadio) modeRadio.checked = true;
-    updateProgress();
-    updatePromptUI();
-    await renderBg();
-    // 5ez：帶入來源設定——字型風格（渲染範字前套用）＋經典 preset
-    const _styleParam = (_params.get('style') || '').trim();
+    // 5ez/5fd：字體先套再渲染——範字直接用來源風格（單次 renderBg）
     if (_styleParam) {
       const styleSel = document.getElementById('hw-style');
       if (styleSel &&
           [...styleSel.options].some(o => o.value === _styleParam)) {
         styleSel.value = _styleParam;
         styleSel.dispatchEvent(new Event('change'));
-        await renderBg();          // 範字改用來源風格重繪
       }
     }
-    const _presetParam = (_params.get('preset') || '').trim();
-    if (_presetParam) {
-      // 經典下拉是非同步載入——先試套，選項未就緒就留給 populate 補套
-      const presetSel = document.getElementById('hw-sutra-preset');
-      if (presetSel &&
-          [...presetSel.options].some(o => o.value === _presetParam)) {
-        presetSel.value = _presetParam;
-      } else {
-        window._hwDesiredPreset = _presetParam;
-      }
-    }
+    updateProgress();
+    updatePromptUI();
+    await renderBg();
     // 5ew-R4：來源提示按模式顯示（R3 只有抄經；R4 擴散四模式）
     const _fromLabels = { sutra: '抄經', grid: '字帖', notebook: '筆記',
                           letter: '信紙', manuscript: '稿紙',
