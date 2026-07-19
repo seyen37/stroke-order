@@ -1,5 +1,7 @@
 // W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
 import { API_BASE } from "./core.js?v=__V__";
+// 5ew-R4：點格手寫（循環邊 grid↔handwrite——函式宣告＋事件時呼叫，§44 安全）
+import { swAttachCells } from "./handwrite.js?v=__V__";
 
 // ============================================================
 // Grid (字帖) mode
@@ -265,6 +267,9 @@ async function renderGrid() {
       }
     }
     dlGroup.style.display = "inline";
+    // 5ew-R4：點格手寫——自訂字型注入「之後」才掛（範字複製即時格內容）
+    swAttachCells(previewEl, {
+      key: "grid", styleId: "grid-font-style", refresh: renderGrid });
   } catch (e) {
     statusEl.textContent = "";
     previewEl.innerHTML =

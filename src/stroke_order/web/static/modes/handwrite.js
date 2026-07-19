@@ -21,14 +21,56 @@ const SW = {
   refImg: null,      // 5en: styled 範字 image (篆/隸 etc.) for the current char,
                      // built from the preview's rendered glyph so the popup
                      // reference matches the selected 字型風格 (not a system font)
+  adapter: null,     // 5ew-R4: mode adapter (set on cell click) — overlay 唯一，
+                     // 模式差異（refresh／style／source／範字建構）全收斂於此
 };
+
+// ============================================================
+// 5ew-R4：模式接線 adapter——「點字→手寫視窗」擴散到字帖/筆記/信紙/
+// 稿紙（R5 再到藝術模式）。overlay/存檔/雙寫/示範/匯入匯出邏輯只有
+// 一份；每個模式用一個 adapter 描述五個差異點：
+//   key       練習史 tags/source 標記＋深連結 from=
+//   styleId   該模式字型風格 select id（無則 fallback "kaishu"）
+//   sourceId  該模式筆順資料源 select id（無則 fallback "auto"）
+//   refresh() 關窗且有寫入時重繪預覽（手寫字經 UserDictSource 置頂生效）
+//   buildRefImg(cur) 目前字的樣式化範字（Promise<Image|null>）
+// adapter 與 positions 綁在「點擊當下」——使用者切換模式後點舊預覽
+// 也不會拿錯 adapter/字集。
+// ============================================================
+const SW_SUTRA_ADAPTER = {
+  key: "sutra",
+  styleId: "su-style",
+  sourceId: "su-source",
+  refresh: () => sutraRender(),
+  collect: swCollectSutraCells,
+  buildRefImg: swBuildSutraRefImg,
+};
+
+function swMakeCellAdapter({ key, styleId, sourceId, refresh }) {
+  return { key, styleId: styleId || null, sourceId: sourceId || null,
+           refresh, collect: swCollectDataCharCells,
+           buildRefImg: swBuildCellRefImg };
+}
+
+function swAttach(previewEl, adapter) {
+  adapter.collect(previewEl, (positions, idx) => {
+    SW.adapter = adapter;
+    SW.positions = positions;
+    swOpen(idx);
+  });
+}
+
+// R4 通用掛載：四模式（grid/notebook/letter/manuscript）render 後呼叫。
+function swAttachCells(previewEl, opts) {
+  swAttach(previewEl, swMakeCellAdapter(opts));
+}
 
 // 5en: build a faint reference-glyph <img> for the current cell from the
 // ALREADY-RENDERED 抄經 preview, cropped to that cell's bbox. This makes the
 // popup 範字 match the selected 字型風格 (篆書/隸書/宋…) instead of the browser
 // system font that ctx.fillText would draw. Returns a loaded Image, or null
 // (缺字 / no preview / error) → swDrawBase falls back to fillText.
-async function swBuildRefImg(cur) {
+async function swBuildSutraRefImg(cur) {
   try {
     // 5ep 修：抄經預覽是 #su-preview（su-＝sutra）；5en 誤用 #st-preview
     // （st-＝印章 stamp）→ production 查無、回 null、fallback 系統字型楷書。
@@ -75,16 +117,59 @@ async function swBuildRefImg(cur) {
       has = true;
     }
     if (!has) return null;
-    const xml = new XMLSerializer().serializeToString(out);
-    const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
-    return await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
+    return await swSvgToImage(out);
   } catch (e) {
-    console.warn("swBuildRefImg failed", e);
+    console.warn("swBuildSutraRefImg failed", e);
+    return null;
+  }
+}
+
+// R4：serialize→Image 共用尾段（sutra／通用格 refImg 建構皆用）。
+function swSvgToImage(out) {
+  const xml = new XMLSerializer().serializeToString(out);
+  const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+// R4：通用範字——複製該格 <g data-char> 的即時內容（格內皆 EM2048
+// 局部座標：grid 平移、page 型平移＋縮放皆成立），去掉命中矩形與格
+// 線（canvas 自畫米字格）、整體轉淡灰。自訂字型注入後點格，複製到
+// 的就是注入後的字形——範字永遠與預覽所見一致。
+async function swBuildCellRefImg(cur) {
+  try {
+    const g = cur.cell;
+    if (!g || !g.isConnected) return null;
+    const NS = "http://www.w3.org/2000/svg";
+    const out = document.createElementNS(NS, "svg");
+    out.setAttribute("xmlns", NS);
+    out.setAttribute("viewBox", "0 0 2048 2048");
+    out.setAttribute("width", "360");
+    out.setAttribute("height", "360");
+    const clone = g.cloneNode(true);
+    clone.removeAttribute("transform");
+    clone.removeAttribute("id");
+    clone.querySelectorAll("rect[data-sw-hit], g.guides")
+         .forEach((n) => n.remove());
+    // 無筆墨（blank 格式樣）→ null → fallback 系統字型
+    if (!clone.querySelector("path, polyline, line, circle, text")) return null;
+    for (const el of [clone, ...clone.querySelectorAll("*")]) {
+      const f = el.getAttribute("fill");
+      const s = el.getAttribute("stroke");
+      if (f && f !== "none" && f !== "transparent") {
+        el.setAttribute("fill", "#c8c8c8");
+      }
+      if (s && s !== "none") el.setAttribute("stroke", "#c8c8c8");
+      el.removeAttribute("opacity");
+    }
+    out.appendChild(clone);
+    return await swSvgToImage(out);
+  } catch (e) {
+    console.warn("swBuildCellRefImg failed", e);
     return null;
   }
 }
@@ -107,15 +192,18 @@ function swInit() {
   $("sw-advanced").onclick = () => {
     const cur = SW.positions[SW.index];
     if (!cur) return;
+    // R4：from= 帶模式 key——筆順練習頁的來源提示按模式顯示。
+    const from = SW.adapter?.key || "sutra";
     window.open(
-      `/handwriting?char=${encodeURIComponent(cur.char)}&from=sutra`,
+      `/handwriting?char=${encodeURIComponent(cur.char)}&from=${from}`,
       "_blank", "noopener");
   };
   $("sw-submit").onclick  = swSubmitAndClose;
   $("sw-export").onclick  = () => {
     // 5dz: name the handwriting ZIP after the current 字型風格 —
     // {風格}_手寫字.zip (server maps the style code to its label).
-    const style = (document.getElementById("su-style") || {}).value || "";
+    // R4：風格取自目前模式的 select（adapter）。
+    const style = swStyleValue();
     const q = style ? `?style=${encodeURIComponent(style)}` : "";
     window.location.href = `${API_BASE}/api/user-dict/export${q}`;
   };
@@ -128,10 +216,16 @@ function swInit() {
 }
 
 // Wire clickable cells after each preview render (called by sutraRender).
+// R4：名稱與行為保留（sutra.js 呼叫端＋測試鎖定）——內部改走 adapter。
 function swAttachPreviewClicks(previewEl) {
+  swAttach(previewEl, SW_SUTRA_ADAPTER);
+}
+
+// 抄經收集器：cellmap 透明 rect（data-pos 閱讀序）＋缺字虛線提示。
+function swCollectSutraCells(previewEl, open) {
   const rects = [...previewEl.querySelectorAll("#sutra-cellmap rect[data-char]")];
   // Build the reading-order position list (sorted by data-pos).
-  SW.positions = rects
+  const positions = rects
     .map(r => ({ char: r.getAttribute("data-char"),
                  pos: parseInt(r.getAttribute("data-pos"), 10),
                  missing: r.hasAttribute("data-missing") }))
@@ -149,8 +243,42 @@ function swAttachPreviewClicks(previewEl) {
     }
     r.addEventListener("click", () => {
       const p = parseInt(r.getAttribute("data-pos"), 10);
-      const idx = SW.positions.findIndex(q => q.pos === p);
-      swOpen(idx >= 0 ? idx : 0);
+      const idx = positions.findIndex(q => q.pos === p);
+      open(positions, idx >= 0 ? idx : 0);
+    });
+  });
+}
+
+// R4 通用收集器：<g data-char>（grid.py／page.py 5cn/5ct 既有錨點）
+// DOM 序＝版面閱讀序。<g> 的點擊命中區只有筆墨本身——注入一塊滿格
+// 透明矩形（EM2048 局部座標）補足；stopPropagation 避免與筆記/信紙
+// 尺規的「點頁面釘輔助線」互踩。缺字在這些模式是「跳過不出格」
+// （載字鏈共同語意）——無格可點，屬既有行為。
+function swCollectDataCharCells(previewEl, open) {
+  const svg = previewEl.querySelector("svg");
+  if (!svg) return;
+  const NS = "http://www.w3.org/2000/svg";
+  const cells = [...svg.querySelectorAll("g[data-char]")];
+  const positions = cells.map((g, i) => ({
+    char: g.getAttribute("data-char"), pos: i, missing: false, cell: g }));
+  cells.forEach((g, i) => {
+    let hit = g.querySelector(":scope > rect[data-sw-hit]");
+    if (!hit) {
+      hit = document.createElementNS(NS, "rect");
+      hit.setAttribute("x", "0"); hit.setAttribute("y", "0");
+      hit.setAttribute("width", "2048"); hit.setAttribute("height", "2048");
+      hit.setAttribute("fill", "transparent");
+      hit.setAttribute("data-sw-hit", "1");
+      g.insertBefore(hit, g.firstChild);
+    }
+    g.style.cursor = "pointer";
+    g.addEventListener("mouseenter",
+      () => hit.setAttribute("fill", "rgba(80,140,255,.12)"));
+    g.addEventListener("mouseleave",
+      () => hit.setAttribute("fill", "transparent"));
+    g.addEventListener("click", (e) => {
+      e.stopPropagation();
+      open(positions, i);
     });
   });
 }
@@ -168,8 +296,21 @@ function swClose() {
   document.getElementById("sw-overlay").style.display = "none";
   if (SW.dirty) {            // reflect newly-written glyphs in the preview
     SW.dirty = false;
-    sutraRender();
+    // R4：重繪目前模式的預覽（UserDictSource 置頂——重繪即見手寫字）
+    (SW.adapter?.refresh || sutraRender)();
   }
+}
+
+// R4：目前 adapter 的風格／資料源值（select 可缺——誠實 fallback）。
+function swStyleValue() {
+  const el = SW.adapter?.styleId
+    && document.getElementById(SW.adapter.styleId);
+  return (el && el.value) || "kaishu";
+}
+function swSourceValue() {
+  const el = SW.adapter?.sourceId
+    && document.getElementById(SW.adapter.sourceId);
+  return (el && el.value) || "auto";
 }
 
 // Load the current position: show char, preload existing user-dict strokes.
@@ -185,7 +326,8 @@ async function swLoadCurrent() {
     `第 ${SW.index + 1} / ${SW.positions.length} 字`;
   // 5en: styled reference glyph (篆/隸…) from the preview; drawn faint by
   // swDrawBase so the popup 範字 matches 字型風格. Refresh before first redraw.
-  swBuildRefImg(cur).then((img) => {
+  // R4：經 adapter——各模式用自己的範字建構器。
+  (SW.adapter?.buildRefImg || swBuildSutraRefImg)(cur).then((img) => {
     if (SW.positions[SW.index] === cur) { SW.refImg = img; swRedraw(); }
   });
   const st = document.getElementById("sw-status");
@@ -260,18 +402,21 @@ async function swSubmitCurrent() {
     try {
       const traceStrokes = swStrokesToTraceStrokes(
         valid, canvas.width, canvas.height);
+      // R4：tags/source 帶模式標記（sutra-sw／grid-sw／…）——練習史
+      // 可辨提交來源；style 取該模式自己的風格 select。
+      const modeKey = SW.adapter?.key || "sutra";
       saveTrace({
         id: uuid(),
         char: cur.char,
         label_source: "given",
-        style: document.getElementById("su-style")?.value || "kaishu",
-        tags: ["sutra-sw"],
+        style: swStyleValue(),
+        tags: [`${modeKey}-sw`],
         device: "unknown",
         ts: new Date().toISOString(),
         canvas_size: [canvas.width, canvas.height],
         em_size: 2048,
         strokes: traceStrokes,
-        source: { kind: "sutra-sw" },
+        source: { kind: `${modeKey}-sw` },
       }).catch(e => console.warn("練習史寫入失敗（user-dict 已存）", e));
     } catch (e) {
       console.warn("練習史轉換失敗（user-dict 已存）", e);
@@ -495,7 +640,7 @@ async function swShowDemo() {
     return;
   }
   st.textContent = "載入標準筆順…"; st.style.color = "var(--muted)";
-  const src = (document.getElementById("su-source") || {}).value || "auto";
+  const src = swSourceValue();   // R4：資料源取自目前模式（可缺→auto）
   const qs = new URLSearchParams({ source: src, hook_policy: "animation" }).toString();
   try {
     const r = await fetch(`${API_BASE}/api/character/${encodeURIComponent(cur.char)}?${qs}`);
@@ -524,5 +669,5 @@ async function swShowDemo() {
   }
 }
 
-// W4-R2：跨檔邊匯出（消費端見 import 網）
-export { swAttachPreviewClicks, swInit };
+// W4-R2：跨檔邊匯出（消費端見 import 網）；R4 加 swAttachCells（四模式）
+export { swAttachCells, swAttachPreviewClicks, swInit };

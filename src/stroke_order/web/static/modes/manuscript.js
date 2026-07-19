@@ -1,5 +1,6 @@
 // W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
 import { API_BASE } from "./core.js?v=__V__";
+import { swAttachCells } from "./handwrite.js?v=__V__";   // 5ew-R4：點格手寫
 
 // ============================================================
 // Manuscript (稿紙) mode — Phase 5ad
@@ -114,6 +115,10 @@ async function renderManuscript(pageN = null) {
           b.onclick = () => renderManuscript(parseInt(b.dataset.page, 10))
         );
       } else navEl.innerHTML = "";
+      // 5ew-R4：點格手寫——refresh 重繪目前頁
+      swAttachCells(previewEl, {
+        key: "manuscript", styleId: "ms-style", sourceId: "ms-source",
+        refresh: () => renderManuscript(pageN) });
     } else {
       previewEl.innerHTML = `<p>共 ${total} 頁，點擊頁碼預覽：</p>`;
       const buttons = [];

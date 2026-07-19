@@ -2,6 +2,7 @@
 import { API_BASE } from "./core.js?v=__V__";
 import { lastDoodleSvg } from "./doodle.js?v=__V__";
 import { ensureZhuyinTw, gridUserFont, gridUserFontName, gridZhuyinMap, injectUserFontIntoGrid } from "./grid.js?v=__V__";
+import { swAttachCells } from "./handwrite.js?v=__V__";   // 5ew-R4：點格手寫
 
 // ============================================================
 // Notebook (筆記) mode
@@ -558,6 +559,11 @@ async function renderNotebook(pageN = null) {
           }
         }
       }
+      // 5ew-R4：點格手寫——refresh 重繪目前頁（自訂字型注入後才掛；
+      // 格點擊 stopPropagation，不觸發尺規釘線）
+      swAttachCells(previewEl, {
+        key: "notebook", styleId: "nb-style", sourceId: "nb-source",
+        refresh: () => renderNotebook(pageN) });
     } else if (ct.startsWith("application/zip")) {
       // Multi-page: can't preview ZIP inline, but provide per-page preview links
       previewEl.innerHTML =

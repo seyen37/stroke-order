@@ -2440,19 +2440,20 @@ def test_5en_handwrite_ref_uses_styled_preview_glyph():
     from stroke_order.web.server import app
     # W4-R1：逐字手寫 JS 已拆檔至 modes/handwrite.js
     html = TestClient(app).get("/static/modes/handwrite.js").text
-    assert "function swBuildRefImg" in html
+    # 5ew-R4：adapter 化更名 swBuildSutraRefImg（sutra 專屬範字建構）
+    assert "function swBuildSutraRefImg" in html
     # 從抄經預覽的 範字 圖層 clone（含篆/隸 skeleton），排除 user/marks/cellmap
     assert '"sutra-glyph-reference", "sutra-trace"' in html
     assert '"sutra-trace-skeleton"' in html
     # swDrawBase 優先用 styled 範字（drawImage），非 styled 才 fillText fallback
     assert "if (SW.refImg)" in html
     assert "ctx.drawImage(SW.refImg" in html
-    # swLoadCurrent 每字重建 refImg
-    assert "swBuildRefImg(cur)" in html
+    # swLoadCurrent 每字重建 refImg（R4：經 adapter，sutra fallback 同函式）
+    assert "SW.adapter?.buildRefImg || swBuildSutraRefImg" in html
     # 5ep 修：抄經預覽是 #su-preview（su-＝sutra），非 #st-preview（印章 stamp）。
     # 5en 誤用 st-preview → production 回 null、fallback 楷書；鎖 swBuildRefImg
     # 讀 su-preview（st-preview 是印章模式合法使用、不能全域禁）。
-    swfn = html.split("async function swBuildRefImg")[1].split(
+    swfn = html.split("async function swBuildSutraRefImg")[1].split(
         "async function")[0]
     assert 'getElementById("su-preview")' in swfn
     assert 'getElementById("st-preview")' not in swfn
@@ -2466,7 +2467,7 @@ def test_5eq_handwrite_ref_prefers_filled_layer_over_thick_skeleton():
     from stroke_order.web.server import app
     # W4-R1：逐字手寫 JS 已拆檔至 modes/handwrite.js
     html = TestClient(app).get("/static/modes/handwrite.js").text
-    swfn = html.split("async function swBuildRefImg")[1].split(
+    swfn = html.split("async function swBuildSutraRefImg")[1].split(
         "async function")[0]
     # 填實層優先集合 + 有任一填實層才用之、否則才 fallback 骨架
     assert '_filledIds = ["sutra-glyph-reference", "sutra-trace"]' in swfn

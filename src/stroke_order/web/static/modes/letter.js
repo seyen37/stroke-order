@@ -1,6 +1,7 @@
 // W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
 import { API_BASE } from "./core.js?v=__V__";
 import { ensureZhuyinTw, gridUserFont, gridUserFontName, gridZhuyinMap, injectUserFontIntoGrid } from "./grid.js?v=__V__";
+import { swAttachCells } from "./handwrite.js?v=__V__";   // 5ew-R4：點格手寫
 import { _attachRulerToPreview, ufPageDownloads } from "./notebook.js?v=__V__";
 
 // ============================================================
@@ -181,6 +182,10 @@ async function renderLetter(pageN = null) {
           }
         }
       }
+      // 5ew-R4：點格手寫——refresh 重繪目前頁（自訂字型注入後才掛）
+      swAttachCells(previewEl, {
+        key: "letter", styleId: "lt-style", sourceId: "lt-source",
+        refresh: () => renderLetter(pageN) });
     } else {
       previewEl.innerHTML = `<p>共 ${total} 頁，點擊頁碼預覽：</p>`;
       const buttons = [];

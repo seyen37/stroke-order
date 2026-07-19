@@ -1081,12 +1081,16 @@
     updateProgress();
     updatePromptUI();
     await renderBg();
-    if (_params.get('from') === 'sutra') {
+    // 5ew-R4：來源提示按模式顯示（R3 只有抄經；R4 擴散四模式）
+    const _fromLabels = { sutra: '抄經', grid: '字帖', notebook: '筆記',
+                          letter: '信紙', manuscript: '稿紙' };
+    const _fromLabel = _fromLabels[_params.get('from')];
+    if (_fromLabel) {
       const st = document.createElement('div');
       st.style.cssText = 'margin:6px 0;font-size:12px;color:#476;';
       st.textContent =
-        `從抄經「逐字手寫」進入——練「${_deepChar}」。完成本字後` +
-        '（勾選同步時）回到抄經重新產生預覽即可看到你的手寫字。';
+        `從${_fromLabel}「逐字手寫」進入——練「${_deepChar}」。完成本字後` +
+        `（勾選同步時）回到${_fromLabel}重新產生預覽即可看到你的手寫字。`;
       document.querySelector('.hw-actions')?.parentElement
         ?.insertBefore(st, document.querySelector('.hw-actions'));
     }

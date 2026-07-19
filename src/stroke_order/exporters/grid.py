@@ -69,20 +69,37 @@ def _guide_paths(style: GridStyle, size: int = EM_SIZE) -> str:
     return "\n    ".join(g)
 
 
+def _outline_or_track(strokes, color: str) -> str:
+    """5ew-R4 修：outline 有值→填色 path；track-only（手寫字/標點）→
+    同色 polyline 折線。
+
+    原版對所有筆畫硬呼叫 ``_outline_path_d``——空 outline 產生
+    ``d="Z"`` 垃圾 path（瀏覽器 console error），且該筆畫在
+    ghost/outline/filled 格式樣完全不顯示（user-dict 手寫字只有
+    track）。page.py 5ai 早已用「拆兩群」處理，這裡補齊同語意。"""
+    outline = [s for s in strokes if s.outline]
+    track = [s for s in strokes if not s.outline]
+    parts = "".join(f'<path d="{_outline_path_d(s)}"/>' for s in outline)
+    if track:
+        parts += (f'<g fill="none" stroke="{color}" stroke-width="40" '
+                  'stroke-linecap="round" stroke-linejoin="round">' +
+                  "".join(f'<polyline points="{_track_points_str(s)}"/>'
+                          for s in track) + "</g>")
+    return parts
+
+
 def _cell_content(char: Character, style: CellStyle) -> str:
     """Render one character into one cell's SVG content (no border/guides)."""
     if style == "blank" or not char.strokes:
         return ""
     if style == "ghost":
         # light grey outline — for tracing practice
-        return (f'<g class="ghost" fill="#e0e0e0">' +
-                "".join(f'<path d="{_outline_path_d(s)}"/>'
-                        for s in char.strokes) + "</g>")
+        return ('<g class="ghost" fill="#e0e0e0">' +
+                _outline_or_track(char.strokes, "#e0e0e0") + "</g>")
     if style == "outline":
         # filled stroke outlines (standard display)
         return ('<g class="outline" fill="#222">' +
-                "".join(f'<path d="{_outline_path_d(s)}"/>'
-                        for s in char.strokes) + "</g>")
+                _outline_or_track(char.strokes, "#222") + "</g>")
     if style == "trace":
         # centerline track (thin red line) — what the robot will follow
         return ('<g class="trace" fill="none" stroke="#c22" stroke-width="14" '
@@ -92,7 +109,7 @@ def _cell_content(char: Character, style: CellStyle) -> str:
     # 'filled' = outline + trace overlay
     return (
         '<g class="outline" fill="#ccc">' +
-        "".join(f'<path d="{_outline_path_d(s)}"/>' for s in char.strokes) +
+        _outline_or_track(char.strokes, "#ccc") +
         "</g>"
         '<g class="trace" fill="none" stroke="#c22" stroke-width="10" '
         'stroke-linecap="round" stroke-linejoin="round">' +

@@ -346,3 +346,28 @@ def test_5ew_r3_shared_store_and_sync_ui(client):
     assert "sw-advanced" in sw                       # 進階練習跳轉
     html = client.get("/").text
     assert 'id="sw-advanced"' in html                # overlay 按鈕存在
+
+
+def test_5ew_r4_click_to_write_spread(client):
+    """5ew-R4：點格手寫擴散——adapter 泛化＋四模式掛載標記。
+
+    overlay 邏輯唯一（handwrite.js），模式差異收斂於 adapter；
+    字帖/筆記/信紙/稿紙 render 後各自 swAttachCells。
+    """
+    sw = client.get("/static/modes/handwrite.js").text
+    for marker in ("swAttachCells", "SW_SUTRA_ADAPTER",
+                   "swCollectDataCharCells", "swBuildCellRefImg",
+                   "data-sw-hit"):
+        assert marker in sw, marker
+    # 抄經呼叫端名稱保留（行為不變的鎖）
+    assert "swAttachPreviewClicks" in sw
+    # 四模式：import 共用 overlay ＋ 以自己的 key/refresh 掛載
+    for mod in ("grid", "notebook", "letter", "manuscript"):
+        src = client.get(f"/static/modes/{mod}.js").text
+        assert "handwrite.js" in src, mod            # import 邊
+        assert f'key: "{mod}"' in src, mod           # adapter key＝模式名
+        assert "swAttachCells" in src, mod
+    # 筆順練習頁來源提示已泛化（from=grid/notebook/letter/manuscript）
+    page = client.get("/handwriting").text
+    assert "_fromLabels" in page
+    assert "稿紙" in page

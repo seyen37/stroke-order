@@ -369,3 +369,26 @@ def test_api_grid_download_headers_for_each_format(client):
         r = client.get(f"/api/grid?chars=日&cols=1&format={fmt}&download=true")
         assert r.status_code == 200
         assert "attachment" in r.headers.get("content-disposition", "")
+
+
+# ----- 5ew-R4：track-only 筆畫（手寫字/標點）在填色格式樣的呈現 ------------
+
+
+def test_5ew_r4_track_only_strokes_no_junk_path():
+    """空 outline 筆畫不產生 d="Z" 垃圾 path，改以同色折線顯示。
+
+    user-dict 手寫字只有 track——原版 ghost/outline/filled 對所有筆畫
+    硬轉 outline path，空 outline 得 "Z"（瀏覽器 console error）且
+    筆畫完全不顯示。修法與 page.py 5ai 同語意（拆 outline／track 兩群）。
+    """
+    from stroke_order.ir import Character, Point, Stroke
+    hw = Character("永", "6c38", strokes=[
+        Stroke(0, raw_track=[Point(100, 100), Point(900, 1800)], outline=[]),
+        Stroke(1, raw_track=[Point(200, 1000), Point(1900, 1100)],
+               outline=[]),
+    ], data_source="user_dict")
+    for cell_style in ("ghost", "outline", "filled"):
+        svg = render_grid_svg([hw], cols=1, cell_style=cell_style)
+        ET.fromstring(svg)
+        assert 'd="Z"' not in svg, cell_style
+        assert "<polyline" in svg, cell_style
