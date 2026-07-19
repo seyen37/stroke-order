@@ -58,6 +58,10 @@ class MaterialIterator {
     return this.currentChar();
   }
   reset() { this.index = 0; return this.currentChar(); }
+  /** 5ew-R1：往前看 n 個字（不移動游標）——參考字形預載用。 */
+  peek(n = 8) {
+    return this.chars.slice(this.index + 1, this.index + 1 + n);
+  }
   progress() {
     return {
       index:   this.index,

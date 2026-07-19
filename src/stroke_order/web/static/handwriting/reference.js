@@ -24,27 +24,59 @@ const _cache = new Map();   // key = `${char}|${style}` → strokes JSON
  * Fetch reference outline from the backend (cached in-memory).
  * @returns {Promise<Array<{outline: object[]}>>}  empty if no glyph
  */
+const _inflight = new Map();   // key → Promise（5ew-R1：預載與畫面請求去重）
+
 export async function fetchReference(char, style = 'kaishu') {
   if (!char) return [];
   const key = `${char}|${style}`;
   if (_cache.has(key)) return _cache.get(key);
+  if (_inflight.has(key)) return _inflight.get(key);   // 同字請求只發一次
 
   const url = `/api/handwriting/reference/${encodeURIComponent(char)}` +
               `?style=${encodeURIComponent(style)}`;
-  let strokes = [];
-  try {
-    const r = await fetch(url);
-    if (r.ok) {
-      const data = await r.json();
-      strokes = data.strokes || [];
-    } else {
-      console.warn(`reference fetch failed: ${r.status} for ${char}/${style}`);
+  const p = (async () => {
+    let strokes = [];
+    try {
+      const r = await fetch(url);
+      if (r.ok) {
+        const data = await r.json();
+        strokes = data.strokes || [];
+      } else {
+        console.warn(`reference fetch failed: ${r.status} for ${char}/${style}`);
+      }
+    } catch (e) {
+      console.warn('reference fetch error', e);
     }
-  } catch (e) {
-    console.warn('reference fetch error', e);
-  }
-  _cache.set(key, strokes);
-  return strokes;
+    _cache.set(key, strokes);
+    _inflight.delete(key);
+    return strokes;
+  })();
+  _inflight.set(key, p);
+  return p;
+}
+
+/**
+ * 5ew-R1：背景預載後續字的參考字形。
+ *
+ * 教材（如抄經經典）的字序已知——練當前字時把後面 n 個字先抓回來：
+ * 命中本模組記憶體快取＋瀏覽器 HTTP 快取，同時暖了伺服器端 5eu 回應
+ * 快取（/api/handwriting/reference 在快取前綴清單內）。按「下一字」
+ * 時參考字形即時出現，不再等 render。
+ *
+ * 低併發（2）循序抓：不擠爆伺服器（篆/隸 skeleton 抽取偏重）；
+ * fire-and-forget、錯誤靜默（輪到該字時 fetchReference 會再試）。
+ */
+export function prefetchReferences(chars, style = 'kaishu', concurrency = 2) {
+  const queue = (chars || []).filter(
+    c => c && !_cache.has(`${c}|${style}`) && !_inflight.has(`${c}|${style}`));
+  let i = 0;
+  const worker = async () => {
+    while (i < queue.length) {
+      const c = queue[i++];
+      await fetchReference(c, style).catch(() => {});
+    }
+  };
+  for (let k = 0; k < Math.min(concurrency, queue.length); k++) worker();
 }
 
 /**

@@ -296,7 +296,8 @@
     fetchSutraPresets,
   } from '/static/handwriting/materials.js';
   import { drawGrid } from '/static/handwriting/grid.js';
-  import { fetchReference, drawReference, clearReferenceCache }
+  import { fetchReference, drawReference, clearReferenceCache,
+           prefetchReferences }
     from '/static/handwriting/reference.js';
   import {
     exportAllJson, exportTraceSvg, exportAllSvgZip, importJson,
@@ -386,6 +387,10 @@
         if (state.material.currentChar() === ch) {
           drawReference(ctx, w, h, strokes);
         }
+        // 5ew-R1：教材字序已知（如抄經經典）——練當前字時背景預抓
+        // 後面 8 字的參考字形（renderBg 在換字/換風格時都會重跑，
+        // 單一掛點即涵蓋所有前進路徑）。
+        prefetchReferences(state.material.peek(8), state.style);
       }
     }
   }
