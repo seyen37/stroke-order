@@ -353,3 +353,50 @@ def test_5ff_table_emits_reference_layer(tmp_path, monkeypatch):
                        .split("</g>")[0]) < 50
     finally:
         cs.reset_seal_singleton()
+
+
+def test_5fg_traced_run_three_states():
+    """5fg：自繪表格共用描紅片段的三態語意——①外框字填色照舊
+    ②骨架字＋參考 loader → 參考層 0.55＋骨架 0.03 ③骨架字無參考
+    → 骨架可見 0.55（誠實降級：空白比瑕疵更糟）。"""
+    from stroke_order.exporters.sutra import traced_run
+    from stroke_order.ir import Character, Stroke, Point
+
+    def _mk(outline_cmds, track_pts):
+        return Character(
+            char="測", unicode_hex="6e2c",
+            strokes=[Stroke(index=0, raw_track=track_pts,
+                            outline=outline_cmds,
+                            kind_code=0, kind_name="其他",
+                            has_hook=False)],
+            data_source="test")
+
+    track = [Point(x=100, y=100), Point(x=1900, y=1900)]
+    outlined = _mk([{"type": "M", "x": 100, "y": 100},
+                    {"type": "L", "x": 1900, "y": 100},
+                    {"type": "L", "x": 1900, "y": 1900},
+                    {"type": "Z"}], track)
+    skeleton_only = _mk([], track)
+
+    # ① 外框字 → 填色群組（stroke=none 維持）
+    s1 = traced_run("測", 100, 100, 10, lambda ch: outlined, fill="#ccc")
+    assert 'fill="#ccc" stroke="none"' in s1 and "polyline" not in s1
+
+    # ② 骨架字＋參考 → 參考層 0.55 有墨；骨架 0.03 近隱形
+    s2 = traced_run("測", 100, 100, 10, lambda ch: skeleton_only,
+                    fill="#ccc",
+                    outline_glyph_loader=lambda ch: outlined)
+    assert 'opacity="0.55"' in s2          # 參考層
+    assert 'opacity="0.030"' in s2         # 骨架維持近隱形
+    assert "<path" in s2 and "polyline" in s2
+
+    # ③ 骨架字、無參考 → 骨架「可見」stroke（絕不再 stroke="none" 包骨架）
+    s3 = traced_run("測", 100, 100, 10, lambda ch: skeleton_only,
+                    fill="#ccc")
+    assert 'stroke="#ccc"' in s3 and 'opacity="0.55"' in s3
+    assert "polyline" in s3
+    # 隱形三要件皆不得出現在骨架群組：stroke=none 包 polyline
+    import re
+    for g in re.findall(r"<g[^>]*>", s3):
+        if "stroke=\"none\"" in g:
+            raise AssertionError("skeleton wrapped in stroke=none again")

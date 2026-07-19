@@ -15,7 +15,7 @@ from __future__ import annotations
 from .patch import _char_cut_paths
 from .sutra import (
     CharLoader, get_geometry, TRACE_FILL_DEFAULT,
-    _render_skeleton_glyph, _wrap_svg,
+    _render_skeleton_glyph, _wrap_svg, traced_run,
     cellmap_rect, cellmap_group,
 )
 
@@ -48,20 +48,13 @@ _FONT_STACK = "'Helvetica Neue', Arial, 'Noto Sans', sans-serif"
 
 
 def _traced(chars: str, cx: float, cy: float, size_mm: float,
-            loader: CharLoader, *, fill: str, gap_ratio: float = 1.15) -> str:
-    step = size_mm * gap_ratio
-    x0 = cx - step * (len(chars) - 1) / 2.0
-    parts: list[str] = []
-    for k, ch in enumerate(chars):
-        c = loader(ch)
-        if c is None:
-            continue
-        drawn = _char_cut_paths(c, x0 + k * step, cy, size_mm)
-        if not drawn:
-            drawn = _render_skeleton_glyph(c, x0 + k * step, cy, size_mm)
-        if drawn:
-            parts.append(drawn)
-    return f'<g fill="{fill}" stroke="none">{"".join(parts)}</g>' if parts else ""
+            loader: CharLoader, *, fill: str, gap_ratio: float = 1.15,
+            outline_glyph_loader=None) -> str:
+    # 5fg：委派共用 traced_run——舊版把骨架 fallback 包進 stroke="none"
+    # 群組，篆/隸（骨架字）整串隱形（5ff 週期表同病的自繪版）。
+    return traced_run(
+        chars, cx, cy, size_mm, loader, fill=fill, gap_ratio=gap_ratio,
+        outline_glyph_loader=outline_glyph_loader)
 
 
 def render_cangjie_roots_page(
@@ -69,6 +62,8 @@ def render_cangjie_roots_page(
     char_loader: CharLoader,
     trace_fill: str = TRACE_FILL_DEFAULT,
     show_grid: bool = True,
+    # 5fg：參考字形層（route 端 5ff 能力偵測轉發，同 週期表）
+    outline_glyph_loader=None,
     show_group_tints: bool = True,
     title: str = "倉頡字根",
     emit_cellmap: bool = False,
@@ -81,6 +76,9 @@ def render_cangjie_roots_page(
     only). Each radical cell is a single glyph, fitting the per-char model.
     """
     geom = get_geometry("landscape")
+    # 5fg：把參考層 loader 綁進本頁所有描紅呼叫
+    _t = lambda *a, **kw: _traced(
+        *a, outline_glyph_loader=outline_glyph_loader, **kw)
     cell_w = (geom.page_w_mm - _MARGIN_L - _MARGIN_R - _LABEL_W) / _COLS
     grid_x0 = _MARGIN_L + _LABEL_W
 
@@ -95,7 +93,7 @@ def render_cangjie_roots_page(
     cm: list[str] = []
     cell_pos = 0
 
-    title_svg = _traced(title, geom.page_w_mm / 2.0, _TITLE_CY,
+    title_svg = _t(title, geom.page_w_mm / 2.0, _TITLE_CY,
                         _TITLE_SIZE, loader, fill="#333333")
 
     for g, (label, keys, radicals) in enumerate(CANGJIE_GROUPS):
@@ -113,7 +111,7 @@ def render_cangjie_roots_page(
                 f'width="{_LABEL_W:.2f}" height="{_CELL_H:.2f}" '
                 f'fill="none" stroke="#999999" stroke-width="0.18"/>'
             )
-        glyphs.append(_traced(
+        glyphs.append(_t(
             label, _MARGIN_L + _LABEL_W / 2.0, y0 + _CELL_H / 2.0,
             5.2, loader, fill="#555555"))
         for k, (key, ch) in enumerate(zip(keys, radicals)):
@@ -141,7 +139,7 @@ def render_cangjie_roots_page(
             )
             char_size = min(cell_w - 6.0, _CELL_H - 10.0) * 0.85
             cy = y0 + 4.0 + (_CELL_H - 4.0) / 2.0
-            traced = _traced(ch, x0 + cell_w / 2.0, cy, char_size,
+            traced = _t(ch, x0 + cell_w / 2.0, cy, char_size,
                              loader, fill=trace_fill)
             if traced:
                 glyphs.append(traced)

@@ -1278,6 +1278,77 @@ def sutra_page_count(
 # ---------------------------------------------------------------------------
 
 
+def traced_run(
+    chars: str, cx: float, cy: float, size_mm: float,
+    loader: CharLoader, *, fill: str, gap_ratio: float = 1.15,
+    outline_glyph_loader: Optional[CharLoader] = None,
+    reference_glyph_opacity: float = 0.55,
+) -> str:
+    """5fg：自繪表格頁共用的「一串字」描紅片段。
+
+    先前五個表格（乘法/節氣/部首/倉頡/注音）各自複製的 ``_traced``
+    把骨架 fallback 包進 ``stroke="none"`` 群組——楷書（有外框、走
+    填色路徑）看得到，篆/隸（骨架字）整串隱形：5ff 週期表「漏轉
+    參考層」同病的自繪版。統一語意：
+
+    1. 有外框的字（楷書等）→ 填色路徑，原樣。
+    2. 骨架字＋有 ``outline_glyph_loader`` → 淡色原字參考層
+       （reference_glyph_opacity，與 5bz/5ca 內文頁一致）＋骨架
+       維持 ``_SKELETON_TRACE_OPACITY`` 近隱形（瑕疵不擾民）。
+    3. 骨架字、無參考來源 → 骨架以描紅灰**可見**呈現（0.55）——
+       這些頁面沒有雙層結構可靠，空白比瑕疵更糟（5dv 同理，
+       誠實降級階梯）。
+    """
+    step = size_mm * gap_ratio
+    x0 = cx - step * (len(chars) - 1) / 2.0
+    fill_parts: list[str] = []
+    ref_parts: list[str] = []
+    skel_faint: list[str] = []
+    skel_visible: list[str] = []
+    for k, ch in enumerate(chars):
+        c = loader(ch)
+        if c is None:
+            continue
+        gx = x0 + k * step
+        drawn = _char_cut_paths(c, gx, cy, size_mm)
+        if drawn:
+            fill_parts.append(drawn)
+            continue
+        sk = _render_skeleton_glyph(
+            c, gx, cy, size_mm,
+            stroke_width_mm=size_mm * _SKELETON_TRACE_STROKE_RATIO)
+        if not sk:
+            continue
+        ref_svg = ""
+        if outline_glyph_loader is not None:
+            ref_glyph = outline_glyph_loader(ch)
+            if ref_glyph is not None:
+                ref_svg = _char_cut_paths(ref_glyph, gx, cy, size_mm)
+        if ref_svg:
+            ref_parts.append(ref_svg)
+            skel_faint.append(sk)
+        else:
+            skel_visible.append(sk)
+    out: list[str] = []
+    if fill_parts:
+        out.append(f'<g fill="{fill}" stroke="none">'
+                   f'{"".join(fill_parts)}</g>')
+    if ref_parts:
+        out.append(f'<g fill="{fill}" stroke="none" '
+                   f'opacity="{reference_glyph_opacity:.2f}">'
+                   f'{"".join(ref_parts)}</g>')
+    if skel_faint:
+        out.append(f'<g fill="none" stroke="{fill}" '
+                   f'stroke-linecap="round" stroke-linejoin="round" '
+                   f'opacity="{_SKELETON_TRACE_OPACITY:.3f}">'
+                   f'{"".join(skel_faint)}</g>')
+    if skel_visible:
+        out.append(f'<g fill="none" stroke="{fill}" '
+                   f'stroke-linecap="round" stroke-linejoin="round" '
+                   f'opacity="0.55">{"".join(skel_visible)}</g>')
+    return "".join(out)
+
+
 def _wrap_svg(inner: str, *, geom: PageGeometry = None) -> str:
     if geom is None:
         geom = _GEOMETRIES["landscape"]
@@ -1298,6 +1369,8 @@ __all__ = [
     "MarkRenderer",
     # 5dt / 5dw: 逐字手寫 click-map helpers (shared contract)
     "cellmap_rect", "cellmap_group",
+    # 5fg: 自繪表格共用描紅片段
+    "traced_run",
     "render_sutra_page",
     "render_sutra_cover",
     "render_sutra_dedication",
