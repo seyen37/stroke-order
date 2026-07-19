@@ -75,9 +75,9 @@ def test_handwriting_route_includes_action_buttons(client):
     r = client.get("/handwriting")
     text = r.text
     for action in [
-        "clear", "commit", "prev", "next",
+        "clear", "commit", "prev", "next", "undo",
         "export-json", "export-svg-one", "export-svg-zip",
-        "clear-all", "email-self", "submit-public",
+        "clear-all", "submit-public",   # 5ez：email-self 依使用者要求刪除
     ]:
         assert f'data-action="{action}"' in text, f"missing data-action {action!r}"
 
@@ -96,14 +96,12 @@ def test_handwriting_includes_warnings_and_privacy_notice(client):
 
 
 def test_handwriting_includes_5e_placeholders(client):
-    """The email + public-database buttons must be present but disabled
-    until 5e ships them."""
+    """公眾資料庫佔位鈕保留（disabled 待開發）；email 同步鈕已依
+    使用者要求刪除（5ez）——改鎖「不得回歸」。"""
     text = client.get("/handwriting").text
-    # Single regex would also work, but be explicit
-    assert "data-action=\"email-self\"" in text
     assert "data-action=\"submit-public\"" in text
-    # Both should carry the "待開發" tooltip
     assert "待開發" in text
+    assert "email-self" not in text            # 5ez：刪除且不得回歸
 
 
 # ---------------------------------------------------------------------------
@@ -392,3 +390,29 @@ def test_5ew_r5_art_modes_click_to_write(client):
     page = client.get("/handwriting").text
     for label in ("文字藝術", "曼陀羅", "禪繞字"):
         assert label in page, label
+
+
+def test_5ez_layout_and_deeplink_settings(client):
+    """5ez：筆順練習頁動線/排版依使用者規格＋深連結帶入來源設定。"""
+    page = client.get("/handwriting").text
+    # 復原+清除 → 米字框外左上工具列；上一字/下一字/完成本字 → 右側欄
+    assert 'data-action="undo"' in page
+    assert 'hw-canvas-tools' in page
+    assert 'hw-canvas-row' in page
+    assert 'hw-side-actions' in page
+    # 匯出三鈕一行＋匯入靠右；email 同步鈕刪除、公眾資料庫佔位保留
+    assert 'hw-data-row-inline' in page
+    assert 'hw-data-import' in page
+    assert 'email-self' not in page
+    assert 'submit-public' in page
+    # 深連結帶入 style/preset＋回來源按鈕
+    assert '_styleParam' in page
+    assert '_hwDesiredPreset' in page
+    assert 'hw-back-origin' in page
+    css = client.get("/static/handwriting/handwriting.css").text
+    assert '.hw-side-actions' in css
+    assert '.hw-data-row-inline' in css
+    # 進階練習跳轉帶 style＋（抄經）preset
+    sw = client.get("/static/modes/handwrite.js").text
+    assert 'q.set("style"' in sw
+    assert 'q.set("preset"' in sw

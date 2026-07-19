@@ -199,12 +199,37 @@
       <span id="hw-prompt-meta" class="hw-prompt-meta"></span>
     </div>
 
-    <!-- 雙層 canvas — bg (reference glyph + grid) + ink (user) -->
-    <div class="hw-canvas-wrap" id="hw-canvas-wrap">
-      <canvas id="hw-canvas-bg"  class="hw-canvas hw-canvas-bg"
-              aria-hidden="true"></canvas>
-      <canvas id="hw-canvas-ink" class="hw-canvas hw-canvas-ink"
-              aria-label="書寫畫布"></canvas>
+    <!-- 5ez：畫布工具列——復原/清除放米字框外「左上」（與逐字手寫一致）。
+         沿用 .hw-actions class：來源提示（from=）插在本列之前＝畫布上方。 -->
+    <div class="hw-actions hw-canvas-tools">
+      <button class="hw-btn"          data-action="undo"     type="button">↺ 復原</button>
+      <button class="hw-btn"          data-action="clear"    type="button">清除</button>
+    </div>
+
+    <!-- 5ez：畫布＋右側動作欄（上一字/下一字/完成本字在框外右側，
+         與逐字手寫一致；同步勾選跟著完成鈕） -->
+    <div class="hw-canvas-row">
+      <!-- 雙層 canvas — bg (reference glyph + grid) + ink (user) -->
+      <div class="hw-canvas-wrap" id="hw-canvas-wrap">
+        <canvas id="hw-canvas-bg"  class="hw-canvas hw-canvas-bg"
+                aria-hidden="true"></canvas>
+        <canvas id="hw-canvas-ink" class="hw-canvas hw-canvas-ink"
+                aria-label="書寫畫布"></canvas>
+      </div>
+      <div class="hw-side-actions">
+        <button class="hw-btn"          data-action="prev"     type="button">⏴ 上一字</button>
+        <button class="hw-btn"          data-action="next"     type="button">下一字 ⏵</button>
+        <button class="hw-btn hw-btn-primary"
+                                         data-action="commit"   type="button">✓ 完成本字</button>
+        <!-- 5ew-R3：整合——存檔同步到渲染字庫（user-dict，全站模式吃它）。
+             預設開＝資料自動整合；練壞的字可取消勾選避免蓋掉好字。 -->
+        <label style="font-size:12px;color:var(--muted, #777);
+               display:inline-flex;align-items:center;gap:4px;"
+               title="勾選時，完成本字會同步寫入渲染字庫（罕用字/逐字手寫共用）——字帖、抄經等所有模式立即可用你的手寫字。取消勾選只存練習史。">
+          <input type="checkbox" id="hw-sync-userdict" checked>
+          同步到渲染字庫
+        </label>
+      </div>
     </div>
 
     <!-- 軌跡狀態 -->
@@ -212,23 +237,6 @@
       <span>筆畫：<b id="hw-stat-strokes">0</b></span>
       <span>取樣點：<b id="hw-stat-points">0</b></span>
       <span>耗時：<b id="hw-stat-duration">0.0s</b></span>
-    </div>
-
-    <!-- 操作鈕 -->
-    <div class="hw-actions">
-      <button class="hw-btn"          data-action="clear"    type="button">清除</button>
-      <button class="hw-btn"          data-action="prev"     type="button">⏴ 上一字</button>
-      <button class="hw-btn hw-btn-primary"
-                                       data-action="commit"   type="button">✓ 完成本字</button>
-      <button class="hw-btn"          data-action="next"     type="button">下一字 ⏵</button>
-      <!-- 5ew-R3：整合——存檔同步到渲染字庫（user-dict，全站模式吃它）。
-           預設開＝資料自動整合；練壞的字可取消勾選避免蓋掉好字。 -->
-      <label style="margin-left:12px;font-size:12px;color:var(--muted, #777);
-             display:inline-flex;align-items:center;gap:4px;"
-             title="勾選時，完成本字會同步寫入渲染字庫（罕用字/逐字手寫共用）——字帖、抄經等所有模式立即可用你的手寫字。取消勾選只存練習史。">
-        <input type="checkbox" id="hw-sync-userdict" checked>
-        同步到渲染字庫
-      </label>
     </div>
 
     <!-- session count -->
@@ -249,29 +257,23 @@
     <span>不重複字：<b id="hw-db-unique">0</b></span>
   </div>
 
-  <!-- 匯出 -->
-  <div class="hw-data-row">
+  <!-- 5ez：匯出三鈕一行、匯入靠最右（單列不佔三行） -->
+  <div class="hw-data-row hw-data-row-inline">
     <h3 class="hw-data-row-title">匯出</h3>
     <button class="hw-btn"          data-action="export-json"      type="button">↓ JSON（全部）</button>
     <button class="hw-btn"          data-action="export-svg-one"   type="button">↓ Plotter SVG（當前字）</button>
     <button class="hw-btn"          data-action="export-svg-zip"   type="button">↓ Plotter SVG（zip 全部）</button>
+    <span class="hw-data-import">
+      <span class="hw-data-row-title">匯入</span>
+      <input id="hw-import-file" type="file" accept=".json,application/json">
+    </span>
   </div>
 
-  <!-- 匯入 -->
+  <!-- 公眾資料庫（5ez：刪除「寄到我的 email」跨機同步；匿名提交排期開發） -->
   <div class="hw-data-row">
-    <h3 class="hw-data-row-title">匯入</h3>
-    <input id="hw-import-file" type="file" accept=".json,application/json">
-  </div>
-
-  <!-- 跨機同步（5d 純下載；5e 才接 SMTP） -->
-  <div class="hw-data-row">
-    <h3 class="hw-data-row-title">跨機同步</h3>
-    <button class="hw-btn" data-action="email-self" disabled
-            title="待開發 (5e) — 目前請改用「下載 JSON」自行 email 給自己">
-      ✉ 寄到我的 email（待開發）
-    </button>
+    <h3 class="hw-data-row-title">公眾資料庫</h3>
     <button class="hw-btn" data-action="submit-public" disabled
-            title="待開發 (5e) — 提交匿名公眾資料庫">
+            title="待開發 — 提交匿名公眾資料庫（協助寫字機器人取得真實軌跡）">
       🌐 提交匿名公眾資料庫（待開發）
     </button>
   </div>
@@ -440,6 +442,14 @@
         opt.textContent = p.title;
         sel.appendChild(opt);
       }
+      // 5ez：深連結 ?preset= 帶入來源經典——選單就緒後補套
+      if (window._hwDesiredPreset) {
+        const want = window._hwDesiredPreset;
+        if ([...sel.options].some(o => o.value === want)) {
+          sel.value = want;
+          window._hwDesiredPreset = null;
+        }
+      }
     } catch (e) {
       console.warn('preset list failed', e);
       const opt = document.createElement('option');
@@ -546,6 +556,10 @@
   // CLEAR — wipe ink only
   document.querySelector('[data-action="clear"]').addEventListener('click',
     () => canvas.clear());
+
+  // 5ez：UNDO — 抽掉最後一筆（canvas.popLastStroke 既有 API）
+  document.querySelector('[data-action="undo"]').addEventListener('click',
+    () => canvas.popLastStroke());
 
   // COMMIT — save trace + advance to next char
   document.querySelector('[data-action="commit"]').addEventListener('click',
@@ -1081,6 +1095,28 @@
     updateProgress();
     updatePromptUI();
     await renderBg();
+    // 5ez：帶入來源設定——字型風格（渲染範字前套用）＋經典 preset
+    const _styleParam = (_params.get('style') || '').trim();
+    if (_styleParam) {
+      const styleSel = document.getElementById('hw-style');
+      if (styleSel &&
+          [...styleSel.options].some(o => o.value === _styleParam)) {
+        styleSel.value = _styleParam;
+        styleSel.dispatchEvent(new Event('change'));
+        await renderBg();          // 範字改用來源風格重繪
+      }
+    }
+    const _presetParam = (_params.get('preset') || '').trim();
+    if (_presetParam) {
+      // 經典下拉是非同步載入——先試套，選項未就緒就留給 populate 補套
+      const presetSel = document.getElementById('hw-sutra-preset');
+      if (presetSel &&
+          [...presetSel.options].some(o => o.value === _presetParam)) {
+        presetSel.value = _presetParam;
+      } else {
+        window._hwDesiredPreset = _presetParam;
+      }
+    }
     // 5ew-R4：來源提示按模式顯示（R3 只有抄經；R4 擴散四模式）
     const _fromLabels = { sutra: '抄經', grid: '字帖', notebook: '筆記',
                           letter: '信紙', manuscript: '稿紙',
@@ -1089,10 +1125,24 @@
     const _fromLabel = _fromLabels[_params.get('from')];
     if (_fromLabel) {
       const st = document.createElement('div');
-      st.style.cssText = 'margin:6px 0;font-size:12px;color:#476;';
-      st.textContent =
+      st.style.cssText = 'margin:6px 0;font-size:12px;color:#476;' +
+        'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+      const txt = document.createElement('span');
+      txt.textContent =
         `從${_fromLabel}「逐字手寫」進入——練「${_deepChar}」。完成本字後` +
         `（勾選同步時）回到${_fromLabel}重新產生預覽即可看到你的手寫字。`;
+      st.appendChild(txt);
+      // 5ez：回來源按鈕——本頁由 window.open 開啟，可直接關閉回原分頁
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'hw-btn';
+      back.id = 'hw-back-origin';
+      back.textContent = `↩ 回${_fromLabel}`;
+      back.addEventListener('click', () => {
+        window.close();
+        setTimeout(() => { location.href = '/'; }, 250);  // 非彈窗保險
+      });
+      st.appendChild(back);
       document.querySelector('.hw-actions')?.parentElement
         ?.insertBefore(st, document.querySelector('.hw-actions'));
     }

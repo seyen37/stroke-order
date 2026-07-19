@@ -451,3 +451,44 @@ input:focus, select:focus, button:focus-visible {
   color: var(--hw-muted);
   font-size: 11px;
 }
+
+
+/* =====================================================================
+   5ez：畫布工具列（左上）＋右側動作欄——與抄經「逐字手寫」一致的佈局
+   ===================================================================== */
+.hw-canvas-tools {
+  max-width: 600px;
+  margin: 0 auto 6px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;   /* 米字框外左上 */
+}
+.hw-canvas-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;               /* 窄螢幕自動疊直 */
+}
+.hw-canvas-row .hw-canvas-wrap { margin: 0; }
+.hw-side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 136px;
+}
+.hw-side-actions .hw-btn { width: 100%; }
+
+/* 5ez：匯出三鈕一行＋匯入靠最右 */
+.hw-data-row-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.hw-data-import {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

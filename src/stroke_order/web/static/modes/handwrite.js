@@ -193,10 +193,16 @@ function swInit() {
     const cur = SW.positions[SW.index];
     if (!cur) return;
     // R4：from= 帶模式 key——筆順練習頁的來源提示按模式顯示。
+    // 5ez：再帶來源設定——字型風格＋（抄經）經典 preset，練習頁自動套用。
     const from = SW.adapter?.key || "sutra";
-    window.open(
-      `/handwriting?char=${encodeURIComponent(cur.char)}&from=${from}`,
-      "_blank", "noopener");
+    const q = new URLSearchParams({ char: cur.char, from });
+    const style = swStyleValue();
+    if (style) q.set("style", style);
+    if (from === "sutra") {
+      const preset = (document.getElementById("su-preset") || {}).value || "";
+      if (preset) q.set("preset", preset);
+    }
+    window.open(`/handwriting?${q.toString()}`, "_blank", "noopener");
   };
   $("sw-submit").onclick  = swSubmitAndClose;
   $("sw-export").onclick  = () => {
