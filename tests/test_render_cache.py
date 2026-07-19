@@ -238,3 +238,67 @@ def test_5ex_capacity_probe_exempt_from_gate():
     r2 = c.get("/api/grid", params={"chars": "測"})
     assert r2.status_code == 200
     assert app.state.render_gate_stat["peak"] == 1   # 一般渲染有進
+
+
+# ---------------------------------------------------------------------------
+# 5ey：表格頁分段載入（D）＋記憶體衛生（E）
+# ---------------------------------------------------------------------------
+
+
+def test_5ey_table_page_glyph_chars_three_states(client):
+    """單字格表格頁（週期表）吃 glyph_chars 三態——與 body 同語意。"""
+    base = {"preset": "periodic_table", "page_type": "table",
+            "emit_cellmap": "true", "show_original_glyph": "true"}
+    blank = client.get("/api/sutra", params={**base, "glyph_chars": ""})
+    assert blank.status_code == 200
+    assert 'id="sutra-cellmap"' in blank.text     # 版面/格線/cellmap 齊全
+    full = client.get("/api/sutra", params=base)
+    assert full.status_code == 200
+    import re
+    m = re.search(r'data-char="([^"]+)"', blank.text)
+    sub = client.get("/api/sutra", params={**base, "glyph_chars": m.group(1)})
+    assert sub.status_code == 200
+    assert len(sub.content) < len(full.content)   # 子集 < 完整
+
+
+def test_5ey_selfdrawn_table_blank_still_200(client):
+    """自繪多字表格（乘法表）帶 glyph_chars=""：伺服器不炸（前端偵測
+    無 cellmap 後回退一次性完整渲染，不會用到這個空殼）。"""
+    r = client.get("/api/sutra", params={
+        "preset": "multiplication_table", "page_type": "table",
+        "glyph_chars": ""})
+    assert r.status_code == 200
+
+
+def test_5ey_glyph_cache_lru_cap():
+    """字型源字形快取 LRU：超上限淘汰最舊、hit 沿用記號。"""
+    from collections import OrderedDict
+
+    from stroke_order.sources.glyph_cache import GLYPH_CACHE_MAX, lru_put
+    assert GLYPH_CACHE_MAX == 1024
+    c = OrderedDict()
+    for i in range(5):
+        lru_put(c, i, str(i), max_entries=3)
+    assert list(c) == [2, 3, 4]                   # 0,1 淘汰
+    c.move_to_end(2)                              # hit 沿用
+    lru_put(c, 9, "9", max_entries=3)
+    assert list(c) == [4, 2, 9]                   # 3 被淘汰、2 因 hit 保留
+    # 三個外框字型源都掛上 LRU
+    import inspect
+
+    from stroke_order.sources import chongxi_seal, cns_font, moe_lishu
+    for mod in (chongxi_seal, cns_font, moe_lishu):
+        src = inspect.getsource(mod)
+        assert "lru_put(self._cache" in src, mod.__name__
+        assert "move_to_end(char)" in src, mod.__name__
+
+
+def test_5ey_release_memory_hook_in_gate():
+    """渲染閘門 active 歸零時 gc+malloc_trim（RSS 棘輪對策）標記。"""
+    import inspect
+
+    from stroke_order.web import server as srv_mod
+    src = inspect.getsource(srv_mod)
+    assert "malloc_trim" in src
+    assert "gc.collect()" in src
+    assert '_release_memory()' in src

@@ -447,6 +447,15 @@ def sutra_post(req: SutraPostRequest):
         req.source, req.hook_policy, req.style, memoize=True)
 
     if req.page_type == "table":
+        # 5ey-D：單字格表格頁（週期表等，重用 render_sutra_page）也吃
+        # 分段載入——glyph_chars 三態語意與 body 相同（None=完整；
+        # ""=零載入純版面；字集=集合外回 None 缺字留白）。自繪多字
+        # 表格（乘法/節氣）不發 cellmap，前端偵測空 cellmap 後回退
+        # 一次性完整渲染，不會帶 glyph_chars 重打。
+        if req.glyph_chars is not None:
+            _allowed_t = set(req.glyph_chars)
+            _full_t = loader
+            loader = (lambda ch: _full_t(ch) if ch in _allowed_t else None)
         # 5bo: preset-specific table layout, one A4-landscape page.
         render_table = _table_page_renderer(req.preset)
         table_kwargs = dict(

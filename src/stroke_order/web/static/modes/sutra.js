@@ -642,8 +642,10 @@ async function sutraRender() {
   status.textContent = "產生中…";
   status.style.color = "";
   try {
-    if (slot.type !== "body") {
-      // 封面/迴向/表格頁：字少、一次渲染照舊
+    // 5ey-D：body＋table（週期表 120+ 字）都走分段；封面/迴向字少照舊
+    const progressive = slot.type === "body" || slot.type === "table";
+    if (!progressive) {
+      // 封面/迴向頁：字少、一次渲染照舊
       preview.innerHTML = await suFetchSvg();
       if (gen !== _suRenderGen) return;
       suFitPreview(preview);
@@ -658,7 +660,14 @@ async function sutraRender() {
       // ② 分批填字
       const rects = [...preview.querySelectorAll("#sutra-cellmap [data-char]")];
       const uniq = [...new Set(rects.map(r => r.getAttribute("data-char")))];
-      if (uniq.length && prog) {
+      if (!uniq.length) {
+        // 5ey-D：無 cellmap＝自繪多字表格（乘法/節氣）——分段機制
+        // 不適用，回退一次性完整渲染（空白版已渲的殼直接覆蓋）
+        preview.innerHTML = await suFetchSvg();
+        if (gen !== _suRenderGen) return;
+        suFitPreview(preview);
+        swAttachPreviewClicks(preview);
+      } else if (prog) {
         prog.style.display = "flex";
         progBar.style.width = "0%";
         progText.textContent = `0/${uniq.length} 字`;

@@ -40,6 +40,9 @@ from pathlib import Path
 from typing import Optional
 
 from ..ir import EM_SIZE, Character, Point, Stroke
+from collections import OrderedDict
+
+from .glyph_cache import GLYPH_CACHE_MAX, lru_put
 from .g0v import CharacterNotFound
 
 
@@ -83,7 +86,7 @@ class CNSFontSource:
         # Lazily-loaded {filename: TTFont}
         self._fonts: dict[str, object] = {}
         # Character-level memoisation
-        self._cache: dict[str, Character] = {}
+        self._cache: "OrderedDict[str, Character]" = OrderedDict()  # 5ey-E：LRU 上限
 
     def __repr__(self) -> str:
         return (f"CNSFontSource(dir={self.font_dir!s}, "
@@ -127,8 +130,10 @@ class CNSFontSource:
         return font
 
     def get_character(self, char: str) -> Character:
-        if char in self._cache:
-            return self._cache[char]
+        cached = self._cache.get(char)
+        if cached is not None:
+            self._cache.move_to_end(char)   # 5ey-E：LRU 沿用記號
+            return cached
         cp = ord(char)
         plane = cp >> 16
         font = self._font_for_plane(plane)
@@ -176,7 +181,7 @@ class CNSFontSource:
             )],
             data_source=ds,
         )
-        self._cache[char] = c
+        lru_put(self._cache, char, c, GLYPH_CACHE_MAX)  # 5ey-E
         return c
 
     def has(self, char: str) -> bool:

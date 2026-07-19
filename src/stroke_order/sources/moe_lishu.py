@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..ir import EM_SIZE, Character, Point, Stroke
+from .glyph_cache import GLYPH_CACHE_MAX, lru_put
 from .cns_font import _OutlineCmdPen, _transform_cmd
 from .g0v import CharacterNotFound
 
@@ -77,7 +78,7 @@ class MoeLishuSource:
             Path(font_path) if font_path else default_lishu_font_path()
         )
         self._font: object = None
-        self._cache: dict[str, Character] = {}
+        self._cache: "OrderedDict[str, Character]" = OrderedDict()  # 5ey-E：LRU 上限
 
     def __repr__(self) -> str:
         return (f"MoeLishuSource(file={self.font_path!s}, "
@@ -109,8 +110,10 @@ class MoeLishuSource:
         return len(font.getBestCmap())
 
     def get_character(self, char: str) -> Character:
-        if char in self._cache:
-            return self._cache[char]
+        cached = self._cache.get(char)
+        if cached is not None:
+            self._cache.move_to_end(char)   # 5ey-E：LRU 沿用記號
+            return cached
         font = self._load_font()
         if font is None:
             raise CharacterNotFound(
@@ -149,7 +152,7 @@ class MoeLishuSource:
             )],
             data_source="moe_lishu",
         )
-        self._cache[char] = c
+        lru_put(self._cache, char, c, GLYPH_CACHE_MAX)  # 5ey-E
         return c
 
     def has(self, char: str) -> bool:

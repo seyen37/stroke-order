@@ -26,6 +26,8 @@ Run with::
 from __future__ import annotations
 
 import asyncio
+import ctypes
+import gc
 import hashlib
 from collections import OrderedDict
 
@@ -91,6 +93,18 @@ def create_app() -> FastAPI:
     render_gate = asyncio.Semaphore(RENDER_GATE_MAX)
     render_gate_stat = {"active": 0, "peak": 0}
 
+    # 5ey-E：重渲染後歸還記憶體。Python 不主動把空閒 heap 還給 OS
+    # （5ex 量測：渲染完 RSS 停 471MB 不回落＝棘輪）——gc 清引用圈後
+    # 用 glibc malloc_trim 把空閒 arena 真正還給 OS。只在「最後一個
+    # 併發渲染結束」時做（active 歸零），成本（數十 ms）攤在秒級
+    # 渲染之後；輕量路徑（capacity/靜態/快取命中）完全不受影響。
+    def _release_memory():
+        gc.collect()
+        try:
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:      # 非 glibc（如 musl/macOS）——安靜略過
+            pass
+
     async def _gated(call):
         async with render_gate:
             render_gate_stat["active"] += 1
@@ -100,6 +114,8 @@ def create_app() -> FastAPI:
                 return await call()
             finally:
                 render_gate_stat["active"] -= 1
+                if render_gate_stat["active"] == 0:
+                    _release_memory()
 
     class _RenderCacheMiddleware:
         def __init__(self, app):
