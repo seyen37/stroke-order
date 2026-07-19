@@ -2011,6 +2011,72 @@ index.html 巨石拆分（健檢 W4）的目標範式。
 
 ---
 
+## 41. 大型重構走兩輪制：機械搬遷輪（行為零變＋機器快照鎖）與去重複輪分離（2026-07-19 W3/W4 新增）
+
+server.py 5,010→269 行、index.html 10,859→3,255 行都用同一方法完成：
+R1 純機械搬遷——先立快照鎖（路由 (method,path) 集合／拆檔串接與拆前
+逐位元組一致／載入序清單），diff 再大也是零邏輯變更，全量測試＋鎖
+可以完全鎖死；R2 才在綠色地基上改邏輯（工廠收斂／module 化）。
+
+判準：**「搬家」和「改邏輯」永遠不同輪、不同 commit。**混在一起出
+問題無法定位；分開後每輪可獨立回退，且 R1 的「零變」是可被機器
+證明的命題，不是口頭保證。
+
+---
+
+## 42. 搬遷式重構的 by-value 陷阱簇：monkeypatch 目標、import 綁定、模組層副作用、框架 introspection（2026-07-19 W3 新增）
+
+把符號從 A 模組搬到 B 模組時，四件事會沉默失效：①測試
+`monkeypatch.setattr(A, "f", ...)` 對 `from A import f` 的既有綁定無效
+——被 patch 的符號要嘛執行期屬性存取、要嘛 patch 目標跟著搬且
+**不留別名**（patch 別名不影響實際呼叫）；②搬遷區段的相對 import
+深度會變；③模組層副作用（`app = create_app()`）在互相 import 下
+變循環——PEP 562 `__getattr__` 惰性化；④框架 introspection 的形狀
+可能不是你以為的（FastAPI 0.139 include_router 巢狀掛載——iterate
+app.routes 只見容器）——introspect 一律過自家攤平走訪器。
+
+判準：**搬符號前先 grep 三件事：誰 monkeypatch 它、誰 from-import
+它、誰在模組層執行它。**三張清單處理完才動手。
+
+---
+
+## 43. classic↔ES module 翻轉是語意變更，用 AST 量測決定順序、翻轉狀態入快照鎖（2026-07-19 W4-R2 新增）
+
+`<script>` 轉 `type="module"` 改三件事：嚴格模式（未宣告賦值炸）、
+自有作用域（頂層宣告從全域消失——消費者斷炊）、deferred（執行時序
+後移）。安全轉換順序不是猜的：AST def/use 矩陣算出「零被依賴」檔
+先轉（別檔不用其任何頂層名），供應鏈節點等消費端就緒（import 網）
+才轉；轉前跑三道掃描（嚴格模式未宣告賦值／頂層 this／隱性全域
+外洩）。翻轉狀態（哪些檔是 module）入快照鎖——改集合必先重跑量測。
+
+判準：**轉 module 的單位是「量測出的相依邊界」，不是檔案清單順序；
+UNRESOLVED=0 才動手。**
+
+---
+
+## 44. ES module 跨檔邊三定律：import binding 唯讀、循環靠函式宣告＋事件時呼叫、URL 帶版本佔位符（2026-07-19 W4-R2 新增）
+
+①import binding 唯讀但 live——被多檔「寫」的共享狀態，宣告權必須
+歸寫入方（讀方 import live binding）；②循環 import 安全條件＝跨邊
+引用是函式宣告（instantiation 期已初始化）且雙方只在事件時呼叫；
+跨邊 const/let 必須逐一確認無頂層取用（TDZ）；③import 路徑帶
+`?v=__V__` 佔位符走版本注入——跨檔 import 的瀏覽器快取隨版本失效，
+與頁面資源同一套快取鍵紀律（§11.4 的 module 版）。
+
+---
+
+## 45. 斷言歸源：registry／資料集長度收斂 src 常數＋機制鎖；演算法輸出期望保留寫死（2026-07-19 W4-R2 新增）
+
+「改預設值→大面積紅」的結構根因是測試自帶字面量。解法分兩類：
+**registry／資料集長度**（字集筆數、部首數、樣式數）收斂為 src 內
+單一真相源常數（如 COVERSET_SIZES），配一條機制鎖（實載筆數＝常數，
+防常數與資料檔漂移），測試一律引用同源；**演算法輸出期望**（「這個
+輸入該切 4 段」）是規格、本來就該寫死，不歸源。附帶教訓：歸源時
+會順手抓到命名與實況的漂移（moe_elementary_5021 實收 5,018——名稱
+取公告字數）。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2043,7 +2109,9 @@ index.html 巨石拆分（健檢 W4）的目標範式。
     架構健檢全景審查＋四波路線圖→Wave 1 止血（5er async 掃全體/gzip/CI
     缺口/g0v bundle）→5es 503 OOM 搶修（JSONL 懶解析）→5et 手寫卡片模式
     弧五輪（/card 編輯器、三源字形、顏文字/塗鴉/SVG、版面自由度、外框/
-    印刷 PDF/PNG））
+    印刷 PDF/PNG）；**第二階段**：W2 快取層＋單一事實源（5eu/5ev）→
+    W3 後端拆分兩輪（server.py 5,010→269）→ W4 前端拆分兩輪
+    （index.html 10,859→3,255、16 ES modules）——健檢四波全數執行完畢）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -2063,6 +2131,8 @@ index.html 巨石拆分（健檢 W4）的目標範式。
   - [`2026-07-18_5eq_handwrite_ref_layer.md`](decisions/2026-07-18_5eq_handwrite_ref_layer.md)（逐字手寫篆書範字太粗——styled 範字 reuse 多圖層 SVG 要挑對代表層、別全 clone 拉 opacity=1，對應 §34）
   - [`2026-07-19_arch_review_wave1_5es.md`](decisions/2026-07-19_arch_review_wave1_5es.md)（架構線：全景健檢＋Wave 1 止血＋503 OOM 修復，對應 §35–§38）
   - [`2026-07-19_5et_card_mode.md`](decisions/2026-07-19_5et_card_mode.md)（5et 手寫卡片弧五輪 QODA 重放，對應 §37–§40）
+  - [`2026-07-19_w2_cache_single_source.md`](decisions/2026-07-19_w2_cache_single_source.md)（W2 快取層＋單一事實源 5eu/5ev QODA 重放：純 ASGI vs BaseHTTPMiddleware、cache_bus 分層、pyproject 優先版本源、badge 自動化）
+  - [`2026-07-19_w3_w4_decomposition.md`](decisions/2026-07-19_w3_w4_decomposition.md)（W3＋W4 前後端巨石拆分四輪 QODA 重放，對應 §41–§45）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
