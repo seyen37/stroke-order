@@ -205,6 +205,13 @@
       <button class="hw-btn hw-btn-danger"
               data-action="clear-all" type="button"
               title="刪除本機練習史全部紀錄（不可復原；二次確認）">⚠ 清空整個資料庫</button>
+      <!-- 5fl：匯出三鈕自底部抽屜移入左欄（清空下方）；抽屜隨之移除 -->
+      <div class="hw-export-group">
+        <span class="hw-data-row-title">匯出</span>
+        <button class="hw-btn" data-action="export-json"    type="button">↓ JSON（全部）</button>
+        <button class="hw-btn" data-action="export-svg-one" type="button">↓ Plotter SVG（當前字）</button>
+        <button class="hw-btn" data-action="export-svg-zip" type="button">↓ Plotter SVG（zip 全部）</button>
+      </div>
     </section>
 
   </aside>
@@ -278,18 +285,7 @@
 
 </main>
 
-<!-- ============= BOTTOM: data management drawer ============= -->
-<section class="hw-drawer" id="hw-drawer" hidden>
-  <!-- 5fj：統計/提交移左欄、匯入/清空移畫布右下——抽屜剩匯出功能 -->
-  <h2 class="hw-section-title">匯出</h2>
-
-  <div class="hw-data-row hw-data-row-inline">
-    <button class="hw-btn"          data-action="export-json"      type="button">↓ JSON（全部）</button>
-    <button class="hw-btn"          data-action="export-svg-one"   type="button">↓ Plotter SVG（當前字）</button>
-    <button class="hw-btn"          data-action="export-svg-zip"   type="button">↓ Plotter SVG（zip 全部）</button>
-  </div>
-
-</section>
+<!-- 5fl：底部抽屜移除——匯出三鈕移入左欄「我的資料」（清空下方） -->
 
 <footer class="hw-footer">
   <small>
@@ -690,14 +686,10 @@
     $('hw-banner-inapp-browser').hidden = false;
   }
 
-  // Data drawer toggle
+  // 5fl：抽屜已移除——「≡ 我的資料」改捲動到左欄資料區並刷新統計
   $('hw-data-mgmt').addEventListener('click', async () => {
-    const d = $('hw-drawer');
-    d.hidden = !d.hidden;
-    if (!d.hidden) {
-      d.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      await refreshDbStats();
-    }
+    $('hw-side-data').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    await refreshDbStats();
   });
 
   async function refreshDbStats() {

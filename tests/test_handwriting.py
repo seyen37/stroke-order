@@ -400,8 +400,9 @@ def test_5ez_layout_and_deeplink_settings(client):
     assert 'hw-canvas-tools' in page
     assert 'hw-canvas-row' in page
     assert 'hw-side-actions' in page
-    # 匯出三鈕一行＋匯入靠右；email 同步鈕刪除、公眾資料庫佔位保留
-    assert 'hw-data-row-inline' in page
+    # 匯入/匯出區塊存在；email 同步鈕刪除、公眾資料庫佔位保留
+    # （5ez 的「匯出三鈕一行」版位歷經 5fj/5fk/5fl 移入左欄——
+    #    佈局斷言移交 test_5fj_5fl_data_area_relayout）
     assert 'hw-data-import' in page
     assert 'email-self' not in page
     assert 'submit-public' in page
@@ -411,7 +412,6 @@ def test_5ez_layout_and_deeplink_settings(client):
     assert 'hw-back-origin' in page
     css = client.get("/static/handwriting/handwriting.css").text
     assert '.hw-side-actions' in css
-    assert '.hw-data-row-inline' in css
     # 進階練習跳轉帶 style＋（抄經）preset
     sw = client.get("/static/modes/handwrite.js").text
     assert 'q.set("style"' in sw
@@ -462,12 +462,13 @@ def test_5fe_layout_and_version_sync(client):
     assert "insertBefore(st, _row)" in page
 
 
-def test_5fj_5fk_data_area_relayout(client):
-    """5fj→5fk：資料區重排——統計＋提交＋匯入＋清空全移左欄（組件覆蓋
-    下，順序 統計→提交→匯入→清空）；畫布右下區退場；抽屜剩匯出列；
-    清空帶二次確認。id/data-action 全保留（JS 綁定不斷）。"""
+def test_5fj_5fl_data_area_relayout(client):
+    """5fj→5fl：資料區重排終局——統計/提交/匯入/清空/匯出三鈕全在左欄
+    （組件覆蓋下，順序 統計→提交→匯入→清空→匯出×3）；畫布右下區與
+    底部抽屜均退場；清空帶二次確認。id/data-action 全保留（JS 綁定
+    不斷；「≡ 我的資料」改捲動到左欄資料區）。"""
     page = client.get("/handwriting").text
-    # 左欄：組件覆蓋 → 我的資料（統計→提交→匯入→清空）順序
+    # 左欄：組件覆蓋 → 我的資料（統計→提交→匯入→清空→匯出三鈕）順序
     aside = page.split("<aside", 1)[1].split("</aside>", 1)[0]
     assert 'id="hw-side-data"' in aside
     assert aside.index("hw-coverset") < aside.index('id="hw-side-data"')
@@ -475,26 +476,30 @@ def test_5fj_5fk_data_area_relayout(client):
     assert 'id="hw-db-count"' in side and 'id="hw-db-unique"' in side
     order = [side.index('data-action="submit-public"'),
              side.index('id="hw-import-file"'),
-             side.index('data-action="clear-all"')]
+             side.index('data-action="clear-all"'),
+             side.index('data-action="export-json"'),
+             side.index('data-action="export-svg-one"'),
+             side.index('data-action="export-svg-zip"')]
     assert side.index('id="hw-db-count"') < order[0]
     assert order == sorted(order), order
-    # 5fk：畫布右下區（5fj 的 hw-canvas-bottom）已退場
+    # 5fk：畫布右下區退場；5fl：底部抽屜退場（匯出併入左欄）
     assert "hw-canvas-bottom" not in page
-    # 抽屜：只剩匯出（無統計/清空/提交/匯入）
-    drawer = page.split('id="hw-drawer"')[1].split("</section>")[0]
-    assert "export-json" in drawer
-    for gone in ("hw-db-count", "clear-all", "submit-public", "hw-import-file"):
-        assert gone not in drawer, gone
+    assert 'id="hw-drawer"' not in page
+    # 「≡ 我的資料」仍在，改導向左欄資料區
+    assert 'id="hw-data-mgmt"' in page
+    assert "$('hw-side-data').scrollIntoView" in page
     # 5fk：清空整庫二次確認——clear-all 處理器內兩個 confirm(
     handler = page.split('[data-action="clear-all"]\').addEventListener', 1)[1]
     body = handler[:handler.index("clearAllTraces")]   # 確認都在動手之前
     assert body.count("confirm(") == 2, body.count("confirm(")
     assert "最後確認" in body
-    # CSS：左欄匯入/清空撐滿欄寬；右下區規則已移除
+    # CSS：左欄匯入/清空/匯出撐滿欄寬；右下區與抽屜規則已移除
     css = client.get("/static/handwriting/handwriting.css").text
     assert "hw-canvas-bottom" not in css
+    assert ".hw-drawer {" not in css
     assert "#hw-side-data .hw-data-import" in css
     assert "#hw-side-data .hw-btn-danger" in css
+    assert "#hw-side-data .hw-export-group" in css
 
 
 def test_5fi_index_version_label(client):

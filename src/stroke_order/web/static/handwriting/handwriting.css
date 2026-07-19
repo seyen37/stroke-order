@@ -403,17 +403,8 @@ input:focus, select:focus, button:focus-visible {
 }
 .hw-session-count b { color: var(--hw-fg); }
 
-/* ----- data drawer ------------------------------------------------- */
+/* ----- 我的資料（左欄資料區；5fl 後抽屜移除） ---------------------- */
 
-.hw-drawer {
-  max-width: 1400px;
-  margin: 0 auto 16px;
-  padding: 16px;
-  background: var(--hw-surface);
-  border: 1px solid var(--hw-line);
-  border-radius: var(--hw-radius);
-  display: flex; flex-direction: column; gap: 14px;
-}
 .hw-data-stats {
   display: flex; gap: 8px; align-items: baseline;
   font-size: 13px; color: var(--hw-muted);
@@ -423,19 +414,11 @@ input:focus, select:focus, button:focus-visible {
 .hw-data-stats b { color: var(--hw-fg); font-weight: 600; }
 .hw-data-sep { color: var(--hw-line); }
 
-.hw-data-row {
-  display: flex; flex-direction: column; gap: 6px;
-}
 .hw-data-row-title {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--hw-muted);
-}
-.hw-data-row .hw-btn {
-  align-self: flex-start;
-  margin-right: 6px;
-  margin-bottom: 4px;
 }
 .hw-data-danger {
   margin-top: 8px;
@@ -509,13 +492,6 @@ input:focus, select:focus, button:focus-visible {
 }
 .hw-side-actions .hw-btn { width: 100%; }
 
-/* 5ez：匯出三鈕一行＋匯入靠最右 */
-.hw-data-row-inline {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
 .hw-data-import {
   margin-left: auto;
   display: inline-flex;
@@ -549,6 +525,14 @@ input:focus, select:focus, button:focus-visible {
   width: 100%;
   margin-top: 8px;
 }
+/* 5fl：匯出三鈕（自抽屜移入，清空下方直排滿欄寬） */
+#hw-side-data .hw-export-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+#hw-side-data .hw-export-group .hw-btn { width: 100%; }
 
 /* 5fc：請寫列——「逐字手寫」返回鈕靠最右 */
 .hw-prompt-row { display: flex; align-items: center; gap: 8px; }
