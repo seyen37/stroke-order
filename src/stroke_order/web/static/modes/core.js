@@ -1,3 +1,6 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { renderCnsDecomposition } from "./fonts.js?v=__V__";
+
 // ==== Wakeup overlay controller (Render free-tier cold-start UX) ====
 // 包一層 window.fetch：第一個 fetch 超過 3 秒未回應就顯示 overlay。
 // 同 session 喚醒過後不再觸發（用 sessionStorage 標記）。
@@ -285,3 +288,5 @@ document.querySelectorAll('input[name="mode"]').forEach(r =>
   })
 );
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { API_BASE, load };

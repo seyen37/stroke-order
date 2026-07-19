@@ -1,3 +1,8 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+import { swAttachPreviewClicks } from "./handwrite.js?v=__V__";
+import { escapeHtml } from "./userdict.js?v=__V__";
+
 // ============================================================
 // 抄經模式 (Phase 5az) — A4 landscape trace SVG for plotter use
 // ============================================================
@@ -708,3 +713,5 @@ async function sutraDownloadPdf() {
   }
 }
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { sutraInit, sutraRender };

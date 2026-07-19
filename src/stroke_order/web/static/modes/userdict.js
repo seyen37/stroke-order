@@ -1,3 +1,6 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+
 // ============================================================
 // User-dict manager (Phase 5ak) — modal + handwriting + SVG + JSON
 // ============================================================
@@ -374,3 +377,5 @@ async function udSave() {
   }
 }
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { escapeHtml, udInit, udOpen };

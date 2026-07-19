@@ -1,8 +1,13 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+
 // W4-R2：本檔為 ES module。lastDoodleSvg 為 notebook.js 宣告的全域
 // binding（module 可見可賦值）——塗鴉→筆記引用鏈不變。
 // ============================================================
 // Doodle (塗鴉) mode
 // ============================================================
+let lastDoodleSvg = null;   // cached from 塗鴉 mode rendering（宣告在寫入方）
+
 let ddAnnRowCount = 0;
 function addDoodleAnnRow(x = 10, y = 10, text = "", size = 3.5) {
   const wrap = document.getElementById("dd-annotations");
@@ -220,3 +225,5 @@ document.getElementById("dd-engine")
   .addEventListener("change", ddSyncEngineUi);
 ddSyncEngineUi();
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { lastDoodleSvg };

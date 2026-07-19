@@ -1,3 +1,6 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+
 // ============================================================
 // WordArt (文字雲) mode
 // ============================================================
@@ -377,3 +380,5 @@ document.getElementById("wa-edge-broadcast")?.addEventListener("click",
 
 document.getElementById("wa-render").onclick = renderWordart;
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { scheduleWaCapacity, waUpdatePanels };

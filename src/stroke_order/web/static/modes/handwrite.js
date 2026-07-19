@@ -1,3 +1,7 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+import { sutraRender } from "./sutra.js?v=__V__";
+
 // ============================================================
 // 逐字手寫 (Phase 5dt) — 點抄經預覽格子 → 手寫自己的字 → 存 user-dict
 // ============================================================
@@ -486,3 +490,5 @@ async function swShowDemo() {
   }
 }
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { swAttachPreviewClicks, swInit };

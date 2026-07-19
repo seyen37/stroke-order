@@ -1,3 +1,7 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+import { escapeHtml, udOpen } from "./userdict.js?v=__V__";
+
 // ============================================================
 // Tier 1 (Phase 5ak): text-fallback warning banner
 // ============================================================
@@ -577,3 +581,6 @@ async function renderCnsDecomposition(char) {
     /* silent — diagnostic only */
   }
 }
+
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { bindAllFontStyleGates, cnsInit, kaishuInit, lishuInit, renderCnsDecomposition, sealInit, songInit };

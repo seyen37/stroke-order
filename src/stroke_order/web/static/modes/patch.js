@@ -1,3 +1,6 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+
 // ============================================================
 // 預覽用：把字 outline 改成灰階填充 (Phase 5ba-5)
 // ------------------------------------------------------------
@@ -220,3 +223,5 @@ async function patchDownload(format) {
   }
 }
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { patchInit, tintPreviewFill };

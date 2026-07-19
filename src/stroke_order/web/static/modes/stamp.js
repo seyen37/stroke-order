@@ -1,3 +1,7 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+import { tintPreviewFill } from "./patch.js?v=__V__";
+
 // ============================================================
 // 印章模式 (Phase 5ay) — laser engraving on wood
 // ============================================================
@@ -849,3 +853,5 @@ async function stampDownload(format) {
   }
 }
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { stampInit };

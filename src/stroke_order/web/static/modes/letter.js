@@ -1,3 +1,8 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+import { ensureZhuyinTw, gridUserFont, gridUserFontName, gridZhuyinMap, injectUserFontIntoGrid } from "./grid.js?v=__V__";
+import { _attachRulerToPreview, ufPageDownloads } from "./notebook.js?v=__V__";
+
 // ============================================================
 // Letter (信紙) mode — very similar to notebook
 // ============================================================
@@ -229,3 +234,5 @@ document.getElementById("lt-direction").addEventListener(
   "change", ltUpdateDirectionalLabel);
 ltUpdateDirectionalLabel();
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { scheduleLtCapacity };

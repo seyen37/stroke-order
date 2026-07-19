@@ -1,3 +1,8 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+import { lastDoodleSvg } from "./doodle.js?v=__V__";
+import { ensureZhuyinTw, gridUserFont, gridUserFontName, gridZhuyinMap, injectUserFontIntoGrid } from "./grid.js?v=__V__";
+
 // ============================================================
 // Notebook (筆記) mode
 // ============================================================
@@ -135,7 +140,8 @@ function nbBuildPostBody(pageN) {
 // Stored in JS state (not in URL) so SVG content can be large.
 let nbZones = [];
 let nbSelectedZoneId = null;  // currently selected for drag
-let lastDoodleSvg = null;     // cached from 塗鴉 mode rendering
+// lastDoodleSvg：W4-R2 宣告移居寫入方 doodle.js（module import 唯讀，
+// 寫入方才能持有宣告權）；本檔經 import 取得 live binding 讀取。
 
 function nbGenZoneId() {
   return "z" + Math.random().toString(36).slice(2, 9);
@@ -1053,3 +1059,5 @@ function nbAttachDoodleZoneInteraction() {
   // Clean up on next render (handlers removed when overlay is replaced)
 }
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { _attachRulerToPreview, scheduleNbCapacity, ufPageDownloads };

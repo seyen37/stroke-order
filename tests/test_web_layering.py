@@ -53,8 +53,8 @@ MODE_SCRIPTS = [
     "sutra", "userdict", "handwrite", "fonts",
 ]
 
-#: W4-R2 起已轉 ES module 的模式檔（零被依賴四檔先轉）。
-ES_MODULE_MODES = {"stencil", "grid_route", "doodle", "mandala"}
+#: W4-R2 次批完結：16 檔全數 ES module（跨檔相依＝顯式 import/export 網）。
+ES_MODULE_MODES = set(MODE_SCRIPTS)
 
 
 def test_index_mode_scripts_order_snapshot():

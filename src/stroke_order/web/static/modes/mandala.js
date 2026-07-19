@@ -1,3 +1,15 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE, load } from "./core.js?v=__V__";
+import { bindAllFontStyleGates, cnsInit, kaishuInit, lishuInit, sealInit, songInit } from "./fonts.js?v=__V__";
+import { swInit } from "./handwrite.js?v=__V__";
+import { scheduleLtCapacity } from "./letter.js?v=__V__";
+import { scheduleNbCapacity } from "./notebook.js?v=__V__";
+import { patchInit } from "./patch.js?v=__V__";
+import { stampInit } from "./stamp.js?v=__V__";
+import { sutraInit } from "./sutra.js?v=__V__";
+import { udInit } from "./userdict.js?v=__V__";
+import { scheduleWaCapacity, waUpdatePanels } from "./wordart.js?v=__V__";
+
 // W4-R2：本檔為 ES module（零被依賴；重度消費他檔全域——deferred
 // 於所有傳統 script 之後執行，引用時全域已就緒）。
 // ============================================================

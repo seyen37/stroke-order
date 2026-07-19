@@ -3226,25 +3226,26 @@
   前端動畫：<a href="https://hanziwriter.org" target="_blank" rel="noopener">hanzi-writer</a>
 </footer>
 
-<!-- W4-R1（架構健檢 Wave 4）：原 7,621 行 inline script 依模式機械拆檔。
-     傳統 script（非 module）＋原文件序載入＝全域語意與執行順序不變；
-     拆檔時串接位元組驗證與拆前一致。R2 起逐模式 ES modules 化。 -->
-<script src="/static/modes/core.js?v=__V__"></script>
+<!-- W4（架構健檢 Wave 4）：原 7,621 行 inline script 依模式拆檔（R1），
+     R2 全數 ES modules 化——跨檔相依為顯式 import/export 網（~25 條邊，
+     AST 量測生成）；module 執行序＝相依解析序，事件時呼叫的兩個循環
+     （sutra↔handwrite、core↔fonts）皆為函式宣告、TDZ 安全。 -->
+<script type="module" src="/static/modes/core.js?v=__V__"></script>
 <script type="module" src="/static/modes/stencil.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
-<script src="/static/modes/grid.js?v=__V__"></script>
-<script src="/static/modes/notebook.js?v=__V__"></script>
-<script src="/static/modes/letter.js?v=__V__"></script>
-<script src="/static/modes/manuscript.js?v=__V__"></script>
+<script type="module" src="/static/modes/grid.js?v=__V__"></script>
+<script type="module" src="/static/modes/notebook.js?v=__V__"></script>
+<script type="module" src="/static/modes/letter.js?v=__V__"></script>
+<script type="module" src="/static/modes/manuscript.js?v=__V__"></script>
 <script type="module" src="/static/modes/doodle.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
 <script type="module" src="/static/modes/grid_route.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
-<script src="/static/modes/wordart.js?v=__V__"></script>
+<script type="module" src="/static/modes/wordart.js?v=__V__"></script>
 <script type="module" src="/static/modes/mandala.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
-<script src="/static/modes/patch.js?v=__V__"></script>
-<script src="/static/modes/stamp.js?v=__V__"></script>
-<script src="/static/modes/sutra.js?v=__V__"></script>
-<script src="/static/modes/userdict.js?v=__V__"></script>
-<script src="/static/modes/handwrite.js?v=__V__"></script>
-<script src="/static/modes/fonts.js?v=__V__"></script>
+<script type="module" src="/static/modes/patch.js?v=__V__"></script>
+<script type="module" src="/static/modes/stamp.js?v=__V__"></script>
+<script type="module" src="/static/modes/sutra.js?v=__V__"></script>
+<script type="module" src="/static/modes/userdict.js?v=__V__"></script>
+<script type="module" src="/static/modes/handwrite.js?v=__V__"></script>
+<script type="module" src="/static/modes/fonts.js?v=__V__"></script>
 
 <!-- Phase 6z-1: 禪繞字模式 — ESM 模組（pure helpers in outline.mjs, DOM glue in zentangle.js）
      5df-2: ?v= 快取鍵（URL 即快取鍵，§11.4）——zentangle.js 新增 regions.mjs import，

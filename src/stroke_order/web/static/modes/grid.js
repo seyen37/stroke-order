@@ -1,3 +1,6 @@
+// W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
+import { API_BASE } from "./core.js?v=__V__";
+
 // ============================================================
 // Grid (字帖) mode
 // ============================================================
@@ -537,3 +540,5 @@ document.getElementById("grid-chars").addEventListener("keydown", e => {
   if (e.key === "Enter") renderGrid();
 });
 
+// W4-R2：跨檔邊匯出（消費端見 import 網）
+export { ensureZhuyinTw, gridUserFont, gridUserFontName, gridZhuyinMap, injectUserFontIntoGrid };
