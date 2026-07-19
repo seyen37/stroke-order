@@ -2264,6 +2264,46 @@ diagnostics）是十輪沙箱推測抵不上的三分鐘。
 
 ---
 
+## 61. 版面多輪收斂：佈局斷言集中「終局測試」；動版位先掃歷代測試的版位斷言（2026-07-19 5fj～5fl 新增）
+
+同一批 UI 元件三輪遷移（畫布右下→左欄→匯出跟進），前兩輪全綠、
+第三輪被更早的 5ez 版位斷言（hw-data-row-inline）咬紅——版面
+斷言散在歷代測試裡，每輪搬家都是地雷。作法：①版位/順序斷言
+集中一個**終局版面測試**，隨版面演進改名續版（test_5fj →
+test_5fj_5fk → test_5fj_5fl）；舊輪測試的版位斷言移交＋留註記，
+不讓 N 個測試各鎖一個歷史版面 ②動版位 checklist 固定含「grep
+歷代測試中被移元素的 class/id」③行為全綁 id/data-action
+（per-element querySelector）＝DOM 大搬家 JS 零改動，搬家成本
+只剩 HTML+CSS+測試。附帶：搬空的容器（抽屜）整段移除不留
+dead UI；其入口鈕不刪、改語意（捲動到內容新位置）——affordance
+保留、語意跟著內容走。
+
+---
+
+## 62. 不可復原操作配二次確認；E2E 要實測「攔得住」，不是驗「有 confirm 字樣」（2026-07-19 5fk 新增）
+
+整庫刪除這類不可復原操作雙 confirm：第一關給退路（建議先匯出
+備份）、第二關明示範圍與不可復原（「最後確認：刪除『全部』」）；
+兩關都必須在真正動手（clearAllTraces）**之前**。測試兩層：
+靜態鎖「處理器內恰 2 個 confirm( 且都在動手前」（防未來重構把
+確認移到刪除後或刪掉一關）；E2E 用 dialog handler「第一關接受＋
+第二關取消」然後驗資料完好——驗的是**攔截力**，字樣存在不代表
+攔得住。
+
+---
+
+## 63. 需求語意不明：先重現、帶證據問；使用者現場證據可折抵自動驗收（2026-07-19 5fk/5fl 新增）
+
+「恢復X按鈕」一句話三種解讀（常駐化／消失 bug／別的頁面的鈕）。
+別猜著做：先本機**重現 X 的全部出現路徑**（該鈕僅深連結出現、
+實測正常、歷史確認從未常駐），把驗證結果寫進選項再問——使用者
+一眼選「維持現狀」，零改動結案；不先驗證就動手，三個解讀猜錯
+兩個。姊妹律（驗收經濟）：使用者貼的 production 截圖含版號＋
+完整版面＝比 curl 更強的驗收證據，已排的自動驗收 trigger 可撤，
+不重複燒資源；無截圖的輪次才走輕量 curl 驗收模板。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2298,7 +2338,10 @@ diagnostics）是十輪沙箱推測抵不上的三分鐘。
     弧五輪（/card 編輯器、三源字形、顏文字/塗鴉/SVG、版面自由度、外框/
     印刷 PDF/PNG）；**第二階段**：W2 快取層＋單一事實源（5eu/5ev）→
     W3 後端拆分兩輪（server.py 5,010→269）→ W4 前端拆分兩輪
-    （index.html 10,859→3,255、16 ES modules）——健檢四波全數執行完畢）
+    （index.html 10,859→3,255、16 ES modules）——健檢四波全數執行完畢；
+    **第三～七階段**：5ew 手寫整合＋5ex~5fb 渲染治理鏈＋5fa 部件合成＋
+    5fc~5fe 版面/深連結/正方化＋5ff~5fh 表格可見度三部曲＋
+    5fi~5fl 版本標籤與資料區終局收斂）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -2325,6 +2368,7 @@ diagnostics）是十輪沙箱推測抵不上的三分鐘。
   - [`2026-07-19_5fa_seal_compose.md`](decisions/2026-07-19_5fa_seal_compose.md)（篆體缺字部件合成：誠實放棄曲線/標示/相容分流；週期表缺字 60→0、62 字合成，對應 §53）
   - [`2026-07-19_5fc_5fe_layout_deeplink_seal_square.md`](decisions/2026-07-19_5fc_5fe_layout_deeplink_seal_square.md)（筆順練習版面三輪＋深連結分流＋合成正方化：hidden 全域歸位/grid 動態插入雙陷阱/bbox 正規化/三態驗收/版本注入與 exact-URL 重放，對應 §54–§57）
   - [`2026-07-19_5ff_5fh_table_visibility.md`](decisions/2026-07-19_5ff_5fh_table_visibility.md)（表格隱形字三部曲：可見度契約歸位/traced_run 三態降級/覆蓋稽核白名單/實機活體 DOM 診斷/「暫時性」誤判訂正，對應 §58–§60）
+  - [`2026-07-19_5fi_5fl_version_label_data_area.md`](decisions/2026-07-19_5fi_5fl_version_label_data_area.md)（主頁版本標籤注入＋資料區三輪收斂到左欄一條龍：終局測試治理/清空二次確認實測攔截力/先重現帶證據問/截圖折抵驗收，對應 §61–§63）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -2335,4 +2379,4 @@ diagnostics）是十輪沙箱推測抵不上的三分鐘。
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§60 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§63 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收）。三者互補。
