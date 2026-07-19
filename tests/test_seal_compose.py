@@ -181,9 +181,21 @@ def test_5fe_extb_element_decomp_entries():
         "𨨏": ("⿰", "金", "波"), "𨭆": ("⿰", "金", "黑"),
         "䥑": ("⿰", "金", "麥"), "鿬": ("⿰", "石", "田"),
         "鿫": ("⿹", "气", "奧"),
+        # 5fh：鑭系漏網二字（釓 用 乚 非 乙——釔 才是 金+乙）
+        "釓": ("⿰", "金", "乚"), "鋱": ("⿰", "金", "弋"),
     }
     for ch, plan in expect.items():
         assert resolve_decomp(ch, db) == plan, ch
+    # 5fh：118 元素完整覆蓋稽核——無拆解者只准是原典古字
+    elements = ("氫氦鋰鈹硼碳氮氧氟氖鈉鎂鋁矽磷硫氯氬鉀鈣"
+                "鈧鈦釩鉻錳鐵鈷鎳銅鋅鎵鍺砷硒溴氪銣鍶釔鋯"
+                "鈮鉬鎝釕銠鈀銀鎘銦錫銻碲碘氙銫鋇鑭鈰鐠釹"
+                "鉕釤銪釓鋱鏑鈥鉺銩鐿鎦鉿鉭鎢錸鋨銥鉑金汞"
+                "鉈鉛鉍釙砈氡鍅鐳錒釷鏷鈾錼鈽鋂鋦鉳鉲鑀鐨"
+                "鍆鍩鐒鑪𨧀𨭎𨨏𨭆䥑鐽錀鎶鉨鈇鏌鉝鿬鿫")
+    no_decomp = {c for c in elements if resolve_decomp(c, db) is None}
+    assert no_decomp <= set("硫鐵銀金鉛"), (
+        f"非原典元素字缺拆解：{no_decomp - set('硫鐵銀金鉛')}")
 
 
 def test_compose_gives_up_honestly(seal_source):
