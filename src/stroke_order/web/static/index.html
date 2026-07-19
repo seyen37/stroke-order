@@ -1987,6 +1987,16 @@
       <span id="su-status" style="margin-left:10px;color:var(--muted);font-size:12px;"></span>
     </div>
 
+    <!-- 5ew-R2：分段載入進度條——空白描紅格秒回後，字形分批填入 -->
+    <div id="su-progress" style="display:none;margin:6px 0;align-items:center;gap:8px;">
+      <div style="flex:1;height:6px;background:#eee;border-radius:3px;overflow:hidden;">
+        <div id="su-progress-bar" style="height:100%;width:0%;background:var(--accent);
+             border-radius:3px;transition:width .25s;"></div>
+      </div>
+      <span id="su-progress-text" style="font-size:11px;color:var(--muted);
+            min-width:70px;text-align:right;"></span>
+    </div>
+
     <div id="su-preview" style="background:white;padding:10px;border:1px solid var(--border);
          min-height:180px;text-align:center;color:var(--muted);">
       （點「產生預覽」載入第一頁）

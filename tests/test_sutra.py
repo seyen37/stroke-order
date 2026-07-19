@@ -2572,3 +2572,51 @@ def test_5ee_user_handwriting_renders_in_cairosvg_raster(tmp_path):
     # the handwriting must add visible ink beyond the (identical) grid/frame —
     # regression: it used to vanish as a cairosvg hairline (increment == 0).
     assert _ink(hw) > _ink(blank)
+
+
+# ---------------------------------------------------------------------------
+# 5ew-R2：預覽分段載入——glyph_chars 子集渲染契約
+# ---------------------------------------------------------------------------
+
+
+def test_5ew_glyph_chars_blank_page_renders_layout_only(client):
+    """glyph_chars=""＝純空白描紅格：版面/cellmap 照發、零字形層、秒回。"""
+    base = {"preset": "heart_sutra", "page_type": "body", "page_index": 0,
+            "emit_cellmap": True, "show_original_glyph": True}
+    blank = client.post("/api/sutra", json={**base, "glyph_chars": ""})
+    assert blank.status_code == 200
+    assert 'id="sutra-cellmap"' in blank.text        # 逐字手寫點擊層照發
+    for layer in ("sutra-trace", "sutra-glyph-reference",
+                  "sutra-trace-skeleton"):
+        assert f'id="{layer}"' not in blank.text     # 零字形層
+
+
+def test_5ew_glyph_chars_subset_renders_only_that_set(client):
+    """子集渲染：只載集合內的字，回應遠小於完整版；預設路徑不變。"""
+    import re as _re
+
+    base = {"preset": "heart_sutra", "page_type": "body", "page_index": 0,
+            "emit_cellmap": True, "show_original_glyph": True}
+    # 子集字取自該頁實際內容（cellmap 第一個字）——不假設特定字在第 0 頁
+    blank = client.post("/api/sutra", json={**base, "glyph_chars": ""})
+    m = _re.search(r'data-char="([^"]+)"', blank.text)
+    assert m, "cellmap 應含至少一格"
+    ch = m.group(1)
+    full = client.post("/api/sutra", json=base)
+    sub = client.post("/api/sutra", json={**base, "glyph_chars": ch})
+    assert full.status_code == sub.status_code == 200
+    # 完整版有字形層（下載/PDF 路徑不受 glyph_chars 影響）
+    assert ('id="sutra-trace"' in full.text
+            or 'id="sutra-trace-skeleton"' in full.text)
+    # 子集版有字形層但體積遠小（只渲染該字的格）
+    assert ('id="sutra-trace"' in sub.text
+            or 'id="sutra-trace-skeleton"' in sub.text)
+    assert len(sub.text) < len(full.text) * 0.6
+
+
+def test_5ew_progress_bar_markup_present(client):
+    """index.html 帶分段載入進度條容器（bar＋text）。"""
+    html = client.get("/").text
+    assert 'id="su-progress"' in html
+    assert 'id="su-progress-bar"' in html
+    assert 'id="su-progress-text"' in html

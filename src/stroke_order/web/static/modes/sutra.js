@@ -521,46 +521,151 @@ function sutraBuildBody(overrides) {
   return overrides ? Object.assign(body, overrides) : body;
 }
 
+// ------ 5ew-R2：預覽分段載入（空白描紅格秒回＋字形分批填入＋進度條） ------
+//
+// 舊行為：POST 一次、伺服器渲整頁（字多的篆/隸冷載可達數十秒）——使用者
+// 只能盯著「產生中…」。新流程：
+//   ① glyph_chars=""   → 純空白描紅格（零字形載入，秒回；含格線/句讀/
+//                         cellmap，點格子逐字手寫立刻可用）
+//   ② 讀 cellmap 的唯一字集 → 每批 12 字 POST glyph_chars=批次
+//   ③ 批次回應的四個具名字形圖層（reference/trace/skeleton/user）把
+//      children 合併進畫面上的同名單一圖層——保持與一次性渲染完全相同
+//      的 DOM 結構（swBuildRefImg 依 id 取層，不能出現重複 id）
+//   ④ 進度條隨批推進；換頁/重按以世代計數放棄舊批（不誤塞）
+// 下載/PDF 路徑不帶 glyph_chars——輸出檔案照舊一次性完整渲染。
+
+const SU_GLYPH_LAYERS = ["sutra-glyph-reference", "sutra-trace",
+                         "sutra-trace-skeleton", "sutra-trace-user"];
+const SU_BATCH_SIZE = 12;
+let _suRenderGen = 0;   // 世代計數：新 render／換頁使進行中的舊批失效
+
+async function suFetchSvg(extra) {
+  const r = await fetch(`${API_BASE}/api/sutra`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    // 5bz: preview shows the reference letterform behind the skeleton
+    // (隸/篆 only). Download buttons keep the default (skeleton-only).
+    // 5dt: emit_cellmap → clickable per-cell overlay for 逐字手寫.
+    body: JSON.stringify(sutraBuildBody(Object.assign(
+      {show_original_glyph: true, emit_cellmap: true}, extra || {}))),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({detail: r.statusText}));
+    throw new Error(err.detail || `HTTP ${r.status}`);
+  }
+  return r.text();
+}
+
+function suFitPreview(preview) {
+  const inner = preview.querySelector("svg");
+  if (!inner) return;
+  // A4 landscape SVG; 移除 mm width/height 讓它撐滿容器
+  inner.removeAttribute("width");
+  inner.removeAttribute("height");
+  inner.style.width = "100%";
+  inner.style.maxHeight = "70vh";
+  inner.style.height = "auto";
+  inner.style.display = "block";
+  inner.style.background = "white";
+}
+
+function suMergeBatch(svgText, preview, batchSet) {
+  const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  const target = preview.querySelector("svg");
+  if (!target) return;
+  const cellmap = target.querySelector("#sutra-cellmap");
+  for (const id of SU_GLYPH_LAYERS) {
+    const src = doc.getElementById(id);
+    if (!src) continue;
+    let dst = target.querySelector("#" + id);
+    if (!dst) {
+      // 空白版沒有這個圖層（伺服器只在非空時輸出）——建同名同屬性殼，
+      // 插在「下一個已存在的字形層」之前、最終壓在 cellmap（點擊層）下，
+      // 維持與一次性渲染相同的圖層順序。
+      dst = document.importNode(src, false);
+      let before = cellmap;
+      for (let j = SU_GLYPH_LAYERS.indexOf(id) + 1;
+           j < SU_GLYPH_LAYERS.length; j++) {
+        const later = target.querySelector("#" + SU_GLYPH_LAYERS[j]);
+        if (later) { before = later; break; }
+      }
+      if (before) target.insertBefore(dst, before);
+      else target.appendChild(dst);
+    }
+    for (const child of [...src.childNodes]) {
+      dst.appendChild(document.importNode(child, true));
+    }
+  }
+  // cellmap data-missing 修正：空白版的 loader 探測被過濾、全格標缺——
+  // 以批次回應中「本批字」的真實載入狀態逐格覆寫（data-pos 對位）。
+  const srcMap = doc.getElementById("sutra-cellmap");
+  if (cellmap && srcMap) {
+    for (const r of srcMap.querySelectorAll("[data-char]")) {
+      const ch = r.getAttribute("data-char");
+      if (!batchSet.has(ch)) continue;
+      const t = cellmap.querySelector(
+        `[data-pos="${r.getAttribute("data-pos")}"]`);
+      if (!t) continue;
+      if (r.hasAttribute("data-missing")) t.setAttribute("data-missing", "1");
+      else t.removeAttribute("data-missing");
+    }
+  }
+}
+
 async function sutraRender() {
   if (SUTRA.total_pages === 0) {
     document.getElementById("su-status").textContent =
       "尚無可預覽頁——請先放入經文 .txt 並重新整理頁面";
     return;
   }
+  const gen = ++_suRenderGen;
   const status = document.getElementById("su-status");
   const preview = document.getElementById("su-preview");
+  const prog = document.getElementById("su-progress");
+  const progBar = document.getElementById("su-progress-bar");
+  const progText = document.getElementById("su-progress-text");
+  const slot = SUTRA.layout[SUTRA.current_index] || {type: "body"};
   status.textContent = "產生中…";
+  status.style.color = "";
   try {
-    const r = await fetch(`${API_BASE}/api/sutra`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      // 5bz: preview shows the reference letterform behind the skeleton
-      // (隸/篆 only). Download buttons keep the default (skeleton-only).
-      // 5dt: emit_cellmap → clickable per-cell overlay for 逐字手寫.
-      body: JSON.stringify(sutraBuildBody(
-        {show_original_glyph: true, emit_cellmap: true})),
-    });
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({detail: r.statusText}));
-      throw new Error(err.detail || `HTTP ${r.status}`);
+    if (slot.type !== "body") {
+      // 封面/迴向/表格頁：字少、一次渲染照舊
+      preview.innerHTML = await suFetchSvg();
+      if (gen !== _suRenderGen) return;
+      suFitPreview(preview);
+      swAttachPreviewClicks(preview);
+    } else {
+      // ① 空白描紅格——秒回，逐字手寫立刻可點
+      const blank = await suFetchSvg({glyph_chars: ""});
+      if (gen !== _suRenderGen) return;
+      preview.innerHTML = blank;
+      suFitPreview(preview);
+      swAttachPreviewClicks(preview);
+      // ② 分批填字
+      const rects = [...preview.querySelectorAll("#sutra-cellmap [data-char]")];
+      const uniq = [...new Set(rects.map(r => r.getAttribute("data-char")))];
+      if (uniq.length && prog) {
+        prog.style.display = "flex";
+        progBar.style.width = "0%";
+        progText.textContent = `0/${uniq.length} 字`;
+        for (let i = 0; i < uniq.length; i += SU_BATCH_SIZE) {
+          const batch = uniq.slice(i, i + SU_BATCH_SIZE);
+          const svgText = await suFetchSvg({glyph_chars: batch.join("")});
+          if (gen !== _suRenderGen) return;   // 換頁/重按——放棄舊批
+          suMergeBatch(svgText, preview, new Set(batch));
+          const done = Math.min(i + SU_BATCH_SIZE, uniq.length);
+          progBar.style.width = Math.round(done / uniq.length * 100) + "%";
+          progText.textContent = `${done}/${uniq.length} 字`;
+          status.textContent = `產生中… ${done}/${uniq.length} 字`;
+        }
+        prog.style.display = "none";
+      }
     }
-    preview.innerHTML = await r.text();
-    const inner = preview.querySelector("svg");
-    if (inner) {
-      // A4 landscape SVG; 移除 mm width/height 讓它撐滿容器
-      inner.removeAttribute("width");
-      inner.removeAttribute("height");
-      inner.style.width = "100%";
-      inner.style.maxHeight = "70vh";
-      inner.style.height = "auto";
-      inner.style.display = "block";
-      inner.style.background = "white";
-    }
-    // 5dt: wire each 描紅 cell to open the 逐字手寫 popup.
-    swAttachPreviewClicks(preview);
     status.textContent = "✓ 完成（點格子可逐字手寫）";
     status.style.color = "#080";
   } catch (e) {
+    if (gen !== _suRenderGen) return;
+    if (prog) prog.style.display = "none";
     status.textContent = "失敗：" + e.message;
     status.style.color = "var(--accent)";
   }

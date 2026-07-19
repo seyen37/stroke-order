@@ -63,6 +63,12 @@ class SutraPostRequest(BaseModel):
     # browser preview can make each 描紅 cell clickable (逐字手寫). Preview
     # sets this True; SVG/PDF downloads leave it False.
     emit_cellmap: bool = False
+    # 5ew-R2：預覽分段載入——給定時只渲染此集合內的字形，其餘描紅格
+    # 留白（版面/格線/句讀/cellmap 照常）。空字串＝純空白描紅格（進度
+    # 條第一階段，秒回）；None（預設）＝全部渲染（下載/PDF 路徑不變）。
+    # 僅 body 頁生效。留白格的 cellmap 會帶 data-missing（loader 探測
+    # 被過濾）——前端合併批次時逐格修正。
+    glyph_chars: Optional[str] = None
 
 
 class ClosingPageSpec(BaseModel):
@@ -509,6 +515,18 @@ def sutra_post(req: SutraPostRequest):
             if req.show_original_glyph
             else None
         )
+        # 5ew-R2：分段載入——glyph_chars 給定時把兩個 loader 都包成
+        # 「集合外回 None」（描紅格留白＝既有缺字語意；載入成本只花在
+        # 集合內的字）。空集合＝零載入、純版面，秒回。
+        if req.glyph_chars is not None:
+            _allowed = set(req.glyph_chars)
+            _full_loader = loader
+            loader = (
+                lambda ch: _full_loader(ch) if ch in _allowed else None)
+            if outline_loader is not None:
+                _full_outline = outline_loader
+                outline_loader = (
+                    lambda ch: _full_outline(ch) if ch in _allowed else None)
         svg = render_sutra_page(
             chars, char_loader=loader,
             scribe=req.scribe, date_str=req.date_str,
