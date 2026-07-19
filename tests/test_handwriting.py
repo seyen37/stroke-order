@@ -446,6 +446,24 @@ def test_5fc_layout_round2(client):
     assert "hw-prompt-row')?.appendChild(back)" in page
 
 
+def test_5fe_layout_and_version_sync(client):
+    """5fe：右欄頂對齊畫布上框（grid）＋版本標籤/CSS 自動同步＋提示跨列外。"""
+    css = client.get("/static/handwriting/handwriting.css").text
+    # grid 佈局：右側動作欄與畫布同列（頂端不高於米字框上緣）
+    assert "grid-template-columns: minmax(0, 600px) max-content" in css
+    assert "grid-row: 2;                   /* 5fe" in css
+    page = client.get("/handwriting").text
+    # CSS 帶 ?v=（伺服器注入 APP_VERSION；長快取＋升版即失效）
+    assert "handwriting.css?v=" in page
+    assert "handwriting.css?v=__V__" not in page   # 佔位符必須被注入
+    # 版本標籤不再手刻，由 JS 讀資產 ?v= 同步
+    assert 'id="hw-version"' in page
+    assert ">v0.13.0<" not in page      # 手刻標籤移除（註解提歷史不算）
+    # 來源提示插在畫布 grid 之外（否則撐爆右欄）
+    assert "hw-from-hint" in page
+    assert "insertBefore(st, _row)" in page
+
+
 def test_5fd_deeplink_material_routing(client):
     """5fd：深連結分流——帶 preset 走經典（定位該字）；無 preset 走字串。"""
     page = client.get("/handwriting").text

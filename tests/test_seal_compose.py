@@ -133,6 +133,59 @@ def test_compose_surround_qi(seal_source):
     assert is_seal_synth(c)
 
 
+def test_5fe_bbox_normalized_fills_square(seal_source):
+    """5fe：部件 bbox → 槽位映射——合成字撐滿正方 EM、縫隙是設計值。
+
+    第一版直接縮放整個 EM，部件自身留白×縮放＝視覺大縫（實機：罣
+    上下大縫、釕 左右大縫、整字瘦長）。改 bbox 正規化後：
+    墨跡 x/y 跨度都應 ≥ 80% EM（正方、非長方）。
+    """
+    from stroke_order.sources.seal_compose import _outline_bbox
+    c = seal_source.get_character("鋰")
+    bbox = _outline_bbox([cmd for s in c.strokes for cmd in s.outline])
+    w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    # 堆疊軸（⿰ 的 x）依設計鋪滿；副軸受 _STRETCH_CAP 保護——代理字型
+    # （Noto）部件近正方只到 ~71%，真崇羲篆形天生瘦長會更滿。
+    assert w >= 0.85 * 2048
+    assert h >= 0.60 * 2048
+    # 左右縫：左件右緣與右件左緣之間恰為設計縫（88 單位＝4.3% EM）
+    xs = sorted(cmd["x"] for s in c.strokes for cmd in s.outline
+                if "x" in cmd)
+    left = [x for x in xs if x < 1024]
+    right = [x for x in xs if x >= 1024]
+    assert right[0] - left[-1] <= 100
+
+
+def test_5fe_stretch_cap_math():
+    """5fe：_fit_affine 變形上限——窄件不硬拉滿槽、槽內置中。"""
+    from stroke_order.sources.seal_compose import (
+        _fit_affine, _STRETCH_CAP)
+    # 窄高件（寬 100、高 1800）塞 ⿰ 右槽（880×1848）：sx 應被夾住
+    dx, dy, sx, sy = _fit_affine((0, 0, 100, 1800), (1068, 100, 1948, 1948))
+    assert sx <= sy * _STRETCH_CAP + 1e-9
+    # 置中：映射後中心＝槽中心（x 軸被夾住的那軸）
+    cx = dx + sx * 50
+    assert abs(cx - (1068 + 1948) / 2) < 1e-6
+    # 正常件不受影響：bbox=槽形狀 → 直接鋪滿
+    dx, dy, sx, sy = _fit_affine((0, 0, 880, 1848), (1068, 100, 1948, 1948))
+    assert (dx, dy) == (1068.0, 100.0)
+    assert sx == pytest.approx(1.0) and sy == pytest.approx(1.0)
+
+
+def test_5fe_extb_element_decomp_entries():
+    """5fe：Ext-B／新收錄元素 7 字補全（實機退楷書的最後一批）。"""
+    from stroke_order.decomposition import default_db
+    db = default_db()
+    expect = {
+        "𨧀": ("⿰", "金", "杜"), "𨭎": ("⿰", "金", "喜"),
+        "𨨏": ("⿰", "金", "波"), "𨭆": ("⿰", "金", "黑"),
+        "䥑": ("⿰", "金", "麥"), "鿬": ("⿰", "石", "田"),
+        "鿫": ("⿹", "气", "奧"),
+    }
+    for ch, plan in expect.items():
+        assert resolve_decomp(ch, db) == plan, ch
+
+
 def test_compose_gives_up_honestly(seal_source):
     """部件也缺（〇 無拆解；賾 部件不在子集）→ 維持 CharacterNotFound。"""
     from stroke_order.sources.g0v import CharacterNotFound

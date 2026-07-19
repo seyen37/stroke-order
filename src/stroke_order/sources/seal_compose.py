@@ -30,16 +30,22 @@ from ..ir import Character, Stroke
 EM = 2048
 
 # ---------------------------------------------------------------------------
-# 結構槽位（EM 2048 座標；(dx, dy, sx, sy)：x' = dx + sx·x）
+# 結構槽位（EM 2048 座標；目標矩形 (x0, y0, x1, y1)）
 # ---------------------------------------------------------------------------
-# 小篆偏旁習慣：左右各佔約半、留窄縫；上下同理；气 是三筆包覆右上，
-# 聲旁縮入左下。數值是視覺調參的第一版，之後可依實機回饋微調。
-_SLOTS: dict[str, tuple[tuple[float, float, float, float],
-                        tuple[float, float, float, float]]] = {
-    "⿰": ((40.0, 0.0, 0.46, 1.0), (1064.0, 0.0, 0.46, 1.0)),
-    "⿱": ((0.0, 40.0, 1.0, 0.46), (0.0, 1064.0, 1.0, 0.46)),
-    "⿹": ((0.0, 0.0, 1.0, 1.0), (150.0, 800.0, 0.55, 0.55)),
+# 5fe：改「部件 bbox → 槽位矩形」映射。第一版直接縮放整個 EM，部件
+# 自身的留白（side bearings）跟著縮放進槽，左右/上下之間的視覺縫隙
+# 被放大、整字變瘦長（實機：罣 上下大縫、釕 左右大縫）。先量部件
+# 實際 bbox 再塞進槽位，縫隙就是設計值、整字撐滿正方 EM。
+_SLOT_RECTS: dict[str, tuple[tuple[float, float, float, float],
+                             tuple[float, float, float, float]]] = {
+    "⿰": ((100.0, 100.0, 980.0, 1948.0), (1068.0, 100.0, 1948.0, 1948.0)),
+    "⿱": ((100.0, 100.0, 1948.0, 980.0), (100.0, 1068.0, 1948.0, 1948.0)),
+    "⿹": ((100.0, 100.0, 1948.0, 1948.0), (240.0, 880.0, 1200.0, 1860.0)),
 }
+
+#: 部件長寬比最大變形倍率——窄件（了/乙/彡）硬拉滿槽會爆形；
+#: 超過上限改夾住較小軸、槽內置中（誠實取捨：寧留小縫不毀形）。
+_STRETCH_CAP = 1.75
 
 # ---------------------------------------------------------------------------
 # 字首方位推測表（朱邦復 DB 的 head root → 空間結構）
@@ -75,7 +81,7 @@ ELEMENT_DECOMP: dict[str, tuple[str, str, str]] = {
     "氟": ("⿹", "气", "弗"), "氖": ("⿹", "气", "乃"),
     "氯": ("⿹", "气", "彔"), "氬": ("⿹", "气", "亞"),
     "氪": ("⿹", "气", "克"), "氙": ("⿹", "气", "山"),
-    "氡": ("⿹", "气", "冬"),
+    "氡": ("⿹", "气", "冬"), "鿫": ("⿹", "气", "奧"),
     # 金 部（⿰）
     "鋰": ("⿰", "金", "里"), "鈹": ("⿰", "金", "皮"),
     "鈉": ("⿰", "金", "內"), "鎂": ("⿰", "金", "美"),
@@ -117,12 +123,16 @@ ELEMENT_DECOMP: dict[str, tuple[str, str, str]] = {
     "錀": ("⿰", "金", "侖"), "鎶": ("⿰", "金", "哥"),
     "鉨": ("⿰", "金", "尔"), "鏌": ("⿰", "金", "莫"),
     "鉝": ("⿰", "金", "立"), "鈇": ("⿰", "金", "夫"),
+    # 5fe：Ext-B／新收錄元素字補全（先前 7 缺——實機退楷書的最後一批）
+    "𨧀": ("⿰", "金", "杜"), "𨭎": ("⿰", "金", "喜"),
+    "𨨏": ("⿰", "金", "波"), "𨭆": ("⿰", "金", "黑"),
+    "䥑": ("⿰", "金", "麥"),
     # 石 部（⿰）
     "硼": ("⿰", "石", "朋"), "碳": ("⿰", "石", "炭"),
     "矽": ("⿰", "石", "夕"), "磷": ("⿰", "石", "粦"),
     "砷": ("⿰", "石", "申"), "硒": ("⿰", "石", "西"),
     "碲": ("⿰", "石", "帝"), "碘": ("⿰", "石", "典"),
-    "砈": ("⿰", "石", "厄"),
+    "砈": ("⿰", "石", "厄"), "鿬": ("⿰", "石", "田"),
     # 水 部
     "溴": ("⿰", "水", "臭"), "汞": ("⿱", "工", "水"),
 }
@@ -167,6 +177,45 @@ def _part_outline(c: Character) -> list:
     return out
 
 
+def _outline_bbox(cmds: list) -> Optional[tuple[float, float, float, float]]:
+    """outline 命令集的包圍盒（控制點一併計入——夠準且零額外依賴）。"""
+    xs: list[float] = []
+    ys: list[float] = []
+    for cmd in cmds:
+        t = cmd.get("type", "")
+        if t in ("M", "L"):
+            xs.append(cmd["x"]); ys.append(cmd["y"])
+        elif t == "Q":
+            for k in ("begin", "end"):
+                xs.append(cmd[k]["x"]); ys.append(cmd[k]["y"])
+        elif t == "C":
+            for k in ("begin", "mid", "end"):
+                xs.append(cmd[k]["x"]); ys.append(cmd[k]["y"])
+    if not xs:
+        return None
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _fit_affine(
+    bbox: tuple[float, float, float, float],
+    rect: tuple[float, float, float, float],
+) -> tuple[float, float, float, float]:
+    """bbox → rect 的 (dx, dy, sx, sy)；變形倍率夾 _STRETCH_CAP、置中。"""
+    bx0, by0, bx1, by1 = bbox
+    bw = max(bx1 - bx0, 1.0)
+    bh = max(by1 - by0, 1.0)
+    rx0, ry0, rx1, ry1 = rect
+    rw, rh = rx1 - rx0, ry1 - ry0
+    sx, sy = rw / bw, rh / bh
+    if sx > sy * _STRETCH_CAP:
+        sx = sy * _STRETCH_CAP
+    elif sy > sx * _STRETCH_CAP:
+        sy = sx * _STRETCH_CAP
+    dx = rx0 + (rw - sx * bw) / 2.0 - sx * bx0
+    dy = ry0 + (rh - sy * bh) / 2.0 - sy * by0
+    return (dx, dy, sx, sy)
+
+
 # ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
@@ -209,11 +258,15 @@ def compose_seal_character(
         c2 = get_part(p2)
     except CharacterNotFound:
         return None
-    slot1, slot2 = _SLOTS[op]
+    rect1, rect2 = _SLOT_RECTS[op]
     outline: list = []
-    for c, (dx, dy, sx, sy) in ((c1, slot1), (c2, slot2)):
-        outline.extend(
-            _affine_cmd(cmd, dx, dy, sx, sy) for cmd in _part_outline(c))
+    for c, rect in ((c1, rect1), (c2, rect2)):
+        cmds = _part_outline(c)
+        bbox = _outline_bbox(cmds)
+        if bbox is None:
+            continue
+        dx, dy, sx, sy = _fit_affine(bbox, rect)
+        outline.extend(_affine_cmd(cmd, dx, dy, sx, sy) for cmd in cmds)
     if not outline:
         return None
     return Character(

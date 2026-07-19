@@ -6,7 +6,10 @@
         content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="format-detection" content="telephone=no">
   <title>筆順練習 — stroke-order</title>
-  <link rel="stylesheet" href="/static/handwriting/handwriting.css">
+  <!-- 5fe：CSS 帶版本 query——長快取＋升版即失效（middleware 對帶 ?v=
+       的 /static 資源回 max-age=604800；先前無 ?v 只有 3600s，版面修正
+       上線後使用者端最長一小時看不到） -->
+  <link rel="stylesheet" href="/static/handwriting/handwriting.css?v=__V__">
 </head>
 <body>
 
@@ -21,7 +24,9 @@
   <div class="hw-title">
     <span class="hw-logo">✒︎</span>
     <h1>筆順練習</h1>
-    <span class="hw-version">v0.13.0</span>
+    <!-- 5fe：版本自動同步——讀資產 ?v=（伺服器注入 APP_VERSION），
+         不再手刻（v0.13.0 卡了十幾版，誤導部署狀態判斷） -->
+    <span class="hw-version" id="hw-version"></span>
   </div>
   <nav class="hw-nav">
     <a href="/" class="hw-nav-btn">↩ 回主頁</a>
@@ -316,6 +321,13 @@
   } from '/static/handwriting/exporter.js';
 
   const $ = id => document.getElementById(id);
+
+  // 5fe：版本標籤自動同步——讀 CSS 資產的 ?v=（伺服器注入 APP_VERSION）
+  {
+    const link = document.querySelector('link[rel="stylesheet"][href*="?v="]');
+    const m = link && /[?&]v=([\w.]+)/.exec(link.getAttribute("href"));
+    if (m) $("hw-version").textContent = "v" + m[1];
+  }
 
   // ============================================================ state
 
@@ -1143,6 +1155,8 @@
     const _fromLabel = _fromLabels[_params.get('from')];
     if (_fromLabel) {
       const st = document.createElement('div');
+      st.className = 'hw-from-hint';   // 5fe：grid 明確跨滿首列（否則被
+                                       // 自動排進 (1,2) 把右欄撐爆）
       st.style.cssText = 'margin:6px 0;font-size:12px;color:#476;' +
         'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
       const txt = document.createElement('span');
@@ -1163,8 +1177,10 @@
         setTimeout(() => { location.href = '/'; }, 250);  // 非彈窗保險
       });
       document.getElementById('hw-prompt-row')?.appendChild(back);
-      document.querySelector('.hw-actions')?.parentElement
-        ?.insertBefore(st, document.querySelector('.hw-actions'));
+      // 5fe：插在畫布列（grid）之外——放進 grid 會被自動排版吃進
+      // 右欄、或以跨欄 max-content 撐爆按鈕欄寬
+      const _row = document.querySelector('.hw-canvas-row');
+      _row?.parentElement?.insertBefore(st, _row);
     }
   } else {
     await loadMaterial();    // sutra preset auto-loaded into material

@@ -471,13 +471,12 @@ input:focus, select:focus, button:focus-visible {
   align-items: center;
   justify-content: flex-start;   /* 米字框外左上 */
 }
-/* 5fc：畫布欄（工具列與畫布同寬對齊）；格線下拉靠框外右上 */
-.hw-canvas-col {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 600px;
-}
+/* 5fc：畫布欄（工具列與畫布同寬對齊）；格線下拉靠框外右上
+   5fe：整列改 grid——右側動作欄放 (2,2)，頂端剛好對齊畫布上框
+   （使用者規格：上一字/下一字/完成本字不高於米字框上緣）。
+   .hw-canvas-col 用 display:contents 讓工具列/畫布直接進格，
+   DOM 結構不動（測試鎖 hw-canvas-col）。 */
+.hw-canvas-col { display: contents; }
 .hw-grid-pick {
   margin-left: auto;             /* 框外右上 */
   display: inline-flex;
@@ -487,18 +486,26 @@ input:focus, select:focus, button:focus-visible {
   color: var(--hw-muted);
 }
 .hw-canvas-row {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 600px) max-content;
+  gap: 0 14px;
   justify-content: center;
-  flex-wrap: wrap;               /* 窄螢幕自動疊直 */
+  align-items: start;
 }
-.hw-canvas-row .hw-canvas-wrap { margin: 0; }
+.hw-canvas-tools { grid-column: 1; grid-row: 1; }
+.hw-canvas-row .hw-canvas-wrap { grid-column: 1; grid-row: 2; margin: 0; }
 .hw-side-actions {
+  grid-column: 2;
+  grid-row: 2;                   /* 5fe：與畫布同列＝頂端不高於上框 */
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-width: 136px;
+}
+@media (max-width: 760px) {      /* 窄螢幕疊直（原 flex-wrap 行為） */
+  .hw-canvas-row { grid-template-columns: minmax(0, 1fr); }
+  .hw-canvas-tools, .hw-canvas-row .hw-canvas-wrap { grid-column: 1; }
+  .hw-side-actions { grid-column: 1; grid-row: 3; }
 }
 .hw-side-actions .hw-btn { width: 100%; }
 
