@@ -910,7 +910,11 @@ def _place_char_svg(c: Character, x: float, y: float, size_mm: float,
             track_strokes.append(s)
         else:
             outline_strokes.append(s)
-    parts = [f'<g transform="{transform}">']
+    # 5ew-R5：cell 定位標記（純屬性、視覺零變化——5cn/5ct 同前例）。
+    # 前端「點字→手寫視窗」靠它收集可點字；wordart 與 mandala 共用本函式。
+    esc = (c.char.replace("&", "&amp;").replace("<", "&lt;")
+                 .replace('"', "&quot;"))
+    parts = [f'<g transform="{transform}" data-char="{esc}">']
     if outline_strokes:
         parts.append(f'<g fill="{color}">' +
                      "".join(f'<path d="{_outline_path_d(s)}"/>'

@@ -1,5 +1,6 @@
 // W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
 import { API_BASE } from "./core.js?v=__V__";
+import { swAttachCells } from "./handwrite.js?v=__V__";   // 5ew-R5：點字手寫
 
 // ============================================================
 // WordArt (文字雲) mode
@@ -325,6 +326,11 @@ async function renderWordart() {
     downloadEl.href = url;
     downloadEl.setAttribute("download", "wordart.svg");
     downloadEl.style.display = "inline-block";
+    // 5ew-R5：點字手寫——data-char 見 wordart.py _place_char_svg；
+    // 下載 blob 取自 fetch 原字串，注入的命中矩形不會外洩到下載檔
+    swAttachCells(previewEl, {
+      key: "wordart", styleId: "wa-style", sourceId: "wa-source",
+      refresh: renderWordart });
   } catch (e) {
     statusEl.textContent = "";
     previewEl.innerHTML =

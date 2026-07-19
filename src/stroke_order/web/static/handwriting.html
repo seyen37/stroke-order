@@ -1083,7 +1083,9 @@
     await renderBg();
     // 5ew-R4：來源提示按模式顯示（R3 只有抄經；R4 擴散四模式）
     const _fromLabels = { sutra: '抄經', grid: '字帖', notebook: '筆記',
-                          letter: '信紙', manuscript: '稿紙' };
+                          letter: '信紙', manuscript: '稿紙',
+                          wordart: '文字藝術', mandala: '曼陀羅',
+                          zentangle: '禪繞字' };
     const _fromLabel = _fromLabels[_params.get('from')];
     if (_fromLabel) {
       const st = document.createElement('div');

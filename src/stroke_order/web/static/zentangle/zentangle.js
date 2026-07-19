@@ -978,6 +978,16 @@ function wireSplitControls() {
   if (gcodeBtn) gcodeBtn.addEventListener("click", () => exportZentangle("gcode"));
   const dxfBtn = document.getElementById("zentangle-export-dxf");
   if (dxfBtn) dxfBtn.addEventListener("click", () => exportZentangle("dxf"));
+  // 5ew-R5：進階練習——另開筆順練習頁練目前的字（canvas＋outline 限制下
+  // 的誠實跳板；該頁存檔預設同步 user-dict，其他模式重繪即見手寫字）。
+  const advBtn = document.getElementById("zentangle-advanced");
+  if (advBtn) advBtn.addEventListener("click", () => {
+    const ch = (_charInput?.value || "").trim();
+    if (!ch) return;
+    window.open(
+      `/handwriting?char=${encodeURIComponent(ch)}&from=zentangle`,
+      "_blank", "noopener");
+  });
   buildExportControls();
   // 5dh: 朝向鈕——直接改選中區段的圖樣朝向（同鍵盤 ⬆⬇⬅➡）。
   document.querySelectorAll(".zt-orient-btn").forEach((ob) => {

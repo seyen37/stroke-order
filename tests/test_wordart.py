@@ -190,3 +190,21 @@ def test_api_wordart_clamps_oversize_shape(client):
 def test_api_wordart_invalid_shape(client):
     r = client.get("/api/wordart?shape=zigzag")
     assert r.status_code == 422
+
+
+# ----- 5ew-R5：點字手寫錨點 -------------------------------------------------
+
+
+def test_5ew_r5_placed_chars_carry_data_char(loader):
+    """_place_char_svg 帶 data-char（純屬性、視覺零變化）——前端
+    「點字→手寫視窗」收集可點字的錨點；wordart 與 mandala 共用。"""
+    s = make_shape("circle", 100, 100, 120)
+    svg, info = wordart_compose(
+        s, loader, layout="ring", char_size_mm=10,
+        orientation="bottom_to_center",
+        text="一永" * 5,
+        page_width_mm=200, page_height_mm=200,
+    )
+    assert info["placed_count"] > 0
+    assert svg.count('data-char="') >= info["placed_count"]
+    assert 'data-char="一"' in svg or 'data-char="永"' in svg

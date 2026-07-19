@@ -371,3 +371,24 @@ def test_5ew_r4_click_to_write_spread(client):
     page = client.get("/handwriting").text
     assert "_fromLabels" in page
     assert "稿紙" in page
+
+
+def test_5ew_r5_art_modes_click_to_write(client):
+    """5ew-R5：擴散二批——文字藝術/曼陀羅 adapter 掛載＋禪繞字跳板。
+
+    wordart/mandala：_place_char_svg data-char（後端 1 處）＋swAttachCells；
+    禪繞字（canvas＋演算法吃 outline，手寫字無 outline）以「進階練習」
+    深連結誠實對應。
+    """
+    for mod in ("wordart", "mandala"):
+        src = client.get(f"/static/modes/{mod}.js").text
+        assert f'key: "{mod}"' in src, mod
+        assert "swAttachCells" in src, mod
+    html = client.get("/").text
+    assert 'id="zentangle-advanced"' in html
+    zt = client.get("/static/zentangle/zentangle.js").text
+    assert "zentangle-advanced" in zt
+    assert "from=zentangle" in zt
+    page = client.get("/handwriting").text
+    for label in ("文字藝術", "曼陀羅", "禪繞字"):
+        assert label in page, label

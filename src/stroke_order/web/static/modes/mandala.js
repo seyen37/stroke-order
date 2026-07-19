@@ -1,7 +1,7 @@
 // W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
 import { API_BASE, load } from "./core.js?v=__V__";
 import { bindAllFontStyleGates, cnsInit, kaishuInit, lishuInit, sealInit, songInit } from "./fonts.js?v=__V__";
-import { swInit } from "./handwrite.js?v=__V__";
+import { swAttachCells, swInit } from "./handwrite.js?v=__V__";
 import { scheduleLtCapacity } from "./letter.js?v=__V__";
 import { scheduleNbCapacity } from "./notebook.js?v=__V__";
 import { patchInit } from "./patch.js?v=__V__";
@@ -628,6 +628,11 @@ async function renderMandala() {
     statusEl.textContent = msg;
     // 5b r18: 顯示多格式下載 row
     if (dlRow) dlRow.style.display = "flex";
+    // 5ew-R5：點字手寫——中心字＋環字皆可點（_place_char_svg data-char）；
+    // 下載走 API 重取，命中矩形不外洩
+    swAttachCells(previewEl, {
+      key: "mandala", styleId: "md-style", sourceId: "md-source",
+      refresh: renderMandala });
   } catch (e) {
     statusEl.textContent = "";
     previewEl.innerHTML =
