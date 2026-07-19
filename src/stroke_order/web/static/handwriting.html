@@ -51,13 +51,17 @@
     <section class="hw-section">
       <h2 class="hw-section-title">素材</h2>
       <div class="hw-radio-group" role="radiogroup" aria-label="素材來源">
-        <label><input type="radio" name="source-type" value="sutra" checked>
+        <label title="以內建經典（心經、週期表等）全文為練習素材，逐字前進">
+          <input type="radio" name="source-type" value="sutra" checked>
           <span>經典</span></label>
-        <label><input type="radio" name="source-type" value="input">
+        <label title="自行輸入要練習的字串（例：永和九年歲在癸丑）">
+          <input type="radio" name="source-type" value="input">
           <span>字串</span></label>
-        <label><input type="radio" name="source-type" value="upload">
+        <label title="上傳 .txt 純文字檔（UTF-8）作為練習素材">
+          <input type="radio" name="source-type" value="upload">
           <span>上傳</span></label>
-        <label><input type="radio" name="source-type" value="freehand">
+        <label title="無素材限制——隨意書寫，寫完後手動標註是哪個字">
+          <input type="radio" name="source-type" value="freehand">
           <span>自由書寫</span></label>
       </div>
 
@@ -98,12 +102,15 @@
     <section class="hw-section">
       <h2 class="hw-section-title">模式</h2>
       <div class="hw-radio-group" role="radiogroup" aria-label="練習模式">
-        <label><input type="radio" name="practice-mode" value="trace" checked>
-          <span>臨摹（淡灰底圖）</span></label>
-        <label><input type="radio" name="practice-mode" value="prompt">
-          <span>提示（純文字）</span></label>
-        <label><input type="radio" name="practice-mode" value="freehand">
-          <span>自由（無提示）</span></label>
+        <label title="臨摹：畫布顯示淡灰範字底圖，照著描寫">
+          <input type="radio" name="practice-mode" value="trace" checked>
+          <span>臨摹</span></label>
+        <label title="提示：只顯示純文字提示字，不給底圖">
+          <input type="radio" name="practice-mode" value="prompt">
+          <span>提示</span></label>
+        <label title="自由：完全無提示，自主書寫">
+          <input type="radio" name="practice-mode" value="freehand">
+          <span>自由</span></label>
       </div>
     </section>
 
@@ -125,20 +132,6 @@
       <div id="hw-style-priority-hint" class="hw-hint hw-hint-positive" hidden>
         💡 隸書/篆書內建筆順資料缺失。您寫的軌跡會先存在本機資料庫；日後可選擇匯出 JSON 或提交至公眾資料庫（5e 階段開放），協助寫字機器人取得真實軌跡。
       </div>
-    </section>
-
-    <!-- ─── 4. 格線 ─── -->
-    <section class="hw-section">
-      <h2 class="hw-section-title">格線</h2>
-      <select id="hw-grid" aria-label="格線樣式">
-        <option value="mizi" selected>米字格</option>
-        <option value="jiugong">九宮格</option>
-        <option value="new-jiugong">新九宮格</option>
-        <option value="tianzi">田字格</option>
-        <option value="huizi">回字格</option>
-        <option value="frame">僅字身框</option>
-        <option value="none">無格線</option>
-      </select>
     </section>
 
     <!-- ─── 5. 組件覆蓋（Phase A 6b — VISION.md Layer 1）─── -->
@@ -199,22 +192,33 @@
       <span id="hw-prompt-meta" class="hw-prompt-meta"></span>
     </div>
 
-    <!-- 5ez：畫布工具列——復原/清除放米字框外「左上」（與逐字手寫一致）。
-         沿用 .hw-actions class：來源提示（from=）插在本列之前＝畫布上方。 -->
-    <div class="hw-actions hw-canvas-tools">
-      <button class="hw-btn"          data-action="undo"     type="button">↺ 復原</button>
-      <button class="hw-btn"          data-action="clear"    type="button">清除</button>
-    </div>
-
-    <!-- 5ez：畫布＋右側動作欄（上一字/下一字/完成本字在框外右側，
-         與逐字手寫一致；同步勾選跟著完成鈕） -->
+    <!-- 5ez/5fc：畫布＋右側動作欄。畫布欄內：工具列與框同寬——
+         復原/清除在框外「左上」、格線下拉在框外「右上」（使用者規格）。
+         沿用 .hw-actions class：來源提示（from=）插在本列之前。 -->
     <div class="hw-canvas-row">
-      <!-- 雙層 canvas — bg (reference glyph + grid) + ink (user) -->
-      <div class="hw-canvas-wrap" id="hw-canvas-wrap">
-        <canvas id="hw-canvas-bg"  class="hw-canvas hw-canvas-bg"
-                aria-hidden="true"></canvas>
-        <canvas id="hw-canvas-ink" class="hw-canvas hw-canvas-ink"
-                aria-label="書寫畫布"></canvas>
+      <div class="hw-canvas-col">
+        <div class="hw-actions hw-canvas-tools">
+          <button class="hw-btn"          data-action="undo"     type="button">↺ 復原</button>
+          <button class="hw-btn"          data-action="clear"    type="button">清除</button>
+          <label class="hw-grid-pick" title="寫字框的格線樣式">格線
+            <select id="hw-grid" aria-label="格線樣式">
+              <option value="mizi" selected>米字格</option>
+              <option value="jiugong">九宮格</option>
+              <option value="new-jiugong">新九宮格</option>
+              <option value="tianzi">田字格</option>
+              <option value="huizi">回字格</option>
+              <option value="frame">僅字身框</option>
+              <option value="none">無格線</option>
+            </select>
+          </label>
+        </div>
+        <!-- 雙層 canvas — bg (reference glyph + grid) + ink (user) -->
+        <div class="hw-canvas-wrap" id="hw-canvas-wrap">
+          <canvas id="hw-canvas-bg"  class="hw-canvas hw-canvas-bg"
+                  aria-hidden="true"></canvas>
+          <canvas id="hw-canvas-ink" class="hw-canvas hw-canvas-ink"
+                  aria-label="書寫畫布"></canvas>
+        </div>
       </div>
       <div class="hw-side-actions">
         <button class="hw-btn"          data-action="prev"     type="button">⏴ 上一字</button>
@@ -251,10 +255,22 @@
 <section class="hw-drawer" id="hw-drawer" hidden>
   <h2 class="hw-section-title">我的資料</h2>
 
-  <div class="hw-data-stats">
-    <span>資料庫總計：<b id="hw-db-count">0</b> 字</span>
-    <span class="hw-data-sep">·</span>
-    <span>不重複字：<b id="hw-db-unique">0</b></span>
+  <!-- 5fc：首列——統計（左）、清空（置中）、公眾提交（最右，匯入正上方） -->
+  <div class="hw-drawer-top">
+    <div class="hw-data-stats">
+      <span>資料庫總計：<b id="hw-db-count">0</b> 字</span>
+      <span class="hw-data-sep">·</span>
+      <span>不重複字：<b id="hw-db-unique">0</b></span>
+    </div>
+    <button class="hw-btn hw-btn-danger"
+            data-action="clear-all" type="button"
+            title="刪除本機練習史全部紀錄（不可復原）">⚠ 清空整個資料庫</button>
+    <span class="hw-drawer-right">
+      <button class="hw-btn hw-submit-public" data-action="submit-public" disabled
+              title="待開發 — 提交匿名公眾資料庫（協助寫字機器人取得真實軌跡）">
+        🌐 提交匿名公眾資料庫（待開發）
+      </button>
+    </span>
   </div>
 
   <!-- 5ez：匯出三鈕一行、匯入靠最右（單列不佔三行） -->
@@ -269,21 +285,6 @@
     </span>
   </div>
 
-  <!-- 公眾資料庫（5ez：刪除「寄到我的 email」跨機同步；匿名提交排期開發） -->
-  <div class="hw-data-row">
-    <h3 class="hw-data-row-title">公眾資料庫</h3>
-    <button class="hw-btn" data-action="submit-public" disabled
-            title="待開發 — 提交匿名公眾資料庫（協助寫字機器人取得真實軌跡）">
-      🌐 提交匿名公眾資料庫（待開發）
-    </button>
-  </div>
-
-  <!-- 危險區 -->
-  <div class="hw-data-row hw-data-danger">
-    <h3 class="hw-data-row-title">清除</h3>
-    <button class="hw-btn hw-btn-danger"
-            data-action="clear-all" type="button">⚠ 清空整個資料庫</button>
-  </div>
 </section>
 
 <footer class="hw-footer">
@@ -1087,6 +1088,14 @@
   const _params = new URLSearchParams(location.search);
   const _deepChar = (_params.get('char') || '').trim();
   if (_deepChar) {
+    // 5fc：素材狀態一致化——radio 切「字串」＋填入該字（原本只換
+    // material、radio 仍停「經典」，使用者一點經典就把單字教材蓋掉）
+    state.sourceType = 'input';
+    const _inRadio = document.querySelector(
+      'input[name="source-type"][value="input"]');
+    if (_inRadio) _inRadio.checked = true;
+    $('hw-input-string').value = _deepChar;
+    showSourcePanel('input');
     state.material = loadInputMaterial(_deepChar);
     state.practiceMode = 'trace';
     const modeRadio = document.querySelector(
@@ -1132,17 +1141,19 @@
         `從${_fromLabel}「逐字手寫」進入——練「${_deepChar}」。完成本字後` +
         `（勾選同步時）回到${_fromLabel}重新產生預覽即可看到你的手寫字。`;
       st.appendChild(txt);
-      // 5ez：回來源按鈕——本頁由 window.open 開啟，可直接關閉回原分頁
+      // 5ez/5fc：返回鈕改名「逐字手寫」、放「請寫：」列最右（使用者
+      // 規格）；本頁由 window.open 開啟，可直接關閉回原分頁
       const back = document.createElement('button');
       back.type = 'button';
       back.className = 'hw-btn';
       back.id = 'hw-back-origin';
-      back.textContent = `↩ 回${_fromLabel}`;
+      back.textContent = '↩ 逐字手寫';
+      back.title = `關閉本頁，回到${_fromLabel}的「逐字手寫」視窗繼續逐字書寫`;
       back.addEventListener('click', () => {
         window.close();
         setTimeout(() => { location.href = '/'; }, 250);  // 非彈窗保險
       });
-      st.appendChild(back);
+      document.getElementById('hw-prompt-row')?.appendChild(back);
       document.querySelector('.hw-actions')?.parentElement
         ?.insertBefore(st, document.querySelector('.hw-actions'));
     }

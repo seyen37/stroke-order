@@ -416,3 +416,31 @@ def test_5ez_layout_and_deeplink_settings(client):
     sw = client.get("/static/modes/handwrite.js").text
     assert 'q.set("style"' in sw
     assert 'q.set("preset"' in sw
+
+
+def test_5fc_layout_round2(client):
+    """5fc：版面二輪（使用者截圖規格）＋hidden 屬性全域修正。"""
+    css = client.get("/static/handwriting/handwriting.css").text
+    # 根因修：CSS display:flex 蓋掉 hidden 屬性——全域歸位
+    assert "[hidden] { display: none !important; }" in css
+    page = client.get("/handwriting").text
+    # 素材/模式 radio 帶 hover 提示；模式簡潔化
+    assert 'title="以內建經典' in page
+    assert 'title="臨摹：畫布顯示淡灰範字底圖' in page
+    assert "<span>臨摹</span>" in page and "淡灰底圖）</span>" not in page
+    # 格線移到畫布欄右上（hw-grid-pick 在 hw-canvas-tools 內）
+    assert "hw-grid-pick" in page
+    assert "hw-canvas-col" in page
+    tools = page.split('hw-canvas-tools')[1].split("</div>")[0:3]
+    assert 'id="hw-grid"' in page.split('hw-canvas-tools')[1].split(
+        'hw-canvas-wrap')[0]
+    # 左欄不再有「格線」區塊標題
+    assert ">格線</h2>" not in page
+    # 資料抽屜首列：統計｜清空（中）｜公眾提交（右）
+    assert "hw-drawer-top" in page
+    top = page.split("hw-drawer-top")[1].split("hw-data-row-inline")[0]
+    assert "clear-all" in top and "submit-public" in top
+    # 深連結一致化＋返回鈕改名進請寫列
+    assert "showSourcePanel('input')" in page
+    assert "逐字手寫';" in page              # back.textContent
+    assert "hw-prompt-row')?.appendChild(back)" in page
