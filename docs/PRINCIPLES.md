@@ -2077,6 +2077,51 @@ UNRESOLVED=0 才動手。**
 
 ---
 
+## 46. 單例互動元件服務多來源時，狀態要綁「事件當下」、不綁「掛載當下」（2026-07-19 5ew-R4 新增）
+
+SW overlay 泛化到七模式時的陷阱：若 attach 時直寫模組級狀態
+（SW.adapter/SW.positions），最後 render 的模式獲勝——使用者切到
+別的模式再點「舊預覽」，開窗拿到的是別人的 adapter 與字集。正確形：
+collect 閉包持有自己的 positions，**點擊 handler 內**才寫入單例狀態
+再開窗。判準：凡是「一份 UI、多個掛載來源」的元件，問「使用者能不能
+在兩次掛載之間互動舊 DOM？」——能，就綁事件當下。
+
+---
+
+## 47. E2E 有伺服器側副作用，用環境變數隔離出獨立資料目錄；「事後清理」不是隔離（2026-07-19 5ew-R3→R4 新增）
+
+R3 教訓：Playwright 畫兩筆「永」寫進沙箱真實 user-dict，蓋掉標準
+5 筆 → 8 個 pytest 連鎖紅、驗屍半小時。清理靠「記得清＋清得全」，
+失敗模式是靜默汙染下一個 suite。R4 起制度化：被測服務啟動時帶
+`STROKE_ORDER_USER_DICT_DIR=/tmp/<run>` 之類的資料目錄環境變數，
+副作用天然落在可拋棄目錄，驗收後再確認正式目錄零檔案。適用一切
+「測試會寫伺服器持久層」的場景——隔離靠環境，不靠紀律。
+
+---
+
+## 48. 純屬性錨點（data-*）是後端→前端最便宜的互動契約；加在共用放置函式上，一次覆蓋全部消費模式（2026-07-19 5ew-R5 新增）
+
+第三度復用同一招（5cn grid、5ct page 型、5ew-R5 wordart/mandala）：
+後端在字形放置點加 `data-char` 等純屬性——視覺零變化、零行為風險、
+測試好鎖；前端互動（點字、注入、量測）全部長在錨點上。R5 的放大
+效果：屬性加在 **共用** 放置函式 `_place_char_svg` 上，wordart 與
+mandala（中心字＋環字）一處生效。要點：錨點函式的「局部座標系」
+要一致（本案全部 EM2048），前端命中矩形/範字複製才能通用。
+
+---
+
+## 49. 同語意的 fallback 修過一處要掃兄弟實作；瀏覽器 console error 是「資料默默不顯示」的偵測訊號（2026-07-19 5ew-R4 新增）
+
+page.py 5ai 早就會「outline/track 拆兩群、track-only 折線 fallback」，
+grid.py 同目的的 _cell_content 卻對所有筆畫硬轉 outline path——空
+outline 產生 `d="Z"` 垃圾 path，且手寫字/標點在 ghost/outline/filled
+**完全隱形**。這是 §35（鐵則掃全體）的資料呈現版：語意修正落地時
+grep 同類消費點（本案 `_outline_path_d` 的呼叫者），別讓兄弟檔漂移。
+偵測面：E2E 把 console error 當一等訊號——「Expected moveto」這類
+解析錯誤背後常是整段資料沒畫出來，不是 cosmetic。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2133,6 +2178,7 @@ UNRESOLVED=0 才動手。**
   - [`2026-07-19_5et_card_mode.md`](decisions/2026-07-19_5et_card_mode.md)（5et 手寫卡片弧五輪 QODA 重放，對應 §37–§40）
   - [`2026-07-19_w2_cache_single_source.md`](decisions/2026-07-19_w2_cache_single_source.md)（W2 快取層＋單一事實源 5eu/5ev QODA 重放：純 ASGI vs BaseHTTPMiddleware、cache_bus 分層、pyproject 優先版本源、badge 自動化）
   - [`2026-07-19_w3_w4_decomposition.md`](decisions/2026-07-19_w3_w4_decomposition.md)（W3＋W4 前後端巨石拆分四輪 QODA 重放，對應 §41–§45）
+  - [`2026-07-19_5ew_handwriting_integration.md`](decisions/2026-07-19_5ew_handwriting_integration.md)（5ew 手寫整合弧五輪 QODA 重放：分段載入語意/共用儲存層誠實降階/adapter 事件時綁定/E2E 環境隔離/純屬性錨點/兄弟實作掃描，對應 §46–§49）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -2143,4 +2189,4 @@ UNRESOLVED=0 才動手。**
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§40 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§49 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號）。三者互補。
