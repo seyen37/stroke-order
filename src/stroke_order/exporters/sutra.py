@@ -257,13 +257,14 @@ CharLoader = Callable[[str], Optional[Character]]
 
 
 def cellmap_rect(ch: str, x: float, y: float, w: float, h: float,
-                 pos: int, *, loaded: bool) -> str:
+                 pos: int, *, loaded: bool, synth: bool = False) -> str:
     """One transparent per-cell click rect for the 逐字手寫 overlay.
 
     ``fill="transparent"`` so it captures clicks while staying invisible;
     ``data-char``/``data-pos`` drive the popup's reading-order queue;
     ``data-missing="1"`` marks 缺字 cells (no reference glyph) so the user
-    can hand-write those too.
+    can hand-write those too. 5fa: ``data-seal-synth="1"`` marks 部件合成
+    篆字（推測非原典）——前端統計顯示、誠實標示。
     """
     esc = (ch.replace("&", "&amp;").replace("<", "&lt;")
            .replace(">", "&gt;").replace('"', "&quot;"))
@@ -271,6 +272,7 @@ def cellmap_rect(ch: str, x: float, y: float, w: float, h: float,
             f'height="{h:.3f}" fill="transparent" '
             f'data-char="{esc}" data-pos="{pos}"'
             + ('' if loaded else ' data-missing="1"')
+            + (' data-seal-synth="1"' if synth else '')
             + '/>')
 
 
@@ -914,9 +916,12 @@ def render_sutra_page(
         # sits above the glyphs for reliable clicks). Includes 缺字 cells
         # (data-missing="1") so the user can hand-write those too.
         if emit_cellmap and ch and not ch.isspace():
+            _probe = char_loader(ch)          # memoized loader——重查免費
+            from ..sources.seal_compose import is_seal_synth
             cellmap_parts.append(cellmap_rect(
                 ch, x0, y0, cell_w, cell_h, n,
-                loaded=char_loader(ch) is not None))
+                loaded=_probe is not None,
+                synth=is_seal_synth(_probe)))
         # Draw the glyph if we have one
         if ch and not ch.isspace():
             c_glyph = char_loader(ch)

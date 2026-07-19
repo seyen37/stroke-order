@@ -619,6 +619,12 @@ function suMergeBatch(svgText, preview, batchSet) {
       if (!t) continue;
       if (r.hasAttribute("data-missing")) t.setAttribute("data-missing", "1");
       else t.removeAttribute("data-missing");
+      // 5fa：部件合成篆字標記隨批同步（誠實標示）
+      if (r.hasAttribute("data-seal-synth")) {
+        t.setAttribute("data-seal-synth", "1");
+      } else {
+        t.removeAttribute("data-seal-synth");
+      }
     }
   }
 }
@@ -684,7 +690,11 @@ async function sutraRender() {
         prog.style.display = "none";
       }
     }
-    status.textContent = "✓ 完成（點格子可逐字手寫）";
+    // 5fa：部件合成篆字統計（誠實標示——合成字是推測近似，非原典篆形）
+    const synthN = preview.querySelectorAll(
+      "#sutra-cellmap [data-seal-synth]").length;
+    status.textContent = "✓ 完成（點格子可逐字手寫）" +
+      (synthN ? `·含 ${synthN} 字部件合成篆字（推測非原典）` : "");
     status.style.color = "#080";
   } catch (e) {
     if (e && e.name === "AbortError") return;   // 5ex-C：被新一輪取代，靜默

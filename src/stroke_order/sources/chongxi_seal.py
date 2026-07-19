@@ -283,6 +283,11 @@ class ChongxiSealSource:
                 except CharacterNotFound:
                     continue
             if c is None:
+                # 5fa：轉換鏈也救不回 → 部件合成（罣＝网＋圭、鋰＝金＋里
+                # ——小篆組字本用完整部件形；合成字帶 seal-synth 標記，
+                # 渲染層誠實標示「推測非原典」）。合成也不行才真缺字。
+                c = self._try_compose(char)
+            if c is None:
                 # 真正罕見字（閦毘鉢…）：轉換也救不回 → 維持缺字。
                 raise CharacterNotFound(
                     f"崇羲篆體 lacks U+{ord(char):04X} ({char!r}); "
@@ -290,6 +295,25 @@ class ChongxiSealSource:
                 )
         lru_put(self._cache, char, c, GLYPH_CACHE_MAX)  # 5ey-E
         return c
+
+    def _try_compose(self, char: str):
+        """5fa：部件合成 fallback。取件走 get_character（含變體鏈與
+        巢狀合成）；_composing 集合防循環（罣→网→罣…）。失敗回 None。"""
+        composing = getattr(self, "_composing", None)
+        if composing is None:
+            composing = self._composing = set()
+        if char in composing:
+            return None
+        composing.add(char)
+        try:
+            from ..decomposition import default_db
+            from .seal_compose import compose_seal_character
+            return compose_seal_character(char, self.get_character,
+                                          default_db())
+        except Exception:
+            return None            # 合成任何失敗＝維持缺字語意，不炸渲染
+        finally:
+            composing.discard(char)
 
     def has(self, char: str) -> bool:
         try:
