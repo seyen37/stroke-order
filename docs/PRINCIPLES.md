@@ -2173,6 +2173,57 @@ data 屬性）＋使用者可見統計「N 字為推測非原典」；**相容�
 
 ---
 
+## 54. HTML hidden 屬性會被元件 CSS display 蓋掉；樣式化後必驗 hidden 生效（2026-07-19 5fc 新增）
+
+UA 的 `[hidden] { display: none }` 優先權低於作者樣式——元件一旦
+套 `.xxx { display: flex/grid }`，JS 再怎麼正確 toggle hidden 都
+不會消失。症狀常偽裝成多個獨立 JS bug（面板全展開、抽屜常開、
+條件區常駐），實為一源。修法：全域一行
+`[hidden] { display: none !important; }` 歸位——一次修完、未來
+新元件自動受保護。教訓：給元件加 display 樣式時，順手驗一下
+hidden 還有沒有效。
+
+---
+
+## 55. grid 容器裡動態插入的元素會被 auto-placement 吃進錯格；跨欄項的 max-content 會撐爆欄寬——動態內容插 grid 外（2026-07-19 5fe 新增）
+
+顯式定位的 grid（tools=(1,1)、canvas=(2,1)、side=(2,2)）遇到 JS
+動態 insertBefore 的元素：它沒有顯式格位 → auto-placement 塞進
+第一個空格（(1,2)）＝出現在完全意外的位置。改成跨欄
+（grid-column: 1/-1）也有第二雷：**跨欄項的 max-content 尺寸會
+分配進所有被跨的欄**，一段長文字就把 max-content 欄撐爆。終解：
+動態、長度不可控的內容插在 grid 容器**之外**；grid 內只放格位
+明確、尺寸可控的元素。另收：`display: contents` 可讓包裝層的
+子元素直接進格——DOM 結構不動（測試鎖的 class 保留）就能改排版。
+
+---
+
+## 56. 幾何合成用「內容 bbox → 目標槽位」映射，別縮放整個座標系；覆蓋率驗收三態分列（2026-07-19 5fe 新增）
+
+把部件塞進槽位時縮放整個 EM，部件自身的留白（side bearings）
+跟著縮放進槽——縫隙＝設計縫＋兩件留白×縮放，怎麼調槽位比例都
+治標。正解：先量內容實際 bbox，仿射到槽位矩形——縫隙就是設計值、
+整體撐滿目標框。配變形上限（aspect cap）：窄件硬拉滿槽會爆形，
+超上限改夾住置中——寧留小縫不毀形（§53 誠實取捨的幾何版）。
+附帶（5fa 帳目修正的教訓）：**覆蓋率驗收計數要三態分列
+（合成／原典／退化 fallback）**——「總數 118 全滿」看不出 7 字
+其實退了楷書；只分「缺/不缺」兩態的計數會把退化算成成功。
+
+---
+
+## 57. 版本顯示一律走注入、不手刻；「疑似回歸」先用 exact-URL 重放驗伺服器現況再動前端（2026-07-19 5fe 新增）
+
+手刻的版本標籤必定卡版（v0.13.0 卡了十幾版），有害於部署狀態
+判斷——一切版本顯示走單一事實源注入（?v=__V__ → APP_VERSION），
+標籤讀資產 ?v= 自動同步。靜態資產沒帶 ?v= ＝ cache TTL 長度的
+「隱形舊版窗口」（CSS 3600s：版面修正上線後最長一小時使用者看
+不到，狀態回報就會失真）。同輪方法學：使用者回報「大面積壞掉」
+時，先用**前端一模一樣的請求（含參數序）重放伺服器**——快取/
+伺服器現況完好即可判定暫時性（部署重啟窗口），不寫推測性防禦碼；
+未重現的 bug 寫補丁＝把猜測固化進 codebase。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2232,6 +2283,7 @@ data 屬性）＋使用者可見統計「N 字為推測非原典」；**相容�
   - [`2026-07-19_5ew_handwriting_integration.md`](decisions/2026-07-19_5ew_handwriting_integration.md)（5ew 手寫整合弧五輪 QODA 重放：分段載入語意/共用儲存層誠實降階/adapter 事件時綁定/E2E 環境隔離/純屬性錨點/兄弟實作掃描，對應 §46–§49）
   - [`2026-07-19_5ex_5fb_render_resource_governance.md`](decisions/2026-07-19_5ex_5fb_render_resource_governance.md)（渲染資源治理鏈六件套 QODA 重放：量測先行/快取-閘門-中止-分段-回收-縮批重試/opencc race/併發測試方法學，對應 §50–§52）
   - [`2026-07-19_5fa_seal_compose.md`](decisions/2026-07-19_5fa_seal_compose.md)（篆體缺字部件合成：誠實放棄曲線/標示/相容分流；週期表缺字 60→0、62 字合成，對應 §53）
+  - [`2026-07-19_5fc_5fe_layout_deeplink_seal_square.md`](decisions/2026-07-19_5fc_5fe_layout_deeplink_seal_square.md)（筆順練習版面三輪＋深連結分流＋合成正方化：hidden 全域歸位/grid 動態插入雙陷阱/bbox 正規化/三態驗收/版本注入與 exact-URL 重放，對應 §54–§57）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -2242,4 +2294,4 @@ data 屬性）＋使用者可見統計「N 字為推測非原典」；**相容�
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§53 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§57 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性）。三者互補。
