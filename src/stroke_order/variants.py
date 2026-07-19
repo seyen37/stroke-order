@@ -59,7 +59,14 @@ _opencc_s2t: Optional[Callable[[str], str]] = None
 
 
 def _ensure_opencc() -> bool:
-    """Try to set up OpenCC. Returns True if successful."""
+    """Try to set up OpenCC. Returns True if successful.
+
+    5ex 修（併發 race）：原版先發布 ``_opencc_t2s`` 再建 ``_opencc_s2t``
+    ——另一執行緒在兩行之間進來，guard（讀 t2s）已非 None 就直接呼叫
+    還是 None 的 s2t → ``'NoneType' object is not callable``（冷啟動
+    併發渲染 500）。修法：兩顆先在局部建好，**guard 變數最後發布**；
+    重複初始化無害（冪等），不需鎖。
+    """
     global _opencc_t2s, _opencc_s2t
     if _opencc_t2s is not None:
         return True
@@ -68,11 +75,13 @@ def _ensure_opencc() -> bool:
     except ImportError:
         return False
     try:
-        _opencc_t2s = OpenCC("t2s").convert
-        _opencc_s2t = OpenCC("s2t").convert
-        return True
+        t2s = OpenCC("t2s").convert
+        s2t = OpenCC("s2t").convert
     except Exception:
         return False
+    _opencc_s2t = s2t
+    _opencc_t2s = t2s   # guard 讀這顆——最後發布，見者即全量可用
+    return True
 
 
 def to_simplified(char: str) -> str:

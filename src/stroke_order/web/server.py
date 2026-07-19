@@ -25,6 +25,7 @@ Run with::
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from collections import OrderedDict
 
@@ -55,6 +56,13 @@ RENDER_CACHE_MUTATING_PREFIXES = (
 )
 RENDER_CACHE_MAX_ITEM = 4 * 1024 * 1024    # 單條上限（篆書整頁 ~3.4MB）
 RENDER_CACHE_MAX_TOTAL = 48 * 1024 * 1024  # 總預算（Render free 512MB 下保守）
+# 5ex-B：渲染併發閘門——重渲染同時最多 N 個、其餘 asyncio 排隊等候。
+# 實測沙箱冷快取篆書週期表 ×3 並發 RSS 峰值 486MB（免費層 512MB）＝
+# 連按預覽即 OOM 的主因；閘門把記憶體乘數鎖死。快取命中不過閘門。
+RENDER_GATE_MAX = 2
+# 打字即發的容量預檢很輕（純版面計算、無字形渲染）——豁免閘門，
+# 避免輸入回饋排在重渲染後面凍住。
+RENDER_GATE_EXEMPT_SUFFIX = "/capacity"
 
 
 def create_app() -> FastAPI:
@@ -79,6 +87,20 @@ def create_app() -> FastAPI:
             _, (old_body, _h) = render_cache.popitem(last=False)
             render_cache_stat["bytes"] -= len(old_body)
 
+    # 5ex-B：閘門與觀測（peak 供測試斷言「同時渲染 ≤ 上限」）
+    render_gate = asyncio.Semaphore(RENDER_GATE_MAX)
+    render_gate_stat = {"active": 0, "peak": 0}
+
+    async def _gated(call):
+        async with render_gate:
+            render_gate_stat["active"] += 1
+            if render_gate_stat["active"] > render_gate_stat["peak"]:
+                render_gate_stat["peak"] = render_gate_stat["active"]
+            try:
+                return await call()
+            finally:
+                render_gate_stat["active"] -= 1
+
     class _RenderCacheMiddleware:
         def __init__(self, app):
             self.app = app
@@ -91,6 +113,10 @@ def create_app() -> FastAPI:
 
             if method != "GET":
                 if not path.startswith(RENDER_CACHE_MUTATING_PREFIXES):
+                    if path.startswith(RENDER_CACHE_PREFIXES):
+                        # POST 渲染端點（API 相容保留）同樣過閘門
+                        return await _gated(
+                            lambda: self.app(scope, receive, send))
                     return await self.app(scope, receive, send)
                 # 資料異動端點：成功（<400）才 bump 全域失效
                 seen = {}
@@ -149,7 +175,10 @@ def create_app() -> FastAPI:
                         return
                 # 全部收齊才動作（在結尾統一送出）
 
-            await self.app(scope, receive, send_capture)
+            if path.endswith(RENDER_GATE_EXEMPT_SUFFIX):
+                await self.app(scope, receive, send_capture)
+            else:
+                await _gated(lambda: self.app(scope, receive, send_capture))
             body = bytes(cap["body"])
             status = cap["status"] if cap["status"] is not None else 500
             hdr_pairs = [
@@ -193,6 +222,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(_RenderCacheMiddleware)
     app.state.render_cache_stat = render_cache_stat
+    app.state.render_gate_stat = render_gate_stat
 
     # W1-B（架構健檢 2026-07-18）：大型 SVG/JSON 回應壓縮。心經整頁 SVG
     # 1.25MB → 約 150KB；zhuyin_tw.json 454KB → 約 60KB。

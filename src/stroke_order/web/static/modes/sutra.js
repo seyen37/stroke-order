@@ -539,16 +539,27 @@ const SU_GLYPH_LAYERS = ["sutra-glyph-reference", "sutra-trace",
 const SU_BATCH_SIZE = 12;
 let _suRenderGen = 0;   // 世代計數：新 render／換頁使進行中的舊批失效
 
+// 5ex-C：預覽請求中止器——重按預覽/換頁即 abort 舊請求。世代計數
+// （_suRenderGen）只防「舊結果誤塞畫面」，abort 才能停掉伺服器上
+// 還在燒 CPU/記憶體的殭屍渲染（連按預覽疊加＝512MB 免費層 OOM 主因）。
+let _suAbort = null;
+
 async function suFetchSvg(extra) {
-  const r = await fetch(`${API_BASE}/api/sutra`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    // 5bz: preview shows the reference letterform behind the skeleton
-    // (隸/篆 only). Download buttons keep the default (skeleton-only).
-    // 5dt: emit_cellmap → clickable per-cell overlay for 逐字手寫.
-    body: JSON.stringify(sutraBuildBody(Object.assign(
-      {show_original_glyph: true, emit_cellmap: true}, extra || {}))),
-  });
+  // 5ex-A1：預覽改 GET——輸出完全由參數決定，走 5eu 回應快取。
+  // POST 自 5bz 起一直是快取盲區：重複按預覽每次都全新渲染，
+  // 篆書/週期表尤其致命。GET 化後重複預覽＝快取命中（0.0x 秒）。
+  // 5bz: preview shows the reference letterform behind the skeleton
+  // (隸/篆 only). Download buttons keep the default (skeleton-only).
+  // 5dt: emit_cellmap → clickable per-cell overlay for 逐字手寫.
+  const body = sutraBuildBody(Object.assign(
+    {show_original_glyph: true, emit_cellmap: true}, extra || {}));
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(body)) {
+    if (v === null || v === undefined) continue;
+    qs.set(k, String(v));   // glyph_chars="" 也要送（空白版面語意）
+  }
+  const r = await fetch(`${API_BASE}/api/sutra?${qs.toString()}`,
+                        { signal: _suAbort ? _suAbort.signal : undefined });
   if (!r.ok) {
     const err = await r.json().catch(() => ({detail: r.statusText}));
     throw new Error(err.detail || `HTTP ${r.status}`);
@@ -619,6 +630,9 @@ async function sutraRender() {
     return;
   }
   const gen = ++_suRenderGen;
+  // 5ex-C：中止上一輪還在天上的請求（伺服器端也會收到連線中斷）
+  if (_suAbort) _suAbort.abort();
+  _suAbort = new AbortController();
   const status = document.getElementById("su-status");
   const preview = document.getElementById("su-preview");
   const prog = document.getElementById("su-progress");
@@ -664,6 +678,7 @@ async function sutraRender() {
     status.textContent = "✓ 完成（點格子可逐字手寫）";
     status.style.color = "#080";
   } catch (e) {
+    if (e && e.name === "AbortError") return;   // 5ex-C：被新一輪取代，靜默
     if (gen !== _suRenderGen) return;
     if (prog) prog.style.display = "none";
     status.textContent = "失敗：" + e.message;

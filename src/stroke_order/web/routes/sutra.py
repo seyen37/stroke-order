@@ -588,6 +588,9 @@ def sutra_get(       # 5dp：sync def（見 sutra_post）
     show_original_glyph: bool = Query(False),
     # 5dt: per-cell click-map overlay (preview only)
     emit_cellmap: bool = Query(False),
+    # 5ex-A1：R2 分段預覽參數補進 GET——預覽改 GET 走 5eu 回應快取
+    # （None=完整；""=零載入純版面；字集=集合外回 None 描紅留白）
+    glyph_chars: Optional[str] = Query(None),
 ):
     req = SutraPostRequest(
         preset=preset, page_index=page_index, page_type=page_type,
@@ -603,6 +606,7 @@ def sutra_get(       # 5dp：sync def（見 sutra_post）
         text_direction=text_direction,
         show_original_glyph=show_original_glyph,
         emit_cellmap=emit_cellmap,
+        glyph_chars=glyph_chars,
     )
     return sutra_post(req)
 

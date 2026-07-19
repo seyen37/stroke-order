@@ -2621,3 +2621,16 @@ def test_5ew_progress_bar_markup_present(client):
     assert 'id="su-progress"' in html
     assert 'id="su-progress-bar"' in html
     assert 'id="su-progress-text"' in html
+
+
+def test_5ex_preview_fetch_is_get_with_abort():
+    """5ex：預覽 GET 化（A1，走 5eu 快取）＋AbortController（C）。"""
+    from fastapi.testclient import TestClient
+    from stroke_order.web.server import app
+    js = TestClient(app).get("/static/modes/sutra.js").text
+    fn = js.split("async function suFetchSvg")[1].split("async function")[0]
+    assert "URLSearchParams" in fn            # A1：改拼 query
+    assert 'method: "POST"' not in fn         # A1：不再 POST
+    assert "_suAbort" in fn                   # C：帶中止 signal
+    assert "AbortController" in js            # C：sutraRender 起手建立
+    assert "AbortError" in js                 # C：被取代時靜默
