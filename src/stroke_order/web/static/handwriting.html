@@ -197,6 +197,14 @@
               title="待開發 — 提交匿名公眾資料庫（協助寫字機器人取得真實軌跡）">
         🌐 提交匿名公眾資料庫（待開發）
       </button>
+      <!-- 5fk：匯入與清空自畫布右下移入左欄（統計→提交→匯入→清空） -->
+      <span class="hw-data-import">
+        <span class="hw-data-row-title">匯入</span>
+        <input id="hw-import-file" type="file" accept=".json,application/json">
+      </span>
+      <button class="hw-btn hw-btn-danger"
+              data-action="clear-all" type="button"
+              title="刪除本機練習史全部紀錄（不可復原；二次確認）">⚠ 清空整個資料庫</button>
     </section>
 
   </aside>
@@ -237,16 +245,6 @@
                   aria-hidden="true"></canvas>
           <canvas id="hw-canvas-ink" class="hw-canvas hw-canvas-ink"
                   aria-label="書寫畫布"></canvas>
-        </div>
-        <!-- 5fj：框外右下——匯入（上）＋清空整個資料庫（下），自抽屜移入 -->
-        <div class="hw-canvas-bottom">
-          <span class="hw-data-import">
-            <span class="hw-data-row-title">匯入</span>
-            <input id="hw-import-file" type="file" accept=".json,application/json">
-          </span>
-          <button class="hw-btn hw-btn-danger"
-                  data-action="clear-all" type="button"
-                  title="刪除本機練習史全部紀錄（不可復原）">⚠ 清空整個資料庫</button>
         </div>
       </div>
       <div class="hw-side-actions">
@@ -805,6 +803,11 @@
         '⚠ 即將清空整個本機筆順資料庫，無法復原。\n\n' +
         '建議先用「↓ JSON（全部）」匯出備份。\n\n' +
         '確定清空？',
+      )) return;
+      // 5fk：二次確認——不可復原的整庫刪除，雙重把關
+      if (!confirm(
+        '⚠ 最後確認：真的要刪除「全部」筆順紀錄嗎？\n\n' +
+        '此動作無法復原。',
       )) return;
       try {
         await clearAllTraces();

@@ -462,33 +462,39 @@ def test_5fe_layout_and_version_sync(client):
     assert "insertBefore(st, _row)" in page
 
 
-def test_5fj_data_area_relayout(client):
-    """5fj：資料區重排——統計＋提交移左欄（組件覆蓋下）；匯入＋清空移
-    畫布框外右下；抽屜剩匯出列。id/data-action 全保留（JS 綁定不斷）。"""
+def test_5fj_5fk_data_area_relayout(client):
+    """5fj→5fk：資料區重排——統計＋提交＋匯入＋清空全移左欄（組件覆蓋
+    下，順序 統計→提交→匯入→清空）；畫布右下區退場；抽屜剩匯出列；
+    清空帶二次確認。id/data-action 全保留（JS 綁定不斷）。"""
     page = client.get("/handwriting").text
-    # 左欄：組件覆蓋 → 我的資料（統計＋提交）順序
+    # 左欄：組件覆蓋 → 我的資料（統計→提交→匯入→清空）順序
     aside = page.split("<aside", 1)[1].split("</aside>", 1)[0]
     assert 'id="hw-side-data"' in aside
     assert aside.index("hw-coverset") < aside.index('id="hw-side-data"')
     side = aside.split('id="hw-side-data"')[1]
     assert 'id="hw-db-count"' in side and 'id="hw-db-unique"' in side
-    assert 'data-action="submit-public"' in side
-    assert side.index('id="hw-db-count"') < side.index("submit-public")
-    # 畫布右下：canvas-wrap 之後 hw-canvas-bottom（匯入在上、清空在下）
-    col = page.split("hw-canvas-wrap", 1)[1]
-    assert "hw-canvas-bottom" in col
-    bottom = col.split("hw-canvas-bottom")[1]
-    assert 'id="hw-import-file"' in bottom
-    assert 'data-action="clear-all"' in bottom
-    assert bottom.index("hw-import-file") < bottom.index("clear-all")
+    order = [side.index('data-action="submit-public"'),
+             side.index('id="hw-import-file"'),
+             side.index('data-action="clear-all"')]
+    assert side.index('id="hw-db-count"') < order[0]
+    assert order == sorted(order), order
+    # 5fk：畫布右下區（5fj 的 hw-canvas-bottom）已退場
+    assert "hw-canvas-bottom" not in page
     # 抽屜：只剩匯出（無統計/清空/提交/匯入）
     drawer = page.split('id="hw-drawer"')[1].split("</section>")[0]
     assert "export-json" in drawer
     for gone in ("hw-db-count", "clear-all", "submit-public", "hw-import-file"):
         assert gone not in drawer, gone
-    # CSS：右下區靠右
+    # 5fk：清空整庫二次確認——clear-all 處理器內兩個 confirm(
+    handler = page.split('[data-action="clear-all"]\').addEventListener', 1)[1]
+    body = handler[:handler.index("clearAllTraces")]   # 確認都在動手之前
+    assert body.count("confirm(") == 2, body.count("confirm(")
+    assert "最後確認" in body
+    # CSS：左欄匯入/清空撐滿欄寬；右下區規則已移除
     css = client.get("/static/handwriting/handwriting.css").text
-    assert "hw-canvas-bottom" in css and "align-items: flex-end" in css
+    assert "hw-canvas-bottom" not in css
+    assert "#hw-side-data .hw-data-import" in css
+    assert "#hw-side-data .hw-btn-danger" in css
 
 
 def test_5fi_index_version_label(client):
