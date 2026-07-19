@@ -20,6 +20,8 @@ system font.
 """
 from __future__ import annotations
 
+from typing import Optional
+
 from .sutra import (
     CharLoader, PageGeometry, get_geometry,
     TRACE_FILL_DEFAULT, render_sutra_page,
@@ -201,6 +203,9 @@ def render_periodic_table_page(
     trace_fill: str = TRACE_FILL_DEFAULT,
     show_grid: bool = True,
     emit_cellmap: bool = False,
+    # 5ff：參考字形層（5bz）——篆/隸骨架層 0.03 近隱形（5ca），預覽/
+    # PDF 的可見度靠這層淡色原字。route 端能力偵測轉發（同 emit_cellmap）。
+    outline_glyph_loader: Optional[CharLoader] = None,
 ) -> str:
     """Render the periodic table on a standard blank 抄經 body sheet.
 
@@ -214,6 +219,10 @@ def render_periodic_table_page(
     ``data-char`` click rect, so the 逐字手寫 popup works on the periodic
     table exactly as it does on a 抄經 body page (preview only — download
     buttons leave it off). Blank periodic gaps emit no rect.
+
+    5ff: ``outline_glyph_loader`` forwards the 5bz faded reference
+    letterform layer — without it every 篆/隸 cell is skeleton-only at
+    0.03 opacity, i.e. the whole table reads as blank in the preview.
     """
     geom = get_geometry("landscape")
     cells = periodic_table_cells(geom)
@@ -226,6 +235,7 @@ def render_periodic_table_page(
         show_helper_lines=show_grid,
         trace_fill=trace_fill,
         emit_cellmap=emit_cellmap,
+        outline_glyph_loader=outline_glyph_loader,
     )
 
 

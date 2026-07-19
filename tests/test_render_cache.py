@@ -302,3 +302,54 @@ def test_5ey_release_memory_hook_in_gate():
     assert "malloc_trim" in src
     assert "gc.collect()" in src
     assert '_release_memory()' in src
+
+
+# ---------------------------------------------------------------------------
+# 5ff：表格頁補 5bz 參考字形層（空白格真根因）
+# ---------------------------------------------------------------------------
+
+
+def test_5ff_table_emits_reference_layer(tmp_path, monkeypatch):
+    """5ff：篆/隸骨架層設計上 0.03 近隱形（5ca），預覽可見度由
+    sutra-glyph-reference 淡色原字層扛——表格 wrapper 先前沒轉發
+    show_original_glyph（§26 單一未轉發旗標同款）＝週期表×篆書
+    整頁看起來空白。鎖：旗開→參考層存在且有內容；旗關→不吐
+    （plotter 下載語意不變）；glyph_chars 過濾同樣約束參考層。"""
+    from pathlib import Path
+    candidates = [
+        "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",
+        "C:/Windows/Fonts/msjh.ttc",
+        "C:/Windows/Fonts/mingliu.ttc",
+    ]
+    src = next((f for f in candidates if Path(f).exists()), None)
+    if src is None:
+        pytest.skip("無系統 CJK 字型可裁子集")
+    from fontTools import subset as ft_subset
+    from fontTools.ttLib import TTFont
+    font = TTFont(src, fontNumber=0, lazy=True)
+    ss = ft_subset.Subsetter()
+    ss.populate(text="金里")
+    ss.subset(font)
+    out = tmp_path / "seal_5ff.otf"
+    font.save(str(out))
+    monkeypatch.setenv("STROKE_ORDER_SEAL_FONT_FILE", str(out))
+    import stroke_order.sources.chongxi_seal as cs
+    cs.reset_seal_singleton()
+    try:
+        c = TestClient(create_app())
+        base = {"preset": "periodic_table", "page_type": "table",
+                "style": "seal_script", "emit_cellmap": "true",
+                "show_original_glyph": "true", "glyph_chars": "鋰"}
+        t = c.get("/api/sutra", params=base).text
+        assert 'id="sutra-glyph-reference"' in t
+        ref = t.split('id="sutra-glyph-reference"')[1].split("</g>")[0]
+        assert len(ref) > 50                       # 參考層有墨
+        t2 = c.get("/api/sutra",
+                   params={**base, "show_original_glyph": "false"}).text
+        assert "sutra-glyph-reference" not in t2   # 下載語意不變
+        t3 = c.get("/api/sutra", params={**base, "glyph_chars": ""}).text
+        if "sutra-glyph-reference" in t3:          # 空集合＝零參考字
+            assert len(t3.split('id="sutra-glyph-reference"')[1]
+                       .split("</g>")[0]) < 50
+    finally:
+        cs.reset_seal_singleton()

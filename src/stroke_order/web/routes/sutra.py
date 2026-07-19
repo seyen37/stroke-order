@@ -447,6 +447,19 @@ def sutra_post(req: SutraPostRequest):
         req.source, req.hook_policy, req.style, memoize=True)
 
     if req.page_type == "table":
+        # 5ff：參考字形層（5bz）補進表格頁——篆/隸骨架層設計上是
+        # 0.03 近隱形（5ca），可見度由 sutra-glyph-reference 淡色
+        # 原字層扛。表格 wrapper 先前只轉了 emit_cellmap 沒轉這面
+        # 旗（§26「單一未轉發旗標」同款雷）：週期表×篆書 118 格
+        # 全是骨架字＝整頁看起來空白。與 body 分支同構建/同過濾。
+        outline_loader_t = (
+            _memoize_char_loader(_build_sutra_outline_loader(
+                source=req.source, style=req.style,
+                hook_policy=req.hook_policy,
+            ))
+            if req.show_original_glyph
+            else None
+        )
         # 5ey-D：單字格表格頁（週期表等，重用 render_sutra_page）也吃
         # 分段載入——glyph_chars 三態語意與 body 相同（None=完整；
         # ""=零載入純版面；字集=集合外回 None 缺字留白）。自繪多字
@@ -456,6 +469,10 @@ def sutra_post(req: SutraPostRequest):
             _allowed_t = set(req.glyph_chars)
             _full_t = loader
             loader = (lambda ch: _full_t(ch) if ch in _allowed_t else None)
+            if outline_loader_t is not None:
+                _full_ot = outline_loader_t
+                outline_loader_t = (
+                    lambda ch: _full_ot(ch) if ch in _allowed_t else None)
         # 5bo: preset-specific table layout, one A4-landscape page.
         render_table = _table_page_renderer(req.preset)
         table_kwargs = dict(
@@ -468,8 +485,13 @@ def sutra_post(req: SutraPostRequest):
         # per 米字格). Capability-detect via signature so future
         # single-glyph table renderers opt in for free — no hardcoded
         # preset name, and self-drawn multi-char tables stay untouched.
-        if "emit_cellmap" in inspect.signature(render_table).parameters:
+        _table_params = inspect.signature(render_table).parameters
+        if "emit_cellmap" in _table_params:
             table_kwargs["emit_cellmap"] = req.emit_cellmap
+        # 5ff：同 5dw 能力偵測——支援參考層的表格 renderer 才收
+        if ("outline_glyph_loader" in _table_params
+                and outline_loader_t is not None):
+            table_kwargs["outline_glyph_loader"] = outline_loader_t
         svg = render_table(**table_kwargs)
     elif req.page_type == "cover":
         svg = render_sutra_cover(
