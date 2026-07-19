@@ -464,6 +464,18 @@ def test_5fe_layout_and_version_sync(client):
     assert "insertBefore(st, _row)" in page
 
 
+def test_5fi_index_version_label(client):
+    """5fi：主頁版本標籤——讀資產 ?v= 自動同步，不手刻（§57）。"""
+    page = client.get("/").text
+    assert 'id="app-version"' in page
+    # 佔位符已被伺服器注入成真實版本（label JS 依它填值）
+    assert "?v=__V__" not in page
+    import re
+    assert re.search(r'\?v=\d+\.\d+\.\d+', page)
+    # 標籤本體不手刻版本數字（由 JS 填）
+    assert re.search(r'id="app-version"[^>]*></span>', page.replace("\n", ""))
+
+
 def test_5fd_deeplink_material_routing(client):
     """5fd：深連結分流——帶 preset 走經典（定位該字）；無 preset 走字串。"""
     page = client.get("/handwriting").text

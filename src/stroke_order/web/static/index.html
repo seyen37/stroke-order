@@ -10,6 +10,17 @@
   <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.20.4/dist/index.js"></script>
   <!-- 5cj: ?v= cache-busting — 舊快取 JS 會殘留死 CDN 位址 -->
   <script src="/static/doodle_engine.js?v=__V__"></script>
+  <script>
+  // 5fi：版本標籤自動同步——取第一個帶 ?v= 的資產（佔位符已由伺服器
+  // 注入為 APP_VERSION）；只認數字開頭的版本、查無時留空（誠實不猜）。
+  document.addEventListener("DOMContentLoaded", () => {
+    const el = document.getElementById("app-version");
+    const src = document.querySelector('script[src*="?v="]')
+      ?.getAttribute("src") || "";
+    const m = /[?&]v=(\d[\w.]*)/.exec(src);
+    if (el && m) el.textContent = "v" + m[1];
+  });
+  </script>
   <style>
     :root {
       --bg: #fafafa;
@@ -153,7 +164,12 @@
 </div>
 
 <header>
-  <h1>stroke-order · 中文字 → 寫字機器人軌跡</h1>
+  <h1>stroke-order · 中文字 → 寫字機器人軌跡
+    <!-- 5fi：主頁版本標籤——JS 讀資產 ?v=（伺服器注入 APP_VERSION，
+         單一事實源），升版自動同步、永不手刻（5fe 筆順練習頁同法） -->
+    <span id="app-version" style="font-size:12px;font-weight:normal;
+          color:var(--muted);vertical-align:middle;margin-left:8px;"></span>
+  </h1>
   <p>輸入任意中文字，預覽筆順動畫並下載 SVG / G-code / JSON。</p>
   <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px 18px;">
     <label><input type="radio" name="mode" value="single" checked>
