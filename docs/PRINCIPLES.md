@@ -2122,6 +2122,57 @@ grep 同類消費點（本案 `_outline_path_d` 的呼叫者），別讓兄弟�
 
 ---
 
+## 50. 併發測試方法學四則：單迴圈 gather、boot 安定、停用瀏覽器快取、DOM 解析比對（2026-07-19 5ex 新增）
+
+（一）starlette TestClient 每請求各開事件迴圈——跨迴圈搶同一顆
+asyncio.Semaphore 會死鎖（正式環境 uvicorn 單迴圈無此事）；併發
+行為測試用 httpx.ASGITransport＋單一迴圈 asyncio.gather。（二）E2E
+按鈕前先等 boot 安定：非同步填入的欄位（如迴向偈）沒就緒就出手，
+快取 key 帶空值漂移＝假陰性。（三）瀏覽器 HTTP 快取會替你回放舊
+回應、遮蔽伺服器端觀察（x-render-cache 看不到）——page.route 攔截
+即停用。（四）巢狀 SVG 數 children 用 DOM 解析、不用正則（非貪婪
+遇巢狀 </g> 必錯）。附加價值實證：併發 E2E 當場揪出 opencc 初始化
+race 與 grid.py d="Z" 兩個既有 bug。
+
+---
+
+## 51. 資源受限環境的渲染治理鏈六件套：快取、閘門、中止、分段、回收、縮批重試（2026-07-19 5ex～5fb 新增）
+
+512MB／0.1 vCPU 免費層跑重渲染，單一手段不夠、六件互補成鏈：
+**快取**治重複（輸出由參數決定→GET 進回應快取）；**閘門**鎖峰值
+（Semaphore 排隊不拒絕、快取命中與輕量互動路徑豁免）；**中止**斷
+殭屍（AbortController——世代計數只防誤塞畫面，abort 才停伺服器上
+的舊請求）；**分段**攤前期（空白版面秒回＋分批填字＝感知延遲）；
+**回收**壓底線（LRU 上限＋gc/malloc_trim＋字型句柄回收）；**縮批
+＋重試**抗逾時（同症狀 502 有 OOM 與路由逾時兩因——縮短單請求、
+偶發失敗補一針）。新增重端點時對照這張單子逐件問「有沒有」。
+
+---
+
+## 52. 量測歸因要逐層切割＋下了結論再複驗；同症狀常有多重根因（2026-07-19 5fb 新增）
+
+兩次自我糾錯的教訓：①「預覽 POST 化是 R2 引入」——查 git 後發現
+5bz 起就是 POST（對使用者陳述歷史因果前先查證）；②「TTFont 記憶體
+逐字累積 209MB」——tracemalloc top-stats 逐層切割後改判「首字即付
+的固定開銷」（檔案緩衝＋hmtx＋CFF），若照初判開藥（更激進逐字回收）
+＝白工。方法：總量量測（RSS/tracemalloc 總數）只能提示規模，開藥前
+必須 top-stats／逐層歸因到持有者；同一症狀（502）列出所有候選根因
+（OOM／路由逾時）分別驗證，不要治了一個就宣告結案。
+
+---
+
+## 53. 缺字合成走「誠實放棄曲線」：推得出才合成、合成必標示、相容欄位不汙染（2026-07-19 5fa 新增）
+
+以部件重組補缺字（篆體：罣＝网+圭、鋰＝金+里）三原則：**寧缺勿錯**
+——方位/部件推不出就走原退化路徑（退楷書），覆蓋率提升零品質風險；
+**誠實標示**——合成字帶機器可讀記號（validation_notes → cellmap
+data 屬性）＋使用者可見統計「N 字為推測非原典」；**相容不汙染**——
+管線分流欄位（data_source）維持原值讓合成字走同一條轉換鏈，「是否
+合成」另闢欄位。附帶：部件取件重用本尊 get_character＝變體鏈/巢狀
+合成免費復用（鉨 → 聲旁 尔→爾）；防循環用 in-progress 集合。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2179,6 +2230,8 @@ grep 同類消費點（本案 `_outline_path_d` 的呼叫者），別讓兄弟�
   - [`2026-07-19_w2_cache_single_source.md`](decisions/2026-07-19_w2_cache_single_source.md)（W2 快取層＋單一事實源 5eu/5ev QODA 重放：純 ASGI vs BaseHTTPMiddleware、cache_bus 分層、pyproject 優先版本源、badge 自動化）
   - [`2026-07-19_w3_w4_decomposition.md`](decisions/2026-07-19_w3_w4_decomposition.md)（W3＋W4 前後端巨石拆分四輪 QODA 重放，對應 §41–§45）
   - [`2026-07-19_5ew_handwriting_integration.md`](decisions/2026-07-19_5ew_handwriting_integration.md)（5ew 手寫整合弧五輪 QODA 重放：分段載入語意/共用儲存層誠實降階/adapter 事件時綁定/E2E 環境隔離/純屬性錨點/兄弟實作掃描，對應 §46–§49）
+  - [`2026-07-19_5ex_5fb_render_resource_governance.md`](decisions/2026-07-19_5ex_5fb_render_resource_governance.md)（渲染資源治理鏈六件套 QODA 重放：量測先行/快取-閘門-中止-分段-回收-縮批重試/opencc race/併發測試方法學，對應 §50–§52）
+  - [`2026-07-19_5fa_seal_compose.md`](decisions/2026-07-19_5fa_seal_compose.md)（篆體缺字部件合成：誠實放棄曲線/標示/相容分流；週期表缺字 60→0、62 字合成，對應 §53）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -2189,4 +2242,4 @@ grep 同類消費點（本案 `_outline_path_d` 的呼叫者），別讓兄弟�
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§49 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§53 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線）。三者互補。
