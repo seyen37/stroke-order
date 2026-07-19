@@ -275,7 +275,7 @@ def test_5ey_glyph_cache_lru_cap():
     from collections import OrderedDict
 
     from stroke_order.sources.glyph_cache import GLYPH_CACHE_MAX, lru_put
-    assert GLYPH_CACHE_MAX == 1024
+    assert GLYPH_CACHE_MAX == 384   # 5fb：實測 63KB/字 → 384≈24MB/源
     c = OrderedDict()
     for i in range(5):
         lru_put(c, i, str(i), max_entries=3)

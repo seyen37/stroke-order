@@ -47,7 +47,7 @@ from typing import Optional
 
 from ..ir import EM_SIZE, Character, Point, Stroke
 from .cns_font import _OutlineCmdPen, _transform_cmd
-from .glyph_cache import GLYPH_CACHE_MAX, lru_put
+from .glyph_cache import FONT_RECYCLE_AFTER, GLYPH_CACHE_MAX, lru_put
 from .g0v import CharacterNotFound
 
 
@@ -188,6 +188,11 @@ class ChongxiSealSource:
         )
         self._font: object = None
         self._cache: "OrderedDict[str, Character]" = OrderedDict()  # 5ey-E：LRU 上限
+        # 5fb：TTFont 懶解析殘留回收——cmap/度量自快取（跨句柄重用），
+        # 每 FONT_RECYCLE_AFTER 個字形丟一次句柄（重開免重建 cmap）
+        self._cmap = None
+        self._metrics = None
+        self._glyphs_since_open = 0
 
     def __repr__(self) -> str:
         return (f"ChongxiSealSource(file={self.font_path!s}, "
@@ -227,7 +232,9 @@ class ChongxiSealSource:
         拋 :class:`CharacterNotFound`。
         """
         cp = ord(glyph_char)
-        gname = font.getBestCmap().get(cp)
+        if self._cmap is None:
+            self._cmap = font.getBestCmap()      # 5fb：跨句柄自快取
+        gname = self._cmap.get(cp)
         if gname is None:
             raise CharacterNotFound(
                 f"崇羲篆體 has no glyph for U+{cp:04X} ({glyph_char!r})"
@@ -238,13 +245,20 @@ class ChongxiSealSource:
             raise CharacterNotFound(
                 f"崇羲篆體 glyph for U+{cp:04X} has no drawable outline"
             )
-        units = font["head"].unitsPerEm
-        ascender = font["hhea"].ascender
+        if self._metrics is None:
+            self._metrics = (font["head"].unitsPerEm,
+                             font["hhea"].ascender)   # 5fb：跨句柄自快取
+        units, ascender = self._metrics
         scale = EM_SIZE / units
         cmds = [
             _transform_cmd(cmd, scale=scale, ascender=ascender)
             for cmd in pen.commands
         ]
+        # 5fb：懶解析殘留回收——丟句柄（不 close；在途舊句柄由 GC 收）
+        self._glyphs_since_open += 1
+        if self._glyphs_since_open >= FONT_RECYCLE_AFTER:
+            self._glyphs_since_open = 0
+            self._font = None
         return Character(
             char=id_char,
             unicode_hex=f"{ord(id_char):04x}",

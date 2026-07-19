@@ -153,3 +153,47 @@ def test_cellmap_carries_synth_flag(seal_source, monkeypatch):
     assert 'data-seal-synth="1"' in r
     r2 = cellmap_rect("金", 0, 0, 10, 10, 0, loaded=True)
     assert "data-seal-synth" not in r2
+
+
+# ---------------------------------------------------------------------------
+# 5fb：TTFont 句柄回收（懶解析殘留）＋前端配套標記
+# ---------------------------------------------------------------------------
+
+
+def test_5fb_font_handle_recycled(seal_source, monkeypatch):
+    """每 N 個字形丟句柄（cmap/度量自快取——重開不重建）。"""
+    import stroke_order.sources.chongxi_seal as cs
+    monkeypatch.setattr(cs, "FONT_RECYCLE_AFTER", 3)
+    seal_source._glyphs_since_open = 0
+    for ch in "金里网圭":                      # 4 個未快取？（fixture 共用
+        seal_source._cache.pop(ch, None)       # 快取先清，強制走渲染）
+    for ch in "金里网":
+        seal_source.get_character(ch)
+    assert seal_source._font is None            # 第 3 字後句柄已丟
+    cmap_before = seal_source._cmap
+    c = seal_source.get_character("圭")         # 重開句柄照常渲染
+    assert c.strokes
+    assert seal_source._cmap is cmap_before     # cmap 跨句柄重用（不重建）
+
+
+def test_5fb_all_font_sources_have_recycle():
+    import inspect
+
+    from stroke_order.sources import chongxi_seal, cns_font, moe_lishu
+    for mod in (chongxi_seal, cns_font, moe_lishu):
+        src = inspect.getsource(mod)
+        assert "_glyphs_since_open" in src, mod.__name__
+        assert "FONT_RECYCLE_AFTER" in src, mod.__name__
+
+
+def test_5fb_frontend_markers():
+    from fastapi.testclient import TestClient
+
+    from stroke_order.web.server import app
+    c = TestClient(app)
+    sj = c.get("/static/modes/sutra.js").text
+    assert "SU_BATCH_SIZE_SKELETON" in sj      # 篆/隸縮批
+    assert "suBatchSize" in sj
+    assert "重試中" in sj                       # 單批重試一次
+    hw = c.get("/static/modes/handwrite.js").text
+    assert "REF_SCALE = 1.4" in hw             # 範字 1.4×

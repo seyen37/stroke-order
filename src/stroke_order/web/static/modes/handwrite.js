@@ -511,11 +511,15 @@ function swInfo() {
 function swDrawBase(ctx, W, H) {
   ctx.clearRect(0, 0, W, H);
   const cur = SW.positions[SW.index];
+  // 5fb：範字放大 1.4×（使用者回饋：筆畫間空間大、較易辨識與書寫）——
+  // 置中放大，超出畫布的邊緣自然裁切（字形本身留白多、墨大多仍在框內）
+  const REF_SCALE = 1.4;
   if (cur && document.getElementById("sw-show-ref").checked) {
     if (SW.refImg) {
       // 5en: styled 範字 (篆/隸/宋…) rendered from the preview glyph — matches
       // the selected 字型風格 instead of a system-font fallback.
-      ctx.drawImage(SW.refImg, 0, 0, W, H);
+      const dw = W * REF_SCALE, dh = H * REF_SCALE;
+      ctx.drawImage(SW.refImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
     } else {
       // fallback: system font (缺字 / no preview / non-抄經 caller). Approximates
       // kaishu/song; note it will NOT match 篆/隸 — only used when the styled
@@ -524,7 +528,7 @@ function swDrawBase(ctx, W, H) {
       ctx.fillStyle = "#dcdcdc";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `${Math.round(H * 0.82)}px 'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif`;
+      ctx.font = `${Math.round(H * 0.82 * REF_SCALE)}px 'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif`;   // 5fb：1.4×
       ctx.fillText(cur.char, W / 2, H / 2 + H * 0.02);
       ctx.restore();
     }

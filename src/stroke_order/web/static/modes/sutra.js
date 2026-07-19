@@ -537,6 +537,14 @@ function sutraBuildBody(overrides) {
 const SU_GLYPH_LAYERS = ["sutra-glyph-reference", "sutra-trace",
                          "sutra-trace-skeleton", "sutra-trace-user"];
 const SU_BATCH_SIZE = 12;
+// 5fb：篆/隸每字要外框抽取＋Zhang-Suen 骨架化——免費層冷快取單批 12 字
+// 可能撐破路由逾時（實機：心經×篆書進度條一半 502）。縮批＝縮短單請求。
+const SU_BATCH_SIZE_SKELETON = 6;
+function suBatchSize() {
+  const st = (document.getElementById("su-style") || {}).value || "";
+  return (st === "seal_script" || st === "lishu")
+    ? SU_BATCH_SIZE_SKELETON : SU_BATCH_SIZE;
+}
 let _suRenderGen = 0;   // 世代計數：新 render／換頁使進行中的舊批失效
 
 // 5ex-C：預覽請求中止器——重按預覽/換頁即 abort 舊請求。世代計數
@@ -677,12 +685,23 @@ async function sutraRender() {
         prog.style.display = "flex";
         progBar.style.width = "0%";
         progText.textContent = `0/${uniq.length} 字`;
-        for (let i = 0; i < uniq.length; i += SU_BATCH_SIZE) {
-          const batch = uniq.slice(i, i + SU_BATCH_SIZE);
-          const svgText = await suFetchSvg({glyph_chars: batch.join("")});
+        const bs = suBatchSize();   // 5fb：篆/隸縮批
+        for (let i = 0; i < uniq.length; i += bs) {
+          const batch = uniq.slice(i, i + bs);
+          // 5fb：單批重試一次——免費層冷啟動偶發 502/逾時不再整輪報廢
+          let svgText;
+          try {
+            svgText = await suFetchSvg({glyph_chars: batch.join("")});
+          } catch (e1) {
+            if (e1 && e1.name === "AbortError") throw e1;
+            if (gen !== _suRenderGen) return;
+            status.textContent = `批次暫時失敗，重試中…`;
+            await new Promise(r => setTimeout(r, 1500));
+            svgText = await suFetchSvg({glyph_chars: batch.join("")});
+          }
           if (gen !== _suRenderGen) return;   // 換頁/重按——放棄舊批
           suMergeBatch(svgText, preview, new Set(batch));
-          const done = Math.min(i + SU_BATCH_SIZE, uniq.length);
+          const done = Math.min(i + bs, uniq.length);
           progBar.style.width = Math.round(done / uniq.length * 100) + "%";
           progText.textContent = `${done}/${uniq.length} 字`;
           status.textContent = `產生中… ${done}/${uniq.length} 字`;

@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..ir import EM_SIZE, Character, Point, Stroke
-from .glyph_cache import GLYPH_CACHE_MAX, lru_put
+from .glyph_cache import FONT_RECYCLE_AFTER, GLYPH_CACHE_MAX, lru_put
 from .cns_font import _OutlineCmdPen, _transform_cmd
 from .g0v import CharacterNotFound
 
@@ -79,6 +79,10 @@ class MoeLishuSource:
         )
         self._font: object = None
         self._cache: "OrderedDict[str, Character]" = OrderedDict()  # 5ey-E：LRU 上限
+        # 5fb：TTFont 懶解析殘留回收（同 chongxi_seal）
+        self._cmap = None
+        self._metrics = None
+        self._glyphs_since_open = 0
 
     def __repr__(self) -> str:
         return (f"MoeLishuSource(file={self.font_path!s}, "
@@ -120,8 +124,9 @@ class MoeLishuSource:
                 f"教育部隸書 font not installed; checked {self.font_path}"
             )
         cp = ord(char)
-        cmap = font.getBestCmap()
-        gname = cmap.get(cp)
+        if self._cmap is None:
+            self._cmap = font.getBestCmap()      # 5fb：跨句柄自快取
+        gname = self._cmap.get(cp)
         if gname is None:
             raise CharacterNotFound(
                 f"教育部隸書 has no glyph for U+{cp:04X} ({char!r})"
@@ -132,8 +137,10 @@ class MoeLishuSource:
             raise CharacterNotFound(
                 f"教育部隸書 glyph for U+{cp:04X} has no drawable outline"
             )
-        units = font["head"].unitsPerEm
-        ascender = font["hhea"].ascender
+        if self._metrics is None:
+            self._metrics = (font["head"].unitsPerEm,
+                             font["hhea"].ascender)   # 5fb
+        units, ascender = self._metrics
         scale = EM_SIZE / units
         cmds = [
             _transform_cmd(cmd, scale=scale, ascender=ascender)
@@ -152,6 +159,11 @@ class MoeLishuSource:
             )],
             data_source="moe_lishu",
         )
+        # 5fb：懶解析殘留回收
+        self._glyphs_since_open += 1
+        if self._glyphs_since_open >= FONT_RECYCLE_AFTER:
+            self._glyphs_since_open = 0
+            self._font = None
         lru_put(self._cache, char, c, GLYPH_CACHE_MAX)  # 5ey-E
         return c
 

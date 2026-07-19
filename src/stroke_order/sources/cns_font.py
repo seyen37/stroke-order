@@ -42,7 +42,7 @@ from typing import Optional
 from ..ir import EM_SIZE, Character, Point, Stroke
 from collections import OrderedDict
 
-from .glyph_cache import GLYPH_CACHE_MAX, lru_put
+from .glyph_cache import FONT_RECYCLE_AFTER, GLYPH_CACHE_MAX, lru_put
 from .g0v import CharacterNotFound
 
 
@@ -87,6 +87,10 @@ class CNSFontSource:
         self._fonts: dict[str, object] = {}
         # Character-level memoisation
         self._cache: "OrderedDict[str, Character]" = OrderedDict()  # 5ey-E：LRU 上限
+        # 5fb：TTFont 懶解析殘留回收（每平面一檔——cmap/度量按 plane 快取）
+        self._cmaps: dict[int, dict] = {}
+        self._metrics_by_plane: dict[int, tuple] = {}
+        self._glyphs_since_open = 0
 
     def __repr__(self) -> str:
         return (f"CNSFontSource(dir={self.font_dir!s}, "
@@ -142,8 +146,9 @@ class CNSFontSource:
                 f"no CNS font for U+{cp:04X} ({char!r}) — "
                 f"plane {plane} TTF absent from {self.font_dir}"
             )
-        cmap = font.getBestCmap()
-        gname = cmap.get(cp)
+        if plane not in self._cmaps:
+            self._cmaps[plane] = font.getBestCmap()   # 5fb：跨句柄自快取
+        gname = self._cmaps[plane].get(cp)
         if gname is None:
             raise CharacterNotFound(
                 f"CNS font missing glyph for U+{cp:04X} ({char!r})"
@@ -156,8 +161,10 @@ class CNSFontSource:
                 f"CNS font has glyph but no drawable outline for U+{cp:04X}"
             )
         # Normalise coords into the canonical 2048 em frame.
-        units_per_em = font["head"].unitsPerEm
-        ascender = font["hhea"].ascender
+        if plane not in self._metrics_by_plane:
+            self._metrics_by_plane[plane] = (
+                font["head"].unitsPerEm, font["hhea"].ascender)   # 5fb
+        units_per_em, ascender = self._metrics_by_plane[plane]
         scale = EM_SIZE / units_per_em
         cmds = [
             _transform_cmd(cmd, scale=scale, ascender=ascender)
@@ -181,6 +188,11 @@ class CNSFontSource:
             )],
             data_source=ds,
         )
+        # 5fb：懶解析殘留回收——清整個 plane 句柄表（在途舊句柄由 GC 收）
+        self._glyphs_since_open += 1
+        if self._glyphs_since_open >= FONT_RECYCLE_AFTER:
+            self._glyphs_since_open = 0
+            self._fonts = {}
         lru_put(self._cache, char, c, GLYPH_CACHE_MAX)  # 5ey-E
         return c
 
