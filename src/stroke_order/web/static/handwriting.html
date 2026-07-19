@@ -221,6 +221,14 @@
       <button class="hw-btn hw-btn-primary"
                                        data-action="commit"   type="button">✓ 完成本字</button>
       <button class="hw-btn"          data-action="next"     type="button">下一字 ⏵</button>
+      <!-- 5ew-R3：整合——存檔同步到渲染字庫（user-dict，全站模式吃它）。
+           預設開＝資料自動整合；練壞的字可取消勾選避免蓋掉好字。 -->
+      <label style="margin-left:12px;font-size:12px;color:var(--muted, #777);
+             display:inline-flex;align-items:center;gap:4px;"
+             title="勾選時，完成本字會同步寫入渲染字庫（罕用字/逐字手寫共用）——字帖、抄經等所有模式立即可用你的手寫字。取消勾選只存練習史。">
+        <input type="checkbox" id="hw-sync-userdict" checked>
+        同步到渲染字庫
+      </label>
     </div>
 
     <!-- session count -->
@@ -288,6 +296,7 @@
   import { WritingCanvas } from '/static/handwriting/canvas.js';
   import {
     saveTrace, getDbStats, uuid, listAllTraces, clearAllTraces,
+    saveDual, getSetting, setSetting,
     listUniqueChars,
   } from '/static/handwriting/storage.js';
   import {
@@ -575,7 +584,14 @@
         source:      _sourceMeta(),
       };
       try {
-        await saveTrace(record);
+        // 5ew-R3：雙寫——練習史必存；「同步到渲染字庫」依勾選（預設開）。
+        const wantSync = $('hw-sync-userdict').checked;
+        const dual = await saveDual(record, { toUserDict: wantSync });
+        if (wantSync && dual.synced && !dual.synced.ok) {
+          console.warn('user-dict 同步失敗（練習史已存）：',
+                       dual.synced.detail);
+          alert('練習史已存，但同步渲染字庫失敗：' + dual.synced.detail);
+        }
         state.sessionCount++;
         $('hw-session-count').textContent = state.sessionCount;
         canvas.clear();
@@ -1038,10 +1054,45 @@
 
   // ============================================================ boot
 
+  // 5ew-R3：同步勾選記憶（settings store；預設開）
+  {
+    const saved = await getSetting('sync_userdict');
+    if (saved === false) $('hw-sync-userdict').checked = false;
+    $('hw-sync-userdict').addEventListener('change', (e) => {
+      setSetting('sync_userdict', e.target.checked)
+        .catch(err => console.warn('sync 設定儲存失敗', err));
+    });
+  }
+
   showSourcePanel(state.sourceType);
   await populateSutraDropdown();
   await populateCoversetDropdown();
-  await loadMaterial();      // sutra preset auto-loaded into material
+
+  // 5ew-R3：?char= 深連結——簡潔版（抄經逐字手寫）「進階練習」跳轉入口。
+  // 載入該字為單字教材（臨摹模式）；from=sutra 顯示來源提示。
+  const _params = new URLSearchParams(location.search);
+  const _deepChar = (_params.get('char') || '').trim();
+  if (_deepChar) {
+    state.material = loadInputMaterial(_deepChar);
+    state.practiceMode = 'trace';
+    const modeRadio = document.querySelector(
+      'input[name="practice-mode"][value="trace"]');
+    if (modeRadio) modeRadio.checked = true;
+    updateProgress();
+    updatePromptUI();
+    await renderBg();
+    if (_params.get('from') === 'sutra') {
+      const st = document.createElement('div');
+      st.style.cssText = 'margin:6px 0;font-size:12px;color:#476;';
+      st.textContent =
+        `從抄經「逐字手寫」進入——練「${_deepChar}」。完成本字後` +
+        '（勾選同步時）回到抄經重新產生預覽即可看到你的手寫字。';
+      document.querySelector('.hw-actions')?.parentElement
+        ?.insertBefore(st, document.querySelector('.hw-actions'));
+    }
+  } else {
+    await loadMaterial();    // sutra preset auto-loaded into material
+  }
   await refreshDbStats();
 </script>
 

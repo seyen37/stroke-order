@@ -1,6 +1,9 @@
 // W4-R2 次批：顯式跨檔邊（原全域相依 → import/export 網）
 import { API_BASE } from "./core.js?v=__V__";
 import { sutraRender } from "./sutra.js?v=__V__";
+// 5ew-R3：共用儲存層（練習史雙寫＋轉換器）——與筆順練習頁同一模組
+import { saveTrace, uuid, swStrokesToTraceStrokes }
+  from "../handwriting/storage.js?v=__V__";
 
 // ============================================================
 // 逐字手寫 (Phase 5dt) — 點抄經預覽格子 → 手寫自己的字 → 存 user-dict
@@ -99,6 +102,15 @@ function swInit() {
   $("sw-prev").onclick    = () => swNav(-1);
   $("sw-next").onclick    = () => swNav(1);
   $("sw-skip").onclick    = () => swNav(1, /*noSubmit=*/true);
+  // 5ew-R3：進階練習——另開筆順練習頁練此字（完整軌跡/筆壓/練習史；
+  // 該頁存檔預設同步回渲染字庫，回抄經重新產生預覽即見）
+  $("sw-advanced").onclick = () => {
+    const cur = SW.positions[SW.index];
+    if (!cur) return;
+    window.open(
+      `/handwriting?char=${encodeURIComponent(cur.char)}&from=sutra`,
+      "_blank", "noopener");
+  };
   $("sw-submit").onclick  = swSubmitAndClose;
   $("sw-export").onclick  = () => {
     // 5dz: name the handwriting ZIP after the current 字型風格 —
@@ -242,6 +254,28 @@ async function swSubmitCurrent() {
     }
     SW.hadSaved = true;   // 5dy: an entry now exists for this char
     SW.dirty = true;
+    // 5ew-R3：雙寫練習史（IndexedDB）——簡潔版寫的字也進練習紀錄，
+    // 筆順練習頁（進階版）看得到。fire-and-forget：失敗只記 console，
+    // 不影響 user-dict 已存的事實。
+    try {
+      const traceStrokes = swStrokesToTraceStrokes(
+        valid, canvas.width, canvas.height);
+      saveTrace({
+        id: uuid(),
+        char: cur.char,
+        label_source: "given",
+        style: document.getElementById("su-style")?.value || "kaishu",
+        tags: ["sutra-sw"],
+        device: "unknown",
+        ts: new Date().toISOString(),
+        canvas_size: [canvas.width, canvas.height],
+        em_size: 2048,
+        strokes: traceStrokes,
+        source: { kind: "sutra-sw" },
+      }).catch(e => console.warn("練習史寫入失敗（user-dict 已存）", e));
+    } catch (e) {
+      console.warn("練習史轉換失敗（user-dict 已存）", e);
+    }
     return { ok: true, wrote: true };
   } catch (e) {
     const st = document.getElementById("sw-status");

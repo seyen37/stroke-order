@@ -322,3 +322,27 @@ def test_5ce_css_has_done_chip_style(client):
     css = client.get("/static/handwriting/handwriting.css").text
     assert "hw-cur-done" in css
     assert "hw-curriculum" in css
+
+
+# ---------------------------------------------------------------------------
+# 5ew-R3：筆順練習 × 逐字手寫整合——共用儲存層雙寫
+# ---------------------------------------------------------------------------
+
+
+def test_5ew_r3_shared_store_and_sync_ui(client):
+    """整合接線標記：共用儲存層 API、同步勾選、深連結、進階按鈕。"""
+    storage = client.get("/static/handwriting/storage.js").text
+    for marker in ("saveDual", "syncTraceToUserDict",
+                   "swStrokesToTraceStrokes", "traceStrokesToUserDict"):
+        assert marker in storage, marker
+    page = client.get("/handwriting").text
+    assert 'id="hw-sync-userdict"' in page          # 同步勾選（預設開）
+    assert "checked" in page.split('id="hw-sync-userdict"')[1][:60]
+    assert "saveDual" in page                        # COMMIT 走雙寫
+    assert "URLSearchParams" in page                 # ?char= 深連結
+    sw = client.get("/static/modes/handwrite.js").text
+    assert "handwriting/storage.js" in sw            # 簡潔版 import 共用層
+    assert "swStrokesToTraceStrokes" in sw           # 練習史雙寫
+    assert "sw-advanced" in sw                       # 進階練習跳轉
+    html = client.get("/").text
+    assert 'id="sw-advanced"' in html                # overlay 按鈕存在
