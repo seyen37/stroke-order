@@ -100,6 +100,30 @@ def test_index_no_large_inline_script():
         )
 
 
+def test_static_js_relative_imports_carry_version_query():
+    """5et-R5 事故防回潮：static ES module 的相對 .js import 必須帶 ?v=__V__。
+
+    子模組內部 import 不帶版本查詢時，/static 未帶 ?v= 只快取 1 小時——某
+    模組新增 export 後、瀏覽器仍載舊快取版→named import link 失敗→整頁白畫
+    （卡片模式加 faceFoldEdge 即踩此坑）。入口 script 由 HTML 注入版本，但子
+    import 需自帶 ?v=__V__ 才會被 versioning 中介層改寫成版號、隨版本破快取。
+    """
+    static = WEB / "static"
+    pat = re.compile(r"""from\s+(['"])(\.\.?/[\w/]+\.js)(\?v=__V__)?\1""")
+    offenders = []
+    for f in static.rglob("*.js"):
+        if "/vendor/" in f.as_posix():
+            continue
+        for lineno, line in enumerate(f.read_text("utf-8").splitlines(), 1):
+            for m in pat.finditer(line):
+                if m.group(3) is None:
+                    offenders.append(f"{f.relative_to(static).as_posix()}:{lineno}")
+    assert offenders == [], (
+        "static 相對 .js import 未帶 ?v=__V__（快取破壞缺口，改 export 會白畫）："
+        f"{offenders}"
+    )
+
+
 def test_svg_media_type_written_once():
     """``image/svg+xml`` 字串在 web 層只允許出現在 responses.py。"""
     offenders = []

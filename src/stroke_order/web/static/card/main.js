@@ -6,15 +6,15 @@
 // 共用 render.js 同一條字串渲染路徑。
 // ======================================================================
 
-import { CARD_PRESETS, normalizeBox, marqueeRect, faceFoldEdge } from './geometry.js';
+import { CARD_PRESETS, normalizeBox, marqueeRect, faceFoldEdge } from './geometry.js?v=__V__';
 import {
   newCard, newTextBox, newKaomojiBox, newArtBox,
   resolvePreset, saveDraft, loadDraft, serialize,
-} from './model.js';
-import { KAOMOJI_CATEGORIES } from './kaomoji.js';
-import { sanitizeSvgText } from './svgimport.js';
-import { renderFaceSvg, renderSheetSvg, renderPrintSvg } from './render.js';
-import { createGlyphRegistry } from './glyphs.js';
+} from './model.js?v=__V__';
+import { KAOMOJI_CATEGORIES } from './kaomoji.js?v=__V__';
+import { sanitizeSvgText } from './svgimport.js?v=__V__';
+import { renderFaceSvg, renderSheetSvg, renderPrintSvg } from './render.js?v=__V__';
+import { createGlyphRegistry } from './glyphs.js?v=__V__';
 
 const $ = (id) => document.getElementById(id);
 

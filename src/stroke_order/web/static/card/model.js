@@ -20,7 +20,7 @@
 //                    大框包小框＝大框畫外框樣式、再於其內畫小框，視覺疊層
 // ======================================================================
 
-import { CARD_PRESETS, DEFAULT_PRESET, customPreset, normalizeBox, orientPreset, FRAME_STYLES } from './geometry.js';
+import { CARD_PRESETS, DEFAULT_PRESET, customPreset, normalizeBox, orientPreset, FRAME_STYLES } from './geometry.js?v=__V__';
 
 export const SCHEMA = 'stroke-order-card-v1';
 export const STORAGE_KEY = 'card:draft';

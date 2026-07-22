@@ -34,7 +34,7 @@
 
 import {
   listAllTraces, saveTrace, clearAllTraces, getDbStats,
-} from './storage.js';
+} from './storage.js?v=__V__';
 
 // ============================================================ JSON
 

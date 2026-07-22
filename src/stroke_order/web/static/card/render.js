@@ -9,8 +9,8 @@
 // （2048 EM 座標、原點左上）或 null（fallback 系統字型 <text>）。
 // ======================================================================
 
-import { faceGuides, sheetGuides, layoutTextBox, contentRect, EM } from './geometry.js';
-import { fitTextLength } from './kaomoji.js';
+import { faceGuides, sheetGuides, layoutTextBox, contentRect, EM } from './geometry.js?v=__V__';
+import { fitTextLength } from './kaomoji.js?v=__V__';
 
 const XMLNS = 'http://www.w3.org/2000/svg';
 

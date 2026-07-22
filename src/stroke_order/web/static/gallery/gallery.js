@@ -13,8 +13,8 @@
 import {
   fetchMe, showLoginDialog, showProfileDialog, logout,
   attachAuthHandlers,
-} from './auth.js';
-import { showUploadDialog, attachUploaderHandlers } from './uploader.js';
+} from './auth.js?v=__V__';
+import { showUploadDialog, attachUploaderHandlers } from './uploader.js?v=__V__';
 // r29f: URL hash <-> state pure helpers (testable from Node)
 import { stateToHash, parseHash } from './hash.mjs';
 // r29h: toast notification (替換散點 alert)
