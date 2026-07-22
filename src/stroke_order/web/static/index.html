@@ -69,6 +69,45 @@
     button:hover:not(:disabled) { filter: brightness(0.95); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* ==== U1 模式契約：design token + 四級按鈕語彙 + action bar 三區 ====
+       對齊 sutra-editor.html 既有 .btn-* 語彙，升為全站契約（PRINCIPLES §11/§15）。
+       四級：primary 主要動作(每模式≤1、實心強調) / secondary 次要如下載(描邊) /
+       ghost 可逆如導覽·復原(純文字) / danger 破壞性(紅、需二次確認)。 */
+    :root {
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px;
+      --radius-sm: 4px;
+      --primary: var(--accent);       /* #c33，與既有 --accent 同源 */
+      --primary-ink: #fff;
+      --surface: #fff; --danger: var(--accent);
+      --focus: #7aa7ff;
+    }
+    .btn-primary, .btn-secondary, .btn-ghost, .btn-danger {
+      font: inherit; cursor: pointer; border-radius: var(--radius-sm);
+      padding: 7px 16px; line-height: 1.2; border: 1px solid transparent;
+    }
+    .btn-primary   { background: var(--primary); color: var(--primary-ink);
+                     border-color: var(--primary); font-weight: 600; }
+    .btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+    .btn-ghost     { background: transparent; color: var(--muted);
+                     border-color: transparent; padding: 7px 8px; }
+    .btn-danger    { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+    .btn-primary:hover:not(:disabled), .btn-secondary:hover:not(:disabled),
+    .btn-ghost:hover:not(:disabled),   .btn-danger:hover:not(:disabled) { filter: brightness(0.96); }
+    .btn-primary:disabled, .btn-secondary:disabled,
+    .btn-ghost:disabled,   .btn-danger:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary:focus-visible, .btn-secondary:focus-visible,
+    .btn-ghost:focus-visible,   .btn-danger:focus-visible {
+      outline: 2px solid var(--focus); outline-offset: 1px; }
+
+    /* action bar：導覽 · 主要動作 · 下載 三區（主要動作靠右跳出、下載為次要） */
+    .action-bar { display: flex; align-items: center; gap: var(--space-2);
+                  flex-wrap: wrap; margin: var(--space-3) 0; }
+    .action-bar .ab-nav  { display: flex; align-items: center; gap: var(--space-2); }
+    .action-bar .ab-main { margin-left: auto; display: flex; align-items: center;
+                           gap: var(--space-2); flex-wrap: wrap; }
+    .action-bar .ab-sep  { width: 1px; align-self: stretch; min-height: 22px;
+                           background: var(--border); margin: 0 var(--space-1); }
+
     #preview {
       display: flex; justify-content: center; align-items: center;
       min-height: 320px; border: 1px dashed var(--border);
@@ -1993,18 +2032,25 @@
              style="width:120px;font-size:12px;">
     </div>
 
-    <div class="row">
-      <button id="su-prev" type="button">◀ 前一頁</button>
-      <span id="su-page-label" style="min-width:140px;text-align:center;
-            font-size:13px;font-weight:600;">－</span>
-      <button id="su-next" type="button">下一頁 ▶</button>
-      <button id="su-render" class="btn-primary" style="margin-left:12px;">產生預覽</button>
-      <button id="su-dl-current" type="button">⤓ 本頁 SVG</button>
-      <button id="su-dl-all" type="button">⤓ 全部 SVG</button>
-      <button id="su-dl-pdf" type="button" title="多頁合併為單一 PDF，方便列印">
-        ⤓ 整本 PDF
-      </button>
-      <span id="su-status" style="margin-left:10px;color:var(--muted);font-size:12px;"></span>
+    <!-- U1 模式契約：action bar 三區（導覽 · 主要動作 · 下載）。按鈕 id 不變、
+         只換 class 與分區——導覽=ghost、產生預覽=primary(靠右跳出)、下載=secondary
+         統一「↓」圖示與詞彙。 -->
+    <div class="action-bar">
+      <div class="ab-nav">
+        <button id="su-prev" type="button" class="btn-ghost">◀ 前一頁</button>
+        <span id="su-page-label" style="min-width:120px;text-align:center;
+              font-size:13px;font-weight:600;">－</span>
+        <button id="su-next" type="button" class="btn-ghost">下一頁 ▶</button>
+      </div>
+      <div class="ab-main">
+        <button id="su-render" class="btn-primary">產生預覽</button>
+        <span class="ab-sep" aria-hidden="true"></span>
+        <button id="su-dl-current" type="button" class="btn-secondary">↓ 本頁 SVG</button>
+        <button id="su-dl-all" type="button" class="btn-secondary">↓ 全部 SVG</button>
+        <button id="su-dl-pdf" type="button" class="btn-secondary"
+                title="多頁合併為單一 PDF，方便列印">↓ 整本 PDF</button>
+        <span id="su-status" style="margin-left:6px;color:var(--muted);font-size:12px;"></span>
+      </div>
     </div>
 
     <!-- 5ew-R2：分段載入進度條——空白描紅格秒回後，字形分批填入 -->
