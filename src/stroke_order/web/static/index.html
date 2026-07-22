@@ -453,7 +453,7 @@
       <div class="row" style="margin-top:14px;justify-content:flex-end;">
         <span id="ud-save-status" style="color:var(--muted);
               font-size:12px;margin-right:auto;"></span>
-        <button id="ud-save" class="primary">儲存</button>
+        <button id="ud-save" class="btn-primary">儲存</button>
       </div>
     </div>
   </div>
@@ -541,7 +541,7 @@
     <p style="margin:8px 0 0;color:var(--muted);font-size:12px;">
       按「上一字／下一字」會自動送出目前寫好的字再移動；沒寫就直接跳過。</p>
     <div class="row" style="margin-top:12px;gap:6px;justify-content:flex-end;">
-      <button id="sw-submit" class="primary" type="button">送出並關閉</button>
+      <button id="sw-submit" class="btn-primary" type="button">送出並關閉</button>
     </div>
     <div class="row" style="margin-top:10px;padding-top:10px;
          border-top:1px solid var(--border);gap:8px;font-size:12px;
@@ -682,7 +682,7 @@
       </select>
     </div>
     <div class="row">
-      <button id="grid-render" class="primary">產生字帖</button>
+      <button id="grid-render" class="btn-primary">產生字帖</button>
       <span id="grid-download-group" style="display:none;">
         <a id="grid-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
         <a id="grid-download-gcode" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ G-code</a>
@@ -832,7 +832,7 @@
     <input id="nb-doodle-w" type="hidden" value="">
     <input id="nb-doodle-h" type="hidden" value="">
     <div class="row">
-      <button id="nb-render" class="primary">產生筆記</button>
+      <button id="nb-render" class="btn-primary">產生筆記</button>
       <span id="nb-download-group" style="display:none;">
         <a id="nb-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
         <a id="nb-download-gcode" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ G-code</a>
@@ -998,7 +998,7 @@
       </select>
     </div>
     <div class="row">
-      <button id="lt-render" class="primary">產生信紙</button>
+      <button id="lt-render" class="btn-primary">產生信紙</button>
       <span id="lt-download-group" style="display:none;">
         <a id="lt-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
         <a id="lt-download-gcode" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ G-code</a>
@@ -1103,7 +1103,7 @@
       </select>
     </div>
     <div class="row">
-      <button id="ms-render" class="primary">產生稿紙</button>
+      <button id="ms-render" class="btn-primary">產生稿紙</button>
       <span id="ms-download-group" style="display:none;">
         <a id="ms-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
         <a id="ms-download-gcode" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ G-code</a>
@@ -1213,7 +1213,7 @@
       <button id="dd-add-ann" style="margin-top:6px;">+ 加一條註解</button>
     </div>
     <div class="row">
-      <button id="dd-render" class="primary">產生塗鴉</button>
+      <button id="dd-render" class="btn-primary">產生塗鴉</button>
       <a id="dd-download" href="#" style="display:none;text-decoration:none;padding:6px 12px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ 下載</a>
       <span id="dd-status" style="color:var(--muted);font-size:12px;margin-left:12px;"></span>
     </div>
@@ -1330,14 +1330,16 @@
       </div>
     </details>
 
-    <div class="row">
+    <!-- U1 模式契約：主要動作(primary) + 分隔 + 下載(secondary，統一「↓ 格式 · 用途」) -->
+    <div class="action-bar">
       <button id="pt-render" class="btn-primary">產生預覽</button>
-      <button id="pt-dl-svg" type="button">⤓ SVG (cut + write)</button>
-      <button id="pt-dl-cut" type="button">⤓ G-code (裁字)</button>
-      <button id="pt-dl-write" type="button">⤓ G-code (寫字)</button>
-      <button id="pt-dl-dxf" type="button"
-              title="CUT(紅)=外框、ENGRAVE(黑)=字輪廓、WRITE(藍)=筆跡中心線；LightBurn / Beam Studio 直接匯入">⤓ 分層 DXF</button>
-      <span id="pt-status" style="margin-left:10px;color:var(--muted);font-size:12px;"></span>
+      <span class="ab-sep" aria-hidden="true"></span>
+      <button id="pt-dl-svg" type="button" class="btn-secondary">↓ SVG</button>
+      <button id="pt-dl-cut" type="button" class="btn-secondary">↓ G-code · 裁字</button>
+      <button id="pt-dl-write" type="button" class="btn-secondary">↓ G-code · 寫字</button>
+      <button id="pt-dl-dxf" type="button" class="btn-secondary"
+              title="CUT(紅)=外框、ENGRAVE(黑)=字輪廓、WRITE(藍)=筆跡中心線；LightBurn / Beam Studio 直接匯入">↓ 分層 DXF</button>
+      <span id="pt-status" style="margin-left:6px;color:var(--muted);font-size:12px;"></span>
     </div>
 
     <div id="pt-preview" style="background:white;padding:10px;border:1px solid var(--border);
@@ -1422,7 +1424,7 @@
       <label style="margin-left:12px;">框寬 (mm)</label>
       <input id="sc-frame-w" type="number" value="4" min="1" max="20"
              step="1" style="width:70px;">
-      <button id="sc-render" class="primary" style="margin-left:16px;">產生</button>
+      <button id="sc-render" class="btn-primary" style="margin-left:16px;">產生預覽</button>
       <span id="sc-status" style="color:var(--muted);"></span>
     </div>
     <div class="row" style="background:#fff8f0;border-left:3px solid #c96;
@@ -1866,14 +1868,16 @@
       </div>
     </details>
 
-    <div class="row">
+    <!-- U1 模式契約：主要動作(primary) + 分隔 + 下載(secondary，統一「↓ 格式 · 用途」) -->
+    <div class="action-bar">
       <button id="st-render" class="btn-primary">產生預覽</button>
-      <button id="st-dl-svg" type="button">⤓ SVG (engrave)</button>
-      <button id="st-dl-pdf" type="button" title="列印樣張 / 客戶確認用">⤓ PDF</button>
-      <button id="st-dl-gcode" type="button">⤓ G-code (laser)</button>
-      <button id="st-dl-dxf" type="button"
-              title="CUT(紅)=邊框、ENGRAVE(黑)=陰刻字輪廓或陽刻掃描線；LightBurn / Beam Studio 直接匯入">⤓ 分層 DXF</button>
-      <span id="st-status" style="margin-left:10px;color:var(--muted);font-size:12px;"></span>
+      <span class="ab-sep" aria-hidden="true"></span>
+      <button id="st-dl-svg" type="button" class="btn-secondary">↓ SVG · 雕刻</button>
+      <button id="st-dl-pdf" type="button" class="btn-secondary" title="列印樣張 / 客戶確認用">↓ PDF</button>
+      <button id="st-dl-gcode" type="button" class="btn-secondary">↓ G-code · 雷射</button>
+      <button id="st-dl-dxf" type="button" class="btn-secondary"
+              title="CUT(紅)=邊框、ENGRAVE(黑)=陰刻字輪廓或陽刻掃描線；LightBurn / Beam Studio 直接匯入">↓ 分層 DXF</button>
+      <span id="st-status" style="margin-left:6px;color:var(--muted);font-size:12px;"></span>
     </div>
 
     <div id="st-preview" style="background:white;padding:10px;border:1px solid var(--border);
@@ -2532,7 +2536,7 @@
     </div>
 
     <div class="row">
-      <button id="wa-render" class="primary">產生文字雲</button>
+      <button id="wa-render" class="btn-primary">產生文字雲</button>
       <a id="wa-download" href="#" style="display:none;text-decoration:none;padding:6px 12px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ 下載 SVG</a>
       <span id="wa-status" style="color:var(--muted);font-size:12px;margin-left:12px;"></span>
     </div>
@@ -2882,14 +2886,14 @@
       <input id="md-ph" type="number" value="210" min="50" max="600" step="5" style="width:70px;">
     </div>
     <div class="row">
-      <button id="md-render" class="primary">產生曼陀羅</button>
+      <button id="md-render" class="btn-primary">產生曼陀羅</button>
       <span id="md-status" style="color:var(--muted);font-size:12px;margin-left:12px;"></span>
     </div>
     <!-- Phase 5b r18: 多格式下載 — SVG/PNG/PDF + 透明背景 -->
     <div class="row" id="md-download-row" style="display:none;
          background:#f0f7ff;border-left:3px solid #69a;padding:6px 10px;
          border-radius:3px;align-items:center;gap:8px;flex-wrap:wrap;">
-      <b style="color:#234;font-size:12px;">⤓ 下載：</b>
+      <b style="color:#234;font-size:12px;">↓ 下載：</b>
       <button id="md-dl-svg" type="button" class="md-dl-btn"
               style="padding:4px 12px;font-size:12px;cursor:pointer;
                      border:1px solid var(--border);border-radius:4px;background:#fff;">
@@ -3268,7 +3272,7 @@
       <input id="feed_rate" type="number" value="3000" min="100" max="10000" step="100">
     </div>
     <div class="row">
-      <button id="load" class="primary">載入 / 重繪</button>
+      <button id="load" class="btn-primary">載入 / 重繪</button>
     </div>
   </section>
 
