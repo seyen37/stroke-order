@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stroke-order 規劃建議書 2026-07-18｜視覺版</title>
+<style>
+  :root{
+    --ink:#1c1a17; --ink-2:#4a453d; --muted:#8a8175; --line:#e5ded2;
+    --paper:#f7f3ec; --surface:#fffdf8; --surface-2:#f1ebe0;
+    --primary:#9a3b2e; --primary-soft:#c96a54; --accent:#3a6b5f;
+    --gold:#b6883b; --danger:#b23b3b;
+    --space:8px; --radius:14px; --radius-sm:9px;
+    --shadow-1:0 1px 2px rgba(40,30,20,.06),0 2px 8px rgba(40,30,20,.05);
+    --shadow-2:0 6px 24px rgba(40,30,20,.10);
+    --maxw:1080px;
+    --font: "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:
+      radial-gradient(1200px 600px at 80% -10%, #fbf7ef 0%, transparent 60%),
+      var(--paper);
+    color:var(--ink); font-family:var(--font); line-height:1.7;
+    -webkit-font-smoothing:antialiased; font-size:15.5px;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 20px 96px;}
+  a{color:var(--primary)}
+
+  /* ---- hero ---- */
+  header.hero{max-width:var(--maxw); margin:0 auto; padding:52px 20px 30px;}
+  .kicker{letter-spacing:.22em; font-size:12px; color:var(--primary);
+    font-weight:700; text-transform:uppercase;}
+  h1{font-size:33px; line-height:1.25; margin:.35em 0 .2em; letter-spacing:.01em;}
+  h1 .sub{display:block; font-size:16px; color:var(--muted); font-weight:500; margin-top:8px;}
+  .meta{display:flex; flex-wrap:wrap; gap:8px; margin-top:18px}
+  .chip{background:var(--surface); border:1px solid var(--line); border-radius:999px;
+    padding:5px 13px; font-size:12.5px; color:var(--ink-2); box-shadow:var(--shadow-1)}
+  .chip b{color:var(--ink)}
+  .chip.warn{border-color:#e7c9a0; background:#fbf1df; color:#8a5a1c}
+  .chip.ok{border-color:#bcdac9; background:#eaf6ef; color:#2c6a4f}
+
+  /* ---- section scaffold ---- */
+  section{max-width:var(--maxw); margin:34px auto 0; padding:0 20px}
+  .sec-head{display:flex; align-items:baseline; gap:12px; margin:26px 0 14px}
+  .sec-num{font-size:13px; font-weight:800; color:#fff; background:var(--primary);
+    border-radius:8px; padding:3px 9px; letter-spacing:.05em}
+  .sec-head h2{font-size:22px; margin:0}
+  .sec-head .en{color:var(--muted); font-size:12.5px; letter-spacing:.12em; text-transform:uppercase}
+  .lead{color:var(--ink-2); margin:.2em 0 1.1em; max-width:80ch}
+
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px 22px; box-shadow:var(--shadow-1); margin:14px 0}
+  .grid{display:grid; gap:14px}
+  @media(min-width:720px){.grid.c2{grid-template-columns:1fr 1fr}.grid.c3{grid-template-columns:1fr 1fr 1fr}}
+
+  table{width:100%; border-collapse:collapse; font-size:13.6px; margin:6px 0}
+  th,td{text-align:left; padding:9px 11px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{color:var(--muted); font-weight:700; font-size:12px; letter-spacing:.04em}
+  tr:last-child td{border-bottom:none}
+  .tag{display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px}
+  .t-hi{background:#fbe4df; color:#a1341f} .t-md{background:#fbf1d9; color:#8a5f16}
+  .t-lo{background:#e7f1ea; color:#356b52}
+
+  /* ---- architecture diagram ---- */
+  .diagram{display:grid; gap:12px}
+  .mono{border:2px dashed var(--primary-soft); border-radius:var(--radius);
+    background:linear-gradient(180deg,#fdeee9,#fbf5f0); padding:16px 18px}
+  .mono .lbl{font-weight:800; color:var(--primary); font-size:13px; letter-spacing:.03em}
+  .bar{height:26px; border-radius:7px; display:flex; overflow:hidden; margin-top:10px;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.05); font-size:11px; color:#fff; font-weight:700}
+  .bar span{display:flex; align-items:center; justify-content:center; white-space:nowrap}
+  .seg-js{background:#9a3b2e} .seg-html{background:#b6883b} .seg-css{background:#3a6b5f}
+  .libs{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+  .lib{background:#fff; border:1px solid #e6cfc8; color:#a1341f; border-radius:8px;
+    padding:5px 10px; font-size:12px; font-weight:600}
+  .flow{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; color:var(--muted); font-size:13px}
+  .flow .b{background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:6px 11px; color:var(--ink-2); font-weight:600}
+  .arrow{color:var(--primary-soft); font-weight:800}
+
+  /* ---- fork ---- */
+  .fork{display:grid; gap:14px}
+  @media(min-width:720px){.fork{grid-template-columns:1fr 1fr}}
+  .fork .opt{border-radius:var(--radius); padding:18px 20px; border:1px solid var(--line); background:var(--surface)}
+  .fork .a{border-top:4px solid var(--accent)} .fork .b{border-top:4px solid var(--gold)}
+  .fork h4{margin:.1em 0 .4em; font-size:16px}
+  .fork .who{font-size:12px; color:var(--muted); margin-bottom:6px}
+
+  /* ---- before/after UI ---- */
+  .ba{display:grid; gap:14px}
+  @media(min-width:720px){.ba{grid-template-columns:1fr 1fr}}
+  .ba .panel{border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; background:var(--surface)}
+  .ba .ph{padding:9px 14px; font-weight:700; font-size:12.5px; color:#fff}
+  .ba .before .ph{background:#a08a6a} .ba .after .ph{background:var(--accent)}
+  .ba .pb{padding:14px}
+  .flatgrid{display:flex; flex-wrap:wrap; gap:6px}
+  .rad{border:1px solid var(--line); background:var(--surface-2); border-radius:7px;
+    padding:5px 9px; font-size:11.5px; color:var(--ink-2)}
+  .grp{margin-bottom:10px}
+  .grp .gt{font-size:11px; font-weight:800; letter-spacing:.05em; color:var(--primary); margin-bottom:5px}
+  .grp .gt.mk{color:var(--gold)} .grp .gt.art{color:var(--accent)}
+  .pill{border-radius:8px; padding:5px 10px; font-size:11.5px; font-weight:600; color:#fff; display:inline-block; margin:0 5px 5px 0}
+  .p-w{background:#8a6db0} .p-mk{background:var(--gold)} .p-art{background:var(--accent)}
+  .btnrow{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; align-items:center}
+  .b1{background:var(--primary); color:#fff; border:none; border-radius:9px; padding:7px 14px; font-size:12px; font-weight:700}
+  .b2{background:#fff; color:var(--primary); border:1px solid var(--primary-soft); border-radius:9px; padding:7px 14px; font-size:12px; font-weight:700}
+  .b3{background:transparent; color:var(--ink-2); border:none; padding:7px 6px; font-size:12px}
+  .b4{background:#fff; color:var(--danger); border:1px solid #e6b8b8; border-radius:9px; padding:7px 12px; font-size:12px; font-weight:700}
+
+  /* ---- perf bars ---- */
+  .metric{display:grid; grid-template-columns:1fr; gap:11px}
+  .m-row .m-top{display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px}
+  .track{height:12px; background:var(--surface-2); border-radius:99px; overflow:hidden; position:relative}
+  .fill{height:100%; border-radius:99px}
+  .fill.now{background:linear-gradient(90deg,#c96a54,#9a3b2e)}
+  .fill.goal{background:linear-gradient(90deg,#5f9d8a,#3a6b5f)}
+  .m-cap{font-size:11.5px; color:var(--muted); margin-top:3px}
+
+  /* ---- roadmap ---- */
+  .road{position:relative; margin-top:10px}
+  .stage{display:grid; grid-template-columns:88px 1fr; gap:14px; padding:12px 0; border-bottom:1px dashed var(--line)}
+  .stage:last-child{border-bottom:none}
+  .stbadge{font-size:12px; font-weight:800; color:#fff; background:var(--ink);
+    border-radius:8px; padding:4px 0; text-align:center; height:fit-content}
+  .stbadge.s0{background:#3a6b5f}.stbadge.s1{background:#9a3b2e}.stbadge.s2{background:#b6883b}
+  .stbadge.s3{background:#8a6db0}.stbadge.s4{background:#4a453d}.stbadge.s5{background:#a8a094}
+  .stage h4{margin:0 0 3px; font-size:15px}
+  .stage .sess{font-size:11.5px; color:var(--muted); font-weight:600}
+  .stage ul{margin:6px 0 0; padding-left:18px; font-size:13.3px; color:var(--ink-2)}
+  .signoff{background:#eaf6ef; border:1px solid #bcdac9; border-radius:var(--radius); padding:14px 18px; margin:14px 0; font-size:13.6px}
+  .signoff b{color:#2c6a4f}
+
+  .princ{display:grid; gap:10px}
+  @media(min-width:720px){.princ{grid-template-columns:1fr 1fr 1fr}}
+  .pc{background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--primary); border-radius:10px; padding:13px 15px}
+  .pc .pn{font-weight:800; font-size:13px; color:var(--primary)}
+  .pc.n{border-left-color:var(--accent)} .pc.n .pn{color:var(--accent)}
+  .pc p{margin:5px 0 0; font-size:12.8px; color:var(--ink-2)}
+
+  .callout{border-left:4px solid var(--gold); background:#fbf5e6; border-radius:0 12px 12px 0; padding:14px 18px; margin:14px 0}
+  .callout b{color:#8a5f16}
+  footer{max-width:var(--maxw); margin:40px auto 0; padding:22px 20px; color:var(--muted); font-size:12.5px; border-top:1px solid var(--line)}
+  .toc{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+  .toc a{background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:5px 12px; font-size:12.5px; text-decoration:none; color:var(--ink-2)}
+  .toc a:hover{border-color:var(--primary-soft); color:var(--primary)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="kicker">stroke-order · 整體規劃建議書</div>
+  <h1>前端健康化優先，把地基弄穩
+    <span class="sub">2026-07-18 主檔｜取代 07-05｜視覺版（架構圖・進度表・UI 前後對照）</span>
+  </h1>
+  <div class="meta">
+    <span class="chip">版本 <b>v0.14.221</b></span>
+    <span class="chip ok">測試 <b>1757 passed</b></span>
+    <span class="chip">模式 <b>14</b></span>
+    <span class="chip">端點 <b>77</b></span>
+    <span class="chip warn">index.html <b>453 KB</b></span>
+    <span class="chip warn">inline JS <b>295 KB / 235 fn</b></span>
+  </div>
+  <div class="toc">
+    <a href="#s2">架構風險</a><a href="#s3">存在理由分叉</a><a href="#s6">UI 檢視</a>
+    <a href="#s7">前端效能</a><a href="#s9">推薦</a><a href="#s10">進度表</a><a href="#s12">策略憲章</a>
+  </div>
+</header>
+
+<!-- 2 架構 -->
+<section id="s2">
+  <div class="sec-head"><span class="sec-num">2</span><h2>架構分析</h2><span class="en">architecture & risk</span></div>
+  <p class="lead">後端與資料層健康（IR 中心化、12 源 auto-fallback、1757 測試、registry 擴充點成熟）。<b>兩個最高技術債都在前端</b>，也正是你這次的痛點。</p>
+
+  <div class="card diagram">
+    <div class="mono">
+      <div class="lbl">⚠ R8 · 前端單檔全載（現況）</div>
+      <div class="bar">
+        <span class="seg-js" style="width:65%">inline &lt;script&gt; 295 KB · 65%</span>
+        <span class="seg-html" style="width:33%">HTML 33%</span>
+        <span class="seg-css" style="width:2%"></span>
+      </div>
+      <div class="libs">
+        <span class="lib">hanzi-writer</span><span class="lib">pinyin-pro</span>
+        <span class="lib">js-yaml</span><span class="lib">doodle_engine</span><span class="lib">zentangle</span>
+        <span style="font-size:12px;color:#8a5a1c;align-self:center">← 5 支外部庫全 <b>eager</b>（用單字模式也載）</span>
+      </div>
+      <div class="flow" style="margin-top:12px">
+        <span class="b">開任一頁</span><span class="arrow">→</span>
+        <span class="b">解析 453 KB</span><span class="arrow">→</span>
+        <span class="b">編譯 235 functions</span><span class="arrow">→</span>
+        <span class="b">拉 5 庫</span><span class="arrow">→</span>
+        <span class="b" style="border-color:#e6b8b8;color:#a1341f">重模式累積記憶體 → 卡/崩</span>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>#</th><th>風險</th><th>影響</th><th>對策</th></tr>
+    <tr><td><span class="tag t-hi">R8 新</span></td><td>前端 453 KB 單檔、14 模式全 eager、5 庫 eager</td><td>首屏吃重、低階裝置易崩、改動半徑＝全檔</td><td>§7 分段載入＋崩潰防護</td></tr>
+    <tr><td><span class="tag t-hi">R9 新</span></td><td>UI 資訊架構扁平（14 模式一排）、133 按鈕無分級</td><td>認知過載、每模式重學按鈕</td><td>§6 三群重組＋四級按鈕語彙</td></tr>
+    <tr><td><span class="tag t-md">R1</span></td><td>蓄水未通（SMTP／持久碟）</td><td>主線燃料只能自產</td><td>蓄水 sprint（分叉後）</td></tr>
+    <tr><td><span class="tag t-md">R2</span></td><td>零使用數據儀表</td><td>推廣／取捨盲飛</td><td>Stage 0 儀表（半天）</td></tr>
+    <tr><td><span class="tag t-lo">R3</span></td><td>server.py 單檔 77 端點</td><td>改動半徑大</td><td>止血；新端點另開 router</td></tr>
+    <tr><td><span class="tag t-lo">R6</span></td><td>冷啟動 ~30s</td><td>推廣第一印象</td><td>蓄水前解</td></tr>
+  </table>
+</section>
+
+<!-- 3 fork -->
+<section id="s3">
+  <div class="sec-head"><span class="sec-num">3</span><h2>戰略張力：存在理由分叉</h2><span class="en">the honest fork</span></div>
+  <p class="lead">7/05 推薦「凍結 Line B、回主線 Phase B」。但這 13 天你<b>主動深化 Line B</b>（抄經／切割／逐字手寫），每弧品質都高。這逼出一個必須顯性拍板的問題——這次修訂最重要的產出。</p>
+  <div class="fork">
+    <div class="opt a">
+      <div class="who">路徑 (a)</div>
+      <h4>VISION 主線</h4>
+      <p style="font-size:13.5px;color:var(--ink-2)">三維交集、個人字庫生成。「寫 1/5 的字，留下全部字跡」。<br>→ 那 Line B 該凍結，回 Phase B 組件切割。</p>
+    </div>
+    <div class="opt b">
+      <div class="who">路徑 (b)</div>
+      <h4>中文字創作／製造工具站</h4>
+      <p style="font-size:13.5px;color:var(--ink-2)">14 模式一站式：練字／字帖／抄經／切割／印章。<br>→ 那 Line B 是主體，該投資它的 <b>UI 質感與效能</b>（＝你這次的請求）。</p>
+    </div>
+  </div>
+  <div class="callout"><b>本檔不替你決定</b>，但把它從「隱性偏離」變「顯性選擇」。妙處：無論 (a)/(b)，<b>「前端不崩、UI 好用」都是共同地基</b>——所以先做它是零後悔，且過程中的儀表數據會讓 (a)/(b) 在 Stage 2 用數據拍。</div>
+</section>
+
+<!-- 6 UI -->
+<section id="s6">
+  <div class="sec-head"><span class="sec-num">6</span><h2>UI 質感與按鈕佈局檢視</h2><span class="en">information architecture</span></div>
+  <p class="lead">三層：資訊架構（模式怎麼分）→ 按鈕佈局（每模式怎麼排）→ 視覺質感（design token）。</p>
+
+  <div class="ba">
+    <div class="panel before">
+      <div class="ph">現況 · 14 模式扁平並列</div>
+      <div class="pb">
+        <div class="flatgrid">
+          <span class="rad">單字</span><span class="rad">字帖</span><span class="rad">筆記</span><span class="rad">信紙</span><span class="rad">稿紙</span>
+          <span class="rad">塗鴉</span><span class="rad">布章</span><span class="rad">印章</span><span class="rad">鏤空字</span><span class="rad">抄經</span>
+          <span class="rad">文字雲</span><span class="rad">曼陀羅</span><span class="rad">禪繞字</span>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:10px">認知負荷 O(14)：一眼要在 14 個對等選項找路</div>
+        <div class="btnrow" style="margin-top:12px">
+          <button class="b3">清空</button><button class="b1">產生</button><button class="b2">下載</button>
+          <button class="b2">SVG</button><button class="b3">復原</button>
+          <span style="font-size:11px;color:var(--muted)">← 按鈕各模式各排各的</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel after">
+      <div class="ph">建議 · 三群（依使用者意圖）＋四級按鈕語彙</div>
+      <div class="pb">
+        <div class="grp"><div class="gt">A · 書寫練習</div>
+          <span class="pill p-w">單字</span><span class="pill p-w">字帖</span><span class="pill p-w">筆記</span><span class="pill p-w">信紙</span><span class="pill p-w">稿紙</span></div>
+        <div class="grp"><div class="gt mk">B · 製造切割</div>
+          <span class="pill p-mk">塗鴉</span><span class="pill p-mk">布章</span><span class="pill p-mk">印章</span><span class="pill p-mk">鏤空字</span></div>
+        <div class="grp"><div class="gt art">C · 藝術創作</div>
+          <span class="pill p-art">抄經</span><span class="pill p-art">文字雲</span><span class="pill p-art">曼陀羅</span><span class="pill p-art">禪繞字</span></div>
+        <div style="font-size:12px;color:var(--accent);margin:2px 0 0">認知負荷 O(3)+O(≤5)｜且每群＝一個 lazy 載入邊界</div>
+        <div class="btnrow" style="margin-top:10px">
+          <button class="b3">復原</button><button class="b3">清空</button>
+          <span style="flex:1"></span>
+          <button class="b2">SVG</button><button class="b1">產生預覽</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">主要動作固定右下・次要在左・可逆在工具列・破壞性紅色＋二次確認</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid c2">
+    <div class="card"><b>四級按鈕語彙</b>（全模式一致，肌肉記憶可遷移）
+      <div class="btnrow" style="margin-top:10px">
+        <button class="b1">Primary 產生</button><button class="b2">Secondary 下載</button>
+        <button class="b3">Ghost 復原</button><button class="b4">Danger 刪除</button>
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);margin:10px 0 0">逐字手寫彈窗的 7 鈕平鋪 → 重排成「畫布工具列／導覽／送出」三區。</p>
+    </div>
+    <div class="card"><b>Design token 化</b>（質感 = 一致性 × 留白 × 回饋）
+      <p style="font-size:12.8px;color:var(--ink-2);margin:8px 0 0">CSS 變數：<code>--space-1..8</code> 間距階、<code>--radius</code>、<code>--shadow</code>、type scale、語意色。改一次全站一致。<b>先不換框架</b>（原生 CSS 變數即可），避免 §7 肥大雪上加霜。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7 perf -->
+<section id="s7">
+  <div class="sec-head"><span class="sec-num">7</span><h2>前端效能與分段載入</h2><span class="en">performance</span></div>
+  <p class="lead">問題不在演算法，在「一次載入全部」。解法＝切載入邊界（原生 ES module 動態 <code>import()</code>），<b>不引入重型 build</b>。</p>
+
+  <div class="card">
+    <div class="metric">
+      <div class="m-row"><div class="m-top"><span>首屏 JS payload</span><span><b style="color:#9a3b2e">~350 KB+</b> → <b style="color:#3a6b5f">&lt; 80 KB</b></span></div>
+        <div class="track"><div class="fill now" style="width:100%"></div></div>
+        <div class="track" style="margin-top:4px"><div class="fill goal" style="width:22%"></div></div>
+        <div class="m-cap">只載 core.js；三群按需 import</div></div>
+      <div class="m-row"><div class="m-top"><span>首屏 eager 外部庫</span><span><b style="color:#9a3b2e">5 支</b> → <b style="color:#3a6b5f">0 支</b></span></div>
+        <div class="track"><div class="fill now" style="width:100%"></div></div>
+        <div class="m-cap">hanzi-writer 只在「示範」載・OpenCV 只在塗鴉載・zentangle 只在禪繞載</div></div>
+      <div class="m-row"><div class="m-top"><span>切模式峰值記憶體</span><span><b style="color:#9a3b2e">累積不釋放</b> → <b style="color:#3a6b5f">切換後回落</b></span></div>
+        <div class="m-cap">切模式銷毀上一模式的 canvas／SVG 節點／OpenCV Mat</div></div>
+      <div class="m-row"><div class="m-top"><span>重模式主執行緒</span><span><b style="color:#9a3b2e">阻塞</b> → <b style="color:#3a6b5f">移 Worker</b></span></div>
+        <div class="m-cap">塗鴉 OpenCV／抄經多字渲染卸到 worker，主緒不凍不崩</div></div>
+    </div>
+  </div>
+
+  <div class="grid c3">
+    <div class="card"><b>① 拆檔</b><p style="font-size:12.6px;color:var(--ink-2)">295 KB → core.js ＋ group-write／make／art.js。首屏只載 core。</p></div>
+    <div class="card"><b>② 按需 import</b><p style="font-size:12.6px;color:var(--ink-2)">點群 tab 才 <code>await import()</code>，載入時顯示進度／骨架屏。</p></div>
+    <div class="card"><b>③ 崩潰防護</b><p style="font-size:12.6px;color:var(--ink-2)">記憶體釋放＋字數上限警告＋每模式錯誤邊界＋CDN 失敗降級。</p></div>
+  </div>
+</section>
+
+<!-- 9 rec -->
+<section id="s9">
+  <div class="sec-head"><span class="sec-num">9</span><h2>推薦決定</h2><span class="en">recommendation</span></div>
+  <div class="card" style="border-left:4px solid var(--primary)">
+    <b style="font-size:16px">★ Option A：前端健康化優先</b>
+    <p style="margin:8px 0 0;color:var(--ink-2)">三個理由：<b>①直接解你當下真實痛點</b>（效能/崩潰/UI，動機最強不易懸置）；<b>②零後悔投資</b>——無論最後選 (a) 或 (b)，「前端不崩、UI 好用」都是共同地基，且過程中儀表數據讓 (a)/(b) 用數據拍；<b>③配合已驗證的工作模式</b>——13 天證明你在「有實機回饋、單 session 可閉合」的前端工作最有續航力。</p>
+  </div>
+  <div class="signoff"><b>QODA sign-off 範圍</b> ＝ Stage 0（舊債＋儀表）＋ Stage 1（第一個模式群分段載入 PoC ＋ UI mockup 對焦），合計 <b>3–4 sessions</b>。存在理由 (a)/(b) 與全量在 Stage 2 用數據拍——你現在不必承諾 (a)/(b)。</div>
+</section>
+
+<!-- 10 roadmap -->
+<section id="s10">
+  <div class="sec-head"><span class="sec-num">10</span><h2>進度表 · 執行藍圖</h2><span class="en">roadmap</span></div>
+  <p class="lead">每步＝1 session 可閉合，標驗收與 kill。順序即優先序。</p>
+  <div class="card road">
+    <div class="stage"><div class="stbadge s0">Stage 0</div><div>
+      <h4>閉合與地基 <span class="sess">· 1–2 sessions</span></h4>
+      <ul><li>root 樣本歸檔</li><li><b>最小儀表</b>：mode×日期 計數＋<code>/api/stats</code>（供 (a)/(b) 拍板）</li><li>Line B 凍結敘事對焦（暫緩結論等 Stage 2）</li></ul></div></div>
+    <div class="stage"><div class="stbadge s1">Stage 1</div><div>
+      <h4>前端健康化 PoC <span class="sess">· 2–3 sessions</span></h4>
+      <ul><li>抽 design token＋四級按鈕語彙，先套 1 模式</li><li>三群資訊架構 mockup 對焦</li><li><b>分段載入 PoC</b>：拆 1 群成 lazy chunk＋重庫按需＋載入進度｜驗收：該群冒煙綠、輸出逐位元不變｜kill：收益&lt;20%</li></ul></div></div>
+    <div class="stage"><div class="stbadge s2">Stage 2</div><div>
+      <h4>Checkpoint（QODA）<span class="sess">· 半 session</span></h4>
+      <ul><li>用儀表數據＋PoC 成效，拍：①存在理由 (a)/(b)；②前端全量 or 轉主線。寫決策日誌。</li></ul></div></div>
+    <div class="stage"><div class="stbadge s3">Stage 3</div><div>
+      <h4>前端健康化全量 <span class="sess">· 3–5 sessions，一次一群</span></h4>
+      <ul><li>三群全拆 lazy chunk＋全模式套 token/按鈕語彙＋崩潰防護</li><li>驗收：首屏 JS &lt;80 KB、eager 庫 0 支、記憶體回落、14 模式冒煙全綠</li></ul></div></div>
+    <div class="stage"><div class="stbadge s4">Stage 4</div><div>
+      <h4>分叉（依 Stage 2）<span class="sess">· 依選擇</span></h4>
+      <ul><li>選 (a)：Phase B spike 命中率 → Phase B/C 全量</li><li>選 (b)：蓄水四缺口＋教育現場試點（你的天然通路）</li></ul></div></div>
+    <div class="stage"><div class="stbadge s5">Stage 5</div><div>
+      <h4>遠期觸發（只列條件，不排程）<span class="sess"></span></h4>
+      <ul><li>Phase D（≥5000 字樣本）／tinyhanzi／KAGE 整合／學術發表／深色模式</li></ul></div></div>
+  </div>
+</section>
+
+<!-- 12 principles -->
+<section id="s12">
+  <div class="sec-head"><span class="sec-num">12</span><h2>策略原則憲章</h2><span class="en">charter · P1–P12</span></div>
+  <p class="lead">承 7/05 的 P1–P9（不變），本次新增三條對應 UI／效能兩軸——未來修訂遵循。</p>
+  <div class="princ">
+    <div class="pc n"><div class="pn">P10 前端健康＝零後悔，但不換框架</div><p>分段載入／崩潰防護優先於加功能；原生 ES module import 拿 90% 紅利，避免重型 build 造成另一種肥大。先量 payload／記憶體／阻塞再改。</p></div>
+    <div class="pc n"><div class="pn">P11 UI 一致性 &gt; 局部美化</div><p>先立資訊架構（意圖分群）＋按鈕四級語彙＋design token，再談個別視覺。一致性讓肌肉記憶跨模式遷移、改一次全站一致。</p></div>
+    <div class="pc n"><div class="pn">P12 漸進增強、不破壞</div><p>UI／前端重構一次只動一模式／一群，保留原功能與行為，改完跑冒煙＋截圖對照。絕不一次全站改版（回歸難分病灶）。</p></div>
+  </div>
+  <div style="margin-top:12px" class="grid c3">
+    <div class="pc"><div class="pn">P1 能量跟存在理由走</div></div>
+    <div class="pc"><div class="pn">P2 閘門式推進</div></div>
+    <div class="pc"><div class="pn">P3 縮小拍板點</div></div>
+    <div class="pc"><div class="pn">P4 資料 &gt; 直覺</div></div>
+    <div class="pc"><div class="pn">P5 Session-sized 切步</div></div>
+    <div class="pc"><div class="pn">P6–P9 一手源／授權／治理／凍結≠刪除</div></div>
+  </div>
+</section>
+
+<footer>
+  stroke-order 整體規劃建議書 · 2026-07-18（主檔 Markdown：<code>docs/PROJECT_PLAN_2026-07-18.md</code>）｜取代 07-05 版｜
+  推薦 Option A 前端健康化優先｜sign-off 範圍 Stage 0＋Stage 1｜本視覺版依 §6 建議的 design token 與四級按鈕語彙製作，自身即為質感示範。
+</footer>
+
+</body>
+</html>
