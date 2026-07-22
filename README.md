@@ -4,7 +4,7 @@
 ![tests](https://img.shields.io/badge/tests-1852%20passed-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![license](https://img.shields.io/badge/license-MIT-yellow)
-![version](https://img.shields.io/badge/version-0.14.260-orange)
+![version](https://img.shields.io/badge/version-0.14.261-orange)
 
 ## 🌟 核心願景
 

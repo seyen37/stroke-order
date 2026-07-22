@@ -6,7 +6,7 @@
 // 共用 render.js 同一條字串渲染路徑。
 // ======================================================================
 
-import { CARD_PRESETS, normalizeBox, marqueeRect } from './geometry.js';
+import { CARD_PRESETS, normalizeBox, marqueeRect, faceFoldEdge } from './geometry.js';
 import {
   newCard, newTextBox, newKaomojiBox, newArtBox,
   resolvePreset, saveDraft, loadDraft, serialize,
@@ -72,6 +72,8 @@ function render() {
     glyphProvider: glyphs.provider,
     showGuides: $('card-guides').checked,
     marquee: mq,
+    foldEdge: faceFoldEdge(p, face().key),
+    showRuler: $('card-ruler').checked,
   });
   // R3b：直式切換僅單面卡型有意義；面翻轉設定僅對折卡型顯示
   $('card-portrait-wrap').style.display = p.sheet ? 'none' : '';
@@ -489,6 +491,7 @@ export function init() {
     }
   });
   $('card-guides').addEventListener('change', scheduleRender);
+  $('card-ruler').addEventListener('change', scheduleRender);
   $('card-portrait').addEventListener('change', () => {
     card.portrait = $('card-portrait').checked;
     // 換方向後既有框重新夾回面內

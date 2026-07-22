@@ -166,11 +166,74 @@ export function guidesMarkup(face) {
   );
 }
 
+//: 5et-R5：卡緣四邊。摺邊（foldEdge='top'|'bottom'|'left'|'right'）灰虛線、
+//: 其餘實線；非對折卡 foldEdge=null → 四邊皆實線。編輯層專用。
+export function boundaryMarkup(face, foldEdge = null) {
+  const w = face.w;
+  const h = face.h;
+  const p = 0.3; // 內縮避免線落在 viewBox 邊界被裁掉一半
+  const edges = {
+    top: [p, p, w - p, p], right: [w - p, p, w - p, h - p],
+    bottom: [p, h - p, w - p, h - p], left: [p, p, p, h - p],
+  };
+  const line = (name, [x1, y1, x2, y2]) => {
+    const fold = name === foldEdge;
+    const stroke = fold ? '#8a95a0' : '#555';
+    const dash = fold ? ' stroke-dasharray="2 1.5"' : '';
+    return `<line x1="${r3(x1)}" y1="${r3(y1)}" x2="${r3(x2)}" y2="${r3(y2)}"` +
+      ` stroke="${stroke}" stroke-width="0.35"${dash}/>`;
+  };
+  return Object.entries(edges).map(([n, c]) => line(n, c)).join('');
+}
+
+//: 5et-R5：尺規——上/左緣 mm 刻度尺（每 5mm 小刻度、每 10mm 大刻度＋數字）；
+//: 有選取框時加「框距上/下/左/右卡緣」的 mm 讀數與對齊虛線。編輯層專用。
+export function rulerMarkup(face, box = null) {
+  const w = face.w;
+  const h = face.h;
+  const parts = [];
+  const tick = (x1, y1, x2, y2) =>
+    `<line x1="${r3(x1)}" y1="${r3(y1)}" x2="${r3(x2)}" y2="${r3(y2)}"` +
+    ' stroke="#c3c9cf" stroke-width="0.15"/>';
+  const label = (x, y, t, anchor) =>
+    `<text x="${r3(x)}" y="${r3(y)}" font-size="2.1" fill="#9aa4ad"` +
+    ` text-anchor="${anchor}" font-family="system-ui,sans-serif">${t}</text>`;
+  for (let x = 0; x <= w + 0.01; x += 5) {
+    const major = Math.round(x) % 10 === 0;
+    parts.push(tick(x, 0, x, major ? 2 : 1.1));
+    if (major && x > 0 && x < w - 3) parts.push(label(x, 3.9, String(Math.round(x)), 'middle'));
+  }
+  for (let y = 0; y <= h + 0.01; y += 5) {
+    const major = Math.round(y) % 10 === 0;
+    parts.push(tick(0, y, major ? 2 : 1.1, y));
+    if (major && y > 0 && y < h - 3) parts.push(label(2.6, y + 0.8, String(Math.round(y)), 'start'));
+  }
+  if (box) {
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    const gl = (x1, y1, x2, y2) =>
+      `<line x1="${r3(x1)}" y1="${r3(y1)}" x2="${r3(x2)}" y2="${r3(y2)}"` +
+      ' stroke="#1976d2" stroke-width="0.2" stroke-dasharray="1 1"/>';
+    const dl = (x, y, t) =>
+      `<text x="${r3(x)}" y="${r3(y)}" font-size="2.4" fill="#1976d2"` +
+      ` text-anchor="middle" font-family="system-ui,sans-serif">${t}</text>`;
+    const top = box.y;
+    const bot = h - (box.y + box.h);
+    const lft = box.x;
+    const rgt = w - (box.x + box.w);
+    parts.push(gl(cx, 0, cx, box.y), dl(cx, Math.max(2.4, top / 2 + 0.8), top.toFixed(1)));
+    parts.push(gl(cx, box.y + box.h, cx, h), dl(cx, box.y + box.h + bot / 2 + 0.8, bot.toFixed(1)));
+    parts.push(gl(0, cy, box.x, cy), dl(Math.max(0, lft / 2), cy - 0.8, lft.toFixed(1)));
+    parts.push(gl(box.x + box.w, cy, w, cy), dl(box.x + box.w + rgt / 2, cy - 0.8, rgt.toFixed(1)));
+  }
+  return parts.join('');
+}
+
 //: 單面 SVG。mode: 'edit'（含框線/導引/選取）| 'export'（純內容）。
 export function renderFaceSvg(face, boxes, opts = {}) {
   const {
     mode = 'export', selectedId = null, glyphProvider = null,
-    showGuides = false, marquee = null,
+    showGuides = false, marquee = null, foldEdge = null, showRuler = false,
   } = opts;
   const parts = [];
   parts.push(`<rect x="0" y="0" width="${face.w}" height="${face.h}" fill="#ffffff"/>`);
@@ -185,6 +248,11 @@ export function renderFaceSvg(face, boxes, opts = {}) {
       ` fill="rgba(25,118,210,0.08)" stroke="#1976d2" stroke-width="0.3"` +
       ` stroke-dasharray="1.5 1"/>`,
     );
+  }
+  // 5et-R5：卡緣（摺邊虛線）與尺規畫最上層，永遠清晰可見。
+  if (mode === 'edit') parts.push(boundaryMarkup(face, foldEdge));
+  if (mode === 'edit' && showRuler) {
+    parts.push(rulerMarkup(face, boxes.find((b) => b.id === selectedId) ?? null));
   }
   return (
     `<svg xmlns="${XMLNS}" width="${face.w}mm" height="${face.h}mm"` +

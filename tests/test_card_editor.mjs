@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  CARD_PRESETS, customPreset, faceGuides, sheetGuides,
+  CARD_PRESETS, customPreset, faceGuides, sheetGuides, faceFoldEdge,
   layoutTextBox, overflowCount, normalizeBox, cellTransform,
   SAFE_MARGIN_MM, EM,
 } from '../src/stroke_order/web/static/card/geometry.js';
@@ -14,7 +14,7 @@ import {
   newCard, newTextBox, serialize, deserialize, sanitizeGlyph, SCHEMA,
 } from '../src/stroke_order/web/static/card/model.js';
 import {
-  renderFaceSvg, renderSheetSvg, esc,
+  renderFaceSvg, renderSheetSvg, esc, boundaryMarkup, rulerMarkup,
 } from '../src/stroke_order/web/static/card/render.js';
 import {
   outlineToPathD, outlineFragment, traceFragment,
@@ -404,4 +404,62 @@ test('R4 renderPrintSvg：展開版含摺線＋faceRotate 傳遞；出血 <1.5 �
   assert.equal(svg.includes('stroke-dasharray="3 2"'), true); // 摺線保留
   const noMarks = renderPrintSvg({ kind: 'face', face: { key: 'f', w: 90, h: 52 }, boxes: [] }, { bleedMm: 1 });
   assert.equal((noMarks.match(/<line/g) || []).length, 0);
+});
+
+// ---- R5：卡緣摺邊 + 尺規 --------------------------------------------
+
+test('R5 faceFoldEdge：對折卡各面摺邊由展開版佈局推導；單面卡 null', () => {
+  assert.equal(faceFoldEdge(CARD_PRESETS.business, 'front'), null);
+  assert.equal(faceFoldEdge(customPreset(148, 105), 'front'), null);
+  // 上下對折：封面（上半）摺邊在下、內頁（下半）摺邊在上
+  assert.equal(faceFoldEdge(CARD_PRESETS.a6_fold, 'cover'), 'bottom');
+  assert.equal(faceFoldEdge(CARD_PRESETS.a6_fold, 'inside'), 'top');
+  // 左右對折：封面（右半）摺邊在左、封底（左半）摺邊在右
+  assert.equal(faceFoldEdge(CARD_PRESETS.a6_fold_lr, 'cover'), 'left');
+  assert.equal(faceFoldEdge(CARD_PRESETS.a6_fold_lr, 'back'), 'right');
+});
+
+test('R5 boundaryMarkup：四邊；摺邊灰虛線、其餘實線；非對折四邊全實線', () => {
+  const face = { key: 'cover', w: 148, h: 105 };
+  const m = boundaryMarkup(face, 'bottom');
+  assert.equal((m.match(/<line/g) || []).length, 4);
+  assert.equal((m.match(/stroke-dasharray/g) || []).length, 1); // 只有摺邊虛線
+  // 摺邊＝底邊（內縮後 y≈104.7）灰虛線
+  assert.equal(m.includes('y1="104.7" x2="147.7" y2="104.7" stroke="#8a95a0"'), true);
+  assert.equal(m.includes('stroke-dasharray="2 1.5"'), true);
+  const solid = boundaryMarkup(face, null);
+  assert.equal((solid.match(/<line/g) || []).length, 4);
+  assert.equal((solid.match(/stroke-dasharray/g) || []).length, 0); // 全實線
+});
+
+test('R5 rulerMarkup：上/左緣刻度；有選取框加距四邊藍色讀數', () => {
+  const face = { key: 'front', w: 90, h: 52 };
+  const bare = rulerMarkup(face, null);
+  assert.equal(bare.includes('#c3c9cf'), true);      // 刻度線
+  assert.equal(bare.includes('>10<'), true);         // 大刻度數字
+  assert.equal(bare.includes('#1976d2'), false);     // 無框＝無讀數
+  const box = { x: 20, y: 15, w: 40, h: 20 };
+  const withBox = rulerMarkup(face, box);
+  assert.equal(withBox.includes('fill="#1976d2"'), true); // 讀數藍字
+  assert.equal(withBox.includes('>15.0<'), true);         // 上緣距＝box.y=15
+  assert.equal(withBox.includes('>20.0<'), true);         // 左緣距＝box.x=20
+});
+
+test('R5 renderFaceSvg edit：foldEdge 畫摺邊虛線、showRuler 出尺規；export 皆不畫', () => {
+  const face = { key: 'cover', w: 148, h: 105 };
+  const box = {
+    id: 'b1', kind: 'text', x: 20, y: 15, w: 40, h: 20,
+    text: '', sizeMm: 8, vertical: false, glyph: { source: 'system' },
+  };
+  const svg = renderFaceSvg(face, [box], {
+    mode: 'edit', selectedId: 'b1', foldEdge: 'bottom', showRuler: true,
+  });
+  assert.equal(svg.includes('stroke-dasharray="2 1.5"'), true); // 摺邊
+  assert.equal(svg.includes('stroke="#555"'), true);            // 實線邊
+  assert.equal(svg.includes('#c3c9cf'), true);                  // 尺規刻度
+  assert.equal(svg.includes('fill="#1976d2"'), true);           // 選取框讀數
+  // export 模式：純內容，不畫卡緣/尺規
+  const exp = renderFaceSvg(face, [box], { mode: 'export' });
+  assert.equal(exp.includes('stroke="#555"'), false);
+  assert.equal(exp.includes('#c3c9cf'), false);
 });

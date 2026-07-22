@@ -116,6 +116,30 @@ export function sheetGuides(sheet) {
     : { x1: f.at, y1: 0, x2: f.at, y2: sheet.h };
 }
 
+//: 5et-R5：某一面「哪一邊是摺邊」——編輯面上把該邊畫成虛線、其餘實線。
+//: 依展開版佈局（sheet.placement + fold）推導，不吃 rotate180（那只是列印
+//: 慣例）：面在展開版的哪半邊，摺線就落在它貼著中線的那一邊。
+//: 上下對折：封面（上半）→ 'bottom'、內頁（下半）→ 'top'；
+//: 左右對折：封面（右半）→ 'left'、封底（左半）→ 'right'。
+//: 非對折卡（無 sheet/fold）或查無 placement → null（四邊皆實線）。
+export function faceFoldEdge(preset, faceKey) {
+  const sheet = preset && preset.sheet;
+  if (!sheet || !sheet.fold || !sheet.placement) return null;
+  const place = sheet.placement.find((p) => p.face === faceKey);
+  const face = preset.faces.find((f) => f.key === faceKey);
+  if (!place || !face) return null;
+  const at = sheet.fold.at;
+  const eps = 0.5; // mm 容差
+  if (sheet.fold.axis === 'h') {
+    if (Math.abs(place.y + face.h - at) < eps) return 'bottom';
+    if (Math.abs(place.y - at) < eps) return 'top';
+  } else {
+    if (Math.abs(place.x + face.w - at) < eps) return 'right';
+    if (Math.abs(place.x - at) < eps) return 'left';
+  }
+  return null;
+}
+
 // ----------------------------------------------------------------------
 // 文字框逐字格排版：與全站慣例一致，每字一個正方 cell（2048 EM 映射），
 // 由框寬自動換行。回傳每字的 cell 幾何（mm，相對「面」左上角）。
