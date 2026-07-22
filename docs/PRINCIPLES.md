@@ -2346,6 +2346,24 @@ grep 被改符號在 tests/ 的出現，把守門更新排進本次改動。
 
 ---
 
+## 67. 版本破快取的紀律要覆蓋「整條 import 圖」；ES 子模組的相對 import 也要帶 ?v=，不只入口 script（2026-07-22 5et-R5 新增）
+
+卡片模式加 `faceFoldEdge` export 後線上白畫：入口 `card.html` 以
+`?v=__V__` 載 `main.js`（每次破快取），但 `main.js` 內部
+`import './geometry.js'`（相對、無 `?v=`）——`/static` 未帶 `?v=` 只快取
+1 小時，瀏覽器載到快取的舊 `geometry.js`（沒有新 export）→ named import
+link 失敗 → 整頁初始化中斷。入口有版本、子 import 沒有＝**「半破快取」**：
+一旦動到被 import 模組的 export 面（新增/改名/刪 export）就中招，且只中
+「1 小時內回訪」的使用者。作法：**所有** static ES module 的相對 `.js`
+import 一律帶 `?v=__V__`（讓 versioning 中介層改寫成版號、與入口同步破
+快取）；配掃全 static 的守門測試，任何相對 import 缺 `?v=` 即紅燈。承
+§27（單一事實源）／§57（版本注入不手刻）：版本快取鍵要覆蓋整條 import
+圖，不是只有 HTML 引的第一層。**驗收盲點**：這類半破快取 bug 全新瀏覽器
+／CI 無舊快取、測不出（Playwright 測過≠沒事）——要嘛靠靜態守門，要嘛
+實機帶快取回訪重現。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2387,7 +2405,8 @@ grep 被改符號在 tests/ 的出現，把守門更新排進本次改動。
   - [`WORK_LOG_2026-07-22.md`](WORK_LOG_2026-07-22.md)（逐字手寫範字大小線
     三批：5fm 移除 1.4× 硬放大改墨跡實框正規化（彈窗＋獨立頁）＋收工檢查.bat
     當日新鮮度守門＋5fn 抄經彈窗補正規化（不同建構器漏改一輪）；含守門鎖字面／
-    裸 push 誤入備份庫／橋接 git 留 index.lock 三事故）
+    裸 push 誤入備份庫／橋接 git 留 index.lock 三事故。**另收 5et-R5**：卡片模式
+    加尺規＋卡緣摺邊虛線＋子模組 import 快取缺口白畫回歸根治）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -2416,6 +2435,7 @@ grep 被改符號在 tests/ 的出現，把守門更新排進本次改動。
   - [`2026-07-19_5ff_5fh_table_visibility.md`](decisions/2026-07-19_5ff_5fh_table_visibility.md)（表格隱形字三部曲：可見度契約歸位/traced_run 三態降級/覆蓋稽核白名單/實機活體 DOM 診斷/「暫時性」誤判訂正，對應 §58–§60）
   - [`2026-07-19_5fi_5fl_version_label_data_area.md`](decisions/2026-07-19_5fi_5fl_version_label_data_area.md)（主頁版本標籤注入＋資料區三輪收斂到左欄一條龍：終局測試治理/清空二次確認實測攔截力/先重現帶證據問/截圖折抵驗收，對應 §61–§63）
   - [`2026-07-22_5fm_5fn_ink_bbox_normalization.md`](decisions/2026-07-22_5fm_5fn_ink_bbox_normalization.md)（逐字手寫範字大小：墨跡實框正規化為跨呈現面共用契約／改共用下游巡全消費路徑／守門鎖不變式／收工檢查當日新鮮度守門，對應 §64–§66）
+  - [`2026-07-22_5et_r5_card_ruler_fold_cachebust.md`](decisions/2026-07-22_5et_r5_card_ruler_fold_cachebust.md)（手寫卡片模式加尺規＋卡緣摺邊虛線；子模組 import 快取缺口根治整類＋守門，對應 §67）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -2426,4 +2446,4 @@ grep 被改符號在 tests/ 的出現，把守門更新排進本次改動。
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§66 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收、墨跡實框正規化跨呈現面共用契約/改共用下游巡全消費路徑、脆弱慣例升級自動閘門/fail-open 新鮮度守門、守門鎖不變式不鎖寫法）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§67 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收、墨跡實框正規化跨呈現面共用契約/改共用下游巡全消費路徑、脆弱慣例升級自動閘門/fail-open 新鮮度守門、守門鎖不變式不鎖寫法、版本快取鍵覆蓋整條 import 圖/子模組 import 也帶 ?v=）。三者互補。
