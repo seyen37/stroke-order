@@ -104,9 +104,14 @@ export function drawReference(ctx, w, h, strokes) {
   const cx = (bbox.minX + bbox.maxX) / 2;
   const cy = (bbox.minY + bbox.maxY) / 2;
 
-  // Uniform EM scale — square canvas, so w == h in practice. Use min()
-  // defensively in case the canvas is non-square.
-  const scale = Math.min(w, h) / EM_SIZE;
+  // 5fm：以「墨跡實框」正規化到畫布 ~86%（取代固定 EM 1:1 比例）。
+  // 舊法 scale = min(w,h)/EM_SIZE 把整個 EM 2048 框直接鋪滿畫布——滿框字
+  // 如「春」墨跡近乎撐滿 EM，於是頂到／溢出米字格（實機回報：字體過大超出
+  // 米字框）。改成量墨跡長邊、填滿畫布 86% 並置中，每個字固定佔比、既大又不
+  // 溢框，且與逐字手寫彈窗（modes/handwrite.js swBuildCellRefImg）同一比例。
+  const FILL = 0.86;
+  const span = Math.max(bbox.maxX - bbox.minX, bbox.maxY - bbox.minY) || EM_SIZE;
+  const scale = (FILL * Math.min(w, h)) / span;
 
   ctx.save();
   ctx.globalAlpha = FILL_ALPHA;

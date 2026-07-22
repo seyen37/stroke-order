@@ -261,4 +261,13 @@ def test_5fb_frontend_markers():
     assert "suBatchSize" in sj
     assert "重試中" in sj                       # 單批重試一次
     hw = c.get("/static/modes/handwrite.js").text
-    assert "REF_SCALE = 1.4" in hw             # 範字 1.4×
+    # 5fm：範字改「墨跡實框正規化 ~86% ＋ 1:1 貼滿」，取代 5fb 的 1.4× 硬放大
+    # （滿框字如「春」會溢出米字格）。守門：舊放大常數已移除、正規化與 1:1
+    # 繪製標記在位。
+    assert "REF_SCALE" not in hw                       # 5fb 的 1.4× 硬放大已移除
+    assert "drawImage(SW.refImg, 0, 0, W, H)" in hw    # 1:1 貼滿、不溢框
+    assert "side * 1.16" in hw                         # 墨跡實框正規化（~86%）
+    # 5fm：獨立 /handwriting 頁範字同步正規化（與彈窗同比例、同樣不溢框）
+    rf = c.get("/static/handwriting/reference.js").text
+    assert "const FILL = 0.86" in rf                   # 墨跡長邊填滿畫布 ~86%
+    assert "Math.min(w, h) / EM_SIZE" not in rf        # 舊固定 EM 1:1 比例已移除

@@ -147,7 +147,6 @@ async function swBuildCellRefImg(cur) {
     const NS = "http://www.w3.org/2000/svg";
     const out = document.createElementNS(NS, "svg");
     out.setAttribute("xmlns", NS);
-    out.setAttribute("viewBox", "0 0 2048 2048");
     out.setAttribute("width", "360");
     out.setAttribute("height", "360");
     const clone = g.cloneNode(true);
@@ -165,6 +164,29 @@ async function swBuildCellRefImg(cur) {
       }
       if (s && s !== "none") el.setAttribute("stroke", "#c8c8c8");
       el.removeAttribute("opacity");
+    }
+    // 5fm：以「墨跡實框」正規化 viewBox（取代固定 0 0 2048 2048）。
+    // EM2048 框四周留白因字而異（春 幾乎滿框、一 只佔中段）；固定框會讓
+    // 不同字大小不一，5fb 才用 1.4× 硬放大→滿框字外溢米字格。改成量出墨跡
+    // bbox、取正方形＋8% 邊距置中，每個字的墨跡都固定約佔 86%，swDrawBase
+    // 便可 1:1 貼滿畫布、既大又不溢框。量測需入 DOM：暫掛回宿主 SVG 取
+    // getBBox 後立即移除（同步、不觸發重繪、預覽不閃）。
+    const hostSvg = g.ownerSVGElement;
+    let ink = null;
+    if (hostSvg) {
+      hostSvg.appendChild(clone);
+      try { ink = clone.getBBox(); } catch (_) { ink = null; }
+      hostSvg.removeChild(clone);
+    }
+    if (ink && ink.width > 0 && ink.height > 0) {
+      const side = Math.max(ink.width, ink.height);
+      const box = side * 1.16;                 // 8% 邊距 ×2 → 墨跡佔 ~86%
+      const cx = ink.x + ink.width / 2;
+      const cy = ink.y + ink.height / 2;
+      out.setAttribute("viewBox",
+        `${cx - box / 2} ${cy - box / 2} ${box} ${box}`);
+    } else {
+      out.setAttribute("viewBox", "0 0 2048 2048");
     }
     out.appendChild(clone);
     return await swSvgToImage(out);
@@ -511,15 +533,14 @@ function swInfo() {
 function swDrawBase(ctx, W, H) {
   ctx.clearRect(0, 0, W, H);
   const cur = SW.positions[SW.index];
-  // 5fb：範字放大 1.4×（使用者回饋：筆畫間空間大、較易辨識與書寫）——
-  // 置中放大，超出畫布的邊緣自然裁切（字形本身留白多、墨大多仍在框內）
-  const REF_SCALE = 1.4;
+  // 5fm：範字 1:1 貼滿畫布、不再放大溢框（修正 5fb 的 1.4×——滿框字如
+  // 「春」會超出米字格）。範字已在 swBuildCellRefImg 以墨跡實框正規化為
+  // ~86% 佔比，故直接鋪滿即「大而不溢」；抄經路徑則按格比例貼滿、與描紅一致。
   if (cur && document.getElementById("sw-show-ref").checked) {
     if (SW.refImg) {
       // 5en: styled 範字 (篆/隸/宋…) rendered from the preview glyph — matches
       // the selected 字型風格 instead of a system-font fallback.
-      const dw = W * REF_SCALE, dh = H * REF_SCALE;
-      ctx.drawImage(SW.refImg, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.drawImage(SW.refImg, 0, 0, W, H);
     } else {
       // fallback: system font (缺字 / no preview / non-抄經 caller). Approximates
       // kaishu/song; note it will NOT match 篆/隸 — only used when the styled
@@ -528,7 +549,7 @@ function swDrawBase(ctx, W, H) {
       ctx.fillStyle = "#dcdcdc";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `${Math.round(H * 0.82 * REF_SCALE)}px 'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif`;   // 5fb：1.4×
+      ctx.font = `${Math.round(H * 0.80)}px 'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif`;
       ctx.fillText(cur.char, W / 2, H / 2 + H * 0.02);
       ctx.restore();
     }
