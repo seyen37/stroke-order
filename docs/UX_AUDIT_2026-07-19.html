@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stroke-order 實機 UX 稽核 · 2026-07-19</title>
+<style>
+  :root{
+    --ink:#1c1a17;--ink-2:#4a453d;--muted:#8a8175;--line:#e5ded2;
+    --paper:#f7f3ec;--surface:#fffdf8;--surface-2:#f1ebe0;
+    --primary:#9a3b2e;--primary-soft:#c96a54;--accent:#3a6b5f;--gold:#b6883b;--danger:#b23b3b;
+    --radius:14px;--shadow-1:0 1px 2px rgba(40,30,20,.06),0 2px 8px rgba(40,30,20,.05);
+    --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;--maxw:1080px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#fbf7ef,transparent 60%),var(--paper);
+    color:var(--ink);font-family:var(--font);line-height:1.7;font-size:15.5px;-webkit-font-smoothing:antialiased}
+  header.hero{max-width:var(--maxw);margin:0 auto;padding:50px 20px 26px}
+  .kicker{letter-spacing:.22em;font-size:12px;color:var(--primary);font-weight:700;text-transform:uppercase}
+  h1{font-size:31px;line-height:1.25;margin:.35em 0 .2em}
+  h1 .sub{display:block;font-size:15.5px;color:var(--muted);font-weight:500;margin-top:8px}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .chip{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 13px;font-size:12.5px;color:var(--ink-2);box-shadow:var(--shadow-1)}
+  .chip b{color:var(--ink)} .chip.ok{border-color:#bcdac9;background:#eaf6ef;color:#2c6a4f} .chip.warn{border-color:#e7c9a0;background:#fbf1df;color:#8a5a1c}
+  section{max-width:var(--maxw);margin:30px auto 0;padding:0 20px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin:24px 0 12px}
+  .sec-num{font-size:13px;font-weight:800;color:#fff;background:var(--primary);border-radius:8px;padding:3px 9px}
+  .sec-head h2{font-size:21px;margin:0}
+  .lead{color:var(--ink-2);margin:.1em 0 1em;max-width:80ch}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-1);margin:14px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.4px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:700;font-size:12px}
+  tr:last-child td{border-bottom:none}
+  .done{color:#2c6a4f;font-weight:700} .open{color:#a1341f;font-weight:700} .part{color:#8a5f16;font-weight:700}
+  .stars{letter-spacing:1px;font-size:13px}
+  .grp-w{color:#8a6db0;font-weight:700} .grp-mk{color:var(--gold);font-weight:700} .grp-art{color:var(--accent);font-weight:700}
+  .sev{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .sev-hi{background:#fbe4df;color:#a1341f}.sev-md{background:#fbf1d9;color:#8a5f16}.sev-lo{background:#e7f1ea;color:#356b52}
+  .flip{display:grid;gap:14px}@media(min-width:720px){.flip{grid-template-columns:1fr 1fr}}
+  .flip .b{border-radius:var(--radius);padding:16px 18px;border:1px solid var(--line);background:var(--surface)}
+  .flip .old{border-top:4px solid #a08a6a}.flip .new{border-top:4px solid var(--accent)}
+  .flip h4{margin:.1em 0 .5em;font-size:15px}
+  ol.road{counter-reset:s;list-style:none;padding:0;margin:8px 0 0}
+  ol.road li{position:relative;padding:10px 0 10px 44px;border-bottom:1px dashed var(--line)}
+  ol.road li:last-child{border-bottom:none}
+  ol.road li::before{counter-increment:s;content:attr(data-k);position:absolute;left:0;top:10px;font-size:11px;font-weight:800;color:#fff;background:var(--ink);border-radius:7px;padding:3px 7px}
+  ol.road li.ui::before{background:var(--primary)} ol.road li.perf::before{background:var(--accent)}
+  ol.road b{font-size:14px}
+  .callout{border-left:4px solid var(--gold);background:#fbf5e6;border-radius:0 12px 12px 0;padding:14px 18px;margin:14px 0}
+  .callout b{color:#8a5f16}
+  code{background:var(--surface-2);border-radius:5px;padding:1px 5px;font-size:12.5px}
+  footer{max-width:var(--maxw);margin:36px auto 0;padding:20px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="kicker">stroke-order · 實機 UX 稽核</div>
+  <h1>你的手比計畫快
+    <span class="sub">2026-07-19｜初次使用者視角 · Playwright 實機操作 13 模式 · v0.14.254</span>
+  </h1>
+  <div class="meta">
+    <span class="chip">操作 <b>13 模式</b></span>
+    <span class="chip ok">模組化 <b>已完成</b></span>
+    <span class="chip warn">lazy-load <b>未做</b></span>
+    <span class="chip warn">UI 一致性 <b>原封未動</b></span>
+    <span class="chip">index.html <b>453→185 KB</b></span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head"><span class="sec-num">1</span><h2>計畫 vs 實機：現況已超前假設</h2></div>
+  <p class="lead">規劃書以 0.14.221 為基準把「前端肥大」列為最高技術債。實機發現 <b>5er~5fl 已經解掉一半</b>——但解的是「拆檔」，沒解「按需載入」，也完全沒碰 UI 一致性。</p>
+  <div class="card"><table>
+    <tr><th>項目</th><th>規劃書 0.14.221</th><th>現行 0.14.254</th><th>判定</th></tr>
+    <tr><td>index.html</td><td>453 KB</td><td>185 KB（−59%）</td><td class="done">✅ 已瘦身</td></tr>
+    <tr><td>inline &lt;script&gt;</td><td>295 KB / 235 fn</td><td>393 bytes</td><td class="done">✅ 幾乎清空</td></tr>
+    <tr><td>模式程式碼</td><td>全擠 index</td><td>modes/*.js（17 模組）</td><td class="done">✅ 模組化</td></tr>
+    <tr><td>按需 lazy-load</td><td>無</td><td>仍 0（全 eager）</td><td class="open">❌ 未做</td></tr>
+    <tr><td>CDN 外部庫</td><td>5 支 eager</td><td>3 支 eager</td><td class="part">⚠ 未按需</td></tr>
+    <tr><td>UI 資訊架構/按鈕一致性</td><td>扁平/漂移</td><td>扁平/漂移</td><td class="open">❌ 原封未動</td></tr>
+  </table></div>
+  <div class="callout"><b>核心修正</b>：§7 最重的「拆檔」已完成，剩 lazy-load 是收尾；<b>§6（UI 一致性）才是初次使用者第一痛點、且完全未動</b> → 規劃書的 §6/§7 優先序應對調。</div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">2</span><h2>逐模式成熟度記分卡</h2></div>
+  <p class="lead">成熟度＝版面清晰＋漸進揭露＋行內協助＋按鈕邏輯。落差極大：<span class="grp-mk">stamp/sutra 已是內部標竿</span>，zentangle 是實驗生料。</p>
+  <div class="card"><table>
+    <tr><th>群</th><th>模式</th><th>鈕</th><th>成熟度</th><th>主要問題</th></tr>
+    <tr><td class="grp-w">書寫</td><td>單字 single</td><td>6</td><td class="stars">★★☆</td><td>術語平鋪無基本/進階分層；CDN 掛→整塊 ERROR</td></tr>
+    <tr><td class="grp-w">書寫</td><td>字帖 grid</td><td>4</td><td class="stars">★★★</td><td>乾淨；「帶入家族字」貼心</td></tr>
+    <tr><td class="grp-w">書寫</td><td>筆記 notebook</td><td>4</td><td class="stars">★★★</td><td>乾淨直覺</td></tr>
+    <tr><td class="grp-w">書寫</td><td>信紙 letter</td><td>3</td><td class="stars">★★★</td><td>極簡</td></tr>
+    <tr><td class="grp-w">書寫</td><td>稿紙 manuscript</td><td>3</td><td class="stars">★★★</td><td>極簡</td></tr>
+    <tr><td class="grp-mk">製造</td><td>塗鴉 doodle</td><td>4</td><td class="stars">★★☆</td><td>圖轉線稿、無文字輸入初次者需先懂</td></tr>
+    <tr><td class="grp-mk">製造</td><td>布章 patch</td><td>8</td><td class="stars">★★☆</td><td>下載鈕 <code>⤓</code>/「裁字·寫字」與他模式不一；action bar 平鋪</td></tr>
+    <tr><td class="grp-mk">製造</td><td>印章 stamp</td><td>9</td><td class="stars">★★★★</td><td><b>標竿</b>：漸進揭露＋行內警告＋範例</td></tr>
+    <tr><td class="grp-mk">製造</td><td>鏤空字 stencil</td><td>3</td><td class="stars">★★★</td><td>控制齊全；主動作「產生」與他模式「產生預覽」命名+位置雙不一</td></tr>
+    <tr><td class="grp-art">藝術</td><td>抄經 sutra</td><td>9</td><td class="stars">★★★★</td><td>成熟；action bar 導覽+主要+下載等重無層級</td></tr>
+    <tr><td class="grp-art">藝術</td><td>文字雲 wordart</td><td>3</td><td class="stars">★★★</td><td>極簡</td></tr>
+    <tr><td class="grp-art">藝術</td><td>曼陀羅 mandala</td><td>9</td><td class="stars">★★☆</td><td>匯出入/雲端/編輯/刪除四語意混一列</td></tr>
+    <tr><td class="grp-art">藝術</td><td>禪繞字 zentangle</td><td><b style="color:#a1341f">43</b></td><td class="stars">★☆☆</td><td><b>開發生料外露</b>（見 §3）</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">3</span><h2>按鈕邏輯與衝突</h2></div>
+  <div class="card">
+    <p><span class="sev sev-md">一致性</span> <b>主動作命名五種漂移</b>：產生字帖／產生預覽／產生／載入·重繪…同一件事五種叫法。</p>
+    <p><span class="sev sev-md">一致性</span> <b>下載三套詞彙三種圖示</b>：<code>↓SVG(engrave)</code>(stamp) · <code>⤓SVG(cut)</code>(patch) · <code>↓本頁SVG</code>(sutra) · <code>📥匯出</code>(mandala)。</p>
+    <p><span class="sev sev-md">層級</span> <b>主動作被稀釋</b>：「產生預覽」跟 3–5 個下載鈕排成等重，初次者不知先按哪個。</p>
+    <p><span class="sev sev-hi">衝突</span> <b>zentangle 四套方向控制、同一箭頭語言、四種意義</b>：放置↑↓←→／紙磚旋轉8角／透視前後左右／曲線方向——無法分辨移動 vs 旋轉 vs 透視 vs 曲線。</p>
+    <p><span class="sev sev-hi">生產清理</span> <b>zentangle 開發 scaffolding 外露</b>：「R/E 鍵 repeat」「R-stick／D-Pad／R1R2／pseudo-3D」「6z-3.5 phase 代號」——開發筆記出現在正式 UI。</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">4</span><h2>修正：優先序對調</h2></div>
+  <div class="flip">
+    <div class="b old"><h4>規劃書原本（0.14.221）</h4>
+      <p style="font-size:13.5px;color:var(--ink-2)">Stage 1 第一步＝<b>分段載入 PoC</b>（§7 效能為主）<br>§6 UI 排在後面。</p></div>
+    <div class="b new"><h4>實機修正（0.14.254）</h4>
+      <p style="font-size:13.5px;color:var(--ink-2)">§7 拆檔<b>已完成</b> → Stage 1 第一步改為 <b>UI 契約</b>（§6 升為最高），lazy-load 移到收尾。</p></div>
+  </div>
+  <div class="card">
+    <b>修正後的執行序</b>
+    <ol class="road">
+      <li class="ui" data-k="U1"><b>模式契約</b>：把 stamp/sutra 成熟做法變全站規範（主動作統一「產生預覽」+強調+右下、下載統一詞彙、導覽自成區、重置統一、進階 <code>▶</code> 收合），先套 1 模式定調</li>
+      <li class="ui" data-k="U2"><b>資訊架構三群</b>（書寫/製造/藝術）＋手寫卡片歸位，mockup 先對焦</li>
+      <li class="ui" data-k="U3"><b>zentangle 生產清理</b>：移除開發 scaffolding、方向控制分區、或標 beta 移出主列</li>
+      <li class="ui" data-k="U4"><b>全模式套契約</b>（一次一模式，冒煙＋截圖對照）</li>
+      <li class="perf" data-k="P1"><b>按需 lazy-load</b>：17 eager 模組改進群才 <code>import()</code>＋CDN 按需＋失敗降級</li>
+      <li class="perf" data-k="P2"><b>崩潰防護</b>：切模式釋放記憶體、重模式上限警告、每模式錯誤邊界</li>
+    </ol>
+  </div>
+  <div class="callout"><b>新增憲章 P13</b>：好模式先變契約、再擴散——某模式 UX 成熟後先抽成全站「模式契約」再逐模式套，避免各模式演化成不同方言。（規劃書 §15 已收錄）</div>
+</section>
+
+<footer>
+  <b style="color:#2c6a4f">後續實作進度：✅ U1 模式契約（afe7370/0aadb46）→ ✅ U2 資訊架構三群＋single 分層（3a68d51）→ ✅ U3 zentangle 生產清理（0.14.258）三步全上線；待辦 U4 全模式收尾＋P1 lazy-load＋P2 崩潰防護。</b><br>
+  實機 UX 稽核 2026-07-19｜完整報告 <code>docs/UX_AUDIT_2026-07-19.md</code>｜修正已追記進 <code>PROJECT_PLAN_2026-07-18.md §15</code>｜
+  沙箱字型 0/5＋CDN 阻擋為環境限制、非產品缺陷｜本頁沿用規劃書 design token，一致性即示範。
+</footer>
+</body>
+</html>
