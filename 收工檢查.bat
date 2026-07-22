@@ -56,6 +56,30 @@ if "%MSGFILE%"=="" (
     pause
     exit /b 1
 )
+REM freshness guard (fail-open): the picked file is the lexicographically
+REM greatest NAME, which is only "newest" if a file for THIS session was
+REM dropped. If its name lacks TODAY's date it is a stale leftover that would
+REM be silently reused as this commit's message (root cause of a 7/19 message
+REM landing on a 7/22 commit). Block ONLY when we can positively prove it is
+REM stale; if today's date cannot be read, skip the guard rather than block.
+set "TODAY="
+for /f "usebackq delims=" %%d in (`powershell -nop -c "Get-Date -Format yyyy-MM-dd" 2^>nul`) do set "TODAY=%%d"
+if defined TODAY (
+    echo %MSGFILE% | findstr /c:"%TODAY%" >nul
+    if errorlevel 1 (
+        echo.
+        echo ******** STALE COMMIT MESSAGE -- NOT committing. ********
+        echo Newest message file: %MSGFILE%
+        echo does NOT match today's date ^(%TODAY%^) -- looks like no message
+        echo file was prepared for THIS session. Create
+        echo     docs\_commit_msg\%TODAY%_NN.txt
+        echo with this session's message, then re-run this script.
+        pause
+        exit /b 1
+    )
+) else (
+    echo WARNING: could not read today's date -- freshness guard skipped.
+)
 echo Using message file: %MSGFILE%
 git add -A
 git status -s
