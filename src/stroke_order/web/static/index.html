@@ -281,7 +281,7 @@
       <label><input type="radio" name="mode" value="mandala">
         曼陀羅模式 <span style="color:var(--muted);font-size:12px;">(中心字+字環+半圓交織)</span></label>
       <label><input type="radio" name="mode" value="zentangle">
-        禪繞字模式 <span style="color:var(--muted);font-size:12px;">(字框+禪繞填充, Phase 6z-1)</span></label>
+        禪繞字模式 <span style="color:var(--muted);font-size:12px;">(字框+禪繞填充)</span></label>
       <!-- 5ew-R1：手寫卡片獨立頁（連外 ↗）；U2 歸「藝術創作」群 -->
       <a href="/card" target="_blank" rel="noopener"
          style="text-decoration:none;color:inherit;"
@@ -3003,7 +3003,6 @@
     <p style="color:var(--muted);font-size:13px;line-height:1.6;">
       <strong>快速產出禪繞風格的漢字</strong> — 字框 + 內部禪繞填充。
       <br>本工具是禪繞 <strong>啟發</strong> 的數位化創作，不嚴格遵循傳統紙筆禪繞。
-      <br>Phase 6z-1：字框抽取 + 紙磚 canvas + 鍵盤滑鼠 input scaffolding（後續 sub-phase 加切割工具、tangle 庫、pseudo-3D 等）。
     </p>
     <div class="row" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
       <label for="zentangle-char">字</label>
@@ -3013,14 +3012,10 @@
       <select id="zentangle-source" style="font-size:14px;">
         <option value="moe_kaishu">教育部楷書 (預設)</option>
       </select>
-      <button id="zentangle-render" type="button"
-              style="padding:6px 14px;background:var(--accent, #c33);color:white;
-                     border:0;border-radius:4px;cursor:pointer;font-size:14px;">
-        載入字框
-      </button>
+      <button id="zentangle-render" type="button" class="btn-primary">載入字框</button>
       <!-- 5ew-R5：禪繞字畫在 canvas 且演算法吃 outline（手寫字無 outline
            不能當字框）——「點字→手寫」在此模式以深連結跳板誠實對應 -->
-      <button id="zentangle-advanced" type="button" class="secondary"
+      <button id="zentangle-advanced" type="button" class="btn-secondary"
               title="另開筆順練習頁練這個字（完整軌跡／筆壓／練習史；該頁存檔預設同步到渲染字庫，字帖等模式即可用你的手寫字）"
               style="padding:6px 12px;font-size:13px;">
         ✍ 進階練習 ↗
@@ -3065,7 +3060,7 @@
               style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;margin-left:6px;"
               title="清除所有已放置的 tangle units">清除已放</button>
       <span style="color:var(--muted);font-size:11px;margin-left:4px;">
-        ⓘ 6z-3.5 user-place: 先選 tangle → 點 canvas 放第一個 → 再點 → R/E 鍵 repeat 3 次沿方向
+        ⓘ 先選圖樣 → 點紙磚放第一個 → 再點放下一個 → 按 R／E 鍵沿方向連放
       </span>
     </div>
     <div id="zentangle-config-display"
@@ -3117,6 +3112,7 @@
     </details>
     <!-- 動作列：朝向 / 切分 / 清除 -->
     <div class="row" style="margin:2px 0 6px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
+      <span style="font-weight:bold;color:var(--muted);">圖樣朝向</span>
       <span style="display:inline-flex;gap:4px;" title="改變選中區段的圖樣朝向（同鍵盤方向鍵）">
         <button type="button" class="zt-orient-btn" data-orient="up"
                 style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝上">⬆</button>
@@ -3140,13 +3136,13 @@
       <span style="display:inline-flex;gap:4px;margin-left:8px;border-left:1px solid var(--border);padding-left:10px;">
         <button id="zentangle-export-svg" type="button"
                 style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
-                title="匯出 SVG（mm 尺寸、精確裁切貼合字形；outline/tangle/fill 三層）">⤓ SVG</button>
+                title="匯出 SVG（mm 尺寸、精確裁切貼合字形；outline/tangle/fill 三層）">↓ SVG</button>
         <button id="zentangle-export-gcode" type="button"
                 style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
-                title="匯出 G-code（雷切/寫字機；G21/G90 專案慣例）">⤓ G-code</button>
+                title="匯出 G-code（雷切/寫字機；G21/G90 專案慣例）">↓ G-code</button>
         <button id="zentangle-export-dxf" type="button"
                 style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
-                title="匯出 DXF R12 三層（CUT 字框紅/ENGRAVE 圖樣+填充黑/WRITE 筆軌跡藍；雷切軟體/CAD）">⤓ DXF</button>
+                title="匯出 DXF R12 三層（CUT 字框紅/ENGRAVE 圖樣+填充黑/WRITE 筆軌跡藍；雷切軟體/CAD）">↓ DXF</button>
       </span>
     </div>
     <!-- 5dk: 匯出設定（全域一組，可收合） -->
@@ -3157,7 +3153,7 @@
     </details>
     <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:6px;">
       ⓘ 點縮圖＝換圖樣、勾延伸技法＝加裝飾（未選區段＝套全部、點紙磚選區段＝只改該區）；
-      ⬆➡⬇⬅ 改朝向、✂ 切分＝起點→終點→調彎→雙擊；⤓ SVG/G-code/DXF 匯出給雷切/寫字機
+      ⬆➡⬇⬅ 改朝向、✂ 切分＝起點→終點→調彎→雙擊；↓ SVG／G-code／DXF 匯出給雷切／寫字機
     </div>
     <div id="zentangle-canvas-wrap"
          style="display:grid;justify-content:center;padding:8px;
@@ -3242,7 +3238,7 @@
               style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
               title="清除 sticky pseudo-3D state + 把最後 unit 變回 axis-aligned">無透視</button>
       <span style="color:var(--muted);font-size:11px;margin-left:4px;">
-        ↑↓←→ 鍵 ＝ 4 方向；套到最後 unit + sticky inherit 後續新 unit
+        ↑↓←→ 鍵切 4 方向；套用到最後放的圖樣，之後新放的沿用
       </span>
     </div>
     <!-- 6z-5b: Curve mode (軸 1 中高邊低 only); 軸 2-4 留 6z-5c 視覺評估後解鎖 -->
@@ -3269,13 +3265,9 @@
               style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;font-size:12px;"
               title="清除 sticky curve_mode + 把最後 unit 變回無曲度">無曲度</button>
       <span style="color:var(--muted);font-size:11px;margin-left:4px;">
-        6z-5c 全 4 軸啟用；同 unit 任選一軸（換軸=覆蓋上次）
+        四種曲面任選一種（換一種＝覆蓋上次）
       </span>
     </div>
-    <p style="color:var(--muted);font-size:12px;margin-top:8px;">
-      <strong>下一步</strong>（後續 sub-phase 解鎖）：紙磚旋轉 (R-stick)、切割 mode (□)、
-      tangle 庫 (△)、疊加 (R1/R2)、pseudo-3D (D-Pad)、草稿系統 (○ undo)。
-    </p>
   </section>
 </main>
 
