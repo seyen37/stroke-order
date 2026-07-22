@@ -108,6 +108,36 @@
     .action-bar .ab-sep  { width: 1px; align-self: stretch; min-height: 22px;
                            background: var(--border); margin: 0 var(--space-1); }
 
+    /* ==== U2 資訊架構：模式選擇器分頁 tab（書寫/製造/藝術三群）＋進階收合 ==== */
+    .mode-tabs { display: flex; gap: var(--space-1); border-bottom: 2px solid var(--border);
+                 margin-bottom: 10px; flex-wrap: wrap; }
+    .mode-tab { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 16px;
+                border: none; background: none; color: var(--muted); cursor: pointer;
+                border-bottom: 3px solid transparent; margin-bottom: -2px;
+                border-radius: 6px 6px 0 0; }
+    .mode-tab .dot { width: 9px; height: 9px; border-radius: 99px; display: inline-block;
+                     margin-right: 7px; vertical-align: middle; }
+    .mode-tab:hover { color: var(--fg); }
+    .mode-tab.active { color: var(--fg); }
+    .mode-tab[data-g="write"].active { border-bottom-color: #8a6db0; color: #6f5691; }
+    .mode-tab[data-g="make"].active  { border-bottom-color: #b6883b; color: #8a5f16; }
+    .mode-tab[data-g="art"].active   { border-bottom-color: #3a6b5f; color: #2c6a4f; }
+    .mode-group { display: none; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+    .mode-group.show { display: flex; }
+    .mode-group label { cursor: pointer; }
+
+    /* 進階選項收合（抄 stamp 的 ▶，基本欄位平鋪、進階收起） */
+    details.adv { margin: var(--space-2) 0; border: 1px solid var(--border);
+                  border-radius: var(--radius-sm); background: #faf8f4; }
+    details.adv > summary { cursor: pointer; padding: 8px 12px; font-size: 13px;
+                            color: var(--muted); list-style: none; user-select: none; }
+    details.adv > summary::-webkit-details-marker { display: none; }
+    details.adv > summary::before { content: "\25B6"; font-size: 10px; margin-right: 8px;
+                                    display: inline-block; transition: transform .15s; }
+    details.adv[open] > summary::before { transform: rotate(90deg); }
+    details.adv > .row { padding-left: 12px; padding-right: 12px; margin-bottom: 8px; }
+    details.adv > .row:last-child { padding-bottom: 4px; }
+
     #preview {
       display: flex; justify-content: center; align-items: center;
       min-height: 320px; border: 1px dashed var(--border);
@@ -210,38 +240,54 @@
           color:var(--muted);vertical-align:middle;margin-left:8px;"></span>
   </h1>
   <p>輸入任意中文字，預覽筆順動畫並下載 SVG / G-code / JSON。</p>
-  <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px 18px;">
-    <label><input type="radio" name="mode" value="single" checked>
-      單字模式 <span style="color:var(--muted);font-size:12px;">(筆順預覽)</span></label>
-    <label><input type="radio" name="mode" value="grid">
-      字帖模式 <span style="color:var(--muted);font-size:12px;">(田/米/回格)</span></label>
-    <label><input type="radio" name="mode" value="notebook">
-      筆記模式 <span style="color:var(--muted);font-size:12px;">(多頁手寫)</span></label>
-    <label><input type="radio" name="mode" value="letter">
-      信紙模式 <span style="color:var(--muted);font-size:12px;">(手寫書信)</span></label>
-    <!-- 5ew-R1：手寫卡片入口自工具列移入模式列、置於信紙旁（獨立頁、連結樣式融入） -->
-    <a href="/card" target="_blank" rel="noopener"
-       style="text-decoration:none;color:inherit;"
-       title="手寫卡片編輯器（5et）：名片/A6 對折卡、文字框、自寫手寫字與本機字型替換（另開新頁）">
-      ✉ 手寫卡片 <span style="color:var(--muted);font-size:12px;">(名片/對折卡 ↗)</span></a>
-    <label><input type="radio" name="mode" value="manuscript">
-      稿紙模式 <span style="color:var(--muted);font-size:12px;">(A4 直書寫作)</span></label>
-    <label><input type="radio" name="mode" value="doodle">
-      塗鴉模式 <span style="color:var(--muted);font-size:12px;">(圖轉線稿)</span></label>
-    <label><input type="radio" name="mode" value="patch">
-      布章模式 <span style="color:var(--muted);font-size:12px;">(裁切機/寫字機 SVG+G-code)</span></label>
-    <label><input type="radio" name="mode" value="stamp">
-      印章模式 <span style="color:var(--muted);font-size:12px;">(雷射雕刻木印 SVG+G-code)</span></label>
-    <label><input type="radio" name="mode" value="stencil">
-      鏤空字模式 <span style="color:var(--muted);font-size:12px;">(噴漆字模/連筋字 SVG+DXF+G-code)</span></label>
-    <label><input type="radio" name="mode" value="sutra">
-      抄經模式 <span style="color:var(--muted);font-size:12px;">(A4 橫式描紅 SVG)</span></label>
-    <label><input type="radio" name="mode" value="wordart">
-      文字雲模式 <span style="color:var(--muted);font-size:12px;">(外框繞字/填滿)</span></label>
-    <label><input type="radio" name="mode" value="mandala">
-      曼陀羅模式 <span style="color:var(--muted);font-size:12px;">(中心字+字環+半圓交織)</span></label>
-    <label><input type="radio" name="mode" value="zentangle">
-      禪繞字模式 <span style="color:var(--muted);font-size:12px;">(字框+禪繞填充, Phase 6z-1)</span></label>
+  <!-- U2 資訊架構：14 模式依使用者意圖分三群（書寫/製造/藝術），分頁 tab。
+       radio 與 value 全保留（模式切換邏輯不變）；tab 只顯隱群、且隨 radio 變更自動跟隨。 -->
+  <div style="margin-top:10px;">
+    <div class="mode-tabs" role="tablist" aria-label="模式群">
+      <button type="button" class="mode-tab active" data-g="write"><span class="dot" style="background:#8a6db0"></span>書寫練習</button>
+      <button type="button" class="mode-tab" data-g="make"><span class="dot" style="background:#b6883b"></span>製造切割</button>
+      <button type="button" class="mode-tab" data-g="art"><span class="dot" style="background:#3a6b5f"></span>藝術創作</button>
+    </div>
+
+    <div class="mode-group show" data-g="write">
+      <label><input type="radio" name="mode" value="single" checked>
+        單字模式 <span style="color:var(--muted);font-size:12px;">(筆順預覽)</span></label>
+      <label><input type="radio" name="mode" value="grid">
+        字帖模式 <span style="color:var(--muted);font-size:12px;">(田/米/回格)</span></label>
+      <label><input type="radio" name="mode" value="manuscript">
+        稿紙模式 <span style="color:var(--muted);font-size:12px;">(A4 直書寫作)</span></label>
+      <label><input type="radio" name="mode" value="notebook">
+        筆記模式 <span style="color:var(--muted);font-size:12px;">(多頁手寫)</span></label>
+      <label><input type="radio" name="mode" value="letter">
+        信紙模式 <span style="color:var(--muted);font-size:12px;">(手寫書信)</span></label>
+      <label><input type="radio" name="mode" value="sutra">
+        抄經模式 <span style="color:var(--muted);font-size:12px;">(A4 橫式描紅 SVG)</span></label>
+    </div>
+
+    <div class="mode-group" data-g="make">
+      <label><input type="radio" name="mode" value="doodle">
+        塗鴉模式 <span style="color:var(--muted);font-size:12px;">(圖轉線稿)</span></label>
+      <label><input type="radio" name="mode" value="patch">
+        布章模式 <span style="color:var(--muted);font-size:12px;">(裁切機/寫字機 SVG+G-code)</span></label>
+      <label><input type="radio" name="mode" value="stamp">
+        印章模式 <span style="color:var(--muted);font-size:12px;">(雷射雕刻木印 SVG+G-code)</span></label>
+      <label><input type="radio" name="mode" value="stencil">
+        鏤空字模式 <span style="color:var(--muted);font-size:12px;">(噴漆字模/連筋字 SVG+DXF+G-code)</span></label>
+    </div>
+
+    <div class="mode-group" data-g="art">
+      <label><input type="radio" name="mode" value="wordart">
+        文字雲模式 <span style="color:var(--muted);font-size:12px;">(外框繞字/填滿)</span></label>
+      <label><input type="radio" name="mode" value="mandala">
+        曼陀羅模式 <span style="color:var(--muted);font-size:12px;">(中心字+字環+半圓交織)</span></label>
+      <label><input type="radio" name="mode" value="zentangle">
+        禪繞字模式 <span style="color:var(--muted);font-size:12px;">(字框+禪繞填充, Phase 6z-1)</span></label>
+      <!-- 5ew-R1：手寫卡片獨立頁（連外 ↗）；U2 歸「藝術創作」群 -->
+      <a href="/card" target="_blank" rel="noopener"
+         style="text-decoration:none;color:inherit;"
+         title="手寫卡片編輯器（5et）：名片/A6 對折卡、文字框、自寫手寫字與本機字型替換（另開新頁）">
+        ✉ 手寫卡片 <span style="color:var(--muted);font-size:12px;">(名片/對折卡 ↗)</span></a>
+    </div>
   </div>
   <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
     <button id="ud-open" type="button"
@@ -3241,36 +3287,40 @@
              value="永" autocomplete="off">
     </div>
     <div class="row">
-      <label for="source">資料源</label>
-      <select id="source">
-        <option value="auto" selected>auto (g0v→mmh)</option>
-        <option value="g0v">g0v (繁體)</option>
-        <option value="mmh">mmh (商用合法)</option>
-      </select>
-    </div>
-    <div class="row">
-      <label for="hook">Hook 政策</label>
-      <select id="hook">
-        <option value="animation" selected>animation (保留鉤)</option>
-        <option value="static">static (去除鉤)</option>
-      </select>
-    </div>
-    <div class="row">
-      <label for="mode">SVG 模式</label>
-      <select id="mode">
-        <option value="both" selected>both (墨跡+軌跡)</option>
-        <option value="outline">outline (墨跡)</option>
-        <option value="track">track (軌跡)</option>
-      </select>
-    </div>
-    <div class="row">
       <label for="char_size">字寬 (mm)</label>
       <input id="char_size" type="number" value="20" min="5" max="200" step="1">
     </div>
-    <div class="row">
-      <label for="feed_rate">走刀 (mm/min)</label>
-      <input id="feed_rate" type="number" value="3000" min="100" max="10000" step="100">
-    </div>
+    <!-- U2：進階選項收合——初次使用者只面對「字＋字寬」，術語/機器參數收進 ▶ -->
+    <details class="adv">
+      <summary>進階選項（資料源／筆鉤／輸出格式／走刀）</summary>
+      <div class="row">
+        <label for="source">資料源</label>
+        <select id="source">
+          <option value="auto" selected>auto (g0v→mmh)</option>
+          <option value="g0v">g0v (繁體)</option>
+          <option value="mmh">mmh (商用合法)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="hook">Hook 政策</label>
+        <select id="hook">
+          <option value="animation" selected>animation (保留鉤)</option>
+          <option value="static">static (去除鉤)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="mode">SVG 模式</label>
+        <select id="mode">
+          <option value="both" selected>both (墨跡+軌跡)</option>
+          <option value="outline">outline (墨跡)</option>
+          <option value="track">track (軌跡)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="feed_rate">走刀 (mm/min)</label>
+        <input id="feed_rate" type="number" value="3000" min="100" max="10000" step="100">
+      </div>
+    </details>
     <div class="row">
       <button id="load" class="btn-primary">載入 / 重繪</button>
     </div>

@@ -288,5 +288,31 @@ document.querySelectorAll('input[name="mode"]').forEach(r =>
   })
 );
 
+// ── U2 資訊架構：模式群 tab（書寫/製造/藝術）顯隱＋隨 radio 自動跟隨 ──
+// radio 與 value 不變（模式面板切換仍由上方 views 邏輯處理）；tab 只控制
+// 選擇器可見群，並在模式變更時自動跟到該模式所屬的群。
+const MODE_GROUP = {
+  single: "write", grid: "write", manuscript: "write", notebook: "write",
+  letter: "write", sutra: "write",
+  doodle: "make", patch: "make", stamp: "make", stencil: "make",
+  wordart: "art", mandala: "art", zentangle: "art",
+};
+function showModeGroup(g) {
+  document.querySelectorAll(".mode-group").forEach(
+    el => el.classList.toggle("show", el.dataset.g === g));
+  document.querySelectorAll(".mode-tab").forEach(
+    t => t.classList.toggle("active", t.dataset.g === g));
+}
+document.querySelectorAll(".mode-tab").forEach(
+  t => t.addEventListener("click", () => showModeGroup(t.dataset.g)));
+document.querySelectorAll('input[name="mode"]').forEach(
+  r => r.addEventListener("change", () => {
+    if (r.checked && MODE_GROUP[r.value]) showModeGroup(MODE_GROUP[r.value]);
+  }));
+{
+  const _chk = document.querySelector('input[name="mode"]:checked');
+  if (_chk && MODE_GROUP[_chk.value]) showModeGroup(MODE_GROUP[_chk.value]);
+}
+
 // W4-R2：跨檔邊匯出（消費端見 import 網）
 export { API_BASE, load };
