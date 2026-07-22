@@ -2469,13 +2469,19 @@ def test_5eq_handwrite_ref_prefers_filled_layer_over_thick_skeleton():
     html = TestClient(app).get("/static/modes/handwrite.js").text
     swfn = html.split("async function swBuildSutraRefImg")[1].split(
         "async function")[0]
-    # 填實層優先集合 + 有任一填實層才用之、否則才 fallback 骨架
-    assert '_filledIds = ["sutra-glyph-reference", "sutra-trace"]' in swfn
-    assert "_filledIds.some(" in swfn
-    assert ': ["sutra-trace-skeleton"]' in swfn
-    # 迴圈跑「選定集合」，不再無條件把三層（含粗骨架）並列複製
-    assert "for (const id of _useIds)" in swfn
-    assert '["sutra-glyph-reference", "sutra-trace",' not in swfn
+    # 5fn：改以優先序陣列挑「第一個存在」的字形層——填實層（reference→trace）
+    # 在前、粗骨架（sutra-trace-skeleton）殿後並 break，故有填實層時絕不選到
+    # 骨架（5eq 意圖不變，僅結構由 _filledIds 集合改為 _order 優先序）。
+    assert '"sutra-glyph-reference"' in swfn
+    assert '"sutra-trace"' in swfn
+    assert '"sutra-trace-skeleton"' in swfn
+    # 骨架必排在兩個填實層之後（殿後＝只在無填實層時才 fallback）
+    assert (swfn.index('"sutra-glyph-reference"')
+            < swfn.index('"sutra-trace"')
+            < swfn.index('"sutra-trace-skeleton"'))
+    # 挑「第一個存在」即停（break），不再無條件把三層（含粗骨架）並列複製
+    assert "for (const id of _order)" in swfn
+    assert "break;" in swfn
 
 
 # ---------------------------------------------------------------------------

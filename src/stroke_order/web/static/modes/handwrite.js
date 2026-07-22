@@ -85,34 +85,82 @@ async function swBuildSutraRefImg(cur) {
     const NS = "http://www.w3.org/2000/svg";
     const out = document.createElementNS(NS, "svg");
     out.setAttribute("xmlns", NS);
-    out.setAttribute("viewBox", `${bb.x} ${bb.y} ${bb.width} ${bb.height}`);
     out.setAttribute("width", "360");
     out.setAttribute("height", "360");
     // 5eq: use the FILLED letterform (reference / trace) as the popup 範字 — a
     // clean, thin seal/kaishu shape matching the grid 描紅. The skeleton layer
-    // (sutra-trace-skeleton) is a thick 12%-of-char_size centreline drawing kept
-    // at 0.03 opacity in the preview; 5en forced ALL layers to opacity 1 and
-    // stacked them, so 篆/隸 turned into a heavy, merged blob whose round-cap
-    // strokes also overran the glyph bbox (實機回報：太粗、筆畫重疊、比例偏大).
-    // Clone ONLY the filled layer(s) when present; fall back to the skeleton
-    // centreline only when no filled letterform exists (rare).
-    // NOT the user handwriting, marks or cellmap. Recolour to a clearly-visible
-    // light grey (print layers use very low opacity that would be invisible).
+    // (sutra-trace-skeleton) is a thick centreline kept near-invisible in the
+    // preview; prefer a filled layer, fall back to the skeleton only when none
+    // exists. Recolour to a clearly-visible light grey.
+    const _order = ["sutra-glyph-reference", "sutra-trace", "sutra-trace-skeleton"];
+    let layer = null;
+    for (const id of _order) {
+      const el = svg.querySelector("#" + id);
+      if (el) { layer = el; break; }
+    }
+    if (!layer) return null;
+
+    // 5fn：抄經範字改「墨跡實框正規化 ~86%」，與其他模式的逐字手寫一致。
+    // 舊法把視框裁到整個字格 rect，但抄經描紅字只佔字格約 6 成、且字格非
+    // 正方（含斷句／注音留白）→ 拿掉 5fb 的 1.4× 後範字明顯偏小。字形層
+    // 每字是一個 <g transform>、無 per-cell id，故以幾何命中：取「client 中心
+    // 落在該格 rect 內」的字形群，量其 client 聯集框、經 getScreenCTM 反矩陣
+    // 換回 SVG user 座標，取正方＋8% 邊距為視框，讓墨跡固定佔 ~86%。命中不到
+    // （罕見）才退回舊的整格裁切、不致變空。
+    const rc = rect.getBoundingClientRect();
+    const matched = [...layer.children].filter((g) => {
+      const b = g.getBoundingClientRect();
+      const gx = b.left + b.width / 2, gy = b.top + b.height / 2;
+      return gx >= rc.left && gx <= rc.right && gy >= rc.top && gy <= rc.bottom;
+    });
+    const ctm = svg.getScreenCTM();
+    let usedInkBox = false;
+    if (matched.length && ctm) {
+      const inv = ctm.inverse();
+      const toUser = (x, y) => {
+        const pt = svg.createSVGPoint(); pt.x = x; pt.y = y;
+        return pt.matrixTransform(inv);
+      };
+      let L = Infinity, T = Infinity, R = -Infinity, B = -Infinity;
+      for (const g of matched) {
+        const b = g.getBoundingClientRect();
+        L = Math.min(L, b.left);  T = Math.min(T, b.top);
+        R = Math.max(R, b.right); B = Math.max(B, b.bottom);
+      }
+      const cs = [[L, T], [R, T], [L, B], [R, B]].map(([x, y]) => toUser(x, y));
+      const xs = cs.map((c) => c.x), ys = cs.map((c) => c.y);
+      const ix = Math.min(...xs), iy = Math.min(...ys);
+      const iw = Math.max(...xs) - ix, ih = Math.max(...ys) - iy;
+      if (iw > 0 && ih > 0) {
+        const side = Math.max(iw, ih), boxsz = side * 1.16;   // 8% 邊距×2 → ~86%
+        const cx = ix + iw / 2, cy = iy + ih / 2;
+        out.setAttribute("viewBox",
+          `${cx - boxsz / 2} ${cy - boxsz / 2} ${boxsz} ${boxsz}`);
+        usedInkBox = true;
+      }
+    }
+    if (!usedInkBox) {
+      out.setAttribute("viewBox", `${bb.x} ${bb.y} ${bb.width} ${bb.height}`);
+    }
+
+    // clone the matched glyph group(s) — or the whole layer in fallback — and
+    // recolour to a clearly-visible light grey (print layers use near-zero
+    // opacity that would be invisible; glyphs may inherit fill from the layer,
+    // so force fill on the clone root too).
+    const sources = usedInkBox ? matched : [layer];
     let has = false;
-    const _filledIds = ["sutra-glyph-reference", "sutra-trace"];
-    const _useIds = _filledIds.some(id => svg.querySelector("#" + id))
-      ? _filledIds
-      : ["sutra-trace-skeleton"];
-    for (const id of _useIds) {
-      const g = svg.querySelector("#" + id);
-      if (!g) continue;
-      const clone = g.cloneNode(true);
+    for (const src of sources) {
+      const clone = src.cloneNode(true);
       clone.removeAttribute("id");
       clone.setAttribute("opacity", "1");
-      const f = clone.getAttribute("fill");
-      const s = clone.getAttribute("stroke");
-      if (f && f !== "none") clone.setAttribute("fill", "#c8c8c8");
-      if (s && s !== "none") clone.setAttribute("stroke", "#c8c8c8");
+      clone.setAttribute("fill", "#c8c8c8");
+      for (const el of clone.querySelectorAll("*")) {
+        el.removeAttribute("opacity");
+        const f = el.getAttribute("fill");
+        const s = el.getAttribute("stroke");
+        if (f && f !== "none") el.setAttribute("fill", "#c8c8c8");
+        if (s && s !== "none") el.setAttribute("stroke", "#c8c8c8");
+      }
       out.appendChild(clone);
       has = true;
     }
