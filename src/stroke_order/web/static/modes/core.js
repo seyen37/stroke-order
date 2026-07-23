@@ -83,6 +83,9 @@ async function load() {
     return;
   }
   currentChar = char;
+  // 5fp：清掉上一輪的按鈕旁錯誤（成功路徑保持乾淨）
+  const _loadErr = document.getElementById("load-error");
+  if (_loadErr) { _loadErr.hidden = true; _loadErr.textContent = ""; }
   const p = qparams();
   const qs = new URLSearchParams({
     source: p.source, hook_policy: p.hook_policy,
@@ -112,6 +115,13 @@ async function load() {
     renderDecomposition(currentMeta);
     renderCnsDecomposition(char);
   } catch (e) {
+    // 5fp（P0）：錯誤緊貼「載入 / 重繪」按鈕顯示——初次使用者第一眼
+    // 看得到；頁底診斷資訊保留原行為作技術補充。
+    if (_loadErr) {
+      _loadErr.textContent =
+        `載入失敗：${e.message}（詳情見頁底診斷資訊；可換資料源重試）`;
+      _loadErr.hidden = false;
+    }
     document.getElementById("diagnostics").textContent = `載入失敗：${e.message}`;
     document.getElementById("diag-badges").innerHTML =
       `<span class="badge error">ERROR</span>`;

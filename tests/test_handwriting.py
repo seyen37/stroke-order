@@ -522,3 +522,29 @@ def test_5fd_deeplink_material_routing(client):
     assert "chars.indexOf(_deepChar)" in page                 # 定位到該字
     assert "showSourcePanel('sutra')" in page
     assert "showSourcePanel('input')" in page                 # 字串路保留
+
+
+def test_5fp_p0_modal_close_paths_and_inline_load_error(client):
+    """5fp（P0 稽核）：①逐字手寫視窗 Esc／切換模式都會關閉（與 ✕ 同
+    語意；修正前鍵盤無關閉路徑、切模式後視窗殘留蓋住新模式設定）
+    ②單字模式載入失敗訊息緊貼「載入 / 重繪」按鈕（原本只在頁底
+    診斷資訊，初次使用者看不到）。"""
+    sw = client.get("/static/modes/handwrite.js").text
+    # ① Esc 關閉＋模式切換關閉——都在視窗開啟狀態才觸發
+    assert '_swOpen' in sw
+    assert 'e.key === "Escape"' in sw
+    handler = sw.split('e.key === "Escape"')[1][:120]
+    assert "swClose()" in handler
+    assert 'input[name="mode"]' in sw     # 切模式 hook（change → swClose）
+    assert sw.count("swClose()") >= 3     # ✕／背景點擊／Esc／切模式
+    # ② 按鈕旁錯誤：index 有空殼 span、core.js 有清空＋填入
+    page = client.get("/").text
+    row = page.split('id="load"', 1)[1][:600]
+    assert 'id="load-error"' in row
+    assert "hidden" in row.split('id="load-error"')[0][-80:] or \
+           'hidden' in row.split('id="load-error"')[1][:120]
+    core = client.get("/static/modes/core.js").text
+    assert '_loadErr' in core
+    assert "_loadErr.hidden = true" in core       # 成功/重試前清空
+    assert "_loadErr.hidden = false" in core      # 失敗時顯示
+    assert "詳情見頁底診斷資訊" in core

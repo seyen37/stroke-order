@@ -288,6 +288,15 @@ function swInit() {
   $("sw-overlay").addEventListener("click", (e) => {
     if (e.target.id === "sw-overlay") swClose();
   });
+  // 5fp（P0 稽核實證修正）：視窗開著時 Esc 關閉＋切換模式自動關閉
+  // ——皆與 ✕ 同語意（swClose 保留 dirty 重繪；未送出的筆畫丟棄）。
+  // 修正前：鍵盤無關閉路徑；切模式後視窗殘留、蓋住新模式設定區。
+  const _swOpen = () => $("sw-overlay").style.display !== "none";
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && _swOpen()) swClose();
+  });
+  document.querySelectorAll('input[name="mode"]').forEach((r) =>
+    r.addEventListener("change", () => { if (_swOpen()) swClose(); }));
   swBindCanvas();
 }
 
