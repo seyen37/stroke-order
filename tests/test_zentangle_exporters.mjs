@@ -339,3 +339,43 @@ test("5dk: SVG/G-code 含 fills 層", () => {
   assert.match(pathsToSvg(paths, {tileSize:100, tileMm:90}), /data-layer="fill"/);
   assert.match(pathsToGcode(paths, {tileSize:100, tileMm:90}), /fill 掃描填充/);
 });
+
+// ---------------------------------------------------------------------------
+// 5fv：統一出口信封（stroke-order-export-v1）
+// ---------------------------------------------------------------------------
+
+test("5fv: pathsToSvg 帶 envelope → 內嵌 stroke-order-export 信封", () => {
+  const paths = {strokes: [[[0, 0], [10, 10]]], fills: [], outline: []};
+  const svg = pathsToSvg(paths, {
+    tileSize: 100, tileMm: 50,
+    envelope: {mode: "zentangle", appVersion: "9.9.9"},
+  });
+  const m = /<stroke-order-export><!\[CDATA\[([\s\S]*?)\]\]><\/stroke-order-export>/.exec(svg);
+  assert.ok(m, "信封元素存在");
+  const payload = JSON.parse(m[1]);
+  assert.equal(payload.schema, "stroke-order-export-v1");
+  assert.equal(payload.mode, "zentangle");
+  assert.equal(payload.app_version, "9.9.9");
+  // metadata 在 <svg> 開標籤後、繪圖群組前
+  assert.ok(svg.indexOf("<metadata>") > svg.indexOf("<svg"));
+  assert.ok(svg.indexOf("<metadata>") < svg.indexOf("<g "));
+});
+
+test("5fv: 無 envelope（既有呼叫）→ 輸出不含信封、位元不變性守恆", () => {
+  const paths = {strokes: [[[0, 0], [10, 10]]], fills: [], outline: []};
+  const svg = pathsToSvg(paths, {tileSize: 100, tileMm: 50});
+  assert.ok(!svg.includes("stroke-order-export"));
+});
+
+test("5fv: envelope params 帶入且 ]]> 序列被轉義（CDATA 注入防禦）", () => {
+  const paths = {strokes: [[[0, 0], [10, 10]]], fills: [], outline: []};
+  const svg = pathsToSvg(paths, {
+    tileSize: 100, tileMm: 50,
+    envelope: {mode: "zentangle", params: {note: "evil]]>payload"}},
+  });
+  const m = /<!\[CDATA\[([\s\S]*?)\]\]>/.exec(svg);
+  assert.ok(m, "CDATA 存在");
+  assert.ok(!m[1].includes("]]>"), "CDATA 內文不得含 ]]>");
+  const payload = JSON.parse(m[1]);
+  assert.equal(payload.params.note, "evil]]>payload");
+});

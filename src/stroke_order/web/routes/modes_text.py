@@ -28,6 +28,7 @@ from ..char_pipeline import (
 )
 from ..capacity import capacity_summary
 from ..responses import svg_response, _content_disposition
+from ..versioning import APP_VERSION
 
 class ZoneSpec(BaseModel):
     x: float
@@ -251,7 +252,7 @@ def notebook(
             headers["Content-Disposition"] = _content_disposition(
                 f"notebook-page-{page:02d}", "svg"
             )
-        return svg_response(svg, headers=headers)
+        return svg_response(svg, headers=headers, mode="notebook")
 
     def _render(p):
         return render_notebook_page_svg(p, cell_style=cell_style,
@@ -259,7 +260,8 @@ def notebook(
                                         zhuyin_chars=zchars)
 
     body, mime, ext = render_pages_as_single_or_zip(
-        pages, _render, filename_prefix="notebook-page"
+        pages, _render, filename_prefix="notebook-page",
+        envelope_mode="notebook", app_version=APP_VERSION,
     )
     headers: dict[str, str] = {
         "X-Stroke-Order-Pages": str(len(pages)),
@@ -319,13 +321,15 @@ def notebook_post(req: NotebookPostRequest):
             )
         svg = render_notebook_page_svg(
             pages[req.page - 1], cell_style=req.cell_style)  # type: ignore
-        return svg_response(svg, headers={"X-Stroke-Order-Pages": str(len(pages))})
+        return svg_response(svg, headers={"X-Stroke-Order-Pages": str(len(pages))},
+                            mode="notebook")
 
     def _render(p):
         return render_notebook_page_svg(p, cell_style=req.cell_style)  # type: ignore
 
     body, mime, ext = render_pages_as_single_or_zip(
-        pages, _render, filename_prefix="notebook-page"
+        pages, _render, filename_prefix="notebook-page",
+        envelope_mode="notebook", app_version=APP_VERSION,
     )
     return Response(
         content=body, media_type=mime,
@@ -514,10 +518,11 @@ def letter(
             headers["Content-Disposition"] = _content_disposition(
                 f"letter-page-{page:02d}", "svg"
             )
-        return svg_response(svg, headers=headers)
+        return svg_response(svg, headers=headers, mode="letter")
 
     body, mime, ext = render_pages_as_single_or_zip(
-        pages, _render, filename_prefix="letter-page"
+        pages, _render, filename_prefix="letter-page",
+        envelope_mode="letter", app_version=APP_VERSION,
     )
     headers = {"X-Stroke-Order-Pages": str(len(pages)), **cap_headers}
     if download:
@@ -627,7 +632,7 @@ def api_stencil(
     if download:
         headers["Content-Disposition"] = _content_disposition(
             basename, "svg")
-    return svg_response(svg, headers=headers)
+    return svg_response(svg, headers=headers, mode="stencil")
 
 # ------ 稿紙模式 (manuscript) ---------------------------------------
 
@@ -774,10 +779,11 @@ def manuscript(
             headers["Content-Disposition"] = _content_disposition(
                 f"manuscript-page-{page:02d}", "svg"
             )
-        return svg_response(svg, headers=headers)
+        return svg_response(svg, headers=headers, mode="manuscript")
 
     body, mime, ext = render_pages_as_single_or_zip(
-        pages, _render, filename_prefix="manuscript-page"
+        pages, _render, filename_prefix="manuscript-page",
+        envelope_mode="manuscript", app_version=APP_VERSION,
     )
     headers = dict(cap_headers)
     if download:
@@ -920,7 +926,7 @@ def grid(
         headers["Content-Disposition"] = _content_disposition(
             basename, "svg"
         )
-    return svg_response(svg, headers=headers)
+    return svg_response(svg, headers=headers, mode="grid")
 
 # ------ file download -----------------------------------------------
 
@@ -948,7 +954,7 @@ def export(
         )
         return svg_response(payload, headers={
                 "Content-Disposition": _content_disposition(char, "svg"),
-            })
+            }, mode="single")
     if format == "gcode":
         payload = characters_to_gcode(
             [c], GCodeOptions(char_size_mm=char_size, feed_rate=feed_rate)

@@ -875,8 +875,12 @@ function exportZentangle(fmt) {
     return;
   }
   const char = (_charInput?.value || "禪繞").trim() || "禪繞";
+  // 5fv：SVG 匯出帶統一出口信封（app_version 讀本模組 import URL 的 ?v=）
+  const _verMatch = /[?&]v=(\d[\w.]*)/.exec(import.meta.url);
   const emitOpts = {tileSize, tileMm, strokeMm: _exportOpts.strokeMm,
-                    includeOutline: _exportOpts.includeOutline};
+                    includeOutline: _exportOpts.includeOutline,
+                    envelope: {mode: "zentangle",
+                               appVersion: _verMatch ? _verMatch[1] : null}};
   let content, mime, ext;
   if (fmt === "svg") {
     content = pathsToSvg(paths, emitOpts);

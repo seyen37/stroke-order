@@ -587,7 +587,8 @@ def sutra_post(req: SutraPostRequest):
     else:  # dedication
         _basename = f"{_title}_{_slabel}_迴向"
     return svg_response(svg, headers={"Content-Disposition":
-                 _content_disposition(_basename, "svg")})
+                 _content_disposition(_basename, "svg")},
+                        mode="sutra")
 
 @router.get("/api/sutra")
 def sutra_get(       # 5dp：sync def（見 sutra_post）

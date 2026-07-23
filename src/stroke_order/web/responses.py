@@ -46,6 +46,19 @@ def _safe_filename_part(s: str) -> str:
     return "".join(out).strip() or "sutra"
 
 
-def svg_response(svg: str, headers: dict | None = None) -> Response:
-    """SVG 回應——全站唯一的 ``image/svg+xml`` 出口。"""
+def svg_response(svg: str, headers: dict | None = None, *,
+                 mode: str | None = None,
+                 envelope_params: dict | None = None) -> Response:
+    """SVG 回應——全站唯一的 ``image/svg+xml`` 出口。
+
+    5fv：``mode`` 給定時內嵌統一出口信封（stroke-order-export-v1，
+    含 app_version）——分享庫收件側（5fw）驗此憑據。守門測試要求
+    routes 層每個呼叫點都明示 ``mode=``（刻意不嵌的例外進白名單）。
+    """
+    if mode is not None:
+        from ..exporters.envelope import embed_export_envelope
+        from .versioning import APP_VERSION
+        svg = embed_export_envelope(svg, mode=mode,
+                                    app_version=APP_VERSION,
+                                    params=envelope_params)
     return Response(content=svg, media_type=SVG_MEDIA_TYPE, headers=headers)

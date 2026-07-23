@@ -522,7 +522,7 @@ def wordart(
         headers["Content-Disposition"] = _content_disposition(
             f"wordart-{shape}-{layout}", "svg"
         )
-    return svg_response(svg, headers=headers)
+    return svg_response(svg, headers=headers, mode="wordart")
 
 # ------ 曼陀羅模式 (mandala) — Phase 5b r4 ------------------------
 # Case B: 中心 1 字 + 字環 N 字 + 外圍半圓交織 mandala band
@@ -872,7 +872,7 @@ def doodle(
         headers["Content-Disposition"] = _content_disposition(
             "doodle", "svg"
         )
-    return svg_response(svg, headers=headers)
+    return svg_response(svg, headers=headers, mode="doodle")
 
 
 # ------ 布章 (patch) — Phase 5ax -----------------------------------
@@ -949,7 +949,8 @@ def patch_post(req: PatchPostRequest):
             page_height_mm=req.page_height_mm,
         )
         return svg_response(svg, headers={"Content-Disposition":
-                                 _content_disposition("patch", "svg")})
+                                 _content_disposition("patch", "svg")},
+                            mode="patch")
     if req.format == "dxf":
         # 5bq: layered DXF R12 — CUT/ENGRAVE/WRITE, one file.
         # Decorations are SVG fragments and not representable (same
@@ -1140,7 +1141,8 @@ def stamp_post(req: StampPostRequest):
     if req.format == "svg":
         svg = render_stamp_svg(**common)
         return svg_response(svg, headers={"Content-Disposition":
-                                 _content_disposition("stamp", "svg")})
+                                 _content_disposition("stamp", "svg")},
+                            mode="stamp")
     if req.format == "pdf":
         # 12b-4: SVG → PDF 直出（cairosvg svg2pdf）。印章是單頁，
         # 不需要走 sutra 的 SVG→PNG→Pillow 多頁合併流程。

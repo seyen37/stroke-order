@@ -340,13 +340,23 @@ function plToPoints(seg, sx, sy) {
  * 字框（較粗）／tangle 圖樣線／fill 掃描填充（5dk，scan 模式才有）。
  */
 export function pathsToSvg(paths, opts = {}) {
-  const {tileSize, tileMm, strokeMm = 0.3, outlineMm = 0.5} = opts;
+  const {tileSize, tileMm, strokeMm = 0.3, outlineMm = 0.5, envelope = null} = opts;
   const sx = tileMm / tileSize, sy = tileMm / tileSize;
   const w = fmt(tileMm), h = fmt(tileMm);
   const lines = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
   lines.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" ` +
              `viewBox="0 0 ${w} ${h}">`);
+  // 5fv：統一出口信封（與後端 exporters/envelope.py 同格式）——
+  // 分享庫收件側驗此憑據；禪繞是唯一前端產 SVG 的模式。
+  if (envelope && envelope.mode) {
+    const payload = {schema: "stroke-order-export-v1", mode: envelope.mode};
+    if (envelope.appVersion) payload.app_version = envelope.appVersion;
+    if (envelope.params) payload.params = envelope.params;
+    const body = JSON.stringify(payload).replace(/\]\]>/g, "]]\\u003e");
+    lines.push(`  <metadata><stroke-order-export><![CDATA[${body}]]>` +
+               `</stroke-order-export></metadata>`);
+  }
   lines.push('  <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">');
   if (paths.outline && paths.outline.length) {
     lines.push(`    <g stroke-width="${outlineMm}" data-layer="outline">`);
