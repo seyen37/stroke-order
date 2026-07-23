@@ -186,6 +186,12 @@ async function patchRender() {
       tintPreviewFill(inner);   // 5ba-5: grey fill instead of thick stroke
     }
     status.textContent = "✓ 完成";
+    // 5fr：產生成功才啟用下載鈕
+    document.getElementById("pt-dl-svg").disabled = false;
+    document.getElementById("pt-dl-cut").disabled = false;
+    document.getElementById("pt-dl-write").disabled = false;
+    document.getElementById("pt-dl-dxf").disabled = false;
+
     status.style.color = "#080";
   } catch (e) {
     status.textContent = "失敗：" + e.message;

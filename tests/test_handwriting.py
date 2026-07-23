@@ -579,3 +579,41 @@ def test_5fq_p1_color_naming_emptystate_isolation(client):
     first_row_end = add_grp.index("</div>")
     assert "card-del-box" not in add_grp[:first_row_end]   # 不在加入列
     assert "card-del-box" in add_grp                        # 仍存在（獨立列）
+
+
+def test_5fr_p2_batch(client):
+    """5fr（P2 稽核八項）：禪繞推薦組合置頂＋進階變形收合／曼陀羅產生鈕
+    sticky／單字預載示範字＋自動載入／sutra·patch·stamp 下載鈕產生前
+    disabled＋成功啟用／gallery [hidden] 歸位（§54 三現）／card 說明
+    移右欄／字帖·文字雲提示文案。"""
+    page = client.get("/").text
+    # 禪繞：推薦組合列在基本符號列之前；進階變形 details 存在
+    zt = page.split('id="zentangle-view"')[1].split("</main>")[0]
+    assert zt.index('id="zentangle-combo-buttons"') \
+        < zt.index('id="zentangle-basic-buttons"')
+    assert "進階變形（紙磚旋轉／透視／曲度）" in zt
+    assert "<details" in zt.split("紙磚旋轉")[0][-600:] or "進階變形" in zt
+    # 曼陀羅 sticky
+    md_row = page.split('id="md-render"')[0][-300:]
+    assert "position:sticky" in md_row
+    # 單字：預填＋自動載入
+    assert 'id="char" type="text" maxlength="1" value="永"' in page
+    core = client.get("/static/modes/core.js").text
+    assert "開頁自動載入示範字" in core
+    # 下載鈕 disabled（三模式 11 顆）
+    for bid in ("su-dl-current", "su-dl-all", "su-dl-pdf",
+                "pt-dl-svg", "pt-dl-cut", "pt-dl-write", "pt-dl-dxf",
+                "st-dl-svg", "st-dl-pdf", "st-dl-gcode", "st-dl-dxf"):
+        assert f'id="{bid}" type="button" disabled' in page, bid
+    for mod in ("sutra", "patch", "stamp"):
+        js = client.get(f"/static/modes/{mod}.js").text
+        assert "產生成功才啟用下載鈕" in js, mod
+    # gallery [hidden] 歸位
+    gcss = client.get("/static/gallery/gallery.css").text
+    assert "[hidden] { display: none !important; }" in gcss
+    # card：操作說明在右欄（下載說明之後）
+    card = client.get("/card").text
+    assert card.index("草稿自動存在瀏覽器") < card.index("點擊內容選取框")
+    # 提示文案
+    assert "例：選「氵」" in page
+    assert "上緣文字會倒置" in page

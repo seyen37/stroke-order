@@ -714,6 +714,10 @@ async function sutraRender() {
       "#sutra-cellmap [data-seal-synth]").length;
     status.textContent = "✓ 完成（點格子可逐字手寫）" +
       (synthN ? `·含 ${synthN} 字部件合成篆字（推測非原典）` : "");
+    // 5fr：產生成功才啟用下載鈕
+    for (const _i of ["su-dl-current", "su-dl-all", "su-dl-pdf"]) {
+      document.getElementById(_i).disabled = false;
+    }
     status.style.color = "#080";
   } catch (e) {
     if (e && e.name === "AbortError") return;   // 5ex-C：被新一輪取代，靜默

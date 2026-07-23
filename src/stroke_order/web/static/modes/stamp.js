@@ -814,6 +814,12 @@ async function stampRender() {
       }
     }
     status.textContent = "✓ 完成";
+    // 5fr：產生成功才啟用下載鈕
+    document.getElementById("st-dl-svg").disabled = false;
+    document.getElementById("st-dl-pdf").disabled = false;
+    document.getElementById("st-dl-gcode").disabled = false;
+    document.getElementById("st-dl-dxf").disabled = false;
+
     status.style.color = "#080";
   } catch (e) {
     status.textContent = "失敗：" + e.message;

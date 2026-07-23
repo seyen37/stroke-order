@@ -628,7 +628,7 @@
       <button id="grid-radical-fill" style="margin-left:8px;">⬇ 帶入家族字</button>
       <span id="grid-radical-hint"
             style="margin-left:8px;color:var(--muted);font-size:11px;">
-        部首按組件覆蓋排序——選一個部首，一鍵生成家族練習頁
+        部首按組件覆蓋排序——選一個部首，一鍵生成家族練習頁（例：選「氵」→ 江、河、洗、海…）
       </span>
     </div>
     <div class="row">
@@ -1385,10 +1385,10 @@
     <div class="action-bar">
       <button id="pt-render" class="btn-primary">產生預覽</button>
       <span class="ab-sep" aria-hidden="true"></span>
-      <button id="pt-dl-svg" type="button" class="btn-secondary">↓ SVG</button>
-      <button id="pt-dl-cut" type="button" class="btn-secondary">↓ G-code · 裁字</button>
-      <button id="pt-dl-write" type="button" class="btn-secondary">↓ G-code · 寫字</button>
-      <button id="pt-dl-dxf" type="button" class="btn-secondary"
+      <button id="pt-dl-svg" type="button" disabled class="btn-secondary">↓ SVG</button>
+      <button id="pt-dl-cut" type="button" disabled class="btn-secondary">↓ G-code · 裁字</button>
+      <button id="pt-dl-write" type="button" disabled class="btn-secondary">↓ G-code · 寫字</button>
+      <button id="pt-dl-dxf" type="button" disabled class="btn-secondary"
               title="CUT(紅)=外框、ENGRAVE(黑)=字輪廓、WRITE(藍)=筆跡中心線；LightBurn / Beam Studio 直接匯入">↓ 分層 DXF</button>
       <span id="pt-status" style="margin-left:6px;color:var(--muted);font-size:12px;"></span>
     </div>
@@ -1925,10 +1925,10 @@
     <div class="action-bar">
       <button id="st-render" class="btn-primary">產生預覽</button>
       <span class="ab-sep" aria-hidden="true"></span>
-      <button id="st-dl-svg" type="button" class="btn-secondary">↓ SVG · 雕刻</button>
-      <button id="st-dl-pdf" type="button" class="btn-secondary" title="列印樣張 / 客戶確認用">↓ PDF</button>
-      <button id="st-dl-gcode" type="button" class="btn-secondary">↓ G-code · 雷射</button>
-      <button id="st-dl-dxf" type="button" class="btn-secondary"
+      <button id="st-dl-svg" type="button" disabled class="btn-secondary">↓ SVG · 雕刻</button>
+      <button id="st-dl-pdf" type="button" disabled class="btn-secondary" title="列印樣張 / 客戶確認用">↓ PDF</button>
+      <button id="st-dl-gcode" type="button" disabled class="btn-secondary">↓ G-code · 雷射</button>
+      <button id="st-dl-dxf" type="button" disabled class="btn-secondary"
               title="CUT(紅)=邊框、ENGRAVE(黑)=陰刻字輪廓或陽刻掃描線；LightBurn / Beam Studio 直接匯入">↓ 分層 DXF</button>
       <span id="st-status" style="margin-left:6px;color:var(--muted);font-size:12px;"></span>
     </div>
@@ -2102,9 +2102,9 @@
       <div class="ab-main">
         <button id="su-render" class="btn-primary">產生預覽</button>
         <span class="ab-sep" aria-hidden="true"></span>
-        <button id="su-dl-current" type="button" class="btn-secondary">↓ 本頁 SVG</button>
-        <button id="su-dl-all" type="button" class="btn-secondary">↓ 全部 SVG</button>
-        <button id="su-dl-pdf" type="button" class="btn-secondary"
+        <button id="su-dl-current" type="button" disabled class="btn-secondary">↓ 本頁 SVG</button>
+        <button id="su-dl-all" type="button" disabled class="btn-secondary">↓ 全部 SVG</button>
+        <button id="su-dl-pdf" type="button" disabled class="btn-secondary"
                 title="多頁合併為單一 PDF，方便列印">↓ 整本 PDF</button>
         <span id="su-status" style="margin-left:6px;color:var(--muted);font-size:12px;"></span>
       </div>
@@ -2279,7 +2279,7 @@
       </select>
       <label style="margin-left:12px;">字朝向</label>
       <select id="wa-orient">
-        <option value="bottom_to_center" selected>字底朝內 (印章風)</option>
+        <option value="bottom_to_center" selected>字底朝內 (印章風，上緣文字會倒置)</option>
         <option value="top_to_center">字頂朝內</option>
         <option value="upright">直立 (不旋轉)</option>
         <option value="tangent">沿切線</option>
@@ -2885,7 +2885,7 @@
     <div class="row">
       <label>字朝向</label>
       <select id="md-orient">
-        <option value="bottom_to_center" selected>字底朝內 (印章風)</option>
+        <option value="bottom_to_center" selected>字底朝內 (印章風，上緣文字會倒置)</option>
         <option value="top_to_center">字頂朝內</option>
         <option value="upright">直立 (不旋轉)</option>
         <option value="tangent">沿切線</option>
@@ -2938,7 +2938,9 @@
       <span>×</span>
       <input id="md-ph" type="number" value="210" min="50" max="600" step="5" style="width:70px;">
     </div>
-    <div class="row">
+    <!-- 5fr（P2）：長表單的產生鈕 sticky——捲到哪都按得到 -->
+    <div class="row" style="position:sticky;bottom:0;background:var(--surface);
+         padding:8px 0;z-index:5;border-top:1px solid var(--border);">
       <button id="md-render" class="btn-primary">產生曼陀羅</button>
       <span id="md-status" style="color:var(--muted);font-size:12px;margin-left:12px;"></span>
     </div>
@@ -3085,6 +3087,12 @@
          延伸技法 toggle、下排 8 經典圖樣(可收合)。縮圖鈕由 zentangle.js
          buildRegionToolbar() 從 tangle registry 動態生成（縮圖＝該圖樣
          builder 直接畫 36px canvas；英文名 hover 才顯示）。 -->
+    <!-- 5dj-3: 推薦組合快捷（基本符號 + 一組延伸技法，一鍵套用） -->
+    <div class="row" style="margin:2px 0 4px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
+      <span style="font-weight:bold;color:var(--muted);min-width:64px;text-align:right;" title="經典禪繞質感一鍵套用（基本符號＋延伸技法組合）">推薦組合</span>
+      <span id="zentangle-combo-buttons"
+            style="display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;"></span>
+    </div>
     <!-- 上排：iCSO 五大基本符號 -->
     <div class="row" style="margin:2px 0 4px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
       <span style="font-weight:bold;color:var(--muted);min-width:64px;text-align:right;" title="點 i／直線 |／弧 C／S 線／圓 O — 禪繞畫最基礎的五筆劃">基本符號</span>
@@ -3096,12 +3104,6 @@
       <span style="font-weight:bold;color:var(--muted);min-width:64px;text-align:right;" title="裝飾/延伸技法 — 讓平面圖樣長出質感與立體感">延伸技法</span>
       <span id="zentangle-enhancer-toggles"
             style="display:inline-flex;flex-wrap:wrap;gap:4px 8px;align-items:center;"></span>
-    </div>
-    <!-- 5dj-3: 推薦組合快捷（基本符號 + 一組延伸技法，一鍵套用） -->
-    <div class="row" style="margin:2px 0 4px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;justify-content:center;">
-      <span style="font-weight:bold;color:var(--muted);min-width:64px;text-align:right;" title="經典禪繞質感一鍵套用（基本符號＋延伸技法組合）">推薦組合</span>
-      <span id="zentangle-combo-buttons"
-            style="display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;"></span>
     </div>
     <!-- 5dj-3: 延伸參數微調（全域一組滑桿，可收合） -->
     <details style="margin:2px auto 4px;max-width:600px;">
@@ -3191,6 +3193,10 @@
               title="露出下邊角（再按一次回正）">↓ 下</button>
       <span></span>
     </div>
+    <!-- 5fr（P2）：進階變形三組（旋轉/透視/曲度＝24 顆鈕）收合——
+         初次使用者先看核心流程，進階再展開 -->
+    <details style="margin-top:10px;">
+      <summary style="font-size:12px;color:var(--muted);cursor:pointer;text-align:center;list-style-position:inside;">進階變形（紙磚旋轉／透視／曲度）▾</summary>
     <!-- 6z-2c: 紙磚旋轉 inline 控件 — 8 preset 按鈕 + slider 微調 + 立即回正 / 上次角度 -->
     <div class="row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
       <span style="font-weight:bold;color:var(--muted);">紙磚旋轉</span>
@@ -3275,6 +3281,7 @@
         四種曲面任選一種（換一種＝覆蓋上次）
       </span>
     </div>
+    </details>
   </section>
 </main>
 
@@ -3282,7 +3289,7 @@
   <section class="card">
     <h2>輸入</h2>
     <div class="row">
-      <input id="char" type="text" maxlength="1" placeholder="輸入一個中文字，例如：永"
+      <input id="char" type="text" maxlength="1" value="永" placeholder="輸入一個中文字，例如：永"
              value="永" autocomplete="off">
     </div>
     <div class="row">

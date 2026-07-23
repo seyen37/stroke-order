@@ -276,6 +276,8 @@ document.getElementById("char").addEventListener("keydown", e => {
   if (e.key === "Enter") load();
 });
 document.getElementById("load").onclick = load;
+// 5fr（P2）：開頁自動載入示範字——初次使用者不再面對空預覽
+if (document.getElementById("char").value.trim()) load();
 // Only change listeners on selects INSIDE the single-view (not grid)
 document.querySelectorAll("#single-view select").forEach(
   el => el.addEventListener("change", load)

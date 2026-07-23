@@ -1,3 +1,7 @@
+/* 5fr（P2／§54 同款）：元件 display 蓋掉 [hidden]——全域歸位。
+   實症：空清單時 .gl-pagination 的 display:flex 讓 hidden 失效 */
+[hidden] { display: none !important; }
+
 /* ======================================================================
    stroke-order — gallery (公眾分享庫) UI styles (5g MVP).
    Design tokens parallel handwriting.css; uses native <dialog> for modals.
