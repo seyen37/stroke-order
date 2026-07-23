@@ -48,6 +48,13 @@ The Render.com deployment fetches these via
 `scripts/render_fetch_fonts.sh` from GitHub Release `fonts-v1`. All
 five sources permit redistribution under the terms below.
 
+The **full license texts** for these fonts are kept under
+[`licenses/`](licenses/) and travel with the repo — see
+[`licenses/README.md`](licenses/README.md) for the font → license map
+(SIL OFL 1.1 → `licenses/SIL-OFL-1.1.txt`; CC BY-ND 4.0 →
+`licenses/CC-BY-ND-4.0.txt`; 政府資料開放授權 1.0 →
+`licenses/Taiwan-OGDL-1.0.md`).
+
 - **CNS 11643 全字庫 (TW-Kai-* / TW-Sung-* TTFs)** — Republic of China
   Ministry of Digital Affairs (數位發展部).
   License: 政府資料開放授權條款 1.0
