@@ -664,3 +664,46 @@ def test_5ft_popup_entry_and_gallery_kind(client):
     assert "popup: '立體字'" in gjs
     pop = client.get("/popup").text
     assert '"/gallery"' in pop or "href=\"/gallery\"" in pop
+
+
+def test_5fu_shared_controls_unified(client):
+    """5fu（P2 遺留專門輪）：共用控制項三統一——①命名：資料來源／字體／
+    字型 全改「字型風格」「資料源」②順序：字型風格→罕用字→資料源
+    ③散落者聚攏：wordart 資料源併入風格列、mandala 三件自表單三處
+    聚攏成一列。id 全保留（JS 綁定不斷）。"""
+    page = client.get("/").text
+
+    def view(name):
+        seg = page.split(f'<main id="{name}-view"')[1]
+        return seg.split("</main>")[0]
+
+    # ① 命名統一：全站不再有「資料來源」標籤；zentangle/stencil 用字型風格
+    assert "資料來源</label>" not in page
+    assert "字型風格" in view("zentangle")
+    assert "字型風格" in view("stencil")
+    assert ">字體</label>" not in view("zentangle")
+
+    # ②③ wordart／mandala：三件相鄰且順序 風格→罕用字→資料源
+    for mode, ids in [
+        ("wordart", ("wa-style", "wa-cns-mode", "wa-source")),
+        ("mandala", ("md-style", "md-cns-mode", "md-source")),
+    ]:
+        v = view(mode)
+        pos = [v.index(f'id="{i}"') for i in ids]
+        assert pos == sorted(pos), (mode, pos)
+        assert pos[2] - pos[0] < 1500, (mode, "not adjacent", pos[2] - pos[0])
+        # 各 id 僅出現一次（搬移未複製殘留）
+        for i in ids:
+            assert v.count(f'id="{i}"') == 1, (mode, i)
+
+    # 既有順序一致的模式不得回歸（字型風格 →…→ 資料源）
+    for mode, ids in [
+        ("grid", ("grid-style", None, "grid-source")),
+        ("sutra", ("su-style", None, "su-source")),
+        ("patch", ("pt-style", None, "pt-source")),
+        ("stamp", ("st-style", None, "st-source")),
+    ]:
+        v = view(mode)
+        a, c = v.find(f'id="{ids[0]}"'), v.find(f'id="{ids[2]}"')
+        if a >= 0 and c >= 0:
+            assert a < c, mode

@@ -1346,7 +1346,7 @@
         <option value="bold">粗楷（純濾鏡）</option>
         <option value="seal_script">篆書（崇羲）</option>
       </select>
-      <label style="margin-left:12px;">資料來源</label>
+      <label style="margin-left:12px;">資料源</label>
       <select id="pt-source">
         <option value="auto" selected>auto</option>
         <option value="g0v">g0v</option>
@@ -1435,7 +1435,7 @@
         <option value="cutout">鏤空字（字即本體＋連筋）</option>
       </select>
       <label style="margin-left:16px;"
-             title="字模建議用黑體：筆畫粗細均勻、無收筆尖鋒，橋接/連筋落在厚壁上不易斷。楷書/宋體/隸書筆畫有細處，字模較易破字">字型</label>
+             title="字模建議用黑體：筆畫粗細均勻、無收筆尖鋒，橋接/連筋落在厚壁上不易斷。楷書/宋體/隸書筆畫有細處，字模較易破字">字型風格</label><!-- 5fu：命名統一 -->
       <select id="sc-source">
         <option value="noto_hei" selected>思源黑體（字模推薦）</option>
         <option value="moe_kaishu">教育部楷書</option>
@@ -1751,7 +1751,7 @@
         <option value="bold">粗楷（純濾鏡）</option>
         <option value="seal_script">篆書（崇羲）</option>
       </select>
-      <label style="margin-left:12px;">資料來源</label>
+      <label style="margin-left:12px;">資料源</label>
       <select id="st-source">
         <option value="auto" selected>auto</option>
         <option value="g0v">g0v</option>
@@ -2016,7 +2016,7 @@
           篆書（崇羲）
         </option>
       </select>
-      <label style="margin-left:12px;">資料來源</label>
+      <label style="margin-left:12px;">資料源</label>
       <select id="su-source">
         <option value="auto" selected
                 title="user_dict → g0v → MMH → 教育部 → CNS 全字庫，最完整覆蓋">
@@ -2313,6 +2313,15 @@
         <option value="trace">描輪廓</option>
         <option value="skeleton">骨架化</option>
       </select>
+      <!-- 5fu：共用控制列統一——資料源自下方獨立列併入本列
+           （全站順序：字型風格→罕用字→資料源） -->
+      <label style="margin-left:12px;">資料源</label>
+      <select id="wa-source">
+        <option value="auto" selected>auto</option>
+        <option value="g0v">g0v</option>
+        <option value="mmh">mmh</option>
+        <option value="tw">tw</option><option value="cn">cn</option><option value="jp">jp</option>
+      </select>
     </div>
 
     <!-- Shared single text field (used for ring / fill / concentric default) -->
@@ -2577,13 +2586,6 @@
     </div>
 
     <div class="row">
-      <label>資料源</label>
-      <select id="wa-source">
-        <option value="auto" selected>auto</option>
-        <option value="g0v">g0v</option>
-        <option value="mmh">mmh</option>
-        <option value="tw">tw</option><option value="cn">cn</option><option value="jp">jp</option>
-      </select>
       <label style="margin-left:12px;">紙張 W×H (mm)</label>
       <input id="wa-pw" type="number" value="210" min="50" max="600" step="5" style="width:70px;">
       <span>×</span>
@@ -2758,14 +2760,7 @@
       <label style="margin-left:12px;">字環字大小</label>
       <input id="md-ring-size" type="number" value="10" min="3" max="40" step="0.5"
              style="width:70px;">
-      <label style="margin-left:12px;" title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型">字型風格</label>
-      <select id="md-style">
-        <option value="kaishu" selected>楷書（原版，預設）</option>
-        <option value="mingti">宋體</option>
-        <option value="lishu">隸書</option>
-        <option value="bold">粗楷（純濾鏡）</option>
-        <option value="seal_script">篆書（崇羲）</option>
-      </select>
+
     </div>
     <div class="row" style="background:#faf5ff;border-left:3px solid #9a7;
          padding:6px 10px;border-radius:3px;align-items:center;flex-wrap:wrap;gap:6px;">
@@ -2902,13 +2897,7 @@
         <option value="upright">直立 (不旋轉)</option>
         <option value="tangent">沿切線</option>
       </select>
-      <label style="margin-left:12px;"
-             title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
-      <select id="md-cns-mode">
-        <option value="skip" selected>跳過</option>
-        <option value="trace">描輪廓</option>
-        <option value="skeleton">骨架化</option>
-      </select>
+
     </div>
     <div class="row" style="background:#f5fafa;border-left:3px solid #6aa;
          padding:6px 10px;border-radius:3px;">
@@ -2937,8 +2926,25 @@
         × 字大小
       </label>
     </div>
+    <!-- 5fu：共用控制列統一——字型風格/罕用字/資料源自表單三處聚攏
+         成一列（全站順序一致）；id 全保留、JS 綁定不動 -->
     <div class="row">
-      <label>資料源</label>
+      <label title="楷書=預設原版；隸/宋/篆書需在「字型狀態」彈窗授權後使用真字型">字型風格</label>
+      <select id="md-style">
+        <option value="kaishu" selected>楷書（原版，預設）</option>
+        <option value="mingti">宋體</option>
+        <option value="lishu">隸書</option>
+        <option value="bold">粗楷（純濾鏡）</option>
+        <option value="seal_script">篆書（崇羲）</option>
+      </select>
+      <label style="margin-left:12px;"
+             title="罕用字（無筆跡資料）的渲染方式">罕用字</label>
+      <select id="md-cns-mode">
+        <option value="skip" selected>跳過</option>
+        <option value="trace">描輪廓</option>
+        <option value="skeleton">骨架化</option>
+      </select>
+      <label style="margin-left:12px;">資料源</label>
       <select id="md-source">
         <option value="auto" selected>auto</option>
         <option value="g0v">g0v</option>
@@ -3029,7 +3035,7 @@
       <label for="zentangle-char">字</label>
       <input id="zentangle-char" type="text" maxlength="1" value="心"
              autocomplete="off" style="width:60px;text-align:center;font-size:18px;">
-      <label for="zentangle-source">字體</label>
+      <label for="zentangle-source">字型風格</label><!-- 5fu：命名統一 -->
       <select id="zentangle-source" style="font-size:14px;">
         <option value="moe_kaishu">教育部楷書 (預設)</option>
       </select>
