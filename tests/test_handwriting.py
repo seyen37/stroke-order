@@ -548,3 +548,34 @@ def test_5fp_p0_modal_close_paths_and_inline_load_error(client):
     assert "_loadErr.hidden = true" in core       # 成功/重試前清空
     assert "_loadErr.hidden = false" in core      # 失敗時顯示
     assert "詳情見頁底診斷資訊" in core
+
+
+def test_5fq_p1_color_naming_emptystate_isolation(client):
+    """5fq（P1 稽核四項）：①主要動作統一藍（--primary=#2c5cb8，紅留給
+    危險）②產生鈕動詞統一（載入/重繪→產生筆順預覽、載入字框→產生
+    字框）③空狀態句全站化＋單字模式三鈕載入前 disabled ④破壞性鈕
+    隔離（/card 刪除選取框獨立列）與印章位移歸零標明範圍。"""
+    page = client.get("/").text
+    # ① 色彩語意
+    assert "--primary: #2c5cb8" in page
+    assert "--primary: var(--accent)" not in page
+    # ② 動詞統一（舊名不得回歸）
+    assert "產生筆順預覽" in page and "載入 / 重繪" not in page
+    assert "產生字框" in page and "載入字框" not in page
+    # ③ 空狀態：共用樣式＋至少 8 個容器有提示句；舊版短句不殘留
+    assert ".preview-empty" in page
+    assert page.count('class="preview-empty"') >= 8
+    assert "(按「產生字帖」以顯示)" not in page
+    # 單字模式三鈕初始 disabled；載入成功由 core.js 啟用
+    for bid in ("btn-animate", "btn-quiz", "btn-reset"):
+        seg = page.split(f'id="{bid}"')[1][:30]
+        assert "disabled" in seg, bid
+    core = client.get("/static/modes/core.js").text
+    assert 'document.getElementById(id).disabled = false' in core
+    # ④ 破壞性隔離
+    assert "位移全部歸零" in page          # 印章：標明作用範圍
+    card = client.get("/card").text
+    add_grp = card.split('id="card-add-doodle"')[1]
+    first_row_end = add_grp.index("</div>")
+    assert "card-del-box" not in add_grp[:first_row_end]   # 不在加入列
+    assert "card-del-box" in add_grp                        # 仍存在（獨立列）

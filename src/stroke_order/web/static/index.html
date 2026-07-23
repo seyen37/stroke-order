@@ -76,7 +76,9 @@
     :root {
       --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px;
       --radius-sm: 4px;
-      --primary: var(--accent);       /* #c33，與既有 --accent 同源 */
+      /* 5fq（P1）：主要動作統一藍（與筆順練習 --hw-accent 同值）；
+         紅（--accent/--danger）留給破壞性動作——全站色彩語意歸一 */
+      --primary: #2c5cb8;
       --primary-ink: #fff;
       --surface: #fff; --danger: var(--accent);
       --focus: #7aa7ff;
@@ -91,6 +93,9 @@
     .btn-ghost     { background: transparent; color: var(--muted);
                      border-color: transparent; padding: 7px 8px; }
     .btn-danger    { background: var(--surface); color: var(--danger); border-color: var(--danger); }
+    /* 5fq：空狀態提示句（塗鴉模式句式全站化） */
+    .preview-empty { display:block; color: var(--muted); font-size: 14px;
+                     padding: 26px 0; text-align: center; }
     .btn-primary:hover:not(:disabled), .btn-secondary:hover:not(:disabled),
     .btn-ghost:hover:not(:disabled),   .btn-danger:hover:not(:disabled) { filter: brightness(0.96); }
     .btn-primary:disabled, .btn-secondary:disabled,
@@ -744,7 +749,7 @@
          style="background:white;border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
-      (按「產生字帖」以顯示)
+      <span class="preview-empty">（輸入字串後按「產生字帖」以顯示）</span>
     </div>
   </section>
 </main>
@@ -897,7 +902,7 @@
          style="background:white;border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
-      (按「產生筆記」以顯示)
+      <span class="preview-empty">（輸入內容後按「產生筆記」以顯示）</span>
     </div>
   </section>
 </main>
@@ -1063,7 +1068,7 @@
          style="background:white;border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
-      (按「產生信紙」以顯示)
+      <span class="preview-empty">（輸入信文後按「產生信紙」以顯示）</span>
     </div>
   </section>
 </main>
@@ -1166,7 +1171,7 @@
          style="background:white;border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
-      (按「產生稿紙」以顯示)
+      <span class="preview-empty">（輸入文字後按「產生稿紙」以顯示）</span>
     </div>
   </section>
 </main>
@@ -1482,7 +1487,9 @@
   <section class="card" style="grid-column: 1 / -1;">
     <h2>預覽</h2>
     <div id="sc-preview" style="overflow:auto;background:#f4f4f4;
-         padding:10px;border-radius:4px;"></div>
+         padding:10px;border-radius:4px;">
+      <span class="preview-empty">（輸入文字後按「產生預覽」以顯示）</span>
+    </div>
     <div class="row" id="sc-download-group" style="display:none;margin-top:8px;">
       <a id="sc-dl-svg" class="dl" href="#">⤓ SVG (切割路徑)</a>
       <a id="sc-dl-dxf" class="dl" href="#" style="margin-left:12px;">⤓ DXF (CUT 層)</a>
@@ -1847,7 +1854,7 @@
       </div>
       <div style="padding:4px 10px;background:#fafaff;border-left:3px solid #88c;">
         <button type="button" id="st-char-offsets-reset"
-                style="font-size:11px;">↻ 全部歸零</button>
+                style="font-size:11px;">↻ 位移全部歸零</button><!-- 5fq：標明作用範圍 -->
       </div>
     </details>
 
@@ -2594,7 +2601,7 @@
          style="background:white;border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:300px;
                 overflow:auto;text-align:center;">
-      (按「產生文字雲」以顯示)
+      <span class="preview-empty">（輸入文字後按「產生文字雲」以顯示）</span>
     </div>
   </section>
 </main>
@@ -2986,7 +2993,7 @@
          style="background:white;border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:300px;
                 overflow:auto;text-align:center;">
-      (按「產生曼陀羅」以顯示)
+      <span class="preview-empty">（設定完成後按「產生曼陀羅」以顯示）</span>
     </div>
   </section>
 </main>
@@ -3012,7 +3019,7 @@
       <select id="zentangle-source" style="font-size:14px;">
         <option value="moe_kaishu">教育部楷書 (預設)</option>
       </select>
-      <button id="zentangle-render" type="button" class="btn-primary">載入字框</button>
+      <button id="zentangle-render" type="button" class="btn-primary">產生字框</button><!-- 5fq：動詞統一 -->
       <!-- 5ew-R5：禪繞字畫在 canvas 且演算法吃 outline（手寫字無 outline
            不能當字框）——「點字→手寫」在此模式以深連結跳板誠實對應 -->
       <button id="zentangle-advanced" type="button" class="btn-secondary"
@@ -3314,7 +3321,7 @@
       </div>
     </details>
     <div class="row">
-      <button id="load" class="btn-primary">載入 / 重繪</button>
+      <button id="load" class="btn-primary">產生筆順預覽</button><!-- 5fq：動詞統一 -->
       <!-- 5fp（P0）：載入失敗訊息緊貼按鈕（照鏤空字模式的錯誤樣式）；
            頁底「診斷資訊」初次使用者看不到，保留作技術補充 -->
       <span id="load-error" hidden
@@ -3324,11 +3331,14 @@
 
   <section class="card">
     <h2>筆順預覽</h2>
-    <div id="preview"></div>
+    <div id="preview">
+      <span class="preview-empty">（輸入單字後按「產生筆順預覽」以顯示）</span>
+    </div>
+    <!-- 5fq：載入成功前不可按（原本三顆可按但無作用） -->
     <div id="preview-controls">
-      <button id="btn-animate">播放筆順</button>
-      <button id="btn-quiz">互動測驗</button>
-      <button id="btn-reset">重置</button>
+      <button id="btn-animate" disabled>播放筆順</button>
+      <button id="btn-quiz" disabled>互動測驗</button>
+      <button id="btn-reset" disabled>重置</button>
     </div>
   </section>
 

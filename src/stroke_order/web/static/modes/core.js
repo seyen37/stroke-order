@@ -107,6 +107,10 @@ async function load() {
 
     // 3. Set up hanzi-writer preview
     renderPreview(char, data);
+    // 5fq：載入成功才啟用預覽三鈕（初始 disabled）
+    for (const id of ["btn-animate", "btn-quiz", "btn-reset"]) {
+      document.getElementById(id).disabled = false;
+    }
 
     // 4. Populate download links
     renderDownloads(char, p);
@@ -121,6 +125,12 @@ async function load() {
       _loadErr.textContent =
         `載入失敗：${e.message}（詳情見頁底診斷資訊；可換資料源重試）`;
       _loadErr.hidden = false;
+    }
+    // 5fq：失敗時預覽框不留全空白——回填空狀態句（renderPreview 已清掉）
+    const _pv = document.getElementById("preview");
+    if (_pv && !_pv.firstElementChild) {
+      _pv.innerHTML =
+        '<span class="preview-empty">（尚無預覽——載入失敗，見上方訊息）</span>';
     }
     document.getElementById("diagnostics").textContent = `載入失敗：${e.message}`;
     document.getElementById("diag-badges").innerHTML =
