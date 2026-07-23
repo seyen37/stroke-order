@@ -2364,6 +2364,37 @@ import 一律帶 `?v=__V__`（讓 versioning 中介層改寫成版號、與入�
 
 ---
 
+## 68. 紙藝／實體機構先折實體原型定案再寫幾何；別把一條摺線複雜化成逐筆 tab；鏤空字材料是字身要實色（2026-07-23 popup 新增）
+
+立體字卡片（pop-up）我一開始照「想像的機構」寫——把「文字頂連接頂面」拆成
+每個筆畫各一個小長方形 tab（DAD 立體卡範本式），反覆多輪，使用者連回「差異太大、
+根本不理解我的修改」。轉折是使用者給了**實體折好的箱型照片**：正確機構其實最簡——
+前立面＝整片鏤空文字、文字頂＝**一條**摺線接頂面 roof、文字底＝**一條**摺線接底座、
+字中一條中線谷折，**沒有 per-stroke tab**。我把「一條摺線」誤讀成「每筆一個 tab」＝
+把最簡機構複雜化。教訓：**紙藝／實體機構先折一個實體原型定案，再寫幾何**——程式碼
+描述的是「摺起來會立起來／收得平」的實體行為，紙上想像最容易疊特例；使用者說「不
+理解」是明確 stop-and-replan 訊號，該停手要一張定案圖（實體照片），回到最簡機構
+（Occam）而非基於自己的想像繼續疊。
+
+鏤空字的語意（同批）：字即結構、字身是**材料（實心）**、周圍才是透空剪掉——渲染
+要畫**實色**，一度畫成白色留空（暗示被剪掉）就與圖不符。可折合是**對稱不變式**、用
+測試鎖：中線谷折穿卡片正中、且 |字頂到中線|=|字底到中線|（|a-d|=|b-c|，雙層再加
+上下兩排巢狀等高），對稱才折得平（`test_spine_at_card_center_symmetric` 斷言 spine
+在 CH//2 且 |top_d−bot_d|≤2）。整卡剪下不可散＝**單一連通**不變式：鏤空後浮件（如
+「口」中心塊）補最短縱向連筋橋回主體，測試鎖 `ncomp==1`（承 §66 守門鎖不變式不鎖
+寫法）。
+
+姊妹律一（**部署期字型相依→缺則誠實降級**，承 §8/§9）：思源黑體不進版控、由
+`scripts/render_fetch_fonts.sh` 部署時抓；本機缺字型時需字型的測試要 **skip 不是
+fail**（沿用既有 `needs_hei = skipif(not default_hei_font_path().exists())` 模式）、
+端點回 **503 帶安裝指引**，別讓「開發機沒資源」誤判成功能壞；不需字型的測試獨立
+不掛守門，確保零字型也有回歸覆蓋。姊妹律二（**選用相依要能降級**，承 §8）：連通
+標記優先 `scipy.ndimage.label`、缺了退回純 numpy run-based union-find（`_label_runs`，
+比純 numpy BFS 快一量級：雙層 24s→2.8s），同一測試雙驗兩路徑計數一致——選用相依
+（scipy）不可硬性 require、擋住整個功能。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2407,6 +2438,10 @@ import 一律帶 `?v=__V__`（讓 versioning 中介層改寫成版號、與入�
     當日新鮮度守門＋5fn 抄經彈窗補正規化（不同建構器漏改一輪）；含守門鎖字面／
     裸 push 誤入備份庫／橋接 git 留 index.lock 三事故。**另收 5et-R5**：卡片模式
     加尺規＋卡緣摺邊虛線＋子模組 import 快取缺口白畫回歸根治）
+  - [`WORK_LOG_2026-07-23.md`](WORK_LOG_2026-07-23.md)（立體字卡片鏤空
+    pop-up 全弧：機構迭代（逐筆 tab 誤讀彎路→實體折紙照片定案箱型）＋
+    Phase 3 網頁模式（popup.py／/popup 頁／/api/popup/svg／popup.html）＋
+    缺字型測試 skip+503＋run-based 連通標記後備）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -2436,6 +2471,7 @@ import 一律帶 `?v=__V__`（讓 versioning 中介層改寫成版號、與入�
   - [`2026-07-19_5fi_5fl_version_label_data_area.md`](decisions/2026-07-19_5fi_5fl_version_label_data_area.md)（主頁版本標籤注入＋資料區三輪收斂到左欄一條龍：終局測試治理/清空二次確認實測攔截力/先重現帶證據問/截圖折抵驗收，對應 §61–§63）
   - [`2026-07-22_5fm_5fn_ink_bbox_normalization.md`](decisions/2026-07-22_5fm_5fn_ink_bbox_normalization.md)（逐字手寫範字大小：墨跡實框正規化為跨呈現面共用契約／改共用下游巡全消費路徑／守門鎖不變式／收工檢查當日新鮮度守門，對應 §64–§66）
   - [`2026-07-22_5et_r5_card_ruler_fold_cachebust.md`](decisions/2026-07-22_5et_r5_card_ruler_fold_cachebust.md)（手寫卡片模式加尺規＋卡緣摺邊虛線；子模組 import 快取缺口根治整類＋守門，對應 §67）
+  - [`2026-07-23_popup_hollow_box.md`](decisions/2026-07-23_popup_hollow_box.md)（立體字卡片鏤空 pop-up 網頁模式：紙藝機構先實體試折定案／別把一條摺線複雜化成逐筆 tab／鏤空字材料實色／可折合對稱＋單一連通不變式／部署期字型相依缺則 skip+503／選用相依 scipy 降級 numpy，對應 §68）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -2446,4 +2482,4 @@ import 一律帶 `?v=__V__`（讓 versioning 中介層改寫成版號、與入�
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§67 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收、墨跡實框正規化跨呈現面共用契約/改共用下游巡全消費路徑、脆弱慣例升級自動閘門/fail-open 新鮮度守門、守門鎖不變式不鎖寫法、版本快取鍵覆蓋整條 import 圖/子模組 import 也帶 ?v=）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§68 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收、墨跡實框正規化跨呈現面共用契約/改共用下游巡全消費路徑、脆弱慣例升級自動閘門/fail-open 新鮮度守門、守門鎖不變式不鎖寫法、版本快取鍵覆蓋整條 import 圖/子模組 import 也帶 ?v=、紙藝機構先實體試折定案不把一條摺線複雜化成逐筆 tab/鏤空字材料實色＋連筋單一連通/可折合對稱不變式/部署期字型相依缺則 skip+503/選用相依降級）。三者互補。
