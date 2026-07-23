@@ -334,7 +334,7 @@ def test_list_uploads_empty(client):
     assert body["page"] == 1
 
 
-def test_list_uploads_paginated_newest_first(app, client):
+def test_list_uploads_paginated_newest_first(app, client, established_authors):
     """Upload 3 records → list returns them newest-first."""
     cli = _login_client(app, "alice@example.com")
     titles = []
@@ -376,7 +376,7 @@ def test_list_uploads_paginated_newest_first(app, client):
 
 # =========================================================== download
 
-def test_download_returns_original_bytes(app, client):
+def test_download_returns_original_bytes(app, client, established_authors):
     cli = _login_client(app, "alice@example.com")
     payload = _psd_payload()
     r = cli.post(

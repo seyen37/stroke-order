@@ -112,7 +112,7 @@ def test_create_upload_popup_kind(gallery_env, make_user):
     assert str(rec["file_path"]).endswith(".svg")
 
 
-def test_list_filter_kind_popup(gallery_env, make_user):
+def test_list_filter_kind_popup(gallery_env, make_user, established_authors):
     from stroke_order.gallery import service
     uid = make_user()
     service.create_upload(

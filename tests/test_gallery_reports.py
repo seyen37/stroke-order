@@ -183,7 +183,7 @@ def test_report_dedup_per_user_and_per_ip(gallery_env, make_user,
                               reporter_ip="5.6.7.8")
 
 
-def test_report_threshold_auto_hides(gallery_env, make_user, make_upload):
+def test_report_threshold_auto_hides(gallery_env, make_user, make_upload, established_authors):
     """3 個獨立來源（帳號×1＋IP×2）→ 自動隱藏，公開列表消失。"""
     from stroke_order.gallery import service
     author = make_user("author@example.com")
@@ -241,7 +241,7 @@ def test_moderation_review_hides_new_uploads(gallery_env, make_user,
     assert not service.get_upload(uid)["hidden"]
 
 
-def test_moderation_blacklist_blocks_and_hides(gallery_env, make_user,
+def test_moderation_blacklist_blocks_and_hides(gallery_env, make_user, established_authors,
                                                make_upload):
     from stroke_order.gallery import service
     author = make_user()

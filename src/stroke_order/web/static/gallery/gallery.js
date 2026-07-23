@@ -316,6 +316,19 @@ function renderList() {
   $('gl-page-label').textContent = `${state.page} / ${totalPages}`;
 }
 
+// 5fy：隱藏原因 → 標章文字（本人/管理員看得到隱藏件時顯示）
+const _HIDDEN_LABELS = {
+  'first-upload-review': '審閱期中（24h 內自動公開）',
+  'pending-review': '待管理員審閱',
+  'community-reports': '遭多人檢舉隱藏',
+  'admin-takedown': '管理員下架',
+  'author-blacklisted': '作者停權隱藏',
+};
+
+function _hiddenLabel(reason) {
+  return _HIDDEN_LABELS[reason] || '已隱藏';
+}
+
 function _kindBadge(kind) {
   // 5fw：標籤改單一事實源 KIND_LABELS（hash.mjs）；psd 沿用短標「抄經」
   const k = kind || 'psd';
@@ -455,7 +468,7 @@ function _card(item) {
       ${_kindThumbnail(item)}
       <div class="gl-card-header">
         <div class="gl-card-title">${_escape(item.title)}${_kindBadge(kind)}${
-          item.hidden ? `<span class="gl-card-hiddenbadge" title="${_escape(item.hide_reason || '')}">已隱藏</span>` : ''
+          item.hidden ? `<span class="gl-card-hiddenbadge" title="${_escape(item.hide_reason || '')}">${_hiddenLabel(item.hide_reason)}</span>` : ''
         }</div>
         <div class="gl-card-author">${authorHtml}</div>
       </div>

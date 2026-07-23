@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stroke-order"
-version = "0.14.273"
+version = "0.14.274"
 description = "中文字元 → 向量筆跡轉換器（給寫字機器人用）"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -55,6 +55,7 @@ where = ["src"]
 "stroke_order.web" = ["static/*", "static/handwriting/*", "static/handwriting/vendor/*", "static/gallery/*"]
 "stroke_order.data" = ["*.txt", "sutras/*.md", "sutras/builtin/*.txt"]
 "stroke_order.components" = ["data/*.txt", "coversets/*.json"]
+"stroke_order.gallery" = ["blocked_words.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

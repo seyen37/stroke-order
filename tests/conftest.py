@@ -47,3 +47,13 @@ def index_bundle(client):
         assert r.status_code == 200, m.group(0)
         parts.append(r.text)
     return "".join(parts)
+
+
+@pytest.fixture
+def established_authors(monkeypatch):
+    """5fy：關閉「首次上傳 24h 審閱期」視窗——讓既有測試以
+    『老帳號（首件已滿 24h）』視角驗證公開列表／下載行為。
+    審閱期本身的行為由 test_gallery_protection.py 專測。"""
+    from stroke_order.gallery import service
+    monkeypatch.setattr(service, "_first_upload_window_active",
+                        lambda uid: False)

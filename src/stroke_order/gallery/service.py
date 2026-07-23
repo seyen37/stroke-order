@@ -100,8 +100,67 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+# ---------------- 5fy: 不當字詞黑名單（單一入口掛 _safe_unicode_str） ----
+
+#: 詞庫檔：一行一詞、# 註解；隨套件安裝（增修＝改檔重部署）
+_BLOCKED_WORDS_FILE = Path(__file__).parent / "blocked_words.txt"
+
+#: 正規化時要移除的「夾雜」字元（空白＋常見標點/符號）——
+#: 「幹 你 娘」「幹.你.娘」「幹-你-娘」都要命中
+_STRIP_JUNK_RE = None  # lazy-init（見 _normalize_for_blocklist）
+
+_blocked_words_cache: tuple[float, tuple[str, ...]] | None = None
+
+
+def _normalize_for_blocklist(text: str) -> str:
+    """NFKC 折疊全半形＋casefold＋移除夾雜空白/標點。"""
+    global _STRIP_JUNK_RE
+    if _STRIP_JUNK_RE is None:
+        _STRIP_JUNK_RE = re.compile(
+            r"[\s\.\,\-\_\*\+\~\!\?\^\#\@\$\%\&\(\)\[\]"
+            r"\{\}\|\/\\\'\"‧・．，。、！？＊＋－＝～：；「」『』（）]+")
+    import unicodedata
+    t = unicodedata.normalize("NFKC", text).casefold()
+    return _STRIP_JUNK_RE.sub("", t)
+
+
+def _load_blocked_words() -> tuple[str, ...]:
+    """讀詞庫（mtime 快取；檔案更新即失效）。詞條先做同一套正規化。"""
+    global _blocked_words_cache
+    try:
+        mtime = _BLOCKED_WORDS_FILE.stat().st_mtime
+    except OSError:
+        return ()
+    if _blocked_words_cache is not None and             _blocked_words_cache[0] == mtime:
+        return _blocked_words_cache[1]
+    words = []
+    for line in _BLOCKED_WORDS_FILE.read_text(
+            encoding="utf-8").splitlines():
+        w = line.strip()
+        if not w or w.startswith("#"):
+            continue
+        nw = _normalize_for_blocklist(w)
+        if nw:
+            words.append(nw)
+    _blocked_words_cache = (mtime, tuple(words))
+    return _blocked_words_cache[1]
+
+
+def _blocked_words_hit(text: str) -> bool:
+    """欄位內含任一黑名單詞（正規化後子字串比對）→ True。"""
+    norm = _normalize_for_blocklist(text)
+    if not norm:
+        return False
+    return any(w in norm for w in _load_blocked_words())
+
+
 def _safe_unicode_str(value, max_len: int, *, name: str) -> str:
-    """Trim & length-check a string field. Raise InvalidUpload on bust."""
+    """Trim & length-check a string field. Raise InvalidUpload on bust.
+
+    5fy：同時是全站使用者文字的**單一 sanitize 入口**——黑名單字詞
+    檢查掛在這裡，一處蓋 title／comment／display_name／bio／檢舉
+    detail 全欄位。
+    """
     if value is None:
         return ""
     if not isinstance(value, str):
@@ -109,6 +168,9 @@ def _safe_unicode_str(value, max_len: int, *, name: str) -> str:
     s = value.strip()
     if len(s) > max_len:
         raise InvalidUpload(f"{name} 過長（最多 {max_len} 字）")
+    if s and _blocked_words_hit(s):
+        # 不回顯命中詞——避免逐字試探詞庫邊界
+        raise InvalidUpload("內容含不當字詞，請修改後再送出")
     return s
 
 
@@ -580,6 +642,41 @@ _ONE_DAY = _td(hours=24)
 
 # ----------------------------------------------------------- create
 
+def _first_upload_window_active(user_id: int) -> bool:
+    """5fy：帳號是否仍在「首次上傳 24h 審閱窗」內。
+
+    無任何上傳（本件即首件）→ True；首件距今 < 24h → True。
+    """
+    from datetime import timedelta
+    with db_connection() as conn:
+        row = conn.execute(
+            "SELECT MIN(created_at) FROM uploads WHERE user_id = ?",
+            (user_id,)).fetchone()
+    first = row[0] if row else None
+    if first is None:
+        return True
+    cutoff = (datetime.now(timezone.utc)
+              - timedelta(hours=FIRST_UPLOAD_REVIEW_HOURS)).isoformat()
+    return first > cutoff
+
+
+def _release_expired_first_upload_reviews() -> int:
+    """5fy：懶釋放——首件已滿 24h 的帳號，其 first-upload-review 隱藏
+    全部自動公開。免 cron：list/get 查詢入口順手掃（單發 UPDATE，
+    無匹配時零成本）。回釋放件數。"""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc)
+              - timedelta(hours=FIRST_UPLOAD_REVIEW_HOURS)).isoformat()
+    with db_connection() as conn:
+        cur = conn.execute(
+            "UPDATE uploads SET hidden = 0, hide_reason = NULL "
+            "WHERE hide_reason = ? AND user_id IN ("
+            "  SELECT user_id FROM uploads "
+            "  GROUP BY user_id HAVING MIN(created_at) <= ?)",
+            (HIDE_REASON_FIRST24, cutoff))
+        return cur.rowcount
+
+
 def create_upload(
     *, user_id: int, content_bytes: bytes, filename: Optional[str],
     title: str, comment: str, kind: str = KIND_PSD,
@@ -628,9 +725,13 @@ def create_upload(
     author_status = get_user_moderation_status(user_id)
     if author_status == "blacklisted":
         raise Forbidden("此帳號已被停權，無法上傳")
-    initial_hidden = 1 if author_status == "review" else 0
-    initial_hide_reason = (HIDE_REASON_PENDING
-                           if author_status == "review" else None)
+    if author_status == "review":
+        initial_hidden, initial_hide_reason = 1, HIDE_REASON_PENDING
+    elif _first_upload_window_active(user_id):
+        # 5fy：新帳號首次上傳起 24h 內的作品先不公開，到期自動公開
+        initial_hidden, initial_hide_reason = 1, HIDE_REASON_FIRST24
+    else:
+        initial_hidden, initial_hide_reason = 0, None
 
     # Validate schema first — cheap-fails before we touch disk.
     state, ext = VALIDATORS[kind](content_bytes)
@@ -728,6 +829,7 @@ def create_upload(
 # ----------------------------------------------------------- read
 
 def get_upload(upload_id: int) -> dict:
+    _release_expired_first_upload_reviews()   # 5fy：查詢入口懶釋放
     """Single upload's full record (joined with uploader display info).
     Raises NotFound.
 
@@ -794,10 +896,18 @@ def list_uploads(
     size = max(1, min(MAX_PAGE_SIZE, int(size)))
     offset = (page - 1) * size
 
+    _release_expired_first_upload_reviews()   # 5fy：查詢入口懶釋放
+
     where_parts: list[str] = []
     params: list = []
     if not include_hidden:
-        where_parts.append("u.hidden = 0")
+        if viewer_user_id is not None:
+            # 5fy：本人看得到自己的隱藏件（審閱期中/被檢舉隱藏等，
+            # 卡片帶標示）；他人的隱藏件仍不可見
+            where_parts.append("(u.hidden = 0 OR u.user_id = ?)")
+            params.append(viewer_user_id)
+        else:
+            where_parts.append("u.hidden = 0")
     if kind is not None:
         if kind not in ALLOWED_KINDS:
             raise InvalidUpload(
@@ -1363,6 +1473,9 @@ HIDE_REASON_REPORTS   = "community-reports"
 HIDE_REASON_ADMIN     = "admin-takedown"
 HIDE_REASON_PENDING   = "pending-review"
 HIDE_REASON_BLACKLIST = "author-blacklisted"
+# 5fy：首次上傳 24h 審閱期（暫不公開、到期自動公開——懶釋放免 cron）
+HIDE_REASON_FIRST24   = "first-upload-review"
+FIRST_UPLOAD_REVIEW_HOURS = 24
 
 MODERATION_STATUSES = ("normal", "review", "blacklisted")
 

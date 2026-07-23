@@ -181,7 +181,7 @@ def test_create_upload_generates_thumbnail(gallery_env, make_user):
     assert thumb.is_file(), "5fw：匯出 SVG 分類應有伺服器縮圖"
 
 
-def test_list_filter_by_export_kind(gallery_env, make_user):
+def test_list_filter_by_export_kind(gallery_env, make_user, established_authors):
     from stroke_order.gallery import service
     uid = make_user()
     service.create_upload(

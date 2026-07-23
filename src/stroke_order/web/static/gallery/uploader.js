@@ -398,11 +398,33 @@ async function _onSubmit(ev, ctx) {
     }
     status.classList.remove('info');
     status.classList.add('ok');
-    status.textContent = '✓ 上傳成功！';
-    setTimeout(() => {
-      hideUploadDialog();
-      ctx.refresh && ctx.refresh();
-    }, 700);
+    // 5fy：首次上傳 24h 審閱期——明確提示不公開時段與自動公開時間
+    const up = data.upload || {};
+    if (up.hidden && up.hide_reason === 'first-upload-review') {
+      const publishAt = new Date(
+        new Date(up.created_at).getTime() + 24 * 3600 * 1000);
+      status.textContent =
+        `✓ 上傳成功！首次上傳有 24 小時審閱期：目前僅您本人可見，` +
+        `預計 ${publishAt.toLocaleString('zh-TW')} 自動公開。`;
+      setTimeout(() => {
+        hideUploadDialog();
+        ctx.refresh && ctx.refresh();
+      }, 3200);
+    } else if (up.hidden && up.hide_reason === 'pending-review') {
+      status.textContent =
+        '✓ 上傳成功！此帳號目前為人工審閱狀態，作品將於管理員' +
+        '審閱通過後公開。';
+      setTimeout(() => {
+        hideUploadDialog();
+        ctx.refresh && ctx.refresh();
+      }, 3200);
+    } else {
+      status.textContent = '✓ 上傳成功！';
+      setTimeout(() => {
+        hideUploadDialog();
+        ctx.refresh && ctx.refresh();
+      }, 700);
+    }
   } catch (e) {
     status.classList.remove('info');
     status.classList.add('error');

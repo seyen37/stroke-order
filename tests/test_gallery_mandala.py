@@ -411,7 +411,7 @@ def test_thumbnail_skipped_for_psd(gallery_env, make_user):
         f"thumbnail should not exist for PSD: {thumb}"
 
 
-def test_thumbnail_endpoint_serves_png(gallery_env, make_user, monkeypatch):
+def test_thumbnail_endpoint_serves_png(gallery_env, make_user, monkeypatch, established_authors):
     """API GET /uploads/{id}/thumbnail 回 PNG bytes + correct content-type。"""
     from fastapi.testclient import TestClient
     from stroke_order.web.server import create_app
@@ -430,7 +430,7 @@ def test_thumbnail_endpoint_serves_png(gallery_env, make_user, monkeypatch):
 
 
 def test_thumbnail_endpoint_404_for_md_upload(
-    gallery_env, sample_md_bytes, make_user,
+    gallery_env, sample_md_bytes, make_user, established_authors,
 ):
     """MD upload 沒 thumbnail → endpoint 回 404。"""
     from fastapi.testclient import TestClient
