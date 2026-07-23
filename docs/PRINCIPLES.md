@@ -2395,6 +2395,96 @@ fail**（沿用既有 `needs_hei = skipif(not default_hei_font_path().exists())`
 
 ---
 
+## 69. 跨會話寫回前先「三步對表」；沙箱有未推 commit 勿盲 reset；多輪堆疊訊息寫累積式（2026-07-23 5fo 新增）
+
+事故（covert clobber）：一個停機多日的舊沙箱恢復後直接寫回裝置，而裝置端 repo
+早被另一會話推進——版本退回（0.14.263→0.14.255）、`scipy>=1.10` 被舊檔覆蓋抹掉、
+收工檢查.bat 撿到同日**已消費**的訊息檔導致 commit 訊息張冠李戴，**三重傷害全部
+靜默成功**。雲端多會話工作型態下，「我沙箱裡的檔案」不等於「repo 現況」。
+
+鐵則——**開工／寫回前三步對表**：① 沙箱 `git fetch origin` 對 log，確認自己不落後
+② 裝置端 `grep version pyproject.toml`＋`ls docs/_commit_msg | tail` 對現值，任何
+「device 比我新」都是紅燈停 ③ 本輪 phase 代號 grep 近期 log 防撞名。善後選**前進
+修復**（版本推高於一切殘影＋下一筆訊息補述錯誤 commit 的真實內容），不 force-push
+改史。
+
+姊妹律一：沙箱有未推 commit 時**勿盲 `git reset --hard origin/main`**——先
+`git log origin/main..HEAD` 看有沒有會被洗掉的工作（本弧實踩，reflog 撈回）。
+姊妹律二：多輪堆疊未收工時，訊息檔要寫**累積式**——收工檢查.bat 依名稱取最新
+一檔，一筆 commit 吃多輪時單輪訊息會遺漏前輪內容。
+
+---
+
+## 70. 「手刻／漏 guard」類病修一處不算修完：回歸鎖掃全類、guard 每個獨立檔皆備（2026-07-23 5fo/5fr 新增）
+
+/gallery 版本標籤手刻 `v0.13.0`——§57「版本一律注入」的漏網頁（走獨立 route 沒經
+`_versioned_page`）。修這頁的同批要立**掃全類的回歸鎖**：
+`test_no_hardcoded_version_labels_on_disk` 掃全部 HTML 的 `>vX.Y.Z<` 字面，未來
+任何頁再手刻直接紅燈。同弧同款：`[hidden]` 被元件 display 蓋掉（§54）在
+handwriting.css、index.css 修過兩次後，gallery.css **第三現**——結論：這類
+「每個獨立作用域都要各自帶一份」的修法（CSS guard、注入紀律、sanitize 入口），
+修時就要**盤出全部作用域一次補齊**，並問「哪個機器測試會在下一個新檔漏掉時變紅」。
+承 §59（兄弟實作錯得一模一樣）：同類病的單位是「類」，不是「處」。
+
+---
+
+## 71. 全站 UX 稽核工作法：僅稽核不動程式→分級 P0/P1/P2→逐級 sign-off 分輪施工；稽核發現在施工輪要現場再驗證（2026-07-23 稽核弧 新增）
+
+「初次使用者觀點」稽核的正確姿勢：Playwright 模擬新手把**每個模式實走**
+「進入→輸入→產生→檢視結果」，全頁截圖＋按鈕盤點留證；**環境限制先聲明**
+（沙箱缺字型/CDN 的觀察逐條標註〔環境〕，避免環境問題誤報成產品 bug）；報告
+**僅稽核不動程式**，分級 P0（互動缺陷）／P1（一致性）／P2（打磨）並言明
+「未經 sign-off 不實作」。施工由使用者逐級放行、一輪一級、一輪一 commit
+一部署驗收——稽核發現≠工單。
+
+姊妹律：**稽核是遠觀，施工輪要現場再驗證每條建議**。本弧兩例：「↻ 全部歸零」
+稽核建議加二次確認，實測發現它只歸零位移微調（低風險），正確修法是正名
+「位移全部歸零」；「三空區」部分容器實已有舊短句，修法從補句改為統一句式。
+稽核誤讀照單施工＝把錯誤放大成程式碼。
+
+---
+
+## 72. E2E 錨點與可見性三陷阱：checkVisibility 判收合內容、佈局斷言用 id 錨定、幾何斷言容換行（2026-07-23 5fp/5fr/5fu 新增）
+
+① 閉合 `<details>` 內的元素 `getBoundingClientRect` **仍回非零幾何**（Chromium
+content-visibility 行為）——「收進 details 後不可見」要用 `el.checkVisibility()`
+判，不能用 rect 判。② 佈局順序斷言別用「字串首現位置」——「基本符號」「推薦
+組合」這類字樣常多處出現（按鈕、說明、tooltip），首現位置會誤中別處；改用
+**元素 id** 錨定（`indexOf('id="zentangle-combo-buttons"')`）。③ 訊息文字會
+**換行**——「與按鈕同一行」的幾何斷言在長訊息下誤紅，改「錨點下方 N px 帶內」。
+承 §49（純屬性錨點）、§61（終局測試）：斷言要錨在**唯一且穩定**的記號上。
+
+---
+
+## 73. UI 跨模式統一取三層次：同名→同序→相鄰即可，多數原生一致時不硬搬絕對位置（2026-07-23 5fu 新增）
+
+共用控制項（字型風格／罕用字／資料源）散布 13 模式，統一的目標是「跨模式一致的
+心智模型」，三層次即達成：**同名**（同物同名，「資料來源」「字體」「字型」歸一）
+→**同序**（全站固定順序）→**相鄰**（散落的聚攏成一列）。第四層「絕對同位」
+（全表單搬到同一位置）邊際收益低於代價——各表單語意分組不同，硬搬破壞就近原則，
+是為統一而統一。執行紀律：統一前先**全模式盤點現況表**，多數派已一致就以多數為準
+只搬少數；id 全保留讓 JS 零改動；搬 DOM 的輪除了幾何斷言（同列、順序、各 id
+恰一次防搬移殘留複本），**必實測動過的模式改值後產生成功**——綁定沒斷才算搬完。
+
+---
+
+## 74. 新分類走 registry 派遣制零 API 改動、驗證憑據內嵌檔案自身；深連結參數路是重用複利的預設接口（2026-07-23 5ft/5fs 新增）
+
+分享庫加「立體字」分類只動 registry：`ALLOWED_KINDS` 加常數、
+`VALIDATORS[kind]`／`SUMMARIZERS[kind]` 註冊純函式——上傳/列表/下載 route
+一行不動。當初（5b r28）立 registry 的投資在此第一次兌現「新增分類＝註冊三件事」。
+驗證憑據設計：**檔案自帶**——popup SVG 產出時內嵌
+`<metadata><popup-config><![CDATA[{json}]]></popup-config></metadata>`（含 schema
+tag），上傳端認 metadata 拒收四型（非 SVG／無 metadata／schema 錯／缺必要欄），
+前端偵測同一 schema 字串——不靠猜檔案內容。
+
+姊妹律（承 §26 重用複利）：**深連結參數路設計成寬鬆型別就是預設擴充接口**。
+5fd 的 `/handwriting?char=<字串>&from=X` 因為收「字串」不是「單字」，5fs 卡片
+文字框「逐字手寫」只加一顆鈕＋一個 from 標籤＋返回分流即接上——零新 API、
+零新頁面、資料同庫。設計參數路時多想一步「值域放寬會不會白吃未來需求」。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2438,10 +2528,14 @@ fail**（沿用既有 `needs_hei = skipif(not default_hei_font_path().exists())`
     當日新鮮度守門＋5fn 抄經彈窗補正規化（不同建構器漏改一輪）；含守門鎖字面／
     裸 push 誤入備份庫／橋接 git 留 index.lock 三事故。**另收 5et-R5**：卡片模式
     加尺規＋卡緣摺邊虛線＋子模組 import 快取缺口白畫回歸根治）
-  - [`WORK_LOG_2026-07-23.md`](WORK_LOG_2026-07-23.md)（立體字卡片鏤空
-    pop-up 全弧：機構迭代（逐筆 tab 誤讀彎路→實體折紙照片定案箱型）＋
+  - [`WORK_LOG_2026-07-23.md`](WORK_LOG_2026-07-23.md)（兩場。第一場：立體字
+    卡片鏤空 pop-up 全弧：機構迭代（逐筆 tab 誤讀彎路→實體折紙照片定案箱型）＋
     Phase 3 網頁模式（popup.py／/popup 頁／/api/popup/svg／popup.html）＋
-    缺字型測試 skip+503＋run-based 連通標記後備）
+    缺字型測試 skip+503＋run-based 連通標記後備。**第二場**：跨會話 covert
+    clobber 事故善後＋5fo（/gallery 版本注入＋手刻掃全站回歸鎖）→全站 UX 稽核
+    （13 模式＋3 頁，[`UX_AUDIT_2026-07-23.md`](UX_AUDIT_2026-07-23.md)）→
+    5fp P0／5fq P1／5fr P2／5fs 四項規格／5ft 立體字分類／5fu 共用控制列
+    三統一——稽核項全數清空上線，v0.14.264→0.14.270）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -2472,6 +2566,7 @@ fail**（沿用既有 `needs_hei = skipif(not default_hei_font_path().exists())`
   - [`2026-07-22_5fm_5fn_ink_bbox_normalization.md`](decisions/2026-07-22_5fm_5fn_ink_bbox_normalization.md)（逐字手寫範字大小：墨跡實框正規化為跨呈現面共用契約／改共用下游巡全消費路徑／守門鎖不變式／收工檢查當日新鮮度守門，對應 §64–§66）
   - [`2026-07-22_5et_r5_card_ruler_fold_cachebust.md`](decisions/2026-07-22_5et_r5_card_ruler_fold_cachebust.md)（手寫卡片模式加尺規＋卡緣摺邊虛線；子模組 import 快取缺口根治整類＋守門，對應 §67）
   - [`2026-07-23_popup_hollow_box.md`](decisions/2026-07-23_popup_hollow_box.md)（立體字卡片鏤空 pop-up 網頁模式：紙藝機構先實體試折定案／別把一條摺線複雜化成逐筆 tab／鏤空字材料實色／可折合對稱＋單一連通不變式／部署期字型相依缺則 skip+503／選用相依 scipy 降級 numpy，對應 §68）
+  - [`2026-07-23_5fo_5fu_ux_audit_arc.md`](decisions/2026-07-23_5fo_5fu_ux_audit_arc.md)（covert clobber 前進修復＋開工三步對表／手刻版本掃全類回歸鎖／UX 稽核分級 sign-off 分輪工作法＋稽核發現現場再驗證／色彩語意藍主動作紅破壞性／卡片逐字手寫重用深連結參數路／分享庫新分類 registry 派遣零 API＋metadata 內嵌憑據／共用控制列三層次統一不硬搬絕對位置，對應 §69–§74）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -2482,4 +2577,4 @@ fail**（沿用既有 `needs_hei = skipif(not default_hei_font_path().exists())`
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§68 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收、墨跡實框正規化跨呈現面共用契約/改共用下游巡全消費路徑、脆弱慣例升級自動閘門/fail-open 新鮮度守門、守門鎖不變式不鎖寫法、版本快取鍵覆蓋整條 import 圖/子模組 import 也帶 ?v=、紙藝機構先實體試折定案不把一條摺線複雜化成逐筆 tab/鏤空字材料實色＋連筋單一連通/可折合對稱不變式/部署期字型相依缺則 skip+503/選用相依降級）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§74 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收、墨跡實框正規化跨呈現面共用契約/改共用下游巡全消費路徑、脆弱慣例升級自動閘門/fail-open 新鮮度守門、守門鎖不變式不鎖寫法、版本快取鍵覆蓋整條 import 圖/子模組 import 也帶 ?v=、紙藝機構先實體試折定案不把一條摺線複雜化成逐筆 tab/鏤空字材料實色＋連筋單一連通/可折合對稱不變式/部署期字型相依缺則 skip+503/選用相依降級、跨會話寫回前三步對表/未推 commit 勿盲 reset/多輪堆疊訊息累積式、手刻漏 guard 類病回歸鎖掃全類/guard 每獨立檔皆備、UX 稽核分級 sign-off 分輪/稽核發現現場再驗證、checkVisibility 判收合/佈局斷言 id 錨定/幾何斷言容換行、UI 統一三層次同名同序相鄰不硬搬絕對位置、新分類 registry 派遣零 API/憑據內嵌檔案自身/深連結參數路重用複利）。三者互補。
