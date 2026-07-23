@@ -52,9 +52,9 @@ def test_db_schema_creates_all_tables(gallery_env):
         ).fetchall()
     names = sorted(r["name"] for r in rows
                    if not r["name"].startswith("sqlite_"))
-    # r29 / r29b: 加 likes / bookmarks
+    # r29 / r29b: 加 likes / bookmarks；5fx: 加 reports
     assert names == [
-        "bookmarks", "likes", "login_tokens", "sessions",
+        "bookmarks", "likes", "login_tokens", "reports", "sessions",
         "uploads", "users",
     ]
 

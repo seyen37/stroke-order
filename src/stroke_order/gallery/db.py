@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS users (
     -- Phase 5b r29j: 頭像檔路徑（NULL = 用 initials fallback）
     -- 實際檔存 gallery_dir/avatars/<user_id>.png（256x256 PNG）
     avatar_path     TEXT,
+    -- 5fx: 作者治理狀態（normal / review / blacklisted）
+    --   review      → 該作者新上傳先隱藏（pending-review），管理員放行才公開
+    --   blacklisted → 禁止上傳；勾選當下既有作品全部隱藏
+    moderation_status TEXT NOT NULL DEFAULT 'normal',
     created_at      TEXT NOT NULL,
     last_login_at   TEXT
 );
@@ -112,6 +116,32 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 -- 「我的收藏」list: 給 user 撈自己 bookmark 的 upload list 用
 CREATE INDEX IF NOT EXISTS bookmarks_user
     ON bookmarks(user_id);
+
+-- 5fx: 檢舉（匿名＋登入皆可；threshold 自動隱藏）
+--   reporter_user_id NULL ＝ 匿名件；匿名件以 reporter_ip_hash（加鹽
+--   SHA-256，不存明文 IP）去重。部分唯一索引：登入件同人同作品一次、
+--   匿名件同 IP 同作品一次。
+CREATE TABLE IF NOT EXISTS reports (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    upload_id        INTEGER NOT NULL REFERENCES uploads(id)
+                         ON DELETE CASCADE,
+    reporter_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    reporter_ip_hash TEXT,
+    reason           TEXT NOT NULL,
+    detail           TEXT,
+    created_at       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS reports_upload
+    ON reports(upload_id);
+CREATE INDEX IF NOT EXISTS reports_created
+    ON reports(created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS reports_dedup_user
+    ON reports(upload_id, reporter_user_id)
+    WHERE reporter_user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS reports_dedup_ip
+    ON reports(upload_id, reporter_ip_hash)
+    WHERE reporter_user_id IS NULL AND reporter_ip_hash IS NOT NULL;
 """
 
 
@@ -136,6 +166,16 @@ def _migrate_uploads_kind_columns(conn: sqlite3.Connection) -> None:
         )
     if "summary_json" not in cols:
         conn.execute("ALTER TABLE uploads ADD COLUMN summary_json TEXT")
+
+
+def _migrate_users_moderation(conn: sqlite3.Connection) -> None:
+    """5fx: 加 ``moderation_status`` 給 users（existing DB 升版）。"""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+    if "moderation_status" not in cols:
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN moderation_status TEXT "
+            "NOT NULL DEFAULT 'normal'"
+        )
 
 
 def _migrate_users_avatar(conn: sqlite3.Connection) -> None:
@@ -164,6 +204,8 @@ def _ensure_schema(path_str: str) -> None:
         _migrate_uploads_kind_columns(conn)
         # r29j migration: existing DB 補 avatar_path（idempotent）
         _migrate_users_avatar(conn)
+        # 5fx migration: existing DB 補 moderation_status（idempotent）
+        _migrate_users_moderation(conn)
         conn.commit()
     finally:
         conn.close()

@@ -103,6 +103,13 @@
   <input id="gl-search" type="search" placeholder="搜尋標題 / 評論 / 作者…"
          autocomplete="off">
   <span class="gl-toolbar-spacer"></span>
+  <!-- 5fx: 管理員控制（is_admin 才顯示） -->
+  <button id="gl-admin-reports-btn" class="gl-btn" type="button" hidden>
+    ⚑ 檢舉清單
+  </button>
+  <label id="gl-admin-hidden-toggle" class="gl-admin-toggle" hidden>
+    <input type="checkbox" id="gl-include-hidden"> 顯示隱藏件
+  </label>
   <span id="gl-stats" class="gl-stats">— 筆</span>
 </section>
 
@@ -249,6 +256,66 @@
     </div>
     <div id="gl-profile-status" class="gl-status" hidden></div>
   </form>
+</dialog>
+
+<!-- =================== 5fx: Report modal =================== -->
+<dialog id="gl-report-dialog" class="gl-dialog">
+  <form class="gl-dialog-form" id="gl-report-form">
+    <h2>⚑ 檢舉作品</h2>
+    <p class="gl-hint" id="gl-report-target"></p>
+    <label>
+      檢舉原因 <span class="gl-req">*</span>
+      <select id="gl-report-reason">
+        <option value="inappropriate">不當內容</option>
+        <option value="spam">垃圾訊息／灌版</option>
+        <option value="copyright">侵權疑慮</option>
+        <option value="other">其他</option>
+      </select>
+    </label>
+    <label>
+      補充說明
+      <textarea id="gl-report-detail" rows="3" maxlength="200"
+                placeholder="（選填）具體說明問題所在…"></textarea>
+      <small class="gl-hint">≤ 200 字</small>
+    </label>
+    <!-- 匿名檢舉才顯示：防機器人算術題 -->
+    <div id="gl-report-challenge" hidden>
+      <label>
+        防機器人驗證：<b id="gl-report-question">…</b>
+        <input id="gl-report-answer" type="number" inputmode="numeric"
+               autocomplete="off" placeholder="請輸入答案">
+      </label>
+    </div>
+    <!-- 蜜罐欄位：真人看不到；填了值一律拒收 -->
+    <input id="gl-report-website" type="text" name="website"
+           tabindex="-1" autocomplete="off" aria-hidden="true"
+           style="position:absolute;left:-9999px;top:-9999px;height:1px;width:1px;opacity:0">
+    <div class="gl-dialog-actions">
+      <button class="gl-btn" type="button"
+              data-action="report-cancel">取消</button>
+      <button class="gl-btn gl-btn-primary" type="submit"
+              id="gl-report-submit">送出檢舉</button>
+    </div>
+    <div id="gl-report-status" class="gl-status" hidden></div>
+  </form>
+</dialog>
+
+<!-- =================== 5fx: Admin reports modal =================== -->
+<dialog id="gl-admin-reports-dialog" class="gl-dialog gl-dialog-wide">
+  <div class="gl-dialog-form">
+    <h2>⚑ 檢舉清單（管理員）</h2>
+    <p class="gl-hint">
+      每列可直接 🚨 下架／恢復作品；勾選作者「人工審閱」後其新上傳
+      需您放行才公開；勾選「黑名單」即停權並隱藏其全部作品。
+    </p>
+    <div id="gl-admin-reports-list" class="gl-admin-reports-list">
+      載入中…
+    </div>
+    <div class="gl-dialog-actions">
+      <button class="gl-btn" type="button"
+              data-action="admin-reports-close">關閉</button>
+    </div>
+  </div>
 </dialog>
 
 <footer class="gl-footer">

@@ -47,6 +47,15 @@ def uploads_dir() -> Path:
     return gallery_dir() / "uploads"
 
 
+def admin_emails() -> frozenset[str]:
+    """5fx: 管理員 email 名單（環境變數 GALLERY_ADMIN_EMAILS，逗號分隔，
+    比對時 lower/strip）。空 → 無管理員（管理端點一律 403）。"""
+    raw = os.environ.get("GALLERY_ADMIN_EMAILS", "")
+    return frozenset(
+        e.strip().lower() for e in raw.split(",") if e.strip()
+    )
+
+
 def avatars_dir() -> Path:
     """Phase 5b r29j: 頭像存放目錄（每 user 一張 256x256 PNG）。"""
     return gallery_dir() / "avatars"

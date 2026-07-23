@@ -46,6 +46,9 @@ const state = {
   // Phase 5b r29g: deep-link 單張 upload — id 寫進 hash, full obj 用於 prepend
   deepLinkUploadId: null,
   deepLinkUpload: null,
+  // 5fx: 管理員（/me 回 is_admin）＋「顯示隱藏件」開關
+  isAdmin: false,
+  includeHidden: false,
 };
 
 // ============================================================ helpers
@@ -164,6 +167,33 @@ function renderList() {
         await refresh();
       } catch (e) {
         showToast('刪除失敗：' + (e.message || e), 'error');
+      }
+    });
+  });
+
+  // 5fx: Wire report buttons
+  root.querySelectorAll('[data-action="report"]').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      const id = parseInt(ev.currentTarget.dataset.id, 10);
+      if (!Number.isInteger(id)) return;
+      _openReportDialog(id, ev.currentTarget.dataset.title || '');
+    });
+  });
+
+  // 5fx: Wire admin emergency hide/unhide
+  root.querySelectorAll('[data-action="admin-hide"]').forEach(btn => {
+    btn.addEventListener('click', async (ev) => {
+      const id = parseInt(ev.currentTarget.dataset.id, 10);
+      if (!Number.isInteger(id)) return;
+      const isHidden = ev.currentTarget.dataset.hidden === '1';
+      const verb = isHidden ? '恢復公開' : '緊急下架';
+      if (!confirm(`確定要${verb}這件作品嗎？`)) return;
+      try {
+        await _adminSetHidden(id, !isHidden);
+        showToast(`已${verb}`, 'success');
+        await refresh();
+      } catch (e) {
+        showToast(`${verb}失敗：` + (e.message || e), 'error');
       }
     });
   });
@@ -424,7 +454,9 @@ function _card(item) {
     <article class="gl-card${dlClass}" data-id="${item.id}" data-kind="${_escape(kind)}">
       ${_kindThumbnail(item)}
       <div class="gl-card-header">
-        <div class="gl-card-title">${_escape(item.title)}${_kindBadge(kind)}</div>
+        <div class="gl-card-title">${_escape(item.title)}${_kindBadge(kind)}${
+          item.hidden ? `<span class="gl-card-hiddenbadge" title="${_escape(item.hide_reason || '')}">已隱藏</span>` : ''
+        }</div>
         <div class="gl-card-author">${authorHtml}</div>
       </div>
       <div class="gl-card-meta">${_kindMeta(item)}</div>
@@ -438,10 +470,22 @@ function _card(item) {
         ${_bookmarkButton(item)}
         <a href="/api/gallery/uploads/${item.id}/download"
            class="gl-btn" download>${_downloadLabel(kind)}</a>
+        ${ !isOwn
+           ? `<button class="gl-btn gl-report-btn"
+                       data-action="report" data-id="${item.id}"
+                       data-title="${_escape(item.title)}"
+                       type="button" title="檢舉這件作品">⚑</button>`
+           : '' }
         ${ isOwn
            ? `<button class="gl-btn gl-btn-danger"
                        data-action="delete" data-id="${item.id}"
                        type="button">刪除</button>`
+           : '' }
+        ${ state.isAdmin
+           ? `<button class="gl-btn gl-btn-danger"
+                       data-action="admin-hide" data-id="${item.id}"
+                       data-hidden="${item.hidden ? 1 : 0}"
+                       type="button">${item.hidden ? '♻ 恢復' : '🚨 下架'}</button>`
            : '' }
       </div>
     </article>
@@ -540,6 +584,9 @@ async function refresh() {
   const profileData = state.userFilter ? results[2] : null;
 
   state.me = meData.logged_in ? meData.user : null;
+  state.isAdmin = !!(meData.logged_in && meData.is_admin);   // 5fx
+  if (!state.isAdmin) state.includeHidden = false;
+  _syncAdminUi();
   state.profile = profileData;
   if (dlFetchIdx >= 0) {
     const dl = results[dlFetchIdx];
@@ -727,6 +774,8 @@ async function _fetchUploads() {
   });
   // r28: kind filter ('' = 全部，不送)
   if (state.kindFilter) params.set('kind', state.kindFilter);
+  // 5fx: 管理員「顯示隱藏件」
+  if (state.isAdmin && state.includeHidden) params.set('include_hidden', 'true');
   // r29b/r29c: sort (newest / likes / hot)
   if (state.sort && state.sort !== 'newest') params.set('sort', state.sort);
   // r29b: bookmarked filter
@@ -843,6 +892,33 @@ function _wireToolbar() {
     });
   }
 
+  // 5fx: 檢舉對話框 submit / cancel
+  const reportForm = $('gl-report-form');
+  if (reportForm) {
+    reportForm.addEventListener('submit', _submitReport);
+    reportForm.querySelector('[data-action="report-cancel"]')
+      .addEventListener('click', () => $('gl-report-dialog').close());
+  }
+
+  // 5fx: 管理員——檢舉清單＋顯示隱藏件
+  const adminReportsBtn = $('gl-admin-reports-btn');
+  if (adminReportsBtn) {
+    adminReportsBtn.addEventListener('click', _openAdminReports);
+  }
+  const adminReportsDlg = $('gl-admin-reports-dialog');
+  if (adminReportsDlg) {
+    adminReportsDlg.querySelector('[data-action="admin-reports-close"]')
+      .addEventListener('click', () => adminReportsDlg.close());
+  }
+  const includeHiddenChk = $('gl-include-hidden');
+  if (includeHiddenChk) {
+    includeHiddenChk.addEventListener('change', (ev) => {
+      state.includeHidden = !!ev.target.checked;
+      state.page = 1;
+      refresh();
+    });
+  }
+
   // r29c: search input — debounced 300ms 觸發 refresh
   let searchTimer = null;
   const searchInput = $('gl-search');
@@ -861,6 +937,241 @@ function _wireToolbar() {
 }
 
 // r29b: sync 哪個 filter tab 當前 active
+// ============================================================ 5fx 檢舉＋管理端
+
+function _syncAdminUi() {
+  const rbtn = $('gl-admin-reports-btn');
+  const htog = $('gl-admin-hidden-toggle');
+  if (rbtn) rbtn.hidden = !state.isAdmin;
+  if (htog) htog.hidden = !state.isAdmin;
+  const chk = $('gl-include-hidden');
+  if (chk) chk.checked = !!state.includeHidden;
+}
+
+async function _adminSetHidden(uploadId, hidden) {
+  const r = await fetch(`/api/gallery/admin/uploads/${uploadId}/hide`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({hidden}),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
+async function _adminSetModeration(userId, status) {
+  const r = await fetch(`/api/gallery/admin/users/${userId}/moderation`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status}),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || `HTTP ${r.status}`);
+  }
+  return r.json();
+}
+
+let _reportTargetId = null;
+let _reportChallengeToken = null;
+
+async function _openReportDialog(uploadId, title) {
+  const dlg = $('gl-report-dialog');
+  if (!dlg) return;
+  _reportTargetId = uploadId;
+  _reportChallengeToken = null;
+  $('gl-report-target').textContent =
+    `檢舉作品：「${title}」（#${uploadId}）。檢舉需說明原因；` +
+    `累計多個獨立檢舉將自動隱藏該作品，並由管理員人工審閱。`;
+  $('gl-report-detail').value = '';
+  $('gl-report-answer').value = '';
+  $('gl-report-website').value = '';
+  const st = $('gl-report-status');
+  st.hidden = true; st.classList.remove('error');
+  const chWrap = $('gl-report-challenge');
+  if (state.me) {
+    chWrap.hidden = true;             // 登入者以帳號計，不出算術題
+  } else {
+    chWrap.hidden = false;
+    try {
+      const r = await fetch('/api/gallery/report-challenge');
+      const ch = await r.json();
+      _reportChallengeToken = ch.token;
+      $('gl-report-question').textContent = `${ch.a} ＋ ${ch.b}`;
+    } catch (_) {
+      $('gl-report-question').textContent = '（載入失敗，請重開視窗）';
+    }
+  }
+  dlg.showModal();
+}
+
+async function _submitReport(ev) {
+  ev.preventDefault();
+  if (!_reportTargetId) return;
+  const st = $('gl-report-status');
+  const body = {
+    reason: $('gl-report-reason').value,
+    detail: ($('gl-report-detail').value || '').trim(),
+    website: $('gl-report-website').value || '',   // 蜜罐——真人恆空
+  };
+  if (!state.me) {
+    body.challenge_token = _reportChallengeToken || '';
+    body.challenge_answer = parseInt($('gl-report-answer').value, 10);
+    if (!Number.isInteger(body.challenge_answer)) {
+      st.hidden = false; st.classList.add('error');
+      st.textContent = '請輸入防機器人驗證的答案';
+      return;
+    }
+  }
+  try {
+    const r = await fetch(
+      `/api/gallery/uploads/${_reportTargetId}/report`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+    $('gl-report-dialog').close();
+    showToast(
+      data.auto_hidden
+        ? '已送出檢舉；該作品已達檢舉門檻，已自動隱藏'
+        : '已送出檢舉，感謝協助維護分享庫品質', 'success');
+    if (data.auto_hidden) await refresh();
+  } catch (e) {
+    st.hidden = false; st.classList.add('error');
+    st.textContent = '送出失敗：' + (e.message || e);
+    // 匿名挑戰題單次有效——失敗後重新取題
+    if (!state.me) {
+      try {
+        const r2 = await fetch('/api/gallery/report-challenge');
+        const ch = await r2.json();
+        _reportChallengeToken = ch.token;
+        $('gl-report-question').textContent = `${ch.a} ＋ ${ch.b}`;
+        $('gl-report-answer').value = '';
+      } catch (_) { /* 保留原題 */ }
+    }
+  }
+}
+
+const _MOD_LABELS = {normal: '正常', review: '人工審閱', blacklisted: '黑名單'};
+
+function _reportRow(rep) {
+  const reporter = rep.anonymous
+    ? '匿名（IP 雜湊去重）'
+    : _escape(rep.reporter_email || `user #${rep.reporter_user_id}`);
+  const author = _escape(rep.author_display_name ||
+                         _emailHandle(rep.author_email));
+  const mod = rep.author_moderation_status || 'normal';
+  const reasonLabels = {inappropriate: '不當內容', spam: '垃圾訊息',
+                        copyright: '侵權疑慮', other: '其他'};
+  return `
+    <div class="gl-report-row" data-report-id="${rep.id}">
+      <div class="gl-report-row-main">
+        <b>#${rep.upload_id}</b> ${_escape(rep.upload_title)}
+        ${rep.upload_hidden
+          ? `<span class="gl-card-hiddenbadge" title="${_escape(rep.upload_hide_reason || '')}">已隱藏</span>` : ''}
+        <span class="gl-pill">${reasonLabels[rep.reason] || _escape(rep.reason)}</span>
+        ${rep.detail ? `<div class="gl-hint">${_escape(rep.detail)}</div>` : ''}
+        <div class="gl-hint">檢舉來源：${reporter} · ${_formatRelativeTime(rep.created_at)}</div>
+      </div>
+      <div class="gl-report-row-actions">
+        <button class="gl-btn gl-btn-danger" type="button"
+                data-raction="hide" data-upload-id="${rep.upload_id}"
+                data-hidden="${rep.upload_hidden ? 1 : 0}">
+          ${rep.upload_hidden ? '♻ 恢復' : '🚨 下架'}</button>
+        <span class="gl-report-author">
+          作者：${author}（${_MOD_LABELS[mod] || mod}）
+          <label><input type="checkbox" data-raction="mod-review"
+                        data-author-id="${rep.author_id}"
+                        ${mod === 'review' ? 'checked' : ''}> 人工審閱</label>
+          <label><input type="checkbox" data-raction="mod-blacklist"
+                        data-author-id="${rep.author_id}"
+                        ${mod === 'blacklisted' ? 'checked' : ''}> 黑名單</label>
+        </span>
+      </div>
+    </div>`;
+}
+
+async function _openAdminReports() {
+  const dlg = $('gl-admin-reports-dialog');
+  const list = $('gl-admin-reports-list');
+  if (!dlg || !list) return;
+  dlg.showModal();
+  list.textContent = '載入中…';
+  try {
+    const r = await fetch('/api/gallery/admin/reports?page=1&size=50', {
+      credentials: 'same-origin',
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (!data.items.length) {
+      list.innerHTML = '<p class="gl-hint">🎉 目前沒有任何檢舉。</p>';
+      return;
+    }
+    list.innerHTML =
+      `<p class="gl-hint">共 ${data.total} 筆（顯示最新 ${data.items.length} 筆）</p>` +
+      data.items.map(_reportRow).join('');
+    _wireAdminReportRows(list);
+  } catch (e) {
+    list.innerHTML = `<p class="gl-error">載入失敗：${_escape(e.message || String(e))}</p>`;
+  }
+}
+
+function _wireAdminReportRows(list) {
+  list.querySelectorAll('[data-raction="hide"]').forEach(btn => {
+    btn.addEventListener('click', async (ev) => {
+      const id = parseInt(ev.currentTarget.dataset.uploadId, 10);
+      const isHidden = ev.currentTarget.dataset.hidden === '1';
+      const verb = isHidden ? '恢復公開' : '緊急下架';
+      if (!confirm(`確定要${verb}作品 #${id} 嗎？`)) return;
+      try {
+        await _adminSetHidden(id, !isHidden);
+        showToast(`已${verb}`, 'success');
+        await _openAdminReports();      // re-render 清單
+        await refresh();
+      } catch (e) { showToast(`${verb}失敗：` + (e.message || e), 'error'); }
+    });
+  });
+  const wireMod = (sel, status, label) => {
+    list.querySelectorAll(sel).forEach(chk => {
+      chk.addEventListener('change', async (ev) => {
+        const uid = parseInt(ev.currentTarget.dataset.authorId, 10);
+        const on = ev.currentTarget.checked;
+        const target = on ? status : 'normal';
+        const msg = on
+          ? `確定將此作者設為「${label}」嗎？`
+          : `確定解除此作者的「${label}」狀態嗎？`;
+        if (!confirm(msg)) {
+          ev.currentTarget.checked = !on;   // 使用者取消 → 還原勾選
+          return;
+        }
+        try {
+          const out = await _adminSetModeration(uid, target);
+          const extra = out.hidden_count
+            ? `（已隱藏其 ${out.hidden_count} 件作品）`
+            : out.restored_count
+              ? `（已恢復其 ${out.restored_count} 件作品）` : '';
+          showToast(`作者狀態已更新為「${_MOD_LABELS[target]}」${extra}`,
+                    'success');
+          await _openAdminReports();
+          await refresh();
+        } catch (e) {
+          ev.currentTarget.checked = !on;
+          showToast('更新失敗：' + (e.message || e), 'error');
+        }
+      });
+    });
+  };
+  wireMod('[data-raction="mod-review"]', 'review', '人工審閱');
+  wireMod('[data-raction="mod-blacklist"]', 'blacklisted', '黑名單');
+}
+
 function _syncFilterTabsActive() {
   // 5fw：分類下拉跟 state 同步（收藏模式時下拉顯示全部）
   const kindSel = $('gl-kind');

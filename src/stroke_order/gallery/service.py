@@ -22,6 +22,7 @@ import hashlib
 import json
 import re
 import secrets
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from textwrap import shorten
@@ -623,6 +624,14 @@ def create_upload(
             f"每日上傳上限 {DAILY_UPLOAD_LIMIT} 次，請明天再試",
         )
 
+    # 5fx: 作者治理——blacklisted 禁止上傳；review 上傳先隱藏待管理員放行
+    author_status = get_user_moderation_status(user_id)
+    if author_status == "blacklisted":
+        raise Forbidden("此帳號已被停權，無法上傳")
+    initial_hidden = 1 if author_status == "review" else 0
+    initial_hide_reason = (HIDE_REASON_PENDING
+                           if author_status == "review" else None)
+
     # Validate schema first — cheap-fails before we touch disk.
     state, ext = VALIDATORS[kind](content_bytes)
     summary = SUMMARIZERS[kind](state)
@@ -692,14 +701,15 @@ def create_upload(
                 "(user_id, title, comment, filename, file_path, "
                 " file_size, file_hash, kind, summary_json, "
                 " trace_count, unique_chars, styles_used, "
-                " hidden, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+                " hidden, hide_reason, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     user_id, title, comment, safe_filename, str(rel_path),
                     len(content_bytes), file_hash,
                     kind, json.dumps(summary, ensure_ascii=False),
                     legacy_trace_count, legacy_unique_chars,
                     legacy_styles_used,
+                    initial_hidden, initial_hide_reason,
                     _utcnow_iso(),
                 ),
             )
@@ -1337,3 +1347,261 @@ def _row_to_dict(row) -> dict:
     else:
         d["uploader_avatar_url"] = None
     return d
+
+
+# =====================================================================
+# 5fx: 檢舉（匿名＋登入）＋作者治理（moderation）
+# =====================================================================
+
+REPORT_REASONS = ("inappropriate", "spam", "copyright", "other")
+REPORT_HIDE_THRESHOLD = 3          # 獨立檢舉源達此數 → 自動隱藏
+DAILY_REPORT_LIMIT   = 10          # 每來源（帳號或 IP）每 24h 上限
+CHALLENGE_MIN_SECONDS = 3          # 防機器人：發題到送出最短停留
+CHALLENGE_MAX_AGE_SECONDS = 600    # 挑戰題有效期
+
+HIDE_REASON_REPORTS   = "community-reports"
+HIDE_REASON_ADMIN     = "admin-takedown"
+HIDE_REASON_PENDING   = "pending-review"
+HIDE_REASON_BLACKLIST = "author-blacklisted"
+
+MODERATION_STATUSES = ("normal", "review", "blacklisted")
+
+
+def _auth_secret_bytes() -> bytes:
+    from .config import auth_secret
+    sec = auth_secret()
+    return sec if isinstance(sec, bytes) else str(sec).encode("utf-8")
+
+
+def hash_report_ip(ip: str) -> str:
+    """IP 加鹽雜湊（HMAC-auth-secret）——匿名檢舉去重用，不存明文 IP。"""
+    import hmac as _hmac
+    return _hmac.new(_auth_secret_bytes(),
+                     ("report-ip:" + (ip or "")).encode("utf-8"),
+                     hashlib.sha256).hexdigest()[:32]
+
+
+# ---------------- 防機器人挑戰（蜜罐＋停留時間＋算術題） ----------------
+#
+# 無外部服務：伺服器發「a + b = ?」與簽章 token（含發題時間）；驗證時
+# 以「使用者送來的答案」重算簽章——答案錯 → 簽章不合。停留時間由
+# token 時間戳驗（太快送出 → 機器人；過期 → 重新取題）。蜜罐欄位由
+# route 層驗（有值 → 拒）。
+
+def issue_report_challenge() -> dict:
+    """發挑戰題。回 {a, b, token}；token = ts.nonce.sig。"""
+    import hmac as _hmac
+    import time as _time
+    a = secrets.randbelow(8) + 1
+    b = secrets.randbelow(8) + 1
+    ts = int(_time.time())
+    nonce = secrets.token_hex(4)
+    body = f"report-challenge:{ts}:{nonce}:{a + b}"
+    sig = _hmac.new(_auth_secret_bytes(), body.encode("ascii"),
+                    hashlib.sha256).hexdigest()[:16]
+    return {"a": a, "b": b, "token": f"{ts}.{nonce}.{sig}"}
+
+
+def verify_report_challenge(token: str, answer) -> None:
+    """驗挑戰題；不過就 raise InvalidUpload（訊息可直接呈現）。"""
+    import hmac as _hmac
+    import time as _time
+    try:
+        ts_str, nonce, sig = str(token or "").split(".")
+        ts = int(ts_str)
+        ans = int(answer)
+    except (ValueError, AttributeError):
+        raise InvalidUpload("驗證資料格式不正確，請重新取得驗證題") from None
+    now = int(_time.time())
+    if now - ts > CHALLENGE_MAX_AGE_SECONDS:
+        raise InvalidUpload("驗證題已過期，請重新取得")
+    if now - ts < CHALLENGE_MIN_SECONDS:
+        raise InvalidUpload("送出太快，請稍候幾秒再送出")
+    body = f"report-challenge:{ts}:{nonce}:{ans}"
+    expected = _hmac.new(_auth_secret_bytes(), body.encode("ascii"),
+                         hashlib.sha256).hexdigest()[:16]
+    if not _hmac.compare_digest(expected, sig):
+        raise InvalidUpload("驗證題答案不正確")
+
+
+# ---------------- 檢舉 ----------------
+
+def _daily_report_count(*, user_id=None, ip_hash=None) -> int:
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    with db_connection() as conn:
+        if user_id is not None:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM reports "
+                "WHERE reporter_user_id = ? AND created_at >= ?",
+                (user_id, cutoff)).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM reports "
+                "WHERE reporter_ip_hash = ? AND created_at >= ?",
+                (ip_hash, cutoff)).fetchone()
+        return int(row[0])
+
+
+def create_report(
+    *, upload_id: int, reason: str, detail: str = "",
+    reporter_user_id: Optional[int] = None,
+    reporter_ip: Optional[str] = None,
+) -> dict:
+    """建檢舉。登入件以帳號去重；匿名件以 IP 雜湊去重（route 層已過
+    蜜罐＋挑戰題）。獨立來源數達門檻 → 自動隱藏該作品。
+
+    Returns {"total_reports", "auto_hidden"}。
+    """
+    if reason not in REPORT_REASONS:
+        raise InvalidUpload(
+            f"不支援的檢舉原因：{reason!r}"
+            f"（可用：{', '.join(REPORT_REASONS)}）")
+    detail = _safe_unicode_str(detail, MAX_COMMENT_LEN, name="detail")
+
+    upload = get_upload(upload_id)          # NotFound if missing
+    if reporter_user_id is not None and             upload.get("user_id") == reporter_user_id:
+        raise InvalidUpload("不能檢舉自己的作品")
+
+    ip_hash = None
+    if reporter_user_id is None:
+        if not reporter_ip:
+            raise InvalidUpload("匿名檢舉缺少來源資訊")
+        ip_hash = hash_report_ip(reporter_ip)
+
+    if _daily_report_count(user_id=reporter_user_id,
+                           ip_hash=ip_hash) >= DAILY_REPORT_LIMIT:
+        raise RateLimited(
+            f"檢舉過於頻繁（每日上限 {DAILY_REPORT_LIMIT} 次），請明天再試")
+
+    with db_connection() as conn:
+        try:
+            conn.execute(
+                "INSERT INTO reports (upload_id, reporter_user_id, "
+                "reporter_ip_hash, reason, detail, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (upload_id, reporter_user_id, ip_hash, reason,
+                 detail or None, _utcnow_iso()),
+            )
+        except sqlite3.IntegrityError:
+            raise DuplicateUpload("此作品您已檢舉過") from None
+
+        total = int(conn.execute(
+            "SELECT COUNT(*) FROM reports WHERE upload_id = ?",
+            (upload_id,)).fetchone()[0])
+
+        auto_hidden = False
+        if total >= REPORT_HIDE_THRESHOLD and not upload.get("hidden"):
+            conn.execute(
+                "UPDATE uploads SET hidden = 1, hide_reason = ? "
+                "WHERE id = ? AND hidden = 0",
+                (HIDE_REASON_REPORTS, upload_id))
+            auto_hidden = True
+
+    return {"total_reports": total, "auto_hidden": auto_hidden}
+
+
+# ---------------- 管理端 ----------------
+
+def is_admin_email(email: Optional[str]) -> bool:
+    from .config import admin_emails
+    return bool(email) and email.strip().lower() in admin_emails()
+
+
+def admin_set_upload_hidden(*, upload_id: int, hidden: bool,
+                            reason: str = HIDE_REASON_ADMIN) -> dict:
+    """緊急下架／恢復指定作品（管理員；route 層已驗身分）。"""
+    upload = get_upload(upload_id)          # NotFound if missing
+    with db_connection() as conn:
+        if hidden:
+            conn.execute(
+                "UPDATE uploads SET hidden = 1, hide_reason = ? "
+                "WHERE id = ?", (reason, upload_id))
+        else:
+            conn.execute(
+                "UPDATE uploads SET hidden = 0, hide_reason = NULL "
+                "WHERE id = ?", (upload_id,))
+    out = get_upload(upload_id)
+    out["was_hidden"] = bool(upload.get("hidden"))
+    return out
+
+
+def get_user_moderation_status(user_id: int) -> str:
+    with db_connection() as conn:
+        row = conn.execute(
+            "SELECT moderation_status FROM users WHERE id = ?",
+            (user_id,)).fetchone()
+    if row is None:
+        raise NotFound(f"user {user_id} 不存在")
+    status = row[0] or "normal"
+    return status if status in MODERATION_STATUSES else "normal"
+
+
+def admin_set_user_moderation(*, user_id: int, status: str) -> dict:
+    """勾選作者治理狀態（管理員）。
+
+    - ``review``      → 之後的上傳一律先隱藏（pending-review）待放行。
+    - ``blacklisted`` → 禁止上傳＋既有作品全部隱藏。
+    - ``normal``      → 解除；先前因黑名單隱藏的作品自動恢復
+      （pending-review 與其他隱藏原因不動，由管理員逐件放行）。
+    """
+    if status not in MODERATION_STATUSES:
+        raise InvalidUpload(
+            f"不支援的治理狀態：{status!r}"
+            f"（可用：{', '.join(MODERATION_STATUSES)}）")
+    prev = get_user_moderation_status(user_id)   # NotFound if missing
+    hidden_count = 0
+    restored_count = 0
+    with db_connection() as conn:
+        conn.execute(
+            "UPDATE users SET moderation_status = ? WHERE id = ?",
+            (status, user_id))
+        if status == "blacklisted":
+            cur = conn.execute(
+                "UPDATE uploads SET hidden = 1, hide_reason = ? "
+                "WHERE user_id = ? AND hidden = 0",
+                (HIDE_REASON_BLACKLIST, user_id))
+            hidden_count = cur.rowcount
+        elif status == "normal" and prev == "blacklisted":
+            cur = conn.execute(
+                "UPDATE uploads SET hidden = 0, hide_reason = NULL "
+                "WHERE user_id = ? AND hide_reason = ?",
+                (user_id, HIDE_REASON_BLACKLIST))
+            restored_count = cur.rowcount
+    return {"user_id": user_id, "status": status, "previous": prev,
+            "hidden_count": hidden_count, "restored_count": restored_count}
+
+
+def list_reports(*, page: int = 1, size: int = DEFAULT_PAGE_SIZE) -> dict:
+    """檢舉清單（管理員）。附作品標題/分類/隱藏狀態＋作者＋檢舉來源。"""
+    page = max(1, int(page))
+    size = max(1, min(MAX_PAGE_SIZE, int(size)))
+    offset = (page - 1) * size
+    with db_connection() as conn:
+        total = int(conn.execute(
+            "SELECT COUNT(*) FROM reports").fetchone()[0])
+        rows = conn.execute(
+            "SELECT r.id, r.upload_id, r.reason, r.detail, r.created_at, "
+            "       r.reporter_user_id, "
+            "       rep.email AS reporter_email, "
+            "       u.title AS upload_title, u.kind AS upload_kind, "
+            "       u.hidden AS upload_hidden, "
+            "       u.hide_reason AS upload_hide_reason, "
+            "       u.user_id AS author_id, "
+            "       au.email AS author_email, "
+            "       au.display_name AS author_display_name, "
+            "       au.moderation_status AS author_moderation_status "
+            "FROM reports r "
+            "JOIN uploads u ON u.id = r.upload_id "
+            "JOIN users au ON au.id = u.user_id "
+            "LEFT JOIN users rep ON rep.id = r.reporter_user_id "
+            "ORDER BY r.created_at DESC, r.id DESC "
+            "LIMIT ? OFFSET ?",
+            (size, offset)).fetchall()
+    items = []
+    for row in rows:
+        d = dict(row)
+        d["upload_hidden"] = bool(d.get("upload_hidden"))
+        d["anonymous"] = d.get("reporter_user_id") is None
+        items.append(d)
+    return {"items": items, "total": total, "page": page, "size": size}

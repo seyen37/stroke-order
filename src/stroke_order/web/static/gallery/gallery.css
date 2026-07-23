@@ -811,3 +811,69 @@ button:focus-visible {
   from { transform: translateY(0);     opacity: 1; }
   to   { transform: translateY(-8px);  opacity: 0; }
 }
+
+/* ============================================================ 5fx 檢舉＋管理端 */
+
+.gl-report-btn { padding: 4px 8px; }
+
+.gl-card-hiddenbadge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: #fbe9e7;
+  color: #c62828;
+  border: 1px solid #f2c1bc;
+  vertical-align: middle;
+}
+
+.gl-admin-toggle {
+  font-size: 13px;
+  color: var(--gl-muted, #666);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.gl-dialog-wide { width: min(720px, 94vw); }
+
+.gl-admin-reports-list {
+  max-height: 55vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gl-report-row {
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gl-report-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gl-report-author {
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gl-report-author label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}

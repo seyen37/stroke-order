@@ -24,6 +24,23 @@ class GalleryProfilePatch(BaseModel):
     bio: Optional[str] = None
 
 
+class GalleryReportRequest(BaseModel):
+    """5fx 檢舉。匿名件需帶挑戰題三件（token/answer/website 蜜罐）。"""
+    reason: str
+    detail: Optional[str] = None
+    challenge_token: Optional[str] = None
+    challenge_answer: Optional[int] = None
+    website: Optional[str] = None      # 蜜罐：真人看不到、有值即拒
+
+
+class GalleryAdminHideRequest(BaseModel):
+    hidden: bool
+
+
+class GalleryAdminModerationRequest(BaseModel):
+    status: str                        # normal / review / blacklisted
+
+
 router = APIRouter()
 
 # =================================================================
@@ -58,6 +75,24 @@ def _require_user(session_token: Optional[str]):
     if user is None:
         raise HTTPException(401, detail="請先登入")
     return user
+
+# ---------------- 5fx: 管理員／客戶端 IP helpers ----------------
+
+def _is_admin(user) -> bool:
+    return bool(user) and gallery_service.is_admin_email(user.get("email"))
+
+def _require_admin(session_token: Optional[str]):
+    user = _require_user(session_token)
+    if not _is_admin(user):
+        raise HTTPException(403, detail="需要管理員權限")
+    return user
+
+def _client_ip(request: Request) -> str:
+    """取客戶端 IP（Render 反代後真實 IP 在 X-Forwarded-For 首項）。"""
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else ""
 
 def _gallery_error_to_http(exc: gallery_service.GalleryError):
     raise HTTPException(exc.code, detail=str(exc))
@@ -145,7 +180,8 @@ def gallery_me(
     user = _resolve_user(psd_session)
     if user is None:
         return {"logged_in": False}
-    return {"logged_in": True, "user": user}
+    return {"logged_in": True, "user": user,
+            "is_admin": _is_admin(user)}   # 5fx
 
 @router.put("/api/gallery/me")
 def gallery_me_update(
@@ -227,9 +263,12 @@ def gallery_user_avatar_get(user_id: int):
 def gallery_uploads_list(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
-    # Phase 5b r28: 可選 kind filter (psd / mandala)；未傳 = 全部
+    # Phase 5b r28: 可選 kind filter；未傳 = 全部。
+    # 5fx 修 bug：原 pattern="^(psd|mandala)$" 把 5ft popup 與 5fw 12 新
+    # 分類全擋成 422——白名單驗證下沉 service（ALLOWED_KINDS 單一事實源），
+    # route 不再硬編 kind 清單。
     kind: Optional[str] = Query(
-        None, pattern="^(psd|mandala)$",
+        None, max_length=32,
         description="upload 種類 filter；未傳列出全部",
     ),
     # Phase 5b r29b/r29c: sort 選項
@@ -251,10 +290,16 @@ def gallery_uploads_list(
     user_id: Optional[int] = Query(
         None, ge=1, description="只列指定 user 的 uploads（profile filter）",
     ),
+    # 5fx: 管理員檢視隱藏件（非管理員傳 true → 403）
+    include_hidden: bool = Query(
+        False, description="連隱藏件一起列（僅管理員）",
+    ),
     # Phase 5b r29: 從 cookie 拿 user，list 內每 item 加 liked_by_me
     psd_session: Optional[str] = Cookie(default=None),
 ):
     viewer = _resolve_user(psd_session)
+    if include_hidden and not _is_admin(viewer):
+        raise HTTPException(403, detail="include_hidden 需要管理員權限")
     # r29b: bookmarked=true 需登入（否則沒 user 也沒 filter 對象）
     bookmarked_by = None
     if bookmarked:
@@ -264,6 +309,7 @@ def gallery_uploads_list(
     try:
         return gallery_service.list_uploads(
             page=page, size=size, kind=kind,
+            include_hidden=include_hidden,
             viewer_user_id=(viewer["id"] if viewer else None),
             sort=sort,
             bookmarked_by=bookmarked_by,
@@ -437,3 +483,86 @@ def gallery_uploads_delete(
     except gallery_service.GalleryError as e:
         _gallery_error_to_http(e)
     return {"ok": True}
+
+
+# =================================================================
+# 5fx — 檢舉（匿名＋登入）＋管理端（緊急下架／作者治理／檢舉清單）
+# =================================================================
+
+@router.get("/api/gallery/report-challenge")
+def gallery_report_challenge():
+    """發防機器人挑戰題（匿名檢舉用）：{a, b, token}。"""
+    return gallery_service.issue_report_challenge()
+
+
+@router.post("/api/gallery/uploads/{upload_id}/report")
+def gallery_uploads_report(
+    upload_id: int,
+    req: GalleryReportRequest,
+    request: Request,
+    psd_session: Optional[str] = Cookie(default=None),
+):
+    """檢舉作品。登入者以帳號計；匿名者過蜜罐＋挑戰題後以 IP 雜湊計。"""
+    user = _resolve_user(psd_session)
+    # 蜜罐：真人看不到的欄位有值 → 機器人，直接拒（不透漏原因細節）
+    if (req.website or "").strip():
+        raise HTTPException(400, detail="驗證未通過")
+    try:
+        if user is None:
+            gallery_service.verify_report_challenge(
+                req.challenge_token or "", req.challenge_answer)
+            out = gallery_service.create_report(
+                upload_id=upload_id, reason=req.reason,
+                detail=req.detail or "",
+                reporter_ip=_client_ip(request))
+        else:
+            out = gallery_service.create_report(
+                upload_id=upload_id, reason=req.reason,
+                detail=req.detail or "",
+                reporter_user_id=user["id"])
+    except gallery_service.GalleryError as e:
+        _gallery_error_to_http(e)
+    return {"ok": True, **out}
+
+
+@router.post("/api/gallery/admin/uploads/{upload_id}/hide")
+def gallery_admin_upload_hide(
+    upload_id: int,
+    req: GalleryAdminHideRequest,
+    psd_session: Optional[str] = Cookie(default=None),
+):
+    """管理員：緊急下架（hidden=true）／恢復公開（hidden=false）。"""
+    _require_admin(psd_session)
+    try:
+        out = gallery_service.admin_set_upload_hidden(
+            upload_id=upload_id, hidden=req.hidden)
+    except gallery_service.GalleryError as e:
+        _gallery_error_to_http(e)
+    return {"ok": True, "upload": out}
+
+
+@router.post("/api/gallery/admin/users/{user_id}/moderation")
+def gallery_admin_user_moderation(
+    user_id: int,
+    req: GalleryAdminModerationRequest,
+    psd_session: Optional[str] = Cookie(default=None),
+):
+    """管理員：勾選作者治理狀態（normal／review 人工審閱／blacklisted）。"""
+    _require_admin(psd_session)
+    try:
+        out = gallery_service.admin_set_user_moderation(
+            user_id=user_id, status=req.status)
+    except gallery_service.GalleryError as e:
+        _gallery_error_to_http(e)
+    return {"ok": True, **out}
+
+
+@router.get("/api/gallery/admin/reports")
+def gallery_admin_reports(
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    psd_session: Optional[str] = Cookie(default=None),
+):
+    """管理員：檢舉清單（附作品／作者／來源）。"""
+    _require_admin(psd_session)
+    return gallery_service.list_reports(page=page, size=size)
