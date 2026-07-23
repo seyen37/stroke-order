@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>公眾分享庫 — stroke-order</title>
-  <link rel="stylesheet" href="/static/gallery/gallery.css">
+  <link rel="stylesheet" href="/static/gallery/gallery.css?v=__V__">
   <!-- Phase 5b r28: 接 mandala upload — 客戶端 .mandala.md frontmatter 解析 -->
   <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
 </head>
@@ -20,7 +20,9 @@
   <div class="gl-title">
     <span class="gl-logo">🖼</span>
     <h1>公眾分享庫</h1>
-    <span class="gl-version">v0.13.0</span>
+    <!-- 5fm：版本自動同步——讀資產 ?v=（伺服器注入 APP_VERSION），
+         不再手刻（§57 同款；本頁曾卡 v0.13.0） -->
+    <span class="gl-version" id="gl-version"></span>
   </div>
   <nav class="gl-nav">
     <a href="/" class="gl-nav-btn">↩ 回主頁</a>
@@ -225,7 +227,15 @@
   </small>
 </footer>
 
-<script type="module" src="/static/gallery/gallery.js"></script>
+<script type="module" src="/static/gallery/gallery.js?v=__V__"></script>
+<script>
+  // 5fm：版本標籤自動同步——讀 CSS 資產的 ?v=（伺服器注入 APP_VERSION）
+  {
+    const link = document.querySelector('link[rel="stylesheet"][href*="?v="]');
+    const m = link && /[?&]v=(\d[\w.]*)/.exec(link.getAttribute("href"));
+    if (m) document.getElementById("gl-version").textContent = "v" + m[1];
+  }
+</script>
 
 </body>
 </html>

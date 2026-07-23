@@ -31,13 +31,34 @@ def test_injected_js_carries_version(client):
 
 
 def test_pages_injected_no_placeholder(client):
-    for path in ("/", "/card", "/handwriting"):
+    for path in ("/", "/card", "/handwriting", "/gallery"):
         r = client.get(path)
         assert r.status_code == 200, path
         assert "__V__" not in r.text, path
     index = client.get("/").text
     assert f"doodle_engine.js?v={APP_VERSION}" in index
     assert f"zentangle/zentangle.js?v={APP_VERSION}" in index
+    # 5fm：/gallery 曾走 FileResponse 漏掉注入＋手刻 v0.13.0 卡版
+    gallery = client.get("/gallery").text
+    assert f"gallery/gallery.css?v={APP_VERSION}" in gallery
+    assert f"gallery/gallery.js?v={APP_VERSION}" in gallery
+    assert re.search(r'id="gl-version"[^>]*></span>',
+                     gallery.replace("\n", ""))  # 標籤空殼，由 JS 填
+
+
+def test_no_hardcoded_version_labels_on_disk():
+    """5fm 回歸鎖：HTML 不得再出現手刻的純文字版本標籤（>vX.Y.Z<）。
+
+    既有的 ?v= 掃描抓不到這種（gallery 卡 v0.13.0 就是這樣漏網的）
+    ——版本顯示一律空殼＋JS 讀資產 ?v= 填值（§57）。"""
+    offenders = []
+    for p in STATIC_DIR.rglob("*.html"):
+        text = p.read_text("utf-8", errors="ignore")
+        for m in re.finditer(r">v\d+\.\d+[\w.]*<", text):
+            offenders.append(f"{p.relative_to(STATIC_DIR)}:{m.group(0)}")
+    assert offenders == [], (
+        f"發現手刻版本標籤（應改空殼＋JS 讀 ?v= 填值）：{offenders}"
+    )
 
 
 def test_vendor_pins_untouched(client):

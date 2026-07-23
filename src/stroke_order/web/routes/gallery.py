@@ -13,7 +13,7 @@ from typing import Optional
 from fastapi import APIRouter
 from ..char_pipeline import build_mandala_char_loader
 from ..responses import SVG_MEDIA_TYPE
-from ..versioning import STATIC_DIR
+from ..versioning import STATIC_DIR, _versioned_page
 
 class GalleryLoginRequest(BaseModel):
     email: str
@@ -82,7 +82,9 @@ def gallery_page():
             "Gallery page missing — static/gallery.html not bundled.",
             status_code=404,
         )
-    return FileResponse(page)
+    # 5fm：改走版本注入（?v=__V__ → APP_VERSION）——與 / /card /handwriting
+    # 同款；本頁先前走 FileResponse＝佔位符原樣吐出、標籤手刻卡版（§57）。
+    return _versioned_page(page)
 
 # ----- magic-link auth ---------------------------------------------
 
