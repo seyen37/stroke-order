@@ -31,6 +31,7 @@ python -m stroke_order.web        # 或你慣用的啟動方式
 | `STROKE_ORDER_GALLERY_DIR` | ❌ | `~/.stroke-order/gallery` | SQLite + 上傳檔的根目錄 |
 | `STROKE_ORDER_BASE_URL` | ❌ | `http://127.0.0.1:8000` | magic-link 連結的 base URL；**生產必須設**否則 email 連結會指向 localhost |
 | `STROKE_ORDER_AUTH_DEV_MODE` | ❌ | `false` | `true` 時 magic link 印 console 不寄信 |
+| `STROKE_ORDER_BREVO_API_KEY` | Render 免費層必填 | — | Brevo HTTP API key（5fz；有值時優先於 SMTP、走 443 不受 SMTP 封鎖影響） |
 | `STROKE_ORDER_SMTP_HOST` | dev mode off 時必填 | — | SMTP 伺服器主機 |
 | `STROKE_ORDER_SMTP_PORT` | ❌ | `587` | 587 = STARTTLS、465 = 隱式 TLS |
 | `STROKE_ORDER_SMTP_USER` | dev mode off 時必填 | — | SMTP 帳號 |
@@ -39,7 +40,35 @@ python -m stroke_order.web        # 或你慣用的啟動方式
 
 ---
 
-## 情境 1：用 Gmail 寄信（個人部署最常見）
+## 情境 0：Render 免費層（**必讀**——SMTP 走不通，用 Brevo HTTP API）
+
+**Render 免費 Web 服務封鎖所有對外 SMTP 埠（25/465/587）**（官方
+changelog：free web services will no longer allow outbound traffic to
+SMTP ports）。symptom：寄信時 server 500、log 出現
+``OSError: [Errno 101] Network is unreachable``。**換任何 SMTP 帳號都
+一樣**；唯一可行通道是走 HTTPS 443 的郵件 API。本專案內建 Brevo
+（5fz；免費 300 封/日、驗證單一寄件人即可、不需自有網域）：
+
+1. 到 https://www.brevo.com 註冊免費帳號。
+2. 後台 **Senders**：新增並驗證您的寄件人 email（例如
+   ``seyen37@gmail.com``——會寄驗證信給您點確認）。
+3. 後台 **SMTP & API → API Keys**：產生一組 API key（`xkeysib-` 開頭）。
+4. Render Environment 設定：
+
+```bash
+STROKE_ORDER_BREVO_API_KEY=xkeysib-xxxxxxxx...
+STROKE_ORDER_SMTP_FROM=stroke-order <seyen37@gmail.com>   # 必須是步驟 2 驗證過的 email
+STROKE_ORDER_AUTH_DEV_MODE=false                          # 或整個刪掉
+```
+
+5. Save → 等重新部署 → /gallery 測「寄出連結」。
+
+優先序：dev mode ＞ Brevo API key ＞ SMTP——設了 BREVO_API_KEY 就不會
+碰 SMTP；SMTP 變數可留著當自架環境的後備。
+
+---
+
+## 情境 1：用 Gmail 寄信（個人部署最常見；**Render 免費層不適用**，見情境 0）
 
 Gmail 不允許「應用程式直接用您的 Google 密碼」登入 SMTP；你需要
 申請一個 **App Password**：
@@ -197,6 +226,11 @@ python -c "import secrets; print(secrets.token_hex(32))"
 - 確認 `SMTP_FROM` 的網域有 SPF/DKIM 記錄
 - 改用 Gmail / SendGrid 等已設好寄信信譽的服務
 - 暫時開 `AUTH_DEV_MODE=true` 確認流程沒壞，再排查 SMTP
+
+### 「寄信時 server 回 500，log 有 Errno 101 Network is unreachable」
+
+Render 免費層封鎖對外 SMTP——見「情境 0」，改設
+`STROKE_ORDER_BREVO_API_KEY`。
 
 ### 「寄信時 server 回 500」
 回應 detail 會明確說「`STROKE_ORDER_SMTP_HOST/USER/PASS` 未設」或
