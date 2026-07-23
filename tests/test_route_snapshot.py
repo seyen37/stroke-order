@@ -16,6 +16,8 @@ from stroke_order.web.server import create_app
 ROUTE_SNAPSHOT = {
     ("GET", "/"),
     ("POST", "/api/card/pdf"),
+    ("GET", "/popup"),
+    ("POST", "/api/popup/svg"),
     ("GET", "/api/character/{char}"),
     ("GET", "/api/cns-status"),
     ("GET", "/api/cns-stroke-diagnostics/{char}"),

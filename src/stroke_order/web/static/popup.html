@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>立體字卡片（鏤空 pop-up）</title>
+<style>
+  :root { --ink:#1f2328; --line:#d0d7de; --accent:#149046; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, "Noto Sans TC", sans-serif;
+         color:var(--ink); background:#f6f8fa; }
+  header { padding:14px 20px; background:#fff; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:4px 0 0; font-size:12.5px; color:#57606a; }
+  .wrap { display:flex; gap:16px; padding:16px; align-items:flex-start; flex-wrap:wrap; }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .controls { width:320px; flex:0 0 auto; }
+  .preview { flex:1 1 380px; min-width:340px; }
+  label { display:block; font-size:13px; margin:12px 0 4px; font-weight:600; }
+  input[type=text] { width:100%; padding:8px 10px; font-size:16px; border:1px solid var(--line);
+                     border-radius:8px; }
+  .row { display:flex; gap:10px; }
+  .row > div { flex:1; }
+  input[type=range] { width:100%; }
+  .val { font-size:12px; color:#57606a; float:right; }
+  button { margin-top:14px; width:100%; padding:10px; font-size:15px; border:0; border-radius:8px;
+           background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  .dl { display:flex; gap:10px; }
+  .dl button { flex:1; }
+  #status { font-size:12.5px; color:#57606a; margin-top:10px; min-height:18px; }
+  #stage { width:100%; min-height:420px; border:1px dashed var(--line); border-radius:8px;
+           display:flex; align-items:center; justify-content:center; background:
+           repeating-conic-gradient(#f0f2f4 0% 25%, #fff 0% 50%) 50% / 18px 18px; }
+  #stage svg { max-width:100%; max-height:70vh; }
+  .legend { font-size:12px; color:#57606a; margin-top:10px; line-height:1.7; }
+  .sw { display:inline-block; width:22px; height:0; border-top:2px dashed; vertical-align:middle;
+        margin-right:6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>立體字卡片 · 鏤空 pop-up</h1>
+  <p>打字→自動生鏤空字＋連筋＋箱型折線。前立面文字、頂/底摺線、中線穿字中對稱、可折合。</p>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>上排文字（必填，≤12 字）</label>
+    <input id="upper" type="text" value="新年" maxlength="12" placeholder="例：新年">
+    <label>下排文字（留空＝單層）</label>
+    <input id="lower" type="text" value="快樂" maxlength="12" placeholder="留空則只做一排">
+    <label>字高 <span class="val" id="chv">44 mm</span></label>
+    <input id="ch" type="range" min="24" max="70" value="44">
+    <label>頂面 roof 深 <span class="val" id="rfv">30 mm</span></label>
+    <input id="rf" type="range" min="12" max="50" value="30">
+    <label>tread 深（雙層）<span class="val" id="tdv">30 mm</span></label>
+    <input id="td" type="range" min="12" max="50" value="30">
+    <label>字格寬 <span class="val" id="cwv">46 mm</span></label>
+    <input id="cw" type="range" min="30" max="70" value="46">
+    <button id="gen">產生預覽</button>
+    <div id="status"></div>
+    <div class="dl">
+      <button class="secondary" id="dlsvg" disabled>下載 SVG</button>
+      <button class="secondary" id="dlpdf" disabled>下載 PDF</button>
+    </div>
+    <div class="legend">
+      <div><span class="sw" style="border-color:#000;border-top-style:solid"></span>切割（字身輪廓＋前立面左右）</div>
+      <div><span class="sw" style="border-color:#c62828"></span>山折（文字頂↔roof）</div>
+      <div><span class="sw" style="border-color:#1565c0"></span>谷折（roof↔背板、文字底↔底座）</div>
+      <div><span class="sw" style="border-color:#149046"></span>中線谷折（穿字中，對稱好折合）</div>
+    </div>
+  </div>
+  <div class="panel preview">
+    <div id="stage"><span style="color:#8b949e">按「產生預覽」</span></div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const bind = (r,v,suf)=>{ const f=()=>$(v).textContent=$(r).value+suf; $(r).addEventListener('input',f); f(); };
+bind('ch','chv',' mm'); bind('rf','rfv',' mm'); bind('td','tdv',' mm'); bind('cw','cwv',' mm');
+let lastSvg = null;
+
+async function gen(){
+  const upper = $('upper').value.trim();
+  if(!upper){ $('status').textContent='請輸入上排文字'; return; }
+  $('gen').disabled=true; $('status').textContent='產生中…';
+  try{
+    const res = await fetch('/api/popup/svg', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        upper, lower: $('lower').value.trim(),
+        char_h_mm:+$('ch').value, roof_mm:+$('rf').value,
+        tread_mm:+$('td').value, cell_w_mm:+$('cw').value,
+      })
+    });
+    if(!res.ok){ const e=await res.json().catch(()=>({detail:res.statusText}));
+      throw new Error(e.detail||('HTTP '+res.status)); }
+    const data = await res.json();
+    lastSvg = data.svg;
+    $('stage').innerHTML = data.svg;
+    $('status').textContent =
+      `${data.tiers===2?'雙層':'單層'}｜${data.width_mm.toFixed(0)}×${data.height_mm.toFixed(0)}mm｜`+
+      `連通${data.components===1?'✓ 單一件':'✗ '+data.components+' 件'}｜補橋${data.bridges}`;
+    $('dlsvg').disabled=false; $('dlpdf').disabled=false;
+  }catch(err){ $('status').textContent='錯誤：'+err.message; }
+  finally{ $('gen').disabled=false; }
+}
+$('gen').addEventListener('click', gen);
+
+function fname(){ return (($('upper').value.trim()||'popup')+($('lower').value.trim())).slice(0,20); }
+function download(blob, ext){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=fname()+'.'+ext; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+$('dlsvg').addEventListener('click', ()=>{ if(lastSvg) download(new Blob([lastSvg],{type:'image/svg+xml'}),'svg'); });
+$('dlpdf').addEventListener('click', async ()=>{
+  if(!lastSvg) return;
+  $('status').textContent='轉 PDF 中…';
+  try{
+    const res=await fetch('/api/card/pdf',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({svg:lastSvg, filename:fname()})});
+    if(!res.ok) throw new Error('PDF 失敗 '+res.status);
+    download(await res.blob(),'pdf'); $('status').textContent='PDF 已下載';
+  }catch(err){ $('status').textContent='錯誤：'+err.message; }
+});
+gen();
+</script>
+</body>
+</html>

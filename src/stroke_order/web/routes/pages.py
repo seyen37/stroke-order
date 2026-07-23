@@ -30,6 +30,17 @@ class CardPdfRequest(BaseModel):
     filename: str = "card"
 
 
+class PopupSvgRequest(BaseModel):
+    upper: str
+    lower: str = ""
+    char_h_mm: float = 44.0
+    roof_mm: float = 30.0
+    tread_mm: float = 30.0
+    cell_w_mm: float = 46.0
+    card_w_mm: float = 210.0
+    card_h_mm: float = 340.0
+
+
 router = APIRouter()
 
 # ------ root index ---------------------------------------------------
@@ -114,6 +125,53 @@ def card_pdf(req: CardPdfRequest):
             "Content-Disposition": _content_disposition(safe, "pdf"),
         },
     )
+
+
+# 立體字卡片（pop-up 鏤空字）：獨立頁＋SVG 產生端點
+@router.get("/popup", include_in_schema=False)
+def popup_page():
+    page = STATIC_DIR / "popup.html"
+    if not page.is_file():
+        return PlainTextResponse(
+            "Pop-up page missing — static/popup.html not bundled.",
+            status_code=404,
+        )
+    return _versioned_page(page)
+
+
+@router.post("/api/popup/svg")
+def popup_svg(req: PopupSvgRequest):
+    upper = (req.upper or "").strip()
+    if not upper:
+        raise HTTPException(422, detail="上排文字不可為空")
+    if len(upper) > 12 or len(req.lower or "") > 12:
+        raise HTTPException(422, detail="每排文字最多 12 字")
+    try:
+        from ...exporters.popup import generate_popup, PopupParams
+    except Exception as e:  # pragma: no cover
+        raise HTTPException(503, detail=f"popup 模組不可用：{e}") from e
+    P = PopupParams(
+        card_w_mm=float(req.card_w_mm), card_h_mm=float(req.card_h_mm),
+        char_h_mm=float(req.char_h_mm), roof_mm=float(req.roof_mm),
+        tread_mm=float(req.tread_mm), cell_w_mm=float(req.cell_w_mm),
+    )
+    try:
+        r = generate_popup(upper, (req.lower or "").strip(), P)
+    except ValueError as e:
+        raise HTTPException(422, detail=str(e)) from e
+    except Exception as e:  # pragma: no cover
+        from ...sources.g0v import CharacterNotFound
+        if isinstance(e, CharacterNotFound):
+            raise HTTPException(
+                503, detail="思源黑體字型未安裝（鏤空字需要）——"
+                            "請執行 scripts/render_fetch_fonts.sh 或設 "
+                            "STROKE_ORDER_HEI_FONT_FILE。",
+            ) from e
+        raise HTTPException(500, detail=f"產生失敗：{e}") from e
+    return {
+        "svg": r.svg, "width_mm": r.width_mm, "height_mm": r.height_mm,
+        "components": r.components, "bridges": r.bridges, "tiers": r.tiers,
+    }
 
 
 # ---- Phase 5cj/5ck: OpenCV.js 同源代抓 --------------------------------
