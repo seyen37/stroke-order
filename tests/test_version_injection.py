@@ -38,7 +38,7 @@ def test_pages_injected_no_placeholder(client):
     index = client.get("/").text
     assert f"doodle_engine.js?v={APP_VERSION}" in index
     assert f"zentangle/zentangle.js?v={APP_VERSION}" in index
-    # 5fm：/gallery 曾走 FileResponse 漏掉注入＋手刻 v0.13.0 卡版
+    # 5fo：/gallery 曾走 FileResponse 漏掉注入＋手刻 v0.13.0 卡版
     gallery = client.get("/gallery").text
     assert f"gallery/gallery.css?v={APP_VERSION}" in gallery
     assert f"gallery/gallery.js?v={APP_VERSION}" in gallery
@@ -47,7 +47,7 @@ def test_pages_injected_no_placeholder(client):
 
 
 def test_no_hardcoded_version_labels_on_disk():
-    """5fm 回歸鎖：HTML 不得再出現手刻的純文字版本標籤（>vX.Y.Z<）。
+    """5fo 回歸鎖：HTML 不得再出現手刻的純文字版本標籤（>vX.Y.Z<）。
 
     既有的 ?v= 掃描抓不到這種（gallery 卡 v0.13.0 就是這樣漏網的）
     ——版本顯示一律空殼＋JS 讀資產 ?v= 填值（§57）。"""

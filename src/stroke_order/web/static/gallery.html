@@ -20,7 +20,7 @@
   <div class="gl-title">
     <span class="gl-logo">🖼</span>
     <h1>公眾分享庫</h1>
-    <!-- 5fm：版本自動同步——讀資產 ?v=（伺服器注入 APP_VERSION），
+    <!-- 5fo：版本自動同步——讀資產 ?v=（伺服器注入 APP_VERSION），
          不再手刻（§57 同款；本頁曾卡 v0.13.0） -->
     <span class="gl-version" id="gl-version"></span>
   </div>
@@ -229,7 +229,7 @@
 
 <script type="module" src="/static/gallery/gallery.js?v=__V__"></script>
 <script>
-  // 5fm：版本標籤自動同步——讀 CSS 資產的 ?v=（伺服器注入 APP_VERSION）
+  // 5fo：版本標籤自動同步——讀 CSS 資產的 ?v=（伺服器注入 APP_VERSION）
   {
     const link = document.querySelector('link[rel="stylesheet"][href*="?v="]');
     const m = link && /[?&]v=(\d[\w.]*)/.exec(link.getAttribute("href"));

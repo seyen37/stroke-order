@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stroke-order"
-version = "0.14.255"
+version = "0.14.264"
 description = "中文字元 → 向量筆跡轉換器（給寫字機器人用）"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,6 +28,7 @@ web = [
     "python-multipart>=0.0.9",    # required for POST file upload (塗鴉模式)
     "Pillow>=10.0",               # 塗鴉 mode: image processing
     "cairosvg>=2.7",              # ODP/GIF/sample rendering
+    "scipy>=1.10",                # 立體字卡片 pop-up: 連通元件標記（連筋）
 ]
 gif = [
     "cairosvg>=2.7",
