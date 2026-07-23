@@ -172,6 +172,9 @@ button:focus-visible {
 }
 .gl-card-kind-psd     { background: #fff4d4; color: #6c5300; }
 .gl-card-kind-mandala { background: #ffeae0; color: #832500; }
+/* 5ft：立體字 badge */
+.gl-card-kind-popup { background: #eef3e6; color: #4a6b2a; }
+
 
 /* Phase 5b r29b: sort dropdown */
 .gl-sort {

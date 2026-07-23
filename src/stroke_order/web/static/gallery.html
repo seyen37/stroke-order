@@ -49,7 +49,7 @@
 <!-- 隱私 / 說明 banner（永遠可見） -->
 <div class="gl-banner gl-banner-info">
   <b>📤 公眾分享庫</b>
-  ：分享您匯出的抄經軌跡 (PSD) 或曼陀羅 (mandala) 檔案。所有上傳皆公開可下載；只有您本人能刪除自己的上傳。
+  ：分享您匯出的抄經軌跡 (PSD)、曼陀羅 (mandala) 或立體字 (pop-up SVG) 檔案。所有上傳皆公開可下載；只有您本人能刪除自己的上傳。
 </div>
 
 <!-- main toolbar -->
@@ -65,6 +65,9 @@
             type="button" role="tab" aria-selected="false">抄經軌跡</button>
     <button class="gl-filter-tab" data-kind="mandala"
             type="button" role="tab" aria-selected="false">曼陀羅</button>
+    <!-- 5ft：立體字分類 -->
+    <button class="gl-filter-tab" data-kind="popup"
+            type="button" role="tab" aria-selected="false">立體字</button>
     <!-- Phase 5b r29b: 我的收藏（登入後可見） -->
     <button class="gl-filter-tab gl-filter-bookmark" id="gl-filter-bookmark"
             data-bookmarked="true" type="button" role="tab"
@@ -126,14 +129,17 @@
 <!-- =================== Upload modal (5g-9) =================== -->
 <dialog id="gl-upload-dialog" class="gl-dialog">
   <form class="gl-dialog-form" id="gl-upload-form">
-    <h2>上傳 PSD</h2>
+    <h2>上傳作品</h2>
     <p class="gl-hint">
-      支援兩種上傳：<br>
+      支援三種上傳：<br>
       • <a href="/handwriting" target="_blank">筆順練習</a> 匯出的
         <code>.json</code>（schema = <code>stroke-order-psd-v1</code>）<br>
       • <a href="/" target="_blank">曼陀羅模式</a> 匯出的
         <code>.mandala.md</code> 或內嵌 metadata 的 <code>.svg</code>
         （schema = <code>stroke-order-mandala-v1</code>）<br>
+      • <a href="/popup" target="_blank">立體字模式</a> 下載的
+        <code>.svg</code>（內嵌 metadata，schema =
+        <code>stroke-order-popup-v1</code>）<br>
       檔案上限 10 MB，每日最多 20 次上傳。
     </p>
 

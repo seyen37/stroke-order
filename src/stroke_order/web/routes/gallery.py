@@ -348,7 +348,8 @@ def gallery_uploads_download(upload_id: int):
         )
     # Phase 5b r28: kind-aware filename + media_type
     kind = upload.get("kind") or "psd"
-    ext_map = {"psd": ".json", "mandala": ".md"}  # mandala 多數是 md
+    ext_map = {"psd": ".json", "mandala": ".md",
+               "popup": ".svg"}  # mandala 多數是 md；popup 一律 svg（5ft）
     # 真實副檔名從 file_path 抓（mandala 可能是 .svg）
     real_ext = ""
     try:

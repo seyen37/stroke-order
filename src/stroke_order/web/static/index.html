@@ -252,6 +252,12 @@
       <button type="button" class="mode-tab active" data-g="write"><span class="dot" style="background:#8a6db0"></span>書寫練習</button>
       <button type="button" class="mode-tab" data-g="make"><span class="dot" style="background:#b6883b"></span>製造切割</button>
       <button type="button" class="mode-tab" data-g="art"><span class="dot" style="background:#3a6b5f"></span>藝術創作</button>
+      <!-- 5fs：公眾分享庫入口提升到最上層（藝術創作旁）——原本只藏在
+           曼陀羅上傳鈕與 gallery 頁內，初次使用者找不到 -->
+      <a href="/gallery" class="mode-tab"
+         style="text-decoration:none;display:inline-block;"
+         title="公眾分享庫——瀏覽與分享大家上傳的抄經軌跡、曼陀羅作品"><span
+         class="dot" style="background:#b05c7a"></span>公眾分享庫</a>
     </div>
 
     <div class="mode-group show" data-g="write">
@@ -287,11 +293,17 @@
         曼陀羅模式 <span style="color:var(--muted);font-size:12px;">(中心字+字環+半圓交織)</span></label>
       <label><input type="radio" name="mode" value="zentangle">
         禪繞字模式 <span style="color:var(--muted);font-size:12px;">(字框+禪繞填充)</span></label>
-      <!-- 5ew-R1：手寫卡片獨立頁（連外 ↗）；U2 歸「藝術創作」群 -->
-      <a href="/card" target="_blank" rel="noopener"
+      <!-- 5ew-R1：手寫卡片獨立頁；U2 歸「藝術創作」群；
+           5fs：改同分頁開啟（與其他模式一致；草稿自動存在瀏覽器不怕跳頁） -->
+      <a href="/card"
          style="text-decoration:none;color:inherit;"
-         title="手寫卡片編輯器（5et）：名片/A6 對折卡、文字框、自寫手寫字與本機字型替換（另開新頁）">
-        ✉ 手寫卡片 <span style="color:var(--muted);font-size:12px;">(名片/對折卡 ↗)</span></a>
+         title="手寫卡片編輯器（5et）：名片/A6 對折卡、文字框、自寫手寫字與本機字型替換">
+        ✉ 手寫卡片 <span style="color:var(--muted);font-size:12px;">(名片/對折卡)</span></a>
+      <!-- 5ft：立體字模式入口（/popup 原本無主頁入口，找不到） -->
+      <a href="/popup"
+         style="text-decoration:none;color:inherit;"
+         title="立體字卡片（鏤空 pop-up）：打字生成可折立的鏤空字卡——雷切/刀模用 SVG＋PDF">
+        🎴 立體字 <span style="color:var(--muted);font-size:12px;">(鏤空 pop-up)</span></a>
     </div>
   </div>
   <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;">

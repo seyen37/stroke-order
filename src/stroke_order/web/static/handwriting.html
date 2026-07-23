@@ -194,8 +194,8 @@
         <span>不重複字：<b id="hw-db-unique">0</b></span>
       </div>
       <button class="hw-btn hw-submit-public" data-action="submit-public" disabled
-              title="待開發 — 提交匿名公眾資料庫（協助寫字機器人取得真實軌跡）">
-        🌐 提交匿名公眾資料庫（待開發）
+              title="待開發 — 提交公眾資料庫（協助寫字機器人取得真實軌跡）">
+        🌐 提交公眾資料庫（待開發）
       </button>
       <!-- 5fk：匯入與清空自畫布右下移入左欄（統計→提交→匯入→清空） -->
       <span class="hw-data-import">
@@ -1147,8 +1147,10 @@
     const _fromLabels = { sutra: '抄經', grid: '字帖', notebook: '筆記',
                           letter: '信紙', manuscript: '稿紙',
                           wordart: '文字藝術', mandala: '曼陀羅',
-                          zentangle: '禪繞字' };
-    const _fromLabel = _fromLabels[_params.get('from')];
+                          zentangle: '禪繞字',
+                          card: '手寫卡片' };   // 5fs：卡片文字框逐字手寫
+    const _from = _params.get('from');
+    const _fromLabel = _fromLabels[_from];
     if (_fromLabel) {
       const st = document.createElement('div');
       st.className = 'hw-from-hint';   // 5fe：grid 明確跨滿首列（否則被
@@ -1170,7 +1172,9 @@
       back.title = `關閉本頁，回到${_fromLabel}的「逐字手寫」視窗繼續逐字書寫`;
       back.addEventListener('click', () => {
         window.close();
-        setTimeout(() => { location.href = '/'; }, 250);  // 非彈窗保險
+        // 5fs：同分頁導航（如卡片）window.close 無效——回到來源頁
+        const _backUrl = _from === 'card' ? '/card' : '/';
+        setTimeout(() => { location.href = _backUrl; }, 250);
       });
       document.getElementById('hw-prompt-row')?.appendChild(back);
       // 5fe：插在畫布列（grid）之外——放進 grid 會被自動排版吃進

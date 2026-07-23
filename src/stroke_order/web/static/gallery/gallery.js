@@ -286,7 +286,7 @@ function renderList() {
 }
 
 function _kindBadge(kind) {
-  const labels = { psd: '抄經', mandala: '曼陀羅' };
+  const labels = { psd: '抄經', mandala: '曼陀羅', popup: '立體字' };  // 5ft
   const k = kind || 'psd';
   return `<span class="gl-card-kind gl-card-kind-${_escape(k)}">${
     _escape(labels[k] || k)
@@ -297,6 +297,13 @@ function _kindMeta(item) {
   // r28: kind-specific summary line（取代寫死的 trace_count / unique_chars）
   const kind = item.kind || 'psd';
   const summary = item.summary || {};
+  if (kind === 'popup') {   // 5ft：立體字摘要
+    const up = summary.upper_text || '';
+    const lo = summary.lower_text || '';
+    return `${_escape(up)}${lo ? ' / ' + _escape(lo) : ''}` +
+      (summary.card_w_mm
+        ? ` · ${summary.card_w_mm}×${summary.card_h_mm} mm` : '');
+  }
   if (kind === 'mandala') {
     const parts = [];
     if (summary.layer_count != null) {
@@ -338,7 +345,9 @@ function _kindStyles(item) {
 }
 
 function _downloadLabel(kind) {
-  return kind === 'mandala' ? '↓ 下載 (.md / .svg)' : '↓ 下載 JSON';
+  if (kind === 'mandala') return '↓ 下載 (.md / .svg)';
+  if (kind === 'popup')   return '↓ 下載 SVG';          // 5ft
+  return '↓ 下載 JSON';
 }
 
 function _kindThumbnail(item) {

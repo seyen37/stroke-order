@@ -41,10 +41,12 @@ DAILY_UPLOAD_LIMIT  = 20                   # uploads / user / 24h
 # Phase 5b r28: 多 kind 支援
 KIND_PSD            = "psd"
 KIND_MANDALA        = "mandala"
-ALLOWED_KINDS       = (KIND_PSD, KIND_MANDALA)
+KIND_POPUP          = "popup"        # 5ft：立體字（鏤空 pop-up SVG）
+ALLOWED_KINDS       = (KIND_PSD, KIND_MANDALA, KIND_POPUP)
 
 PSD_SCHEMA_TAG      = "stroke-order-psd-v1"
 MANDALA_SCHEMA_TAG  = "stroke-order-mandala-v1"
+POPUP_SCHEMA_TAG    = "stroke-order-popup-v1"     # 5ft
 MANDALA_REQUIRED_TOP = ("schema", "canvas", "center", "ring", "mandala")
 
 DEFAULT_PAGE_SIZE   = 20
@@ -287,16 +289,70 @@ def summarise_mandala(state: dict) -> dict:
     }
 
 
+# ------------------- 5ft: popup（立體字）validators ---------------------
+
+_POPUP_METADATA_RE = re.compile(
+    r"<popup-config[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?"
+    r"</popup-config>",
+)
+
+
+def parse_and_validate_popup(content_bytes: bytes) -> tuple[dict, str]:
+    """Parse a popup（立體字）SVG upload——必須是本系統匯出、內嵌
+    ``<popup-config>``（schema=stroke-order-popup-v1）的 SVG。"""
+    text = _common_size_decode(content_bytes)
+    ts = text.lstrip()
+    if not (ts.startswith("<svg") or ts.startswith("<?xml")):
+        raise InvalidUpload(
+            "立體字上傳需為 SVG 檔（請從立體字模式下載 SVG）")
+    m = _POPUP_METADATA_RE.search(text)
+    if not m:
+        raise InvalidUpload(
+            "SVG 內未找到 <popup-config> metadata；"
+            "請從本系統立體字模式重新下載 SVG（會自動內嵌設定）",
+        )
+    try:
+        state = json.loads(m.group(1))
+    except json.JSONDecodeError as e:
+        raise InvalidUpload(f"SVG metadata JSON 解析失敗：{e.msg}") from None
+    if not isinstance(state, dict):
+        raise InvalidUpload("popup metadata 必須是 object")
+    if state.get("schema") != POPUP_SCHEMA_TAG:
+        raise InvalidUpload(
+            f"不支援的 schema：{state.get('schema')!r}；"
+            f"需 {POPUP_SCHEMA_TAG}",
+        )
+    if not str(state.get("upper", "")).strip():
+        raise InvalidUpload("popup metadata 缺 upper（上排文字）")
+    return state, "svg"
+
+
+def summarise_popup(state: dict) -> dict:
+    """立體字清單頁摘要——上/下排文字、字數、卡片尺寸。防禦式取值。"""
+    upper = str(state.get("upper", ""))
+    lower = str(state.get("lower", ""))
+    return {
+        "upper_text": upper[:12],
+        "lower_text": lower[:12],
+        "char_count": len(upper) + len(lower),
+        "card_w_mm": state.get("card_w_mm"),
+        "card_h_mm": state.get("card_h_mm"),
+        "tiers": state.get("tiers"),
+    }
+
+
 # Validator dispatch — call site: `state, ext = VALIDATORS[kind](bytes)`
 # psd 包一層 lambda 統一返回 (state, ext) 形式（ext 給 on-disk 副檔名）
 VALIDATORS = {
     KIND_PSD:     lambda b: (parse_and_validate_psd(b), "json"),
     KIND_MANDALA: parse_and_validate_mandala,
+    KIND_POPUP:   parse_and_validate_popup,      # 5ft
 }
 
 SUMMARIZERS = {
     KIND_PSD:     summarise_traces,
     KIND_MANDALA: summarise_mandala,
+    KIND_POPUP:   summarise_popup,               # 5ft
 }
 
 

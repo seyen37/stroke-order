@@ -168,8 +168,27 @@ def popup_svg(req: PopupSvgRequest):
                             "STROKE_ORDER_HEI_FONT_FILE。",
             ) from e
         raise HTTPException(500, detail=f"產生失敗：{e}") from e
+    # 5ft：SVG 內嵌 <popup-config> metadata（比照 mandala 的
+    # <mandala-config>）——公眾分享庫以此驗證/分類立體字上傳
+    import json as _json
+    import re as _re
+    _cfg = _json.dumps({
+        "schema": "stroke-order-popup-v1",
+        "upper": upper, "lower": (req.lower or "").strip(),
+        "card_w_mm": float(req.card_w_mm), "card_h_mm": float(req.card_h_mm),
+        "char_h_mm": float(req.char_h_mm), "roof_mm": float(req.roof_mm),
+        "tread_mm": float(req.tread_mm), "cell_w_mm": float(req.cell_w_mm),
+        "components": r.components, "bridges": r.bridges, "tiers": r.tiers,
+    }, ensure_ascii=False)
+    svg_out = _re.sub(
+        r"(<svg\b[^>]*>)",
+        lambda m: (m.group(1)
+                   + "<metadata><popup-config><![CDATA["
+                   + _cfg + "]]></popup-config></metadata>"),
+        r.svg, count=1,
+    )
     return {
-        "svg": r.svg, "width_mm": r.width_mm, "height_mm": r.height_mm,
+        "svg": svg_out, "width_mm": r.width_mm, "height_mm": r.height_mm,
         "components": r.components, "bridges": r.bridges, "tiers": r.tiers,
     }
 

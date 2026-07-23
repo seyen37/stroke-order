@@ -617,3 +617,50 @@ def test_5fr_p2_batch(client):
     # 提示文案
     assert "例：選「氵」" in page
     assert "上緣文字會倒置" in page
+
+
+def test_5fs_gallery_tab_card_sametab_sw(client):
+    """5fs 四項：①公眾分享庫入口上層 tab（藝術創作旁）②筆順練習提交
+    鈕拿掉「匿名」③手寫卡片同分頁開啟 ④卡片文字框「逐字手寫」——
+    整串文字帶進筆順練習（from=card），返回鈕回 /card。"""
+    page = client.get("/").text
+    tabs = page.split('class="mode-tabs"')[1].split("</div>")[0]
+    assert 'href="/gallery"' in tabs
+    assert tabs.index("藝術創作") < tabs.index('href="/gallery"')
+    # 手寫卡片：同分頁（無 target=_blank、無 ↗）
+    card_link = page.split('href="/card"')[1][:400]
+    assert "_blank" not in page.split('href="/card"')[0][-200:]
+    assert "↗" not in card_link
+    # 匿名字樣移除
+    hw = client.get("/handwriting").text
+    assert "提交公眾資料庫" in hw
+    assert "提交匿名" not in hw
+    # from=card 支援：標籤＋返回鈕回 /card
+    assert "card: '手寫卡片'" in hw
+    assert "'/card' : '/'" in hw
+    # 卡片：逐字手寫鈕＋main.js 導航
+    card = client.get("/card").text
+    assert 'id="card-sw-btn"' in card
+    mainjs = client.get("/static/card/main.js").text
+    assert "from=card" in mainjs
+    assert "card-sw-btn" in mainjs
+
+
+def test_5ft_popup_entry_and_gallery_kind(client):
+    """5ft：①主頁藝術創作群有立體字入口（/popup 原無入口）②分享庫
+    篩選籤含立體字、上傳說明含三種、banner 含 pop-up SVG ③uploader
+    支援 popup 偵測。"""
+    page = client.get("/").text
+    art = page.split('data-g="art"')[-1]
+    assert 'href="/popup"' in art
+    assert "鏤空 pop-up" in art
+    gl = client.get("/gallery").text
+    assert 'data-kind="popup"' in gl
+    assert "立體字" in gl and "支援三種上傳" in gl
+    up = client.get("/static/gallery/uploader.js").text
+    assert "stroke-order-popup-v1" in up
+    assert "popup-svg" in up
+    gjs = client.get("/static/gallery/gallery.js").text
+    assert "popup: '立體字'" in gjs
+    pop = client.get("/popup").text
+    assert '"/gallery"' in pop or "href=\"/gallery\"" in pop

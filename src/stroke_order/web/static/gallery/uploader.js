@@ -14,8 +14,10 @@ const $ = id => document.getElementById(id);
 
 const KIND_PSD     = 'psd';
 const KIND_MANDALA = 'mandala';
+const KIND_POPUP   = 'popup';                       // 5ft：立體字
 const PSD_SCHEMA     = 'stroke-order-psd-v1';
 const MANDALA_SCHEMA = 'stroke-order-mandala-v1';
+const POPUP_SCHEMA   = 'stroke-order-popup-v1';     // 5ft
 
 let _selectedFile = null;        // File object once user picks
 let _selectedAnalysis = null;    // { ok, kind, ... } or null
@@ -45,7 +47,10 @@ async function _sha256HexPrefix(file) {
 // 從檔案文字偵測 upload kind（不靠副檔名，純看內容開頭）
 function _detectKindFromText(text) {
   const t = text.trimStart();
-  if (t.startsWith('<svg') || t.startsWith('<?xml')) return 'mandala-svg';
+  if (t.startsWith('<svg') || t.startsWith('<?xml')) {
+    // 5ft：SVG 依內嵌 metadata 分流——popup-config＝立體字，否則曼陀羅
+    return text.includes('<popup-config') ? 'popup-svg' : 'mandala-svg';
+  }
   if (t.startsWith('---'))                             return 'mandala-md';
   if (t.startsWith('{'))                               return 'psd-json';
   return 'unknown';
@@ -213,11 +218,49 @@ async function _renderPreview(file) {
     return;
   }
 
+  if (detected === 'popup-svg') {   // 5ft：立體字 SVG
+    let state;
+    try {
+      const m = text.match(
+        /<popup-config[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/popup-config>/);
+      if (!m) throw new Error('SVG 內未找到 <popup-config> metadata');
+      state = JSON.parse(m[1]);
+    } catch (e) {
+      box.classList.add('error');
+      box.innerHTML = '<b>⚠ 立體字檔案解析失敗</b>：' + (e?.message || e);
+      _selectedAnalysis = { ok: false };
+      return;
+    }
+    if (!state || state.schema !== POPUP_SCHEMA) {
+      box.classList.add('error');
+      box.innerHTML = (
+        `<b>⚠ schema 不符</b>：${state?.schema || '（未指定）'}；` +
+        `預期 <code>${POPUP_SCHEMA}</code>。`
+      );
+      _selectedAnalysis = { ok: false };
+      return;
+    }
+    let hashPrefix = '';
+    try { hashPrefix = await _sha256HexPrefix(file); } catch (_) {}
+    box.innerHTML = (
+      `<b>✓ 立體字 (${POPUP_SCHEMA}, SVG 內嵌)</b><br>` +
+      `上排：「${state.upper || ''}」` +
+      (state.lower ? `　下排：「${state.lower}」` : '') + '<br>' +
+      `卡片 ${state.card_w_mm || '?'}×${state.card_h_mm || '?'} mm` +
+      (hashPrefix
+        ? `<br><small>SHA-256 前 12 碼：<span class="pill">${hashPrefix}</span></small>`
+        : '')
+    );
+    _selectedAnalysis = { ok: true, kind: KIND_POPUP };
+    return;
+  }
+
   // unknown
   box.classList.add('error');
   box.innerHTML = (
     '<b>⚠ 無法判斷檔案種類</b><br>' +
-    '請使用：抄經軌跡 (.json)、曼陀羅 (.mandala.md / 含 metadata 的 .svg)。'
+    '請使用：抄經軌跡 (.json)、曼陀羅 (.mandala.md / 含 metadata 的 .svg)、' +
+    '立體字（含 metadata 的 .svg）。'
   );
   _selectedAnalysis = { ok: false };
 }

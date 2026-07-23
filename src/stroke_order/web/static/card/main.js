@@ -479,6 +479,13 @@ export function init() {
   $('card-size').addEventListener('change', () => mutateSelected((b) => { b.sizeMm = Number($('card-size').value) || 8; }));
   $('card-vertical').addEventListener('change', () => mutateSelected((b) => { b.vertical = $('card-vertical').checked; }));
   $('card-glyph-source').addEventListener('change', () => mutateSelected((b) => { b.glyph.source = $('card-glyph-source').value; }));
+  // 5fs：文字框逐字手寫——整串文字帶進筆順練習（字串教材、逐字前進），
+  // 同分頁導航（草稿已自動存瀏覽器）；該頁返回鈕會回 /card。
+  $('card-sw-btn').onclick = () => {
+    const text = ($('card-text').value || '').replace(/\s+/g, '').slice(0, 60);
+    if (!text) { alert('請先在文字框輸入要手寫的文字'); return; }
+    location.href = `/handwriting?char=${encodeURIComponent(text)}&from=card`;
+  };
   $('card-glyph-style').addEventListener('change', () => mutateSelected((b) => { b.glyph.style = $('card-glyph-style').value; }));
   $('card-font-file').addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
