@@ -238,3 +238,34 @@ test('round-trip r29g: state with upload → hash → state', () => {
     deepLinkUploadId: 999,
   });
 });
+
+// ---------------------------------------------------------------------------
+// 5fw：分類擴充——15 kind 白名單＋單一事實源匯出
+// ---------------------------------------------------------------------------
+import { EXPORT_KINDS, KIND_LABELS } from
+  "../src/stroke_order/web/static/gallery/hash.mjs";
+
+test("5fw: EXPORT_KINDS 12 模式、KIND_LABELS 15 分類全有標籤", () => {
+  assert.equal(EXPORT_KINDS.length, 12);
+  for (const k of ["psd", "mandala", "popup", ...EXPORT_KINDS]) {
+    assert.ok(KIND_LABELS[k], `KIND_LABELS 缺 ${k}`);
+  }
+});
+
+test("5fw: 新分類 kind 進 hash 白名單（round-trip）", () => {
+  for (const k of EXPORT_KINDS) {
+    const h = stateToHash({ kindFilter: k });
+    assert.equal(h, `#kind=${k}`);
+    assert.equal(parseHash(h).kindFilter, k);
+  }
+});
+
+test("5fw: popup 深連結修正——5ft 當時漏加白名單，#kind=popup 曾被丟棄", () => {
+  assert.equal(stateToHash({ kindFilter: "popup" }), "#kind=popup");
+  assert.equal(parseHash("#kind=popup").kindFilter, "popup");
+});
+
+test("5fw: 未知 kind 仍拒（白名單制不因擴充而鬆動）", () => {
+  assert.equal(stateToHash({ kindFilter: "evil" }), "");
+  assert.equal(parseHash("#kind=evil").kindFilter, "");
+});

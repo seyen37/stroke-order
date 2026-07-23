@@ -655,13 +655,15 @@ def test_5ft_popup_entry_and_gallery_kind(client):
     assert 'href="/popup"' in art
     assert "鏤空 pop-up" in art
     gl = client.get("/gallery").text
-    assert 'data-kind="popup"' in gl
-    assert "立體字" in gl and "支援三種上傳" in gl
+    # 5fw：kind tabs 改 optgroup 下拉——popup 分類入口改斷 option
+    assert 'value="popup"' in gl
+    assert "立體字" in gl and "支援上傳" in gl
     up = client.get("/static/gallery/uploader.js").text
     assert "stroke-order-popup-v1" in up
     assert "popup-svg" in up
-    gjs = client.get("/static/gallery/gallery.js").text
-    assert "popup: '立體字'" in gjs
+    # 5fw：kind 標籤單一事實源移到 hash.mjs KIND_LABELS
+    hjs = client.get("/static/gallery/hash.mjs").text
+    assert "popup: '立體字'" in hjs
     pop = client.get("/popup").text
     assert '"/gallery"' in pop or "href=\"/gallery\"" in pop
 

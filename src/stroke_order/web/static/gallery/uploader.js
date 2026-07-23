@@ -12,12 +12,17 @@
 
 const $ = id => document.getElementById(id);
 
+// 5fw：分類單一事實源（與 gallery.js 共用；沿用既有無 ?v= 匯入樣式，
+// 避免同模組雙實例——ES 鏈 ?v= 缺口見 backlog §67）
+import { EXPORT_KINDS, KIND_LABELS } from './hash.mjs';
+
 const KIND_PSD     = 'psd';
 const KIND_MANDALA = 'mandala';
 const KIND_POPUP   = 'popup';                       // 5ft：立體字
 const PSD_SCHEMA     = 'stroke-order-psd-v1';
 const MANDALA_SCHEMA = 'stroke-order-mandala-v1';
 const POPUP_SCHEMA   = 'stroke-order-popup-v1';     // 5ft
+const EXPORT_SCHEMA  = 'stroke-order-export-v1';    // 5fw：模式匯出信封
 
 let _selectedFile = null;        // File object once user picks
 let _selectedAnalysis = null;    // { ok, kind, ... } or null
@@ -48,8 +53,13 @@ async function _sha256HexPrefix(file) {
 function _detectKindFromText(text) {
   const t = text.trimStart();
   if (t.startsWith('<svg') || t.startsWith('<?xml')) {
-    // 5ft：SVG 依內嵌 metadata 分流——popup-config＝立體字，否則曼陀羅
-    return text.includes('<popup-config') ? 'popup-svg' : 'mandala-svg';
+    // 5ft/5fw：SVG 依內嵌 metadata 分流——popup-config＝立體字、
+    // stroke-order-export＝模式匯出、mandala-config＝曼陀羅；
+    // 都沒有 → 走 export 分析路（錯誤訊息會引導重新匯出）
+    if (text.includes('<popup-config'))         return 'popup-svg';
+    if (text.includes('<stroke-order-export'))  return 'export-svg';
+    if (text.includes('<mandala-config'))       return 'mandala-svg';
+    return 'export-svg';
   }
   if (t.startsWith('---'))                             return 'mandala-md';
   if (t.startsWith('{'))                               return 'psd-json';
@@ -215,6 +225,48 @@ async function _renderPreview(file) {
         : '')
     );
     _selectedAnalysis = { ok: true, kind: KIND_MANDALA, ...stats };
+    return;
+  }
+
+  if (detected === 'export-svg') {
+    // 5fw：模式匯出 SVG——抽信封驗 schema/mode，kind＝檔案聲明的 mode
+    const m = /<stroke-order-export><!\[CDATA\[([\s\S]*?)\]\]><\/stroke-order-export>/.exec(text);
+    let env = null;
+    if (m) { try { env = JSON.parse(m[1]); } catch (_) { env = null; } }
+    if (!env) {
+      box.classList.add('error');
+      box.innerHTML = (
+        '<b>⚠ SVG 內未找到本站出口憑據</b>：只接受 v0.14.271 之後' +
+        '從本站各模式匯出的 SVG，請回對應模式重新產生並下載。'
+      );
+      _selectedAnalysis = { ok: false };
+      return;
+    }
+    if (env.schema !== EXPORT_SCHEMA) {
+      box.classList.add('error');
+      box.innerHTML = (
+        `<b>⚠ schema 不符</b>：${env.schema || '（未指定）'}；` +
+        `預期 <code>${EXPORT_SCHEMA}</code>。`
+      );
+      _selectedAnalysis = { ok: false };
+      return;
+    }
+    if (!EXPORT_KINDS.includes(env.mode)) {
+      box.classList.add('error');
+      box.innerHTML = (
+        `<b>⚠ 未知的模式</b>：${env.mode || '（未指定）'}——` +
+        '可能是較新版本的檔案，請重新整理頁面後再試。'
+      );
+      _selectedAnalysis = { ok: false };
+      return;
+    }
+    box.innerHTML = (
+      `<b>✓ ${KIND_LABELS[env.mode] || env.mode} (${EXPORT_SCHEMA})</b><br>` +
+      `分類：<span class="pill">${KIND_LABELS[env.mode] || env.mode}</span>` +
+      (env.app_version
+        ? ` · 匯出版本 <span class="pill">v${env.app_version}</span>` : '')
+    );
+    _selectedAnalysis = { ok: true, kind: env.mode };
     return;
   }
 

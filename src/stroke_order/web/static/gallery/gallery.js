@@ -16,7 +16,8 @@ import {
 } from './auth.js?v=__V__';
 import { showUploadDialog, attachUploaderHandlers } from './uploader.js?v=__V__';
 // r29f: URL hash <-> state pure helpers (testable from Node)
-import { stateToHash, parseHash } from './hash.mjs';
+import { stateToHash, parseHash, EXPORT_KINDS, KIND_LABELS }
+  from './hash.mjs';
 // r29h: toast notification (替換散點 alert)
 import { showToast } from './toast.mjs';
 // r29j: avatar render helper（img / initials fallback）
@@ -286,10 +287,11 @@ function renderList() {
 }
 
 function _kindBadge(kind) {
-  const labels = { psd: '抄經', mandala: '曼陀羅', popup: '立體字' };  // 5ft
+  // 5fw：標籤改單一事實源 KIND_LABELS（hash.mjs）；psd 沿用短標「抄經」
   const k = kind || 'psd';
+  const label = k === 'psd' ? '抄經' : (KIND_LABELS[k] || k);
   return `<span class="gl-card-kind gl-card-kind-${_escape(k)}">${
-    _escape(labels[k] || k)
+    _escape(label)
   }</span>`;
 }
 
@@ -297,6 +299,10 @@ function _kindMeta(item) {
   // r28: kind-specific summary line（取代寫死的 trace_count / unique_chars）
   const kind = item.kind || 'psd';
   const summary = item.summary || {};
+  if (EXPORT_KINDS.includes(kind)) {   // 5fw：模式匯出摘要（信封欄位）
+    const ver = summary.app_version ? ` · 匯出版本 v${_escape(summary.app_version)}` : '';
+    return `<span>本站${_escape(KIND_LABELS[kind] || kind)}匯出 SVG${ver}</span>`;
+  }
   if (kind === 'popup') {   // 5ft：立體字摘要
     const up = summary.upper_text || '';
     const lo = summary.lower_text || '';
@@ -346,7 +352,9 @@ function _kindStyles(item) {
 
 function _downloadLabel(kind) {
   if (kind === 'mandala') return '↓ 下載 (.md / .svg)';
-  if (kind === 'popup')   return '↓ 下載 SVG';          // 5ft
+  if (kind === 'popup' || EXPORT_KINDS.includes(kind)) {
+    return '↓ 下載 SVG';          // 5ft popup／5fw 模式匯出
+  }
   return '↓ 下載 JSON';
 }
 
@@ -354,7 +362,8 @@ function _kindThumbnail(item) {
   // r28b: mandala kind 才嘗試載 thumbnail；onerror 隱藏自己（mandala+md upload 沒
   // thumbnail 時 endpoint 回 404，img 自動被隱藏）。PSD 跳過。
   const kind = item.kind || 'psd';
-  if (kind !== 'mandala') return '';
+  // 5fw：模式匯出 SVG 也有伺服器縮圖
+  if (kind !== 'mandala' && !EXPORT_KINDS.includes(kind)) return '';
   return `<div class="gl-card-thumb">
     <img src="/api/gallery/uploads/${item.id}/thumbnail"
          alt="${_escape(item.title)} 縮圖"
@@ -606,8 +615,8 @@ function _renderProfileTopStrip(topUploads) {
   const items = topUploads.map((it, idx) => {
     const medal = ['🥇', '🥈', '🥉'][idx] || '⭐';
     const kind = it.kind || 'psd';
-    // 只 mandala 有 thumbnail；其他 kind 用文字 placeholder
-    const thumbHtml = (kind === 'mandala')
+    // mandala＋5fw 模式匯出有 thumbnail；其他 kind 用文字 placeholder
+    const thumbHtml = (kind === 'mandala' || EXPORT_KINDS.includes(kind))
       ? `<img src="/api/gallery/uploads/${it.id}/thumbnail"
               alt="${_escape(it.title)}"
               loading="lazy"
@@ -822,6 +831,18 @@ function _wireToolbar() {
     refresh();
   });
 
+  // 5fw: 分類下拉（15 分類 tabs 放不下——改 optgroup 下拉；與「我的收藏」互斥）
+  const kindSel = $('gl-kind');
+  if (kindSel) {
+    kindSel.addEventListener('change', (ev) => {
+      state.bookmarkedOnly = false;
+      state.kindFilter = ev.target.value || '';
+      state.page = 1;
+      _syncFilterTabsActive();
+      refresh();
+    });
+  }
+
   // r29c: search input — debounced 300ms 觸發 refresh
   let searchTimer = null;
   const searchInput = $('gl-search');
@@ -841,6 +862,12 @@ function _wireToolbar() {
 
 // r29b: sync 哪個 filter tab 當前 active
 function _syncFilterTabsActive() {
+  // 5fw：分類下拉跟 state 同步（收藏模式時下拉顯示全部）
+  const kindSel = $('gl-kind');
+  if (kindSel) {
+    kindSel.value = state.bookmarkedOnly ? '' : (state.kindFilter || '');
+    kindSel.classList.toggle('is-active', !state.bookmarkedOnly && !!state.kindFilter);
+  }
   document.querySelectorAll('.gl-filter-tab').forEach(b => {
     let active;
     if (b.dataset.bookmarked === 'true') {

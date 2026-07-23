@@ -8,7 +8,7 @@
 //   user        → state.userFilter     (positive integer)
 //   sort        → state.sort           ('newest' | 'likes' | 'hot')
 //   q           → state.q              (string, max 100 chars — server enforces)
-//   kind        → state.kindFilter     ('psd' | 'mandala')
+//   kind        → state.kindFilter     (ALLOWED_KINDS 白名單，15 分類)
 //   upload      → state.deepLinkUploadId  (r29g: positive integer，
 //                  prepend + 4s flash highlight，4 秒後 state 自清但 hash 留)
 //
@@ -22,7 +22,23 @@
 // ======================================================================
 
 const ALLOWED_SORTS = ['newest', 'likes', 'hot'];
-const ALLOWED_KINDS = ['psd', 'mandala'];
+
+// 5fw：模式匯出分類（kind 字串＝出口信封 mode；與 gallery/service.py
+// EXPORT_MODE_KINDS 同表）＋全站 kind 標籤——單一事實源，gallery.js /
+// uploader.js 皆由此 import。順帶修正：popup（5ft）當時漏加 hash 白名單，
+// #kind=popup 深連結被靜默丟棄。
+export const EXPORT_KINDS = [
+  'single', 'grid', 'manuscript', 'notebook', 'letter', 'sutra',
+  'doodle', 'patch', 'stamp', 'stencil', 'wordart', 'zentangle',
+];
+export const KIND_LABELS = {
+  psd: '抄經軌跡', mandala: '曼陀羅', popup: '立體字',
+  single: '單字筆順', grid: '字帖', manuscript: '稿紙',
+  notebook: '筆記', letter: '信紙', sutra: '抄經字帖',
+  doodle: '塗鴉', patch: '布章', stamp: '印章', stencil: '鏤空字',
+  wordart: '文字雲', zentangle: '禪繞字',
+};
+const ALLOWED_KINDS = ['psd', 'mandala', 'popup', ...EXPORT_KINDS];
 
 /**
  * Serialize a state object to a hash string (with leading '#', or '' if empty).

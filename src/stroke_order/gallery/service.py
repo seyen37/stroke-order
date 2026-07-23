@@ -42,7 +42,15 @@ DAILY_UPLOAD_LIMIT  = 20                   # uploads / user / 24h
 KIND_PSD            = "psd"
 KIND_MANDALA        = "mandala"
 KIND_POPUP          = "popup"        # 5ft：立體字（鏤空 pop-up SVG）
-ALLOWED_KINDS       = (KIND_PSD, KIND_MANDALA, KIND_POPUP)
+
+# 5fw：主頁各模式匯出 SVG（統一出口信封 stroke-order-export-v1；5fv 供給側）
+# kind 字串＝信封 mode 字串——分類由檔案聲明，不可能放錯類。
+EXPORT_MODE_KINDS   = (
+    "single", "grid", "manuscript", "notebook", "letter", "sutra",
+    "doodle", "patch", "stamp", "stencil", "wordart", "zentangle",
+)
+ALLOWED_KINDS       = (KIND_PSD, KIND_MANDALA, KIND_POPUP,
+                       *EXPORT_MODE_KINDS)
 
 PSD_SCHEMA_TAG      = "stroke-order-psd-v1"
 MANDALA_SCHEMA_TAG  = "stroke-order-mandala-v1"
@@ -341,6 +349,95 @@ def summarise_popup(state: dict) -> dict:
     }
 
 
+# ------------------- 5fw: 統一出口信封 kinds（12 模式） -------------------
+
+# 危險構件——本站匯出器從不產生這些，命中一律拒收（拒收比消毒乾淨：
+# 合法檔零誤傷，錯誤訊息直接引導重新匯出）。url( 放行內部參照 url(#
+# （布章 clip-path 合法使用），僅擋外部參照。
+_SVG_FORBIDDEN_PATTERNS: tuple[tuple[str, str], ...] = (
+    (r"<\s*script\b",        "script 標籤"),
+    (r"<\s*foreignobject\b", "foreignObject 標籤"),
+    (r"<\s*iframe\b",        "iframe 標籤"),
+    (r"<\s*embed\b",         "embed 標籤"),
+    (r"<\s*object\b",        "object 標籤"),
+    (r"<\s*image\b",         "image 標籤"),
+    (r"<\s*use\b",           "use 標籤"),
+    (r"<\s*style\b",         "style 標籤"),
+    (r"\son[a-z]+\s*=",      "事件屬性（on*=）"),
+    (r"javascript:",          "javascript: URL"),
+    (r"href\s*=",             "href 屬性（外部參照）"),
+    (r"url\(\s*(?!#)",       "外部 url() 參照"),
+)
+_SVG_FORBIDDEN_RES = tuple(
+    (re.compile(pat, re.IGNORECASE), label)
+    for pat, label in _SVG_FORBIDDEN_PATTERNS
+)
+
+
+def _reject_dangerous_svg(text: str) -> None:
+    """XSS 防禦（縱深；下載端已是 attachment）。命中即拒收。"""
+    for regex, label in _SVG_FORBIDDEN_RES:
+        if regex.search(text):
+            raise InvalidUpload(
+                f"SVG 內含不允許的內容（{label}）；"
+                "請從本站對應模式重新匯出後上傳",
+            )
+
+
+def parse_and_validate_export_svg(
+    content_bytes: bytes, *, expected_mode: str,
+) -> tuple[dict, str]:
+    """5fw：主頁模式匯出 SVG 的通用驗證器（一個蓋 12 分類）。
+
+    准入條件：是 SVG、無危險構件、內嵌統一出口信封
+    （schema=stroke-order-export-v1）且 ``mode`` 與分類一致。
+    回 ``(envelope_dict, "svg")``。
+    """
+    from ..exporters.envelope import (
+        EXPORT_SCHEMA_TAG, parse_export_envelope,
+    )
+    text = _common_size_decode(content_bytes)
+    ts = text.lstrip()
+    if not (ts.startswith("<svg") or ts.startswith("<?xml")):
+        raise InvalidUpload(
+            "此分類需上傳本站匯出的 SVG 檔（副檔名 .svg）")
+    _reject_dangerous_svg(text)
+    env = parse_export_envelope(text)
+    if env is None:
+        raise InvalidUpload(
+            "SVG 內未找到本站出口憑據（stroke-order-export）；"
+            "只接受 v0.14.271 之後從本站各模式匯出的 SVG——"
+            "請回對應模式重新產生並下載",
+        )
+    if env.get("schema") != EXPORT_SCHEMA_TAG:
+        raise InvalidUpload(
+            f"不支援的 schema：{env.get('schema')!r}；需 {EXPORT_SCHEMA_TAG}",
+        )
+    actual_mode = env.get("mode")
+    if actual_mode != expected_mode:
+        raise InvalidUpload(
+            f"檔案聲明的模式（{actual_mode!r}）與上傳分類"
+            f"（{expected_mode!r}）不符",
+        )
+    return env, "svg"
+
+
+def summarise_export_svg(state: dict) -> dict:
+    """匯出 SVG 清單頁摘要——模式與匯出版本（信封欄位，防禦式取值）。"""
+    return {
+        "mode": str(state.get("mode", "")),
+        "app_version": str(state.get("app_version", "")),
+    }
+
+
+def _make_export_validator(mode: str):
+    """綁定分類的 validator（VALIDATORS 契約：``fn(bytes) → (state, ext)``）。"""
+    def _validate(content_bytes: bytes) -> tuple[dict, str]:
+        return parse_and_validate_export_svg(
+            content_bytes, expected_mode=mode)
+    return _validate
+
+
 # Validator dispatch — call site: `state, ext = VALIDATORS[kind](bytes)`
 # psd 包一層 lambda 統一返回 (state, ext) 形式（ext 給 on-disk 副檔名）
 VALIDATORS = {
@@ -354,6 +451,11 @@ SUMMARIZERS = {
     KIND_MANDALA: summarise_mandala,
     KIND_POPUP:   summarise_popup,               # 5ft
 }
+
+# 5fw：12 個匯出模式分類——registry 派遣，上傳/列表/下載 API 零改動
+for _mode in EXPORT_MODE_KINDS:
+    VALIDATORS[_mode]  = _make_export_validator(_mode)
+    SUMMARIZERS[_mode] = summarise_export_svg
 
 
 # ------------------- Phase 5b r28b: thumbnail generation ------------------
@@ -416,8 +518,8 @@ def _maybe_generate_thumbnail(
     Phase 5b r28c: ``char_loader`` 為可選 DI；若 None，MD path 跳過
     thumbnail（保 r28b 行為向後相容）。
     """
-    if kind != KIND_MANDALA:
-        return False  # PSD 沒 thumbnail 概念
+    if kind not in (KIND_MANDALA, *EXPORT_MODE_KINDS):
+        return False  # PSD/popup 沒 thumbnail（popup 縮圖列 backlog）
 
     import logging
     try:
