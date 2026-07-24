@@ -45,7 +45,7 @@
     @media (max-width: 640px) { main { grid-template-columns: 1fr; } }
 
     section.card {
-      background: white; border: 1px solid var(--border);
+      background: var(--surface); border: 1px solid var(--border);
       border-radius: 8px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
     }
     section h2 { font-size: 14px; margin: 0 0 10px; color: var(--muted);
@@ -56,15 +56,18 @@
     .row label { font-size: 13px; color: var(--muted); min-width: 80px; }
     input[type=text], select, input[type=number] {
       font: inherit; padding: 6px 10px; border: 1px solid var(--border);
-      border-radius: 4px; background: white;
+      border-radius: 4px; background: var(--surface);
     }
     input[type=text] { font-size: 18px; width: 100%; }
     button {
       font: inherit; cursor: pointer; padding: 6px 14px;
-      border: 1px solid var(--border); background: white; border-radius: 4px;
+      border: 1px solid var(--border); background: var(--surface); border-radius: 4px;
     }
+    /* 5gb：分頁「目前頁」高亮——原誤用破壞性紅（--accent），歸主要動作藍。
+       使用處：letter/manuscript/notebook 的頁碼按鈕 class="primary"。 */
     button.primary {
-      background: var(--accent); color: white; border-color: var(--accent);
+      background: var(--primary); color: var(--primary-ink);
+      border-color: var(--primary);
     }
     button:hover:not(:disabled) { filter: brightness(0.95); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -82,6 +85,10 @@
       --primary-ink: #fff;
       --surface: #fff; --danger: var(--accent);
       --focus: #7aa7ff;
+      /* 5gb：資訊提示框三件組（原 #46a/#4a90c2/#69a/#6998d9 四種藍＋#f0f7ff/#f0f6ff 兩種底歸一） */
+      --info-bg: #f0f7ff;
+      --info-fg: #235;
+      --info-accent: var(--primary);
     }
     .btn-primary, .btn-secondary, .btn-ghost, .btn-danger {
       font: inherit; cursor: pointer; border-radius: var(--radius-sm);
@@ -146,7 +153,7 @@
     #preview {
       display: flex; justify-content: center; align-items: center;
       min-height: 320px; border: 1px dashed var(--border);
-      border-radius: 4px; background: white;
+      border-radius: 4px; background: var(--surface);
     }
     #preview-controls { display: flex; gap: 8px; justify-content: center;
                         margin-top: 10px; }
@@ -154,7 +161,7 @@
     .downloads { display: flex; gap: 8px; flex-wrap: wrap; }
     .downloads a {
       text-decoration: none; padding: 6px 12px; border: 1px solid var(--border);
-      background: white; border-radius: 4px; color: var(--fg); font-size: 14px;
+      background: var(--surface); border-radius: 4px; color: var(--fg); font-size: 14px;
     }
     .downloads a:hover { background: var(--bg); }
 
@@ -188,7 +195,7 @@
     .wakeup-overlay.show { display: flex; animation: wakeupFade .25s ease-out; }
     @keyframes wakeupFade { from { opacity: 0; } to { opacity: 1; } }
     .wakeup-card {
-      background: white;
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 28px 32px;
@@ -331,7 +338,7 @@
 <div id="font-status-overlay" style="display:none;position:fixed;inset:0;
      background:rgba(0,0,0,0.4);z-index:9000;align-items:flex-start;
      justify-content:center;overflow-y:auto;padding:30px 0;">
-  <div style="background:white;border-radius:8px;width:min(720px, 92vw);
+  <div style="background:var(--surface);border-radius:8px;width:min(720px, 92vw);
               padding:20px 24px;box-shadow:0 4px 24px rgba(0,0,0,0.2);">
     <div style="display:flex;justify-content:space-between;align-items:center;
                 margin-bottom:12px;">
@@ -392,7 +399,7 @@
      ============================================================ -->
 <div id="ud-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);
      z-index:9000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:30px 0;">
-  <div style="background:white;border-radius:8px;width:min(820px, 92vw);
+  <div style="background:var(--surface);border-radius:8px;width:min(820px, 92vw);
               padding:20px 24px;box-shadow:0 4px 24px rgba(0,0,0,0.2);">
     <div style="display:flex;justify-content:space-between;align-items:center;
                 margin-bottom:12px;">
@@ -467,7 +474,7 @@
         <div style="display:flex;gap:14px;flex-wrap:wrap;">
           <div>
             <canvas id="ud-canvas" width="320" height="320"
-                    style="border:1px solid var(--border);background:white;
+                    style="border:1px solid var(--border);background:var(--surface);
                            cursor:crosshair;display:block;touch-action:none;">
             </canvas>
             <div style="margin-top:6px;display:flex;gap:6px;">
@@ -493,7 +500,7 @@
             支援 &lt;path&gt; / &lt;polyline&gt; / &lt;line&gt;。每個元素一筆畫。
           </span>
           <div id="ud-svg-preview" style="margin-top:6px;border:1px dashed var(--border);
-               background:white;width:100%;min-height:120px;padding:6px;display:flex;
+               background:var(--surface);width:100%;min-height:120px;padding:6px;display:flex;
                align-items:center;justify-content:center;color:var(--muted);
                font-size:11px;">(選擇 SVG 後預覽)</div>
         </div>
@@ -528,7 +535,7 @@
 <div id="sw-overlay" style="display:none;position:fixed;inset:0;
      background:rgba(0,0,0,.45);z-index:1000;align-items:center;
      justify-content:center;">
-  <div style="background:white;border-radius:8px;padding:18px;
+  <div style="background:var(--surface);border-radius:8px;padding:18px;
        max-width:600px;width:94%;max-height:92vh;overflow:auto;
        box-shadow:0 10px 40px rgba(0,0,0,.3);">
     <div style="display:flex;align-items:center;margin-bottom:10px;">
@@ -566,7 +573,7 @@
         </div>
         <div style="position:relative;">
           <canvas id="sw-canvas" width="360" height="360"
-                  style="border:1px solid var(--border);background:white;
+                  style="border:1px solid var(--border);background:var(--surface);
                          cursor:crosshair;display:block;touch-action:none;">
           </canvas>
           <span id="sw-canvas-info"
@@ -575,7 +582,7 @@
           <!-- 5ec: 標準筆順示範疊層（hanzi-writer）；點一下收起回手寫 -->
           <div id="sw-demo" title="點一下收起示範"
                style="position:absolute;top:0;left:0;width:360px;height:360px;
-                      display:none;background:white;cursor:pointer;
+                      display:none;background:var(--surface);cursor:pointer;
                       border:1px solid var(--border);"></div>
         </div>
       </div>
@@ -758,7 +765,7 @@
   <section class="card" style="grid-column: 1 / -1;">
     <h2>字帖預覽</h2>
     <div id="grid-preview"
-         style="background:white;border:1px dashed var(--border);
+         style="background:var(--surface);border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
       <span class="preview-empty">（輸入字串後按「產生字帖」以顯示）</span>
@@ -831,8 +838,8 @@
       <span>留空用 preset 預設；填「每頁行數」會**優先**於「行高/字寬」。</span>
     </div>
     <!-- Capacity display -->
-    <div id="nb-capacity" style="padding:8px 10px;margin:6px 0;background:#f0f6ff;
-         border-left:3px solid #6998d9;border-radius:3px;font-size:13px;color:#234;">
+    <div id="nb-capacity" style="padding:8px 10px;margin:6px 0;background:var(--info-bg);
+         border-left:3px solid var(--info-accent);border-radius:3px;font-size:13px;color:var(--info-fg);">
       計算中…
     </div>
     <div class="row">
@@ -911,7 +918,7 @@
     <h2>筆記預覽</h2>
     <div id="nb-page-nav" style="margin-bottom:8px;text-align:center;"></div>
     <div id="nb-preview"
-         style="background:white;border:1px dashed var(--border);
+         style="background:var(--surface);border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
       <span class="preview-empty">（輸入內容後按「產生筆記」以顯示）</span>
@@ -1015,8 +1022,8 @@
       <span id="lt-first-line-hint" style="margin-left:8px;color:var(--muted);font-size:11px;"></span>
     </div>
     <!-- Capacity display -->
-    <div id="lt-capacity" style="padding:8px 10px;margin:6px 0;background:#f0f6ff;
-         border-left:3px solid #6998d9;border-radius:3px;font-size:13px;color:#234;">
+    <div id="lt-capacity" style="padding:8px 10px;margin:6px 0;background:var(--info-bg);
+         border-left:3px solid var(--info-accent);border-radius:3px;font-size:13px;color:var(--info-fg);">
       計算中…
     </div>
     <div class="row">
@@ -1077,7 +1084,7 @@
     <h2>信紙預覽</h2>
     <div id="lt-page-nav" style="margin-bottom:8px;text-align:center;"></div>
     <div id="lt-preview"
-         style="background:white;border:1px dashed var(--border);
+         style="background:var(--surface);border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
       <span class="preview-empty">（輸入信文後按「產生信紙」以顯示）</span>
@@ -1129,8 +1136,8 @@
       </label>
     </div>
     <!-- Capacity display -->
-    <div id="ms-capacity" style="padding:8px 10px;margin:6px 0;background:#f0f6ff;
-         border-left:3px solid #6998d9;border-radius:3px;font-size:13px;color:#234;">
+    <div id="ms-capacity" style="padding:8px 10px;margin:6px 0;background:var(--info-bg);
+         border-left:3px solid var(--info-accent);border-radius:3px;font-size:13px;color:var(--info-fg);">
       計算中…
     </div>
     <div class="row">
@@ -1180,7 +1187,7 @@
     <h2>稿紙預覽</h2>
     <div id="ms-page-nav" style="margin-bottom:8px;text-align:center;"></div>
     <div id="ms-preview"
-         style="background:white;border:1px dashed var(--border);
+         style="background:var(--surface);border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
       <span class="preview-empty">（輸入文字後按「產生稿紙」以顯示）</span>
@@ -1285,7 +1292,7 @@
   <section class="card" style="grid-column: 1 / -1;">
     <h2>塗鴉預覽</h2>
     <div id="dd-preview"
-         style="background:white;border:1px dashed var(--border);
+         style="background:var(--surface);border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:200px;
                 overflow:auto;text-align:center;">
       (選擇圖片後按「產生塗鴉」以顯示)
@@ -1405,7 +1412,7 @@
       <span id="pt-status" style="margin-left:6px;color:var(--muted);font-size:12px;"></span>
     </div>
 
-    <div id="pt-preview" style="background:white;padding:10px;border:1px solid var(--border);
+    <div id="pt-preview" style="background:var(--surface);padding:10px;border:1px solid var(--border);
          min-height:120px;text-align:center;color:var(--muted);">
       (點「產生預覽」)
     </div>
@@ -1686,9 +1693,9 @@
 
     <!-- 12m-7 r39: 職名章 (rectangle_title) 結構化欄位 — 2-column layout -->
     <div id="st-rect-fields" class="row" style="display:none;flex-direction:column;
-         background:#f0f7ff;border-left:3px solid #4a90c2;padding:6px 10px;
+         background:var(--info-bg);border-left:3px solid var(--info-accent);padding:6px 10px;
          border-radius:3px;margin:4px 0;gap:6px;">
-      <div style="font-weight:600;color:#2a5a8a;font-size:13px;">
+      <div style="font-weight:600;color:var(--info-fg);font-size:13px;">
         職名章欄位 <span style="color:var(--muted);font-weight:normal;font-size:11px;
         margin-left:6px;">職稱 1 行：左 10 + 右 16 ／ 職稱 2 行：左 12 + 右 14（mm，自動切換）／ 橫書 左→右</span>
       </div>
@@ -1945,7 +1952,7 @@
       <span id="st-status" style="margin-left:6px;color:var(--muted);font-size:12px;"></span>
     </div>
 
-    <div id="st-preview" style="background:white;padding:10px;border:1px solid var(--border);
+    <div id="st-preview" style="background:var(--surface);padding:10px;border:1px solid var(--border);
          min-height:120px;text-align:center;color:var(--muted);">
       (點「產生預覽」)
     </div>
@@ -2132,7 +2139,7 @@
             min-width:70px;text-align:right;"></span>
     </div>
 
-    <div id="su-preview" style="background:white;padding:10px;border:1px solid var(--border);
+    <div id="su-preview" style="background:var(--surface);padding:10px;border:1px solid var(--border);
          min-height:180px;text-align:center;color:var(--muted);">
       （點「產生預覽」載入第一頁）
     </div>
@@ -2148,7 +2155,7 @@
 <div id="su-mgmt-overlay" style="display:none;position:fixed;inset:0;
      background:rgba(0,0,0,0.4);z-index:9000;align-items:flex-start;
      justify-content:center;overflow-y:auto;padding:30px 0;">
-  <div style="background:white;border-radius:8px;width:min(820px, 92vw);
+  <div style="background:var(--surface);border-radius:8px;width:min(820px, 92vw);
               padding:20px 24px;box-shadow:0 4px 24px rgba(0,0,0,0.2);">
     <div style="display:flex;justify-content:space-between;align-items:center;
                 margin-bottom:12px;">
@@ -2362,8 +2369,8 @@
           <button id="wa-sides-inc" type="button"
                   title="增加一邊（最多 20）"
                   style="padding:4px 14px;font-size:14px;line-height:1;
-                         border:1px dashed #69a;border-radius:4px;
-                         background:#f0f6ff;color:#234;cursor:pointer;">
+                         border:1px dashed var(--info-accent);border-radius:4px;
+                         background:var(--info-bg);color:var(--info-fg);cursor:pointer;">
             ＋ 增加一邊
           </button>
           <button id="wa-sides-dec" type="button"
@@ -2597,8 +2604,8 @@
     </div>
 
     <!-- Live capacity display -->
-    <div id="wa-capacity" style="padding:8px 10px;margin:6px 0;background:#f0f6ff;
-         border-left:3px solid #6998d9;border-radius:3px;font-size:13px;color:#234;">
+    <div id="wa-capacity" style="padding:8px 10px;margin:6px 0;background:var(--info-bg);
+         border-left:3px solid var(--info-accent);border-radius:3px;font-size:13px;color:var(--info-fg);">
       計算中…
     </div>
 
@@ -2612,7 +2619,7 @@
   <section class="card" style="grid-column: 1 / -1;">
     <h2>文字雲預覽</h2>
     <div id="wa-preview"
-         style="background:white;border:1px dashed var(--border);
+         style="background:var(--surface);border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:300px;
                 overflow:auto;text-align:center;">
       <span class="preview-empty">（輸入文字後按「產生文字雲」以顯示）</span>
@@ -2642,22 +2649,22 @@
       </span>
     </div>
     <!-- Phase 5b r27: 曼陀羅檔案（local 匯出/匯入，不上傳伺服器） -->
-    <div class="row" style="background:#f0f7ff;border-left:3px solid #46a;
+    <div class="row" style="background:var(--info-bg);border-left:3px solid var(--info-accent);
          padding:6px 10px;border-radius:3px;align-items:center;gap:8px;flex-wrap:wrap;">
-      <b style="color:#235;font-size:13px;">📁 曼陀羅檔案</b>
+      <b style="color:var(--info-fg);font-size:13px;">📁 曼陀羅檔案</b>
       <label style="font-size:11px;">標題</label>
       <input id="md-title" type="text" maxlength="40" value=""
              placeholder="如：我的曼陀羅—九字真言（選填，做檔名 + 文獻記錄用）"
              style="flex:1;min-width:200px;font-size:12px;">
       <button id="md-export-btn" type="button"
-              style="padding:4px 12px;font-size:12px;border:1px solid #46a;
-                     border-radius:4px;background:#fff;color:#235;cursor:pointer;"
+              style="padding:4px 12px;font-size:12px;border:1px solid var(--info-accent);
+                     border-radius:4px;background:var(--surface);color:var(--info-fg);cursor:pointer;"
               title="把當前所有設定下載成 .mandala.md 檔（純本機，不上傳）">
         📥 匯出 .mandala.md
       </button>
       <button id="md-import-btn" type="button"
-              style="padding:4px 12px;font-size:12px;border:1px solid #46a;
-                     border-radius:4px;background:#fff;color:#235;cursor:pointer;"
+              style="padding:4px 12px;font-size:12px;border:1px solid var(--info-accent);
+                     border-radius:4px;background:var(--surface);color:var(--info-fg);cursor:pointer;"
               title="匯入 .mandala.md 或內嵌 metadata 的 .svg 檔">
         📤 匯入
       </button>
@@ -2672,7 +2679,7 @@
         ⬆️ 上傳到 Gallery
       </button>
     </div>
-    <div class="row" style="background:#f0f7ff;border-left:3px solid #46a;
+    <div class="row" style="background:var(--info-bg);border-left:3px solid var(--info-accent);
          padding:6px 10px;border-radius:3px;align-items:flex-start;gap:8px;">
       <label style="font-size:11px;padding-top:4px;min-width:60px;">設計意圖</label>
       <textarea id="md-design-note" rows="2" maxlength="500"
@@ -2964,9 +2971,9 @@
     </div>
     <!-- Phase 5b r18: 多格式下載 — SVG/PNG/PDF + 透明背景 -->
     <div class="row" id="md-download-row" style="display:none;
-         background:#f0f7ff;border-left:3px solid #69a;padding:6px 10px;
+         background:var(--info-bg);border-left:3px solid var(--info-accent);padding:6px 10px;
          border-radius:3px;align-items:center;gap:8px;flex-wrap:wrap;">
-      <b style="color:#234;font-size:12px;">↓ 下載：</b>
+      <b style="color:var(--info-fg);font-size:12px;">↓ 下載：</b>
       <button id="md-dl-svg" type="button" class="md-dl-btn"
               style="padding:4px 12px;font-size:12px;cursor:pointer;
                      border:1px solid var(--border);border-radius:4px;background:#fff;">
@@ -3010,7 +3017,7 @@
   <section class="card" style="grid-column: 1 / -1;">
     <h2>曼陀羅預覽</h2>
     <div id="md-preview"
-         style="background:white;border:1px dashed var(--border);
+         style="background:var(--surface);border:1px dashed var(--border);
                 border-radius:4px;padding:10px;min-height:300px;
                 overflow:auto;text-align:center;">
       <span class="preview-empty">（設定完成後按「產生曼陀羅」以顯示）</span>

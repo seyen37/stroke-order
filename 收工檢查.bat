@@ -56,34 +56,59 @@ if "%MSGFILE%"=="" (
     pause
     exit /b 1
 )
-REM freshness guard (fail-open): the picked file is the lexicographically
-REM greatest NAME, which is only "newest" if a file for THIS session was
-REM dropped. If its name lacks TODAY's date it is a stale leftover that would
-REM be silently reused as this commit's message (root cause of a 7/19 message
-REM landing on a 7/22 commit). Block ONLY when we can positively prove it is
-REM stale; if today's date cannot be read, skip the guard rather than block.
+REM 5gc consume-on-use: a message file is "pending" until a commit actually
+REM used it; after a successful commit it is MOVED to docs\_commit_msg\used\
+REM (see below) so it can never be silently reused (root cause of the 7/19
+REM message landing on a 7/22 commit). Because pending files survive
+REM midnight by design (message prepared late, bat run next morning), a
+REM date mismatch is only a WARNING now -- confirm instead of hard-block.
+REM (Messages are written cumulatively per PRINCIPLES sec.69, so the newest
+REM  pending file always covers everything still uncommitted.)
 set "TODAY="
 for /f "usebackq delims=" %%d in (`powershell -nop -c "Get-Date -Format yyyy-MM-dd" 2^>nul`) do set "TODAY=%%d"
 if defined TODAY (
     echo %MSGFILE% | findstr /c:"%TODAY%" >nul
     if errorlevel 1 (
         echo.
-        echo ******** STALE COMMIT MESSAGE -- NOT committing. ********
-        echo Newest message file: %MSGFILE%
-        echo does NOT match today's date ^(%TODAY%^) -- looks like no message
-        echo file was prepared for THIS session. Create
-        echo     docs\_commit_msg\%TODAY%_NN.txt
-        echo with this session's message, then re-run this script.
-        pause
-        exit /b 1
+        echo WARNING: newest pending message file
+        echo     %MSGFILE%
+        echo does not carry today's date ^(%TODAY%^).
+        echo - Crossed midnight since the message was prepared?  Press Y.
+        echo - No message was prepared for THIS session?  Press N, then
+        echo   ask Claude for docs\_commit_msg\%TODAY%_NN.txt and re-run.
+        choice /c YN /m "Commit with this message file anyway"
+        if errorlevel 2 (
+            echo Aborted -- nothing committed.
+            pause
+            exit /b 1
+        )
     )
 ) else (
-    echo WARNING: could not read today's date -- freshness guard skipped.
+    echo WARNING: could not read today's date -- freshness check skipped.
 )
 echo Using message file: %MSGFILE%
 git add -A
 git status -s
 git commit -F "%MSGFILE%"
+if errorlevel 1 (
+    echo.
+    echo WARNING: git commit failed or nothing to commit.
+    echo          Message file kept as pending ^(not consumed^).
+    pause
+    exit /b 1
+)
+
+echo.
+echo === [3b/3] consume message file(s) ===
+REM Move the used file -- and any OLDER pending files, whose content the
+REM newer cumulative message already covers -- into _commit_msg\used\ .
+if not exist "docs\_commit_msg\used" mkdir "docs\_commit_msg\used"
+for /f "delims=" %%f in ('dir /b /o:n "docs\_commit_msg\*.txt"') do (
+    move /y "docs\_commit_msg\%%f" "docs\_commit_msg\used\" >nul
+    echo consumed: %%f
+    if /i "docs\_commit_msg\%%f"=="%MSGFILE%" goto :consumed
+)
+:consumed
 
 echo.
 echo === done. last 3 commits: ===

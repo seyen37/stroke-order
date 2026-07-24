@@ -23,6 +23,10 @@
   --gl-warn-fg:   #704000;
   --gl-success:   #1d6b3a;
   --gl-danger:    #c33;
+  /* 5gb：隱藏標章三件組（原 .gl-card-hiddenbadge 硬編色收斂 token） */
+  --gl-flag-bg:   #fbe9e7;
+  --gl-flag-fg:   #c62828;
+  --gl-flag-border: #f2c1bc;
   --gl-radius:    4px;
   --gl-shadow:    0 1px 3px rgba(0, 0, 0, .08);
 }
@@ -822,9 +826,9 @@ button:focus-visible {
   padding: 1px 6px;
   font-size: 11px;
   border-radius: 4px;
-  background: #fbe9e7;
-  color: #c62828;
-  border: 1px solid #f2c1bc;
+  background: var(--gl-flag-bg);
+  color: var(--gl-flag-fg);
+  border: 1px solid var(--gl-flag-border);
   vertical-align: middle;
 }
 

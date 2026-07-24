@@ -12,9 +12,10 @@
 
 const $ = id => document.getElementById(id);
 
-// 5fw：分類單一事實源（與 gallery.js 共用；沿用既有無 ?v= 匯入樣式，
-// 避免同模組雙實例——ES 鏈 ?v= 缺口見 backlog §67）
-import { EXPORT_KINDS, KIND_LABELS } from './hash.mjs';
+// 5fw：分類單一事實源（與 gallery.js 共用）。
+// 5gb：全站補 ?v=__V__（backlog §67 收口）——與 gallery.js 同一 URL
+// 字串＝同一模組實例；版更後舊快取也會被擊穿。
+import { EXPORT_KINDS, KIND_LABELS } from './hash.mjs?v=__V__';
 
 const KIND_PSD     = 'psd';
 const KIND_MANDALA = 'mandala';

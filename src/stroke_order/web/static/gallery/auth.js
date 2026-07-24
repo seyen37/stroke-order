@@ -129,7 +129,7 @@ export function showProfileDialog(user) {
 
 // r29j: avatar preview helpers
 function _renderAvatarPreview(user) {
-  import('./avatar.mjs').then(({ avatarHtml }) => {
+  import('./avatar.mjs?v=__V__').then(({ avatarHtml }) => {
     const preview = $('gl-profile-avatar-preview');
     if (preview) preview.innerHTML = avatarHtml(user, 80);
     const clearBtn = $('gl-profile-avatar-clear');
@@ -241,7 +241,7 @@ export function attachAuthHandlers(ctx) {
     const status = $('gl-profile-status');
     if (!file) return;
     // r29k: client-side validation — instant feedback 不浪費 round-trip
-    const { validateAvatarFile } = await import('./avatar.mjs');
+    const { validateAvatarFile } = await import('./avatar.mjs?v=__V__');
     const result = validateAvatarFile(file);
     if (!result.ok) {
       status.hidden = false;

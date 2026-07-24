@@ -16,12 +16,14 @@ import {
 } from './auth.js?v=__V__';
 import { showUploadDialog, attachUploaderHandlers } from './uploader.js?v=__V__';
 // r29f: URL hash <-> state pure helpers (testable from Node)
+// 5gb：ES 鏈 ?v= 缺口補齊（backlog §67）——同模組全站同一 URL 字串
+// （?v=__V__ 統一注入同版號→單一實例；混用有無 ?v= 才會雙實例）
 import { stateToHash, parseHash, EXPORT_KINDS, KIND_LABELS }
-  from './hash.mjs';
+  from './hash.mjs?v=__V__';
 // r29h: toast notification (替換散點 alert)
-import { showToast } from './toast.mjs';
+import { showToast } from './toast.mjs?v=__V__';
 // r29j: avatar render helper（img / initials fallback）
-import { avatarHtml } from './avatar.mjs';
+import { avatarHtml } from './avatar.mjs?v=__V__';
 
 const $ = id => document.getElementById(id);
 
