@@ -437,10 +437,10 @@ test('R5 rulerMarkup：上/左緣刻度；有選取框加距四邊藍色讀數',
   const bare = rulerMarkup(face, null);
   assert.equal(bare.includes('#c3c9cf'), true);      // 刻度線
   assert.equal(bare.includes('>10<'), true);         // 大刻度數字
-  assert.equal(bare.includes('#1976d2'), false);     // 無框＝無讀數
+  assert.equal(bare.includes('#2c5cb8'), false);     // 無框＝無讀數
   const box = { x: 20, y: 15, w: 40, h: 20 };
   const withBox = rulerMarkup(face, box);
-  assert.equal(withBox.includes('fill="#1976d2"'), true); // 讀數藍字
+  assert.equal(withBox.includes('fill="#2c5cb8"'), true); // 讀數藍字
   assert.equal(withBox.includes('>15.0<'), true);         // 上緣距＝box.y=15
   assert.equal(withBox.includes('>20.0<'), true);         // 左緣距＝box.x=20
 });
@@ -457,7 +457,7 @@ test('R5 renderFaceSvg edit：foldEdge 畫摺邊虛線、showRuler 出尺規；e
   assert.equal(svg.includes('stroke-dasharray="2 1.5"'), true); // 摺邊
   assert.equal(svg.includes('stroke="#555"'), true);            // 實線邊
   assert.equal(svg.includes('#c3c9cf'), true);                  // 尺規刻度
-  assert.equal(svg.includes('fill="#1976d2"'), true);           // 選取框讀數
+  assert.equal(svg.includes('fill="#2c5cb8"'), true);           // 選取框讀數
   // export 模式：純內容，不畫卡緣/尺規
   const exp = renderFaceSvg(face, [box], { mode: 'export' });
   assert.equal(exp.includes('stroke="#555"'), false);

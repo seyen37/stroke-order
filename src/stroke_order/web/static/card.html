@@ -5,26 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>手寫卡片 · stroke-order</title>
 <style>
-  :root { --border: #d7dde3; --accent: #1976d2; }
+  /* 5gd：原本把 --accent 定成 #1976d2 藍當主色用，與全站契約
+     「--accent＝破壞性紅」同名反義，且引入第三種藍——
+     改用 --primary（DESIGN.md §2 同值鎖）。 */
+  :root { --border: #ddd; --muted: #666;
+          --primary: #2c5cb8; --primary-ink: #fff; --danger: #c33; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif;
-         background: #f2f4f7; color: #222; }
+         background: #fafafa; color: #222; }
   header { padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--border);
            display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   header h1 { font-size: 16px; margin: 0; }
-  header a { color: var(--accent); text-decoration: none; font-size: 13px; }
+  header a { color: var(--primary); text-decoration: none; font-size: 13px; }
   .layout { display: flex; gap: 12px; padding: 12px; align-items: flex-start; flex-wrap: wrap; }
   .stage-wrap { flex: 1 1 520px; background: #fff; border: 1px solid var(--border);
                 border-radius: 8px; padding: 12px; }
   #card-face-tabs button { margin-right: 6px; padding: 4px 12px; border: 1px solid var(--border);
                 background: #fff; border-radius: 6px; cursor: pointer; }
-  #card-face-tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #card-face-tabs button.on { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
   #card-stage { margin-top: 8px; }
   #card-stage svg { width: 100%; height: auto; max-height: 72vh; display: block;
                     box-shadow: 0 1px 6px rgba(0,0,0,.12); touch-action: none; cursor: default; }
   aside { flex: 0 0 280px; display: flex; flex-direction: column; gap: 10px; }
   .panel { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
-  .panel h2 { font-size: 13px; margin: 0 0 8px; color: #556; }
+  .panel h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); }
   .row { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 13px; flex-wrap: wrap; }
   .row label { min-width: 4.5em; }
   select, input[type=number], textarea { border: 1px solid var(--border); border-radius: 6px;
@@ -33,15 +37,19 @@
   textarea { width: 100%; min-height: 64px; resize: vertical; }
   button.act { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
     background: #fff; cursor: pointer; }
-  button.act.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.act.danger { color: #c0392b; }
-  .muted { color: #789; font-size: 12px; }
+  button.act.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+  button.act.danger { color: var(--danger); }
+  .muted { color: var(--muted); font-size: 12px; }
   #card-kaomoji-panel { max-height: 220px; overflow-y: auto; border: 1px solid var(--border);
     border-radius: 6px; padding: 6px; margin-top: 6px; }
-  .kao-cat-label { font-size: 12px; color: #556; margin: 4px 0 2px; }
+  .kao-cat-label { font-size: 12px; color: var(--muted); margin: 4px 0 2px; }
   .kao-item { margin: 2px; padding: 3px 8px; border: 1px solid var(--border);
     border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; }
   .kao-item:hover { background: #eef4fb; }
+  /* 5ge：主斷點 640px（DESIGN.md §8）——側欄轉全寬（行動版不藏主要動作） */
+  @media (max-width: 640px) {
+    aside { flex: 1 1 100%; }
+  }
 </style>
 </head>
 <body>

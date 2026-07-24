@@ -145,9 +145,9 @@ function r3(v) {
 
 //: 編輯層附加物：框線＋縮放把手（匯出時不含）。
 export function boxChromeMarkup(box, selected) {
-  const stroke = selected ? '#1976d2' : '#b8c4d0';
+  const stroke = selected ? '#2c5cb8' : '#b8c4d0';
   const handles = selected
-    ? `<rect class="card-handle" data-box-id="${esc(box.id)}" x="${round(box.x + box.w - 2.5)}" y="${round(box.y + box.h - 2.5)}" width="5" height="5" fill="#1976d2"/>`
+    ? `<rect class="card-handle" data-box-id="${esc(box.id)}" x="${round(box.x + box.w - 2.5)}" y="${round(box.y + box.h - 2.5)}" width="5" height="5" fill="#2c5cb8"/>`
     : '';
   return (
     `<rect class="card-box-frame" data-box-id="${esc(box.id)}" x="${round(box.x)}" y="${round(box.y)}"` +
@@ -213,9 +213,9 @@ export function rulerMarkup(face, box = null) {
     const cy = box.y + box.h / 2;
     const gl = (x1, y1, x2, y2) =>
       `<line x1="${r3(x1)}" y1="${r3(y1)}" x2="${r3(x2)}" y2="${r3(y2)}"` +
-      ' stroke="#1976d2" stroke-width="0.2" stroke-dasharray="1 1"/>';
+      ' stroke="#2c5cb8" stroke-width="0.2" stroke-dasharray="1 1"/>';
     const dl = (x, y, t) =>
-      `<text x="${r3(x)}" y="${r3(y)}" font-size="2.4" fill="#1976d2"` +
+      `<text x="${r3(x)}" y="${r3(y)}" font-size="2.4" fill="#2c5cb8"` +
       ` text-anchor="middle" font-family="system-ui,sans-serif">${t}</text>`;
     const top = box.y;
     const bot = h - (box.y + box.h);
@@ -245,7 +245,7 @@ export function renderFaceSvg(face, boxes, opts = {}) {
   if (mode === 'edit' && marquee) {
     parts.push(
       `<rect x="${marquee.x}" y="${marquee.y}" width="${marquee.w}" height="${marquee.h}"` +
-      ` fill="rgba(25,118,210,0.08)" stroke="#1976d2" stroke-width="0.3"` +
+      ` fill="rgba(44,92,184,0.08)" stroke="#2c5cb8" stroke-width="0.3"` +
       ` stroke-dasharray="1.5 1"/>`,
     );
   }

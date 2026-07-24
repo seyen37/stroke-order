@@ -7,7 +7,10 @@
   :root {
     --border: #d4d4d4;
     --muted: #888;
+    /* 5gd：--accent＝破壞性/錯誤紅（全站契約）；主要動作改 --primary 藍 */
     --accent: #c33;
+    --primary: #2c5cb8;
+    --primary-ink: #fff;
     --bg: #fafaf8;
     --panel: #fff;
     --shaded: #f0f0ec;
@@ -52,7 +55,7 @@
   .item:hover { background: var(--shaded); }
   .item.active {
     background: var(--shaded);
-    border-left-color: var(--accent);
+    border-left-color: var(--primary);  /* 5gd：選取態＝藍非紅 */
     font-weight: 600;
   }
   .item .badge {
@@ -107,8 +110,9 @@
     display: flex; gap: 8px; margin-top: 12px; align-items: center;
   }
   .btn-primary {
-    background: var(--accent); color: white;
-    border: 1px solid var(--accent); border-radius: 3px;
+    /* 5gd：主要動作＝藍（原誤用破壞性紅 --accent，同 5fq/5gb 鐵則） */
+    background: var(--primary); color: var(--primary-ink);
+    border: 1px solid var(--primary); border-radius: 3px;
     padding: 6px 14px; cursor: pointer; font-size: 13px;
   }
   .btn-primary:disabled {
@@ -128,7 +132,7 @@
     font-size: 12px; margin-left: 8px;
   }
   .source-link {
-    font-size: 11px; color: var(--accent); margin-left: 4px;
+    font-size: 11px; color: var(--primary); margin-left: 4px;
     text-decoration: none;
   }
   .source-link:hover { text-decoration: underline; }

@@ -5,13 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>立體字卡片（鏤空 pop-up）</title>
 <style>
-  :root { --ink:#1f2328; --line:#d0d7de; --accent:#149046; }
+  /* 5gd：原 GitHub 灰系（#1f2328/#d0d7de/#f6f8fa/#57606a）與綠色主鈕
+     （原把 --accent 定成 #149046）接軌全站色盤——主要動作＝藍
+     （DESIGN.md §2）；圖例的山折紅/谷折藍/中線綠是輸出品語意色
+     （內容渲染），不動。 */
+  :root { --ink:#222; --line:#ddd; --muted:#666;
+          --primary:#2c5cb8; --primary-ink:#fff; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: system-ui, "Noto Sans TC", sans-serif;
-         color:var(--ink); background:#f6f8fa; }
+         color:var(--ink); background:#fafafa; }
   header { padding:14px 20px; background:#fff; border-bottom:1px solid var(--line); }
   header h1 { margin:0; font-size:18px; }
-  header p { margin:4px 0 0; font-size:12.5px; color:#57606a; }
+  header p { margin:4px 0 0; font-size:12.5px; color:var(--muted); }
   .wrap { display:flex; gap:16px; padding:16px; align-items:flex-start; flex-wrap:wrap; }
   .panel { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; }
   .controls { width:320px; flex:0 0 auto; }
@@ -22,25 +27,30 @@
   .row { display:flex; gap:10px; }
   .row > div { flex:1; }
   input[type=range] { width:100%; }
-  .val { font-size:12px; color:#57606a; float:right; }
+  .val { font-size:12px; color:var(--muted); float:right; }
   button { margin-top:14px; width:100%; padding:10px; font-size:15px; border:0; border-radius:8px;
-           background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
+           background:var(--primary); color:var(--primary-ink); font-weight:600; cursor:pointer; }
   button.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
   button:disabled { opacity:.5; cursor:default; }
   .dl { display:flex; gap:10px; }
   .dl button { flex:1; }
-  #status { font-size:12.5px; color:#57606a; margin-top:10px; min-height:18px; }
+  #status { font-size:12.5px; color:var(--muted); margin-top:10px; min-height:18px; }
   #stage { width:100%; min-height:420px; border:1px dashed var(--line); border-radius:8px;
            display:flex; align-items:center; justify-content:center; background:
            repeating-conic-gradient(#f0f2f4 0% 25%, #fff 0% 50%) 50% / 18px 18px; }
   #stage svg { max-width:100%; max-height:70vh; }
-  .legend { font-size:12px; color:#57606a; margin-top:10px; line-height:1.7; }
+  .legend { font-size:12px; color:var(--muted); margin-top:10px; line-height:1.7; }
   .sw { display:inline-block; width:22px; height:0; border-top:2px dashed; vertical-align:middle;
         margin-right:6px; }
+  /* 5ge：主斷點 640px（DESIGN.md §8）——窄螢幕控制欄轉全寬疊直 */
+  @media (max-width: 640px) {
+    .controls { width: 100%; }
+    .preview { min-width: 0; }
+  }
 </style>
 </head>
 <body>
-<header style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;"><span style="margin-left:auto;order:99;display:flex;gap:10px;"><a href="/" style="font-size:13px;">↩ 回主頁</a><a href="/gallery" style="font-size:13px;" title="下載 SVG 後可到公眾分享庫上傳分享">🖼 公眾分享庫</a></span>
+<header style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;"><span style="margin-left:auto;order:99;display:flex;gap:10px;"><a href="/" style="font-size:13px;">← 回主頁</a><a href="/gallery" style="font-size:13px;" title="下載 SVG 後可到公眾分享庫上傳分享">🖼 公眾分享庫</a></span>
   <h1>立體字卡片 · 鏤空 pop-up</h1>
   <p>打字→自動生鏤空字＋連筋＋箱型折線。前立面文字、頂/底摺線、中線穿字中對稱、可折合。</p>
 </header>
@@ -72,7 +82,7 @@
     </div>
   </div>
   <div class="panel preview">
-    <div id="stage"><span style="color:#8b949e">按「產生預覽」</span></div>
+    <div id="stage"><span style="color:var(--muted)">按「產生預覽」</span></div>
   </div>
 </div>
 <script>

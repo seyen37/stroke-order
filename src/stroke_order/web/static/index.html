@@ -89,6 +89,25 @@
       --info-bg: #f0f7ff;
       --info-fg: #235;
       --info-accent: var(--primary);
+      /* 5gf：模式/區塊識別色——行內散寫歸一具名 token（值不變；
+         同族雜色歸一：#b09a66→make、#8cc→teal、#d97→warm）。
+         詳 DESIGN.md §2 附表。 */
+      --chip-bg: #fafaf8;              /* 中性小鈕/籤片底 */
+      --chip-bg-alt: #f4f4f4;
+      --warn-bg: #fff8e0;              /* 警示底（與 --gl-warn-bg 同值） */
+      --callout-make-bg: #fafaf5;      /* 製造群欄位框（布章/印章） */
+      --callout-make-accent: #cc8;
+      --callout-teal-bg: #f5fafa;      /* 青綠欄位框（抄經/禪繞） */
+      --callout-teal-accent: #6aa;
+      --callout-warm-bg: #fff8f0;      /* 暖橘欄位框 */
+      --callout-warm-accent: #c96;
+      --callout-green-bg: #f0fff4;     /* 綠欄位框 */
+      --callout-green-accent: #494;
+      --callout-lavender-bg: #fafaff;  /* 藍紫欄位框（印章字符微調） */
+      --callout-lavender-accent: #88c;
+      --callout-decor-bg: #fff8e8;     /* 曼陀羅裝飾/preset 框 */
+      --callout-decor-accent: #c93;
+      --decor-ink: #742;               /* 曼陀羅裝飾標題字 */
     }
     .btn-primary, .btn-secondary, .btn-ghost, .btn-danger {
       font: inherit; cursor: pointer; border-radius: var(--radius-sm);
@@ -315,13 +334,13 @@
   </div>
   <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;">
     <button id="ud-open" type="button"
-            style="font-size:12px;padding:4px 10px;background:#fafaf8;
+            style="font-size:12px;padding:4px 10px;background:var(--chip-bg);
                    border:1px solid var(--border);border-radius:4px;cursor:pointer;"
             title="自訂罕用字 / 新造字 / PUA 字 — 上傳 SVG、手寫、或貼 JSON">
       ✎ 罕用字管理
     </button>
     <button id="font-status-open" type="button"
-            style="font-size:12px;padding:4px 10px;background:#fafaf8;
+            style="font-size:12px;padding:4px 10px;background:var(--chip-bg);
                    border:1px solid var(--border);border-radius:4px;cursor:pointer;"
             title="檢視 5 套外掛字型（CNS / 篆 / 隸 / 宋 / 楷）的載入狀態與下載連結">
       <span id="font-status-badge" style="display:inline-block;width:8px;height:8px;
@@ -555,19 +574,19 @@
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="display:flex;gap:6px;justify-content:flex-start;">
           <button id="sw-undo" type="button"
-                  style="font-size:12px;padding:3px 10px;background:#f4f4f4;
+                  style="font-size:12px;padding:3px 10px;background:var(--chip-bg-alt);
                          border:1px solid var(--border);border-radius:4px;
                          cursor:pointer;">↶ 復原</button>
           <button id="sw-clear" type="button"
-                  style="font-size:12px;padding:3px 10px;background:#f4f4f4;
+                  style="font-size:12px;padding:3px 10px;background:var(--chip-bg-alt);
                          border:1px solid var(--border);border-radius:4px;
                          cursor:pointer;">清空</button>
           <button id="sw-play" type="button" title="重播你寫的筆順"
-                  style="font-size:12px;padding:3px 10px;background:#f4f4f4;
+                  style="font-size:12px;padding:3px 10px;background:var(--chip-bg-alt);
                          border:1px solid var(--border);border-radius:4px;
                          cursor:pointer;">▶ 播放</button>
           <button id="sw-demo-btn" type="button" title="看標準正確筆順示範"
-                  style="font-size:12px;padding:3px 10px;background:#f4f4f4;
+                  style="font-size:12px;padding:3px 10px;background:var(--chip-bg-alt);
                          border:1px solid var(--border);border-radius:4px;
                          cursor:pointer;">✎ 示範</button>
         </div>
@@ -892,7 +911,7 @@
       </span>
     </div>
     <div id="nb-zones-list" style="display:none;margin:4px 0;padding:6px 10px;
-         background:#fafaf5;border-left:3px solid #b09a66;border-radius:3px;">
+         background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);border-radius:3px;">
       <!-- Zone entries injected by JS -->
     </div>
     <!-- Hidden legacy inputs (kept for nbBuildParams) -->
@@ -1361,7 +1380,7 @@
       </select>
     </div>
 
-    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+    <div class="row" style="background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);
          padding:6px 10px;border-radius:3px;margin:4px 0;">
       <label>平鋪 (節省材料)</label>
       <input id="pt-rows" type="number" value="1" min="1" max="20" step="1" style="width:50px;"> 行 ×
@@ -1497,7 +1516,7 @@
       <button id="sc-render" class="btn-primary" style="margin-left:16px;">產生預覽</button>
       <span id="sc-status" style="color:var(--muted);"></span>
     </div>
-    <div class="row" style="background:#fff8f0;border-left:3px solid #c96;
+    <div class="row" style="background:var(--callout-warm-bg);border-left:3px solid var(--callout-warm-accent);
          padding:4px 10px;border-radius:3px;font-size:12px;color:#864;">
       ⚠ 橋接為幾何運算，繁體字結構複雜——上機前務必放大檢查路徑；
       遇「破字」請調大橋寬或加粗。
@@ -1505,7 +1524,7 @@
   </section>
   <section class="card" style="grid-column: 1 / -1;">
     <h2>預覽</h2>
-    <div id="sc-preview" style="overflow:auto;background:#f4f4f4;
+    <div id="sc-preview" style="overflow:auto;background:var(--chip-bg-alt);
          padding:10px;border-radius:4px;">
       <span class="preview-empty">（輸入文字後按「產生預覽」以顯示）</span>
     </div>
@@ -1735,7 +1754,7 @@
 
     <!-- 12m-1 patch r9: 3 字自動補字僅 square_name 適用（個人姓名章慣例）。
          其他 preset（公司章 / 圓章 / 圓戳章 / 橢圓 / 職名章）整個 row 隱藏。 -->
-    <div class="row" id="st-autofill-row" style="background:#fafaf5;border-left:3px solid #cc8;
+    <div class="row" id="st-autofill-row" style="background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);
          padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
       <label title="3 字姓名章慣例會在第 4 格補一個字（預設「印」）湊成 2×2 對稱佈局，視覺更傳統。其他字數時不補。">
         <input id="st-auto-fill" type="checkbox" checked> 3 字自動補字
@@ -1766,7 +1785,7 @@
       </select>
     </div>
 
-    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+    <div class="row" style="background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);
          padding:6px 10px;border-radius:3px;margin:4px 0;">
       <label style="font-weight:600;">外框</label>
       <label><input id="st-show-border" type="checkbox" checked> 顯示外框</label>
@@ -1792,7 +1811,7 @@
     <!-- 12l: 公司章短列位置（square_official + 7-8 / 10-11 / 13-15 字相關，
          3-col 顯示右/中/左、4-col 顯示右/中右/中左/左；多選＝平均短，單選＝集中短） -->
     <div id="st-off-shortcol-row" class="row"
-         style="background:#fafaf5;border-left:3px solid #cc8;
+         style="background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);
                 padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;
                 flex-wrap:wrap;">
       <label style="font-weight:600;">公司章短列</label>
@@ -1830,7 +1849,7 @@
          自動隱藏整個區塊。 -->
     <div id="st-name-fields" style="display:none;">
       <!-- 12h: 2 字 layout toggle（只在 square_name/round_name + 2 字時相關） -->
-      <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+      <div class="row" style="background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);
            padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
         <label style="font-weight:600;">2 字排列</label>
         <label title="左右排列右起讀（傳統慣例：右字 + 左字），字身上下拉長到接近邊框">
@@ -1845,7 +1864,7 @@
       </div>
 
       <!-- 12e: 5 字 layout toggle（只在 square_name/round_name + 5 字時相關） -->
-      <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+      <div class="row" style="background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);
            padding:6px 10px;border-radius:3px;margin:4px 0;font-size:13px;">
         <label style="font-weight:600;">5 字排列</label>
         <label title="姓名章：右 2 字（姓）+ 左 3 字（名），姓名分欄不拆破">
@@ -1863,22 +1882,22 @@
     <!-- 12g: 每字位移微調（折疊 advanced） -->
     <details id="st-char-offsets" style="margin:4px 0;font-size:13px;">
       <summary style="cursor:pointer;padding:6px 10px;background:#f5f0fa;
-              border-left:3px solid #88c;border-radius:3px;">
+              border-left:3px solid var(--callout-lavender-accent);border-radius:3px;">
         每字位移微調 <span style="color:var(--muted);font-size:11px;">
         （advanced — 每字獨立左右 (X) / 上下 (Y) 偏移 mm；正值 = 右 / 下，負值 = 左 / 上；超出邊框會自動 clamp）</span>
       </summary>
-      <div id="st-char-offsets-body" style="padding:8px 10px;background:#fafaff;
-           border-left:3px solid #88c;font-size:12px;">
+      <div id="st-char-offsets-body" style="padding:8px 10px;background:var(--callout-lavender-bg);
+           border-left:3px solid var(--callout-lavender-accent);font-size:12px;">
         <!-- 動態生成：每字一 row（依文字長度，最多 5 字） -->
       </div>
-      <div style="padding:4px 10px;background:#fafaff;border-left:3px solid #88c;">
+      <div style="padding:4px 10px;background:var(--callout-lavender-bg);border-left:3px solid var(--callout-lavender-accent);">
         <button type="button" id="st-char-offsets-reset"
                 style="font-size:11px;">↻ 位移全部歸零</button><!-- 5fq：標明作用範圍 -->
       </div>
     </details>
 
     <!-- 12c: 陰刻 / 陽刻 toggle -->
-    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+    <div class="row" style="background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);
          padding:6px 10px;border-radius:3px;margin:4px 0;">
       <label style="font-weight:600;">刻法</label>
       <label title="陰刻（白文）：字凹下、白底紅字描邊，現代姓名章常見">
@@ -1971,7 +1990,7 @@
 <main id="sutra-view" style="display:none;">
   <section class="card" style="grid-column: 1 / -1;">
     <h2>抄經設定</h2>
-    <div id="su-not-loaded-banner" style="display:none;background:#fff8e0;
+    <div id="su-not-loaded-banner" style="display:none;background:var(--warn-bg);
          border:1px solid #e8c060;border-radius:4px;padding:8px 12px;
          margin-bottom:8px;font-size:12px;color:#704000;">
       <b>⚠ 經文檔尚未放入</b>　把純文字檔放到
@@ -1988,7 +2007,7 @@
              style="flex:1;min-width:120px;font-size:13px;">
       <button id="su-mgmt-open" type="button"
               style="margin-left:8px;font-size:12px;padding:3px 10px;
-                     background:#fafaf8;border:1px solid var(--border);
+                     background:var(--chip-bg);border:1px solid var(--border);
                      border-radius:4px;cursor:pointer;"
               title="新增 / 編輯 / 刪除自用經文">
         ✎ 經文管理
@@ -2035,7 +2054,7 @@
     </div>
 
     <!-- 5cc: warning shown only when style is lishu / seal_script -->
-    <div id="su-style-warning" style="display:none;background:#fff8e0;
+    <div id="su-style-warning" style="display:none;background:var(--warn-bg);
          border:1px solid #e8c060;border-radius:4px;padding:8px 12px;
          margin-bottom:8px;font-size:12px;color:#704000;">
       <b>⚠ 隸書／篆書 SVG 為骨架線條輸出</b>
@@ -2083,7 +2102,7 @@
       </select>
     </div>
 
-    <div class="row" style="background:#fafaf5;border-left:3px solid #cc8;
+    <div class="row" style="background:var(--callout-make-bg);border-left:3px solid var(--callout-make-accent);
          padding:6px 10px;border-radius:3px;margin:4px 0;">
       <label><input id="su-include-cover" type="checkbox"> 含封面</label>
       <label style="margin-left:14px;">
@@ -2096,7 +2115,7 @@
              style="flex:1;min-width:200px;font-size:12px;">
     </div>
 
-    <div class="row" style="background:#f5fafa;border-left:3px solid #8cc;
+    <div class="row" style="background:var(--callout-teal-bg);border-left:3px solid var(--callout-teal-accent);
          padding:6px 10px;border-radius:3px;margin:4px 0;font-size:12px;">
       <label><input id="su-show-grid" type="checkbox" checked> 顯示格線</label>
       <label style="margin-left:14px;"><input id="su-show-helper" type="checkbox" checked> 顯示米字輔助線</label>
@@ -2406,7 +2425,7 @@
 
     <!-- Three-band fields -->
     <div id="wa-three-row" style="display:none;">
-      <div style="padding:8px 10px;background:#fff8f0;border-radius:4px;margin:4px 0;">
+      <div style="padding:8px 10px;background:var(--callout-warm-bg);border-radius:4px;margin:4px 0;">
         <b style="color:var(--muted);font-size:12px;">三段式（僅圓/橢圓可用）</b>
         <div class="row"><label>上弧</label>
           <input id="wa-top" type="text" value="日月金木水火土" style="flex:1;min-width:180px;">
@@ -2443,7 +2462,7 @@
 
     <!-- Wordcloud fields -->
     <div id="wa-cloud-row" style="display:none;">
-      <div style="padding:8px 10px;background:#f0fff4;border-radius:4px;margin:4px 0;">
+      <div style="padding:8px 10px;background:var(--callout-green-bg);border-radius:4px;margin:4px 0;">
         <b style="color:var(--muted);font-size:12px;">
           詞雲（token 以 | 分隔，選填 :權重 1-7）</b>
         <div class="row">
@@ -2560,7 +2579,7 @@
     </div>
 
     <!-- Auto-cycle / auto-fit / align controls (Phase 5e + 5h) -->
-    <div class="row" style="background:#f5fafa;border-left:3px solid #6aa;
+    <div class="row" style="background:var(--callout-teal-bg);border-left:3px solid var(--callout-teal-accent);
          padding:6px 10px;border-radius:3px;margin:4px 0;">
       <label title="文字比容納量少時，自動循環填滿">
         <input type="checkbox" id="wa-auto-cycle" checked>
@@ -2576,7 +2595,7 @@
         mm
       </label>
     </div>
-    <div class="row" style="background:#f5fafa;border-left:3px solid #6aa;
+    <div class="row" style="background:var(--callout-teal-bg);border-left:3px solid var(--callout-teal-accent);
          padding:6px 10px;border-radius:3px;margin:4px 0 4px;font-size:12px;">
       <label title="auto_cycle 取消勾選時生效：字數少於 slot 數時，如何分佈 chars">
         對齊方式 (linear / three_band)
@@ -2636,9 +2655,9 @@
     <h2>曼陀羅設定</h2>
     <!-- Phase 5b r12: 主題 preset — 一鍵套全部設定 -->
     <div class="row" style="background:linear-gradient(90deg,#fff7e0,#fff);
-         border-left:3px solid #c93;padding:8px 10px;border-radius:3px;
+         border-left:3px solid var(--callout-decor-accent);padding:8px 10px;border-radius:3px;
          align-items:center;gap:8px;flex-wrap:wrap;">
-      <b style="color:#742;font-size:13px;">🎨 主題 preset</b>
+      <b style="color:var(--decor-ink);font-size:13px;">🎨 主題 preset</b>
       <select id="md-preset" style="margin-left:6px;font-size:13px;">
         <option value="" selected>— 自訂 —</option>
         <!-- 由 JS 從 /api/mandala/presets 動態填充 -->
@@ -2792,7 +2811,7 @@
       </label>
     </div>
     <!-- Phase 5b r8: 字佈局 (composition_scheme) — 字在 mandala 線條圍出的內部空間 -->
-    <div class="row" style="background:#f0fff4;border-left:3px solid #494;
+    <div class="row" style="background:var(--callout-green-bg);border-left:3px solid var(--callout-green-accent);
          padding:6px 10px;border-radius:3px;align-items:center;flex-wrap:wrap;gap:8px;">
       <b style="font-size:12px;color:#252;">字佈局</b>
       <select id="md-comp-scheme" style="margin-left:6px;">
@@ -2872,13 +2891,13 @@
     </div>
 
     <!-- Phase 5b r25: 環為組織單位（10mm 環，最多 11 環 0-10）-->
-    <div class="row" style="background:#fff8e8;border-left:3px solid #c93;
+    <div class="row" style="background:var(--callout-decor-bg);border-left:3px solid var(--callout-decor-accent);
          padding:6px 10px;border-radius:3px;align-items:center;gap:8px;flex-wrap:wrap;">
-      <b style="color:#742;font-size:13px;">🌸 裝飾層</b>
+      <b style="color:var(--decor-ink);font-size:13px;">🌸 裝飾層</b>
       <span id="md-extras-count" style="color:var(--muted);font-size:11px;">(0 環 / 0 層)</span>
       <button id="md-add-ring" type="button"
-              style="padding:4px 12px;font-size:12px;border:1px dashed #c93;
-                     border-radius:4px;background:#fffbf0;color:#742;cursor:pointer;">
+              style="padding:4px 12px;font-size:12px;border:1px dashed var(--callout-decor-accent);
+                     border-radius:4px;background:#fffbf0;color:var(--decor-ink);cursor:pointer;">
         ＋ 增加環
       </button>
       <span style="color:var(--muted);font-size:11px;flex:1;min-width:200px;">
@@ -2906,7 +2925,7 @@
       </select>
 
     </div>
-    <div class="row" style="background:#f5fafa;border-left:3px solid #6aa;
+    <div class="row" style="background:var(--callout-teal-bg);border-left:3px solid var(--callout-teal-accent);
          padding:6px 10px;border-radius:3px;">
       <label title="顯示中心字 + 字環文字">
         <input type="checkbox" id="md-show-chars" checked> 顯示中文字
@@ -2920,7 +2939,7 @@
       </label>
     </div>
     <!-- 5b r5: 字保護 halo — 防止 mandala 線切過字 -->
-    <div class="row" style="background:#fff8f0;border-left:3px solid #d97;
+    <div class="row" style="background:var(--callout-warm-bg);border-left:3px solid var(--callout-warm-accent);
          padding:6px 10px;border-radius:3px;">
       <label title="白色 halo 擋在 mandala 線跟字之間，避免線穿過字 glyph 負空間">
         <input type="checkbox" id="md-protect-chars" checked> 🛡️ 保護中文字（halo 擋線）
@@ -3004,7 +3023,7 @@
       </button>
       <button id="md-dl-gcode" type="button" class="md-dl-btn"
               style="padding:4px 12px;font-size:12px;cursor:pointer;
-                     border:1px dashed #494;border-radius:4px;background:#f0fff4;
+                     border:1px dashed var(--callout-green-accent);border-radius:4px;background:var(--callout-green-bg);
                      color:#252;"
               title="輸出 G-code (寫字機 / 雷射 / CNC 軌跡)。不含字 outline，純 mandala 線條 + extras。Y 軸翻轉適合機器座標。">
         G-code <span style="color:var(--muted);font-size:10px;">機器軌跡</span>
@@ -3149,16 +3168,16 @@
       <span style="font-weight:bold;color:var(--muted);">圖樣朝向</span>
       <span style="display:inline-flex;gap:4px;" title="改變選中區段的圖樣朝向（同鍵盤方向鍵）">
         <button type="button" class="zt-orient-btn" data-orient="up"
-                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝上">⬆</button>
+                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;" title="朝上">⬆</button>
         <button type="button" class="zt-orient-btn" data-orient="right"
-                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝右">➡</button>
+                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;" title="朝右">➡</button>
         <button type="button" class="zt-orient-btn" data-orient="down"
-                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝下">⬇</button>
+                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;" title="朝下">⬇</button>
         <button type="button" class="zt-orient-btn" data-orient="left"
-                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;" title="朝左">⬅</button>
+                style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;" title="朝左">⬅</button>
       </span>
       <button id="zentangle-split-toggle" type="button"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;margin-left:6px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;margin-left:6px;"
               title="曲線切割：點起點 → 點終點 → 移動滑鼠調彎曲率 → 雙擊固定切割線">✂ 切分</button>
       <label style="font-size:12px;color:var(--muted);cursor:pointer;">
         <input id="zentangle-split-lines" type="checkbox" checked> 顯示切分線
@@ -3169,13 +3188,13 @@
       <!-- 5dj-4/5dk: 延伸效果向量匯出（雷切/寫字機）SVG / G-code / DXF -->
       <span style="display:inline-flex;gap:4px;margin-left:8px;border-left:1px solid var(--border);padding-left:10px;">
         <button id="zentangle-export-svg" type="button"
-                style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+                style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
                 title="匯出 SVG（mm 尺寸、精確裁切貼合字形；outline/tangle/fill 三層）">↓ SVG</button>
         <button id="zentangle-export-gcode" type="button"
-                style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+                style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
                 title="匯出 G-code（雷切/寫字機；G21/G90 專案慣例）">↓ G-code</button>
         <button id="zentangle-export-dxf" type="button"
-                style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+                style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
                 title="匯出 DXF R12 三層（CUT 字框紅/ENGRAVE 圖樣+填充黑/WRITE 筆軌跡藍；雷切軟體/CAD）">↓ DXF</button>
       </span>
     </div>
@@ -3197,24 +3216,24 @@
       <span></span>
       <button type="button" class="zt-pan-btn" data-pan="top"
               style="padding:4px 14px;font-size:13px;border:1px solid var(--border);
-                     border-radius:4px;background:#fafaf8;cursor:pointer;"
+                     border-radius:4px;background:var(--chip-bg);cursor:pointer;"
               title="露出上邊角（再按一次回正）">↑ 上</button>
       <span></span>
       <button type="button" class="zt-pan-btn" data-pan="left"
               style="padding:8px 10px;font-size:13px;border:1px solid var(--border);
-                     border-radius:4px;background:#fafaf8;cursor:pointer;white-space:nowrap;"
+                     border-radius:4px;background:var(--chip-bg);cursor:pointer;white-space:nowrap;"
               title="露出左邊角（再按一次回正）">← 左</button>
       <canvas id="zentangle-canvas" width="600" height="600"
               style="max-width:100%;height:auto;border:1px solid var(--border);
                      background:#fff;"></canvas>
       <button type="button" class="zt-pan-btn" data-pan="right"
               style="padding:8px 10px;font-size:13px;border:1px solid var(--border);
-                     border-radius:4px;background:#fafaf8;cursor:pointer;white-space:nowrap;"
+                     border-radius:4px;background:var(--chip-bg);cursor:pointer;white-space:nowrap;"
               title="露出右邊角（再按一次回正）">右 →</button>
       <span></span>
       <button type="button" class="zt-pan-btn" data-pan="bottom"
               style="padding:4px 14px;font-size:13px;border:1px solid var(--border);
-                     border-radius:4px;background:#fafaf8;cursor:pointer;"
+                     border-radius:4px;background:var(--chip-bg);cursor:pointer;"
               title="露出下邊角（再按一次回正）">↓ 下</button>
       <span></span>
     </div>
@@ -3226,21 +3245,21 @@
     <div class="row" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
       <span style="font-weight:bold;color:var(--muted);">紙磚旋轉</span>
       <button type="button" class="zt-rot-preset" data-deg="0"
-              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">0°</button>
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;">0°</button>
       <button type="button" class="zt-rot-preset" data-deg="45"
-              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">45°</button>
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;">45°</button>
       <button type="button" class="zt-rot-preset" data-deg="90"
-              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">90°</button>
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;">90°</button>
       <button type="button" class="zt-rot-preset" data-deg="135"
-              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">135°</button>
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;">135°</button>
       <button type="button" class="zt-rot-preset" data-deg="180"
-              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">180°</button>
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;">180°</button>
       <button type="button" class="zt-rot-preset" data-deg="-135"
-              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">-135°</button>
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;">-135°</button>
       <button type="button" class="zt-rot-preset" data-deg="-90"
-              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">-90°</button>
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;">-90°</button>
       <button type="button" class="zt-rot-preset" data-deg="-45"
-              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;">-45°</button>
+              style="padding:3px 8px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;">-45°</button>
       <input id="zentangle-rotation-slider" type="range" min="-180" max="180" step="1" value="0"
              style="width:140px;" title="連續微調 -180° ~ 180°">
       <span id="zentangle-rotation-display"
@@ -3256,16 +3275,16 @@
     <div class="row" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
       <span style="font-weight:bold;color:var(--muted);">透視</span>
       <button type="button" class="zt-p3d-btn" data-dir="forward"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
               title="↑ 鍵 / 朝前 (foreshortening, 元素往畫面深處延伸)">前 ↑</button>
       <button type="button" class="zt-p3d-btn" data-dir="backward"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
               title="↓ 鍵 / 朝自己 (元素往畫面前方延伸 + 兩側變厚)">後 ↓</button>
       <button type="button" class="zt-p3d-btn" data-dir="left"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
               title="← 鍵 / 朝左 (left tilt, 右側看起來厚)">左 ←</button>
       <button type="button" class="zt-p3d-btn" data-dir="right"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
               title="→ 鍵 / 朝右 (right tilt, 左側看起來厚)">右 →</button>
       <span style="margin-left:6px;color:var(--muted);">強度</span>
       <input id="zentangle-p3d-slider" type="range" min="0" max="1" step="0.05" value="0.5"
@@ -3283,16 +3302,16 @@
     <div class="row" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
       <span style="font-weight:bold;color:var(--muted);">曲度</span>
       <button type="button" class="zt-curve-btn" data-curve="high-mid"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
               title="中高邊低 — 中央拱起、兩側下沉（拋物線 inverse curve）">中高 ⌒</button>
       <button type="button" class="zt-curve-btn" data-curve="high-sides"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
               title="邊高中低 — 兩側拱起、中央下沉（U 形）">邊高 ⌣</button>
       <button type="button" class="zt-curve-btn" data-curve="left-high"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
               title="左高右低 — 左側高、斜下到右低（linear gradient）">左高 ⟍</button>
       <button type="button" class="zt-curve-btn" data-curve="right-high"
-              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:#fafaf8;cursor:pointer;font-size:12px;"
+              style="padding:3px 10px;border:1px solid var(--border);border-radius:3px;background:var(--chip-bg);cursor:pointer;font-size:12px;"
               title="右高左低 — 右側高、斜下到左低">右高 ⟋</button>
       <span style="margin-left:6px;color:var(--muted);">強度</span>
       <input id="zentangle-curve-slider" type="range" min="0" max="1" step="0.05" value="0.5"

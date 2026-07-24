@@ -485,7 +485,7 @@ input:focus, select:focus, button:focus-visible {
   gap: 8px;
   min-width: 136px;
 }
-@media (max-width: 760px) {      /* 窄螢幕疊直（原 flex-wrap 行為） */
+@media (max-width: 767px) {      /* 窄螢幕疊直（5ge：與 .hw-main 主斷點 767 統一，原 760 */
   .hw-canvas-row { grid-template-columns: minmax(0, 1fr); }
   .hw-canvas-tools, .hw-canvas-row .hw-canvas-wrap { grid-column: 1; }
   .hw-side-actions { grid-column: 1; grid-row: 3; }

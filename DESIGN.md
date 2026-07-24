@@ -28,8 +28,9 @@
 **鐵則：藍＝主要動作；紅＝破壞性專用。**（5fq 定案）
 紅色按鈕永遠不是「送出」；主要動作永遠不是紅色。
 
-同一套色值在三個頁面作用域各有前綴（主頁 `--*`／筆順練習 `--hw-*`／
-分享庫 `--gl-*`）——**同義異名、值必須鎖同**：
+同一套色值在各頁面作用域各有前綴或同名定義（主頁 `--*`／筆順練習
+`--hw-*`／分享庫 `--gl-*`／卡片・經文編輯・立體字直用 `--primary`）——
+**同義異名、值必須鎖同**（5gd 起主要動作藍共六處同值）：
 
 | 角色 | Token | 色值 | 定義處 |
 |---|---|---|---|
@@ -47,6 +48,9 @@
 | 主要動作藍（手寫） | `--hw-accent` | `#2c5cb8` | `src/stroke_order/web/static/handwriting/handwriting.css` |
 | 邊線（手寫/分享庫） | `--hw-line` | `#e0e0e0` | `src/stroke_order/web/static/handwriting/handwriting.css` |
 | 主要動作藍（分享庫） | `--gl-accent` | `#2c5cb8` | `src/stroke_order/web/static/gallery/gallery.css` |
+| 主要動作藍（卡片） | `--primary` | `#2c5cb8` | `src/stroke_order/web/static/card.html` |
+| 主要動作藍（經文編輯） | `--primary` | `#2c5cb8` | `src/stroke_order/web/static/sutra-editor.html` |
+| 主要動作藍（立體字） | `--primary` | `#2c5cb8` | `src/stroke_order/web/static/popup.html` |
 | 破壞性紅（分享庫） | `--gl-danger` | `#c33` | `src/stroke_order/web/static/gallery/gallery.css` |
 | 資訊底/字/框 | `--gl-info-bg` 等 | `#e8f3ff` / `#1a4480` / `#b3d4f5` | `src/stroke_order/web/static/gallery/gallery.css` |
 | 警示底/字 | `--gl-warn-bg` 等 | `#fff8e0` / `#704000` | `src/stroke_order/web/static/gallery/gallery.css` |
@@ -54,6 +58,28 @@
 | 隱藏標章底 | `--gl-flag-bg` | `#fbe9e7` | `src/stroke_order/web/static/gallery/gallery.css` |
 | 隱藏標章字 | `--gl-flag-fg` | `#c62828` | `src/stroke_order/web/static/gallery/gallery.css` |
 | 隱藏標章框 | `--gl-flag-border` | `#f2c1bc` | `src/stroke_order/web/static/gallery/gallery.css` |
+
+**模式/區塊識別色**（5gf 成文——index.html 各模式欄位框的家族色，
+值即既有視覺、不再行內散寫；`--warn-bg` 與 `--gl-warn-bg` 同值）：
+
+| 角色 | Token | 色值 | 定義處 |
+|---|---|---|---|
+| 中性籤片底 | `--chip-bg` | `#fafaf8` | `src/stroke_order/web/static/index.html` |
+| 中性籤片底（工具列） | `--chip-bg-alt` | `#f4f4f4` | `src/stroke_order/web/static/index.html` |
+| 警示底 | `--warn-bg` | `#fff8e0` | `src/stroke_order/web/static/index.html` |
+| 製造群框底/線 | `--callout-make-bg` | `#fafaf5` | `src/stroke_order/web/static/index.html` |
+| 〃 | `--callout-make-accent` | `#cc8` | `src/stroke_order/web/static/index.html` |
+| 青綠框底/線 | `--callout-teal-bg` | `#f5fafa` | `src/stroke_order/web/static/index.html` |
+| 〃 | `--callout-teal-accent` | `#6aa` | `src/stroke_order/web/static/index.html` |
+| 暖橘框底/線 | `--callout-warm-bg` | `#fff8f0` | `src/stroke_order/web/static/index.html` |
+| 〃 | `--callout-warm-accent` | `#c96` | `src/stroke_order/web/static/index.html` |
+| 綠框底/線 | `--callout-green-bg` | `#f0fff4` | `src/stroke_order/web/static/index.html` |
+| 〃 | `--callout-green-accent` | `#494` | `src/stroke_order/web/static/index.html` |
+| 藍紫框底/線 | `--callout-lavender-bg` | `#fafaff` | `src/stroke_order/web/static/index.html` |
+| 〃 | `--callout-lavender-accent` | `#88c` | `src/stroke_order/web/static/index.html` |
+| 曼陀羅裝飾框底/線 | `--callout-decor-bg` | `#fff8e8` | `src/stroke_order/web/static/index.html` |
+| 〃 | `--callout-decor-accent` | `#c93` | `src/stroke_order/web/static/index.html` |
+| 曼陀羅裝飾標題字 | `--decor-ink` | `#742` | `src/stroke_order/web/static/index.html` |
 
 衍生：`--danger: var(--accent)`；`--info-accent: var(--primary)`（資訊
 提示框左緣線——5gb 把原 `#46a`/`#4a90c2`/`#69a`/`#6998d9` 四種雜藍歸一
@@ -96,7 +122,12 @@ disabled `opacity:.5`、focus-visible `2px solid var(--focus)`）：
 ## 5. 版面（Layout Principles）
 
 - 間距刻度：`--space-1..6` ＝ 4/8/12/16/24px；表單列距 12px。
+- 容器三檔（5ge 成文）：內容/設定頁 **960px 置中**（主頁）；瀏覽與
+  工作區頁 **1400px**（分享庫/筆順練習）；全幕編輯器 **full-bleed**
+  （卡片/經文編輯/立體字）——依頁面性質選檔，不硬套同一寬。
 - 主頁：960px 置中、雙欄 grid（設定 vs 預覽），640px 以下折單欄。
+- 導覽慣例：每個獨立頁面左上／右上帶「**← 回主頁**」（統一用 `←`，
+  不用 `↩`）；工具頁另帶相鄰功能的深連結（如立體字→分享庫）。
 - action-bar 三區：導覽｜主要動作（`margin-left:auto` 靠右跳出）｜
   下載（次要階）。
 - **共用控制列鐵序**（5fu 定案）：字型風格 → 罕用字 → 資料源——
@@ -126,7 +157,9 @@ shadow）→ `<dialog>`（原生遮罩）。分享庫卡片 shadow
 
 ## 8. 響應式（Responsive Behavior）
 
-- 主斷點 640px：雙欄折單欄；工具列 `flex-wrap: wrap` 自然換行。
+- 主斷點 640px：雙欄折單欄；工具列 `flex-wrap: wrap` 自然換行
+  （主頁/卡片/立體字同此值）。例外成文：筆順練習雙欄工作區採 767px
+  （檔內單一值，不分岔）；分享庫卡格 auto-fill 自適應、480px 收單欄。
 - 觸控目標：按鈕最小 7px 垂直 padding；分享庫卡片整卡可點區明確。
 - 行動版不得隱藏主要動作；下載群可換行但不收合。
 
@@ -135,9 +168,11 @@ shadow）→ `<dialog>`（原生遮罩）。分享庫卡片 shadow
 開任何 UI 工作前：
 
 1. 讀本檔＋`docs/PRINCIPLES.md` 相關節（§54/§57/§61/§62/§71~§74）。
-2. 改色 → 查 §2 token 表；同值三前綴（`--primary`/`--hw-accent`/
-   `--gl-accent`）要一起動；文件與 CSS **同一批 commit**
-   （`tests/test_design_md.py` 同步鎖會驗）。
+2. 改色 → 查 §2 token 表；主要動作藍六處同值（index/card/sutra-editor/
+   popup 的 `--primary`＋`--hw-accent`＋`--gl-accent`）要一起動；文件與
+   CSS **同一批 commit**（`tests/test_design_md.py` 同步鎖會驗）。
+   `--accent` 全站固定＝破壞性/錯誤紅——**任何頁面不得把 `--accent`
+   定義成別的顏色**（5gd 前 card 曾定成藍、popup 曾定成綠，已根治）。
 3. 新按鈕 → 先問「這是主要/次要/幽靈/破壞哪一階」；新預覽區 → 配
    空狀態句＋產生前 disable 下載。
 4. 新頁面 checklist：`_versioned_page` 注入、`[hidden]` guard、
