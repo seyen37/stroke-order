@@ -1116,8 +1116,31 @@ def test_5bg_buddhist_now_has_8_builtins():
 
 
 def test_5bg_total_builtins_is_55():
-    """5bg: 46; 5bo: +9 educational presets = 55."""
-    assert len(BUILTIN_SUTRAS) == 55
+    """5bg: 46; 5bo: +9 educational = 55; 5gh: +明聖真經 = 56."""
+    assert len(BUILTIN_SUTRAS) == 56
+
+
+def test_5gh_ming_sheng_jing_builtin():
+    """5gh: 關聖帝君明聖真經（行天宮節錄本）——
+
+    使用者提供之抄經紙 PDF 轉錄；正文以桃園明聖經傳世本對校，
+    節錄本異文從 PDF（吾→帝、欺凌、刀鈍、鋼刀、漏洩、不結）。
+    """
+    info = BUILTIN_SUTRAS.get("ming_sheng_jing")
+    assert info is not None
+    assert info.category == "taoist"
+    assert info.title == "關聖帝君明聖真經"
+    assert info.expected_chars == 343
+    text = load_text("ming_sheng_jing")
+    assert text is not None
+    import re
+    hanzi = re.findall(r"[一-鿿]", text)
+    assert len(hanzi) == 343          # 檔案實數＝advisory 值，不得漂移
+    # 節錄本錨點：起句（吾→帝）、勸善段、結尾偈
+    for anchor in ("帝素覽春秋", "幼觀孔孟", "古今好事多磨",
+                   "天崩帝崩", "帝本天樞第六星", "留得精英震百靈"):
+        assert anchor in text, f"缺節錄錨點：{anchor}"
+    assert "吾" not in text           # 恭敬改字：全篇無自稱「吾」
 
 
 def test_5bo_educational_has_9_builtins():

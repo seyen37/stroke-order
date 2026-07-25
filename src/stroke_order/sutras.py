@@ -414,6 +414,21 @@ BUILTIN_SUTRAS: dict[str, SutraInfo] = {
                     "論天人關係與修身治國之道。",
         expected_chars=447,
     ),
+    "ming_sheng_jing": SutraInfo(
+        key="ming_sheng_jing",
+        title="關聖帝君明聖真經",
+        subtitle="手抄本",
+        filename="ming_sheng_jing.txt",
+        category="taoist",
+        author="託名關聖帝君（鸞書）",
+        editor="",
+        source="行天宮恭敬節錄本",
+        source_url="",
+        description="《桃園明聖經》精忠勸善要句節錄與結尾偈——"
+                    "帝素覽春秋、古今好事多磨等段；"
+                    "節錄本依恭敬慣例將自稱「吾」改作「帝」。",
+        expected_chars=343,
+    ),
 
     # --- 儒家 / 蒙學 (Phase 5bc) ---------------------------------------
     "san_zi_jing": SutraInfo(
