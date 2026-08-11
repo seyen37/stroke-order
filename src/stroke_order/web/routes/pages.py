@@ -162,12 +162,15 @@ def popup_svg(req: PopupSvgRequest):
     except Exception as e:  # pragma: no cover
         from ...sources.g0v import CharacterNotFound
         if isinstance(e, CharacterNotFound):
+            # R1a 後只剩「字型缺＋骨架字模也不可用（shapely 缺/缺字）」才到這
             raise HTTPException(
                 503, detail="思源黑體字型未安裝（鏤空字需要）——"
                             "請執行 scripts/render_fetch_fonts.sh 或設 "
                             "STROKE_ORDER_HEI_FONT_FILE。",
             ) from e
         raise HTTPException(500, detail=f"產生失敗：{e}") from e
+    # R1a 降級誠實標注（getattr 防禦：測試 monkeypatch 的替身可無此欄）
+    glyph_source = getattr(r, "glyph_source", "noto_hei")
     # 5ft：SVG 內嵌 <popup-config> metadata（比照 mandala 的
     # <mandala-config>）——公眾分享庫以此驗證/分類立體字上傳
     import json as _json
@@ -190,6 +193,8 @@ def popup_svg(req: PopupSvgRequest):
     return {
         "svg": svg_out, "width_mm": r.width_mm, "height_mm": r.height_mm,
         "components": r.components, "bridges": r.bridges, "tiers": r.tiers,
+        "glyph_source": glyph_source,
+        "degraded": glyph_source != "noto_hei",
     }
 
 

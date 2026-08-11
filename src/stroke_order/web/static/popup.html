@@ -111,7 +111,8 @@ async function gen(){
     $('stage').innerHTML = data.svg;
     $('status').textContent =
       `${data.tiers===2?'雙層':'單層'}｜${data.width_mm.toFixed(0)}×${data.height_mm.toFixed(0)}mm｜`+
-      `連通${data.components===1?'✓ 單一件':'✗ '+data.components+' 件'}｜補橋${data.bridges}`;
+      `連通${data.components===1?'✓ 單一件':'✗ '+data.components+' 件'}｜補橋${data.bridges}`+
+      (data.degraded?`｜骨架字模（降級${data.glyph_source==='mixed'?'·混合':''}）`:'');
     $('dlsvg').disabled=false; $('dlpdf').disabled=false;
   }catch(err){ $('status').textContent='錯誤：'+err.message; }
   finally{ $('gen').disabled=false; }

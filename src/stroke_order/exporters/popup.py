@@ -4,7 +4,9 @@
 文字頂＝摺線接頂面 roof、文字底＝摺線接底座、中線谷折穿字中對稱好折合。
 雙層＝兩箱疊成階梯，中線穿中間 tread 正中、上下兩排等高對稱（|a-d|=|b-c|）。
 
-- 鏤空字用 noto_hei（思源黑體），多輪廓 even-odd。
+- 鏤空字用 noto_hei（思源黑體），多輪廓 even-odd。字型缺席→降級到
+  skeleton_glyph 骨架長肉字模（R1a；meta.glyph_source 誠實標注，不無聲頂替），
+  兩者皆不可用才維持 CharacterNotFound（→端點 503）。
 - 連筋：每散件連到 roof（經字頂）或底座（經字底）；浮件補最短縱橋；
   整卡剪裁後單一連通（元件數=1）才保證剪下不散。
 - 輸出向量 SVG：CUT（黑實）／MOUNTAIN（紅虛山折）／VALLEY（藍虛谷折）／
@@ -129,12 +131,35 @@ class PopupResult:
     bridges: int
     components: int
     tiers: int
+    glyph_source: str = "noto_hei"     # noto_hei｜skeleton｜mixed（R1a 降級標注）
 
 
-def _fill_row(card, text, ytop, ybot, P):
-    """把一排鏤空字填進 card（先清空該帶再填字墨）。回傳 (Lx, Rx) 前立面左右界(px)。"""
+def _char_contours(ch):
+    """單字字模輪廓＋來源。降級階梯（§8/§68）：noto_hei → 骨架長肉 → 原例外。
+
+    noto_hei 拋 CharacterNotFound（字型未裝或該字無字形）時改走
+    skeleton_glyph；骨架路徑也失敗（shapely 缺、g0v 缺字）就重拋 hei 的
+    原例外——503 的字型安裝指引語意不變。
+    """
+    from ..sources.g0v import CharacterNotFound
+    try:
+        return _outline_to_polylines(
+            get_hei_source().get_character(ch).strokes[0].outline,
+            samples_per_curve=10), "noto_hei"
+    except CharacterNotFound as hei_err:
+        try:
+            from ..sources.skeleton_glyph import glyph_polylines
+            return glyph_polylines(ch), "skeleton"
+        except Exception:
+            raise hei_err from None
+
+
+def _fill_row(card, text, ytop, ybot, P, sources=None):
+    """把一排鏤空字填進 card（先清空該帶再填字墨）。回傳 (Lx, Rx) 前立面左右界(px)。
+
+    sources：可選 set，收集本排實際用到的字模來源（noto_hei/skeleton）。
+    """
     CW = card.shape[1]
-    src = get_hei_source()
     n = len(text)
     cw = int(round(P.cell_w_mm * P.px_per_mm))
     gap = int(round(P.gap_mm * P.px_per_mm))
@@ -142,8 +167,9 @@ def _fill_row(card, text, ytop, ybot, P):
     Lx, Rx = x0, x0 + n * cw + (n - 1) * gap
     card[ytop:ybot, Lx:Rx] = False
     for i, ch in enumerate(text):
-        cont = _outline_to_polylines(
-            src.get_character(ch).strokes[0].outline, samples_per_curve=10)
+        cont, gsrc = _char_contours(ch)
+        if sources is not None:
+            sources.add(gsrc)
         xs = [p[0] for pl in cont for p in pl]
         ys = [p[1] for pl in cont for p in pl]
         mnx, mxx, mny, mxy = min(xs), max(xs), min(ys), max(ys)
@@ -218,12 +244,13 @@ def build_popup(upper: str, lower: str = "", params: Optional[PopupParams] = Non
     card = np.ones((CH, CW), bool)
     folds = []  # (kind, y_px, x0_px, x1_px)
     two = bool(lower.strip())
+    gsrcs: set = set()   # 實際用到的字模來源（R1a 降級標注）
 
     if not two:
         # 單層：文字跨中線 [C-h/2, C+h/2]
         yTop, yBot = C - h // 2, C + h // 2
         yRoofTop = yTop - D
-        L, R = _fill_row(card, upper, yTop, yBot, P)
+        L, R = _fill_row(card, upper, yTop, yBot, P, sources=gsrcs)
         card[yRoofTop + 1:yBot, L - 1:L + 1] = False
         card[yRoofTop + 1:yBot, R - 1:R + 1] = False
         folds.append(("valley", yRoofTop, L, R))   # roof↔背板
@@ -239,8 +266,8 @@ def build_popup(upper: str, lower: str = "", params: Optional[PopupParams] = Non
         yUp_bot, yUp_top = yT_top, yT_top - h
         yLo_top, yLo_bot = yT_bot, yT_bot + h
         yRoofTop = yUp_top - D
-        Lu, Ru = _fill_row(card, upper, yUp_top, yUp_bot, P)
-        Ll, Rl = _fill_row(card, lower, yLo_top, yLo_bot, P)
+        Lu, Ru = _fill_row(card, upper, yUp_top, yUp_bot, P, sources=gsrcs)
+        Ll, Rl = _fill_row(card, lower, yLo_top, yLo_bot, P, sources=gsrcs)
         L, R = min(Lu, Ll), max(Ru, Rl)
         card[yRoofTop + 1:yLo_bot, L - 1:L + 1] = False
         card[yRoofTop + 1:yLo_bot, R - 1:R + 1] = False
@@ -255,8 +282,11 @@ def build_popup(upper: str, lower: str = "", params: Optional[PopupParams] = Non
 
     bridges = _connect(card, int(round(P.bridge_mm * pm)))
     _, ncomp = _label(card)
+    glyph_source = ("mixed" if len(gsrcs) > 1
+                    else next(iter(gsrcs), "noto_hei"))
     meta = dict(CW=CW, CH=CH, C=C, L=L, R=R, side=side,
-                bridges=bridges, ncomp=int(ncomp), tiers=tiers, pm=pm)
+                bridges=bridges, ncomp=int(ncomp), tiers=tiers, pm=pm,
+                glyph_source=glyph_source)
     return card, folds, meta
 
 
@@ -330,7 +360,8 @@ def generate_popup(upper: str, lower: str = "",
     svg = popup_to_svg(card, folds, meta)
     return PopupResult(svg=svg, width_mm=meta["CW"] / meta["pm"],
                        height_mm=meta["CH"] / meta["pm"], bridges=meta["bridges"],
-                       components=meta["ncomp"], tiers=meta["tiers"])
+                       components=meta["ncomp"], tiers=meta["tiers"],
+                       glyph_source=meta.get("glyph_source", "noto_hei"))
 
 
 __all__ = ["PopupParams", "PopupResult", "generate_popup", "build_popup",
