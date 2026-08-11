@@ -2629,6 +2629,29 @@ WARNING＋choice 人工確認，保留最後一道人眼。首航自動清 191 �
 
 ---
 
+## 86. 降級要「供應」不只「報錯」：同格式後備＋誠實標注；長壽會話每輪動工前重新對表（2026-08-11 R1a 新增）
+
+popup 缺思源黑體原本回 503。R1a 做出骨架長肉字模（zh-stroke-data track→
+Chaikin→shapely buffer→多輪廓折線）後，端點從「報錯」升級成**降級供應**：
+noto_hei → skeleton 後備 → 兩者皆缺才 503。三個工法：①後備供應器的輸出
+**同形對齊既有契約**（`_outline_to_polylines` 的多輪廓折線、EM2048、even-odd）
+——消費端 drop-in、降級只是換供應器，不發明第二種格式；②**誠實標注不無聲
+頂替**（§8 升級版）：回應帶 glyph_source/degraded、UI 顯示「骨架字模（降級）」
+——品質不同的後備冒充主供應器是欺騙，標注即誠實；③演算法常數用**實證錨點
+測試**鎖（密度補償 w_eff=w·√(10/(10+n))，spike 實證歡 22 筆 180→101 字碗
+全開；守門斷言 101±2）——防常數被無聲改掉。
+
+回應層加新欄位的姊妹律：既有測試常以 monkeypatch **替身**餵假結果（無新欄位
+屬性），端點取值一律 `getattr(r, field, 保守預設)`——否則加欄位＝逼全部歷史
+替身同批擴欄。
+
+§69 再犯變體（事故重放）：**會話跨多日存活＝等同跨會話**。上一輪結束時把
+雲端副本對齊過 origin，不等於這一輪還新鮮——本輪即因沿用 17 commit 前的
+過期基底動工寫回，倒退四檔功能，靠收工檢查全量測試 6 紅全數攔下（守門網
+值回票價）。規則收斂：「每輪動工前」fetch 對表，不是每個會話對一次。
+
+---
+
 ## 7. 索引
 
 - 工作日誌：
@@ -2693,6 +2716,11 @@ WARNING＋choice 人工確認，保留最後一道人眼。首航自動清 191 �
     藍同值鎖六處）→5ge 版面一致性（容器三檔與斷點成文/760+767 分岔修平/
     ←回主頁統一）→5gf 識別色 16 token 化（31 處 chip-bg/回流鎖 21 色/
     視覺零變 E2E），v0.14.276→0.14.280）
+  - [`WORK_LOG_2026-08-11.md`](WORK_LOG_2026-08-11.md)（FANGCUN 參數化字型
+    評估→R1a 骨架長肉字模引擎全弧：評估建議書（R1~R4 選項）→spike 實證
+    （A/B 路線＋密度補償）→R1a 實作（skeleton_glyph.py＋popup 降級階梯
+    noto_hei→skeleton→503＋glyph_source 誠實標注）→本機 shapely 離線安裝
+    →§69 再犯 clobber 事故（收工檢查 6 紅攔下）＋fetch 對齊重做）
 - 決策紀錄：
   - [`2026-05-05_phase5b_r28-r29k_summary.md`](decisions/2026-05-05_phase5b_r28-r29k_summary.md)（5/4-5/5 跨 phase 總覽）
   - [`2026-05-06_phase6z_design_spike.md`](decisions/2026-05-06_phase6z_design_spike.md)（phase 6z spike）
@@ -2726,6 +2754,7 @@ WARNING＋choice 人工確認，保留最後一道人眼。首航自動清 191 �
   - [`2026-07-23_5fo_5fu_ux_audit_arc.md`](decisions/2026-07-23_5fo_5fu_ux_audit_arc.md)（covert clobber 前進修復＋開工三步對表／手刻版本掃全類回歸鎖／UX 稽核分級 sign-off 分輪工作法＋稽核發現現場再驗證／色彩語意藍主動作紅破壞性／卡片逐字手寫重用深連結參數路／分享庫新分類 registry 派遣零 API＋metadata 內嵌憑據／共用控制列三層次統一不硬搬絕對位置，對應 §69–§74）
   - [`2026-07-23_5fv_5fz_gallery_kinds_protection_email.md`](decisions/2026-07-23_5fv_5fz_gallery_kinds_protection_email.md)（分享庫大擴建十決策 QODA：B 案 choke point 翻案／統一信封／匿名+登入檢舉 IP 雜湊去重／三層防機器人零外依／管理員環境變數制／XSS 與黑名單拒收不改寫／審閱期懶釋放＋防護優先序／視角 fixture 測試遷移／SMTP 封鎖查證與 Brevo 選型／Brevo IP 白名單取捨；附 live bug 雙教訓，對應 §75–§80）
   - [`2026-07-25_5ga_5gf_design_truth_arc.md`](decisions/2026-07-25_5ga_5gf_design_truth_arc.md)（設計真理源弧八決策 QODA：自寫 DESIGN.md 非套模板＋同步鎖／盤點複選分輪掃債節奏／info-accent 歸 primary 與回流鎖豁免工法／ES ?v= 同模組一批補／收工腳本消費制取代日期啟發式／--accent 同名反義語意歸位逐點判別／版面統一＝例外成文分岔修平／識別色 token 化值不變＋視覺零變驗收；附掃債量測數據表，對應 §81–§85）
+  - [`2026-08-11_r1a_skeleton_glyph.md`](decisions/2026-08-11_r1a_skeleton_glyph.md)（R1a 骨架長肉字模四決策 QODA：A 路線骨架 buffer（B 另案）／輸出契約對齊 _outline_to_polylines drop-in／降級供應＋誠實標注不無聲頂替／新欄位 getattr 替身防禦；附 §69 長壽會話再犯事故重放，對應 §86）
   - [`2026-07-11_5bt_5ch_doodle_engines_teaching_route.md`](decisions/2026-07-11_5bt_5ch_doodle_engines_teaching_route.md)（**塗鴉引擎體系 × 教學路線，全日 QODA 重放**）
   - 各 phase 詳細：`docs/decisions/2026-05-0[456]_phase*.md`
 - Personal-playbook cross-link：
@@ -2736,4 +2765,4 @@ WARNING＋choice 人工確認，保留最後一道人眼。首航自動清 191 �
 
 **寫這份的目的**：把跨 phase 浮現的「不只此一處適用」工程習慣固化下來。下次新 phase 開動前可快速 scan 一遍 — 「我這次該套用哪幾條？」比每次重發明強。
 
-§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§85 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收、墨跡實框正規化跨呈現面共用契約/改共用下游巡全消費路徑、脆弱慣例升級自動閘門/fail-open 新鮮度守門、守門鎖不變式不鎖寫法、版本快取鍵覆蓋整條 import 圖/子模組 import 也帶 ?v=、紙藝機構先實體試折定案不把一條摺線複雜化成逐筆 tab/鏤空字材料實色＋連筋單一連通/可折合對稱不變式/部署期字型相依缺則 skip+503/選用相依降級、跨會話寫回前三步對表/未推 commit 勿盲 reset/多輪堆疊訊息累積式、手刻漏 guard 類病回歸鎖掃全類/guard 每獨立檔皆備、UX 稽核分級 sign-off 分輪/稽核發現現場再驗證、checkVisibility 判收合/佈局斷言 id 錨定/幾何斷言容換行、UI 統一三層次同名同序相鄰不硬搬絕對位置、新分類 registry 派遣零 API/憑據內嵌檔案自身/深連結參數路重用複利、估工前先盤 choke point、白名單下沉單一事實源/E2E 驗回應不只驗請求、防機器人三層法/加鹽雜湊去重、防護疊加優先序/自動機制只回收自因/懶釋放免 cron、行為變更視角 fixture 遷移測試、平台限制先查官方文件/錯誤訊息寫明可辨病因、設計真理源成文→立鎖→分輪掃債、token 同名反義語意歸位/回流鎖豁免同批設計、統一＝例外成文分岔修平、視覺零變重構驗 computed style 原值、啟發式守門升級狀態機消費制）。三者互補。
+§1-5 是 **implementation-time** 原則（寫 code 時）；§6 是 **design-time** 原則（把願景轉 spec 時）；§8-§86 是 **runtime/整合** 原則（降級、外部資源、跨環境檔案、實機驗收、資料源選型、根因再挑戰、區段模型與互動編輯、工法規則與互動狀態、引擎正交與匯出管線與雲端工作階段、字型即根因/範本學技法、主體字型為準、依墨置中/量對旋鈕、重端點 sync def/loader 記憶化、昂貴工廠快取與失效、目錄 ready-gating、描紅表格頁重用米字格/mockup 先行、互動地基伺服器發 data-* 標記/重用既有存儲、變體版面塞進原頁型、渲染層依來源分流/驗到畫面、registry 能力偵測分派/重用複利、跨層契約單一真相源/可寫格語意邊界、registry 先純重構立 seam、單一 blob 局部量測 leak/Jordan 巢狀深度、方向↔牆對偶/runtime 旋鈕、同源演算法套全消費點/tuning 進 cache key、styled 字形 reuse 伺服器 SVG、讀 DOM 元素 bug 對真實渲染跑 e2e、styled 範字 reuse 多圖層 SVG 挑對代表層別全 clone、鐵則掃全體配機器回歸鎖、目標環境資源天花板/JSON 物件膨脹、0 合法值禁 || 預設、future annotations 下 model 模組層、外部內容單一 sanitize 入口/縱深防禦、編輯器單一渲染路徑/純函式層下沉、兩輪制重構、by-value 陷阱簇、module 翻轉語意/快照鎖、跨檔邊三定律、斷言歸源、單例互動元件綁事件當下、E2E 環境變數隔離、純屬性錨點契約、兄弟實作掃描/console error 訊號、併發測試單迴圈 gather/boot 安定、渲染治理鏈六件套、量測逐層歸因複驗、缺字合成誠實放棄曲線、hidden 被元件 display 蓋掉全域歸位、grid 動態插入/跨欄 max-content 雙陷阱、內容 bbox 映射槽位/三態覆蓋率驗收、版本注入不手刻/exact-URL 重放判暫時性、驗到看得見/有效可見度稽核、借用渲染器核對全部開關/兄弟實作歸一、資料表覆蓋稽核白名單、版面收斂終局測試/搬家掃歷代版位斷言、不可復原操作二次確認/實測攔截力、需求先重現帶證據問/截圖折抵驗收、墨跡實框正規化跨呈現面共用契約/改共用下游巡全消費路徑、脆弱慣例升級自動閘門/fail-open 新鮮度守門、守門鎖不變式不鎖寫法、版本快取鍵覆蓋整條 import 圖/子模組 import 也帶 ?v=、紙藝機構先實體試折定案不把一條摺線複雜化成逐筆 tab/鏤空字材料實色＋連筋單一連通/可折合對稱不變式/部署期字型相依缺則 skip+503/選用相依降級、跨會話寫回前三步對表/未推 commit 勿盲 reset/多輪堆疊訊息累積式、手刻漏 guard 類病回歸鎖掃全類/guard 每獨立檔皆備、UX 稽核分級 sign-off 分輪/稽核發現現場再驗證、checkVisibility 判收合/佈局斷言 id 錨定/幾何斷言容換行、UI 統一三層次同名同序相鄰不硬搬絕對位置、新分類 registry 派遣零 API/憑據內嵌檔案自身/深連結參數路重用複利、估工前先盤 choke point、白名單下沉單一事實源/E2E 驗回應不只驗請求、防機器人三層法/加鹽雜湊去重、防護疊加優先序/自動機制只回收自因/懶釋放免 cron、行為變更視角 fixture 遷移測試、平台限制先查官方文件/錯誤訊息寫明可辨病因、設計真理源成文→立鎖→分輪掃債、token 同名反義語意歸位/回流鎖豁免同批設計、統一＝例外成文分岔修平、視覺零變重構驗 computed style 原值、啟發式守門升級狀態機消費制、降級供應同格式後備＋誠實標注/替身 getattr 防禦/實證錨點鎖常數/長壽會話每輪對表）。三者互補。
