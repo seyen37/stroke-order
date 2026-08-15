@@ -41,6 +41,15 @@ bundle.**
 - **CHISE / cjkvi-ids** — GPL-compatible IDS dataset
   (https://github.com/cjkvi/cjkvi-ids); consumed for component
   decomposition.
+- **教育部《國語辭典簡編本》開放資料** (`data/moe_dict_bundle.jsonl.gz`,
+  bundled in repo) — Ministry of Education (Taiwan), Concise Mandarin
+  Chinese Dictionary; supplies 注音 / 部首 / 釋義 / 常用詞例句 to the
+  literacy-teaching page (/teach).
+  License: 創用CC-姓名標示-禁止改作 3.0 臺灣 (CC BY-ND 3.0 TW).
+  Source: https://language.moe.gov.tw/001/Upload/Files/site_content/M0001/respub/index.html
+  Permits redistribution including commercial use, **with attribution and
+  without modification** — definitions are reproduced verbatim (format
+  conversion only). See `licenses/MOE-Dict-CC-BY-ND-3.0-TW.md`.
 
 ### B. Font assets (fetched at deploy time, not bundled in repo)
 

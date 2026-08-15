@@ -135,6 +135,33 @@ def radical_info(char: str):
     }
 
 
+# T2（識字教學頁字義來源）：教育部《國語辭典簡編本》開放資料查詢。
+# 釋義／例句為教育部原文逐字回傳（CC BY-ND 3.0 TW 禁止改作），回應帶
+# attribution 供前端標示出處；bundle 缺席時誠實回 found=false（不裝懂）。
+@router.get("/api/dict/{char}")
+def dict_lookup(char: str):
+    from ...sources import moe_dict
+    char = (char or "").strip()
+    if len(char) != 1:
+        raise HTTPException(422, detail="請提供單一字元")
+    entry = moe_dict.lookup(char)
+    if entry is None:
+        return {
+            "char": char,
+            "found": False,
+            "ready": moe_dict.is_ready(),
+            "attribution": moe_dict.MOE_ATTRIBUTION,
+        }
+    return {
+        **entry,
+        "found": True,
+        "ready": True,
+        "attribution": moe_dict.MOE_ATTRIBUTION,
+        "license": moe_dict.MOE_LICENSE,
+        "source_url": moe_dict.MOE_SOURCE_URL,
+    }
+
+
 # ------ 組件分析 (Phase A, 6b) ---------------------------------------
 # See docs/VISION.md and docs/decisions/2026-04-28_phase_a_backend.md.
 # Backend logic lives in stroke_order.components.

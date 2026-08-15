@@ -1,12 +1,14 @@
-# 第三方字型授權全文 / Third-party font licenses
+# 第三方資產授權全文 / Third-party asset licenses
 
-本資料夾集中收錄本專案於部署時抓取（`scripts/render_fetch_fonts.sh`）
-的第三方字型之授權全文，方便散布時「授權與字型同行」。字型二進位檔
-本身**不進版控**，於 Render 部署時抓取；本資料夾之授權檔則**進版控**、
-隨 repo 一起散布。
+本資料夾集中收錄本專案散布之第三方資產授權全文，方便「授權與資產同行」：
+
+- **字型**：於部署時抓取（`scripts/render_fetch_fonts.sh`），二進位檔本身
+  **不進版控**；本資料夾之授權檔進版控、隨 repo 散布。
+- **資料**：教育部辭典資料（`data/moe_dict_bundle.jsonl.gz`）**隨 repo 進版控**，
+  其授權與遵循方式見下方資料對照表。
 
 專案自身程式碼之授權見 repo 根目錄 [`../LICENSE`](../LICENSE)（MIT）；
-該檔 B 段亦列有各字型出處與授權摘要。
+該檔 A 段列資料來源、B 段列各字型出處與授權摘要。
 
 ## 字型 → 授權對照
 
@@ -18,6 +20,12 @@
 | `edukai.ttf` | 教育部標準楷書 | 政府資料開放授權 1.0 | [`Taiwan-OGDL-1.0.md`](Taiwan-OGDL-1.0.md) | <https://language.moe.gov.tw/result.aspx?classify_sn=23> |
 | `MoeLI.ttf` | 教育部標準隸書 | 政府資料開放授權 1.0 | [`Taiwan-OGDL-1.0.md`](Taiwan-OGDL-1.0.md) | 同上 |
 | `edusong_Unicode.ttf` | 教育部標準宋體 | 政府資料開放授權 1.0 | [`Taiwan-OGDL-1.0.md`](Taiwan-OGDL-1.0.md) | 同上 |
+
+## 資料 → 授權對照（隨 repo 散布）
+
+| 資料檔 | 用途 | 授權 | 說明 | 上游來源 |
+|---|---|---|---|---|
+| `data/moe_dict_bundle.jsonl.gz` | 教育部《國語辭典簡編本》——識字教學頁（/teach）的注音／部首／字義／常用詞例句 | CC BY-ND 3.0 臺灣 | [`MOE-Dict-CC-BY-ND-3.0-TW.md`](MOE-Dict-CC-BY-ND-3.0-TW.md) | <https://language.moe.gov.tw/001/Upload/Files/site_content/M0001/respub/index.html> |
 
 ## 重點義務
 

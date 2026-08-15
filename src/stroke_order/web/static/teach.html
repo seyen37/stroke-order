@@ -68,7 +68,7 @@
 <header>
   <h1>識字教學 · 部件與部首</h1>
   <span class="nav"><a href="/">← 回主頁</a></span>
-  <p>輸入一個字→筆順動畫＋部件拆解＋部首歸類＋點字發音；字義與造詞由老師填寫（非 AI 生成、免查核），可下載成離線教學單檔上課用。</p>
+  <p>輸入一個字→筆順動畫＋部件拆解＋部首歸類＋注音字義造詞＋點字發音。資料取自教育部辭典與開放字形資料（非 AI 生成、免逐條查核），全部可修改，並可下載成離線教學單檔上課用。</p>
 </header>
 <div class="wrap">
   <div class="panel controls">
@@ -76,8 +76,9 @@
     <input id="char" type="text" maxlength="1" value="園" placeholder="例：園">
     <button id="gen">產生教學頁</button>
     <div id="status"></div>
-    <div class="note">發音使用瀏覽器內建語音（zh-TW）——離線可用、音色依電腦而異。
-      部件資料來源：g0v／CHISE IDS；部首歸類：朱邦復四大類。</div>
+    <div class="note">注音／部首／字義／常用詞例句：教育部《國語辭典簡編本》開放資料
+      （原文呈現，可自行修改）。筆順：g0v；部件：CHISE IDS；部件歸類：朱邦復四大類。
+      發音使用瀏覽器內建語音（zh-TW）——離線可用、音色依電腦而異。</div>
   </div>
   <div class="panel content" id="content">
     <div class="charbox">
@@ -93,23 +94,25 @@
           <span class="hint" id="radical-hint"></span></div>
         <div class="row"><label style="margin:0;">注音</label>
           <input id="zhuyin" type="text" style="width:120px;" placeholder="老師填寫">
-          <span class="hint">（本站無逐字注音資料，請自填）</span></div>
+          <span class="hint" id="zhuyin-hint">（教育部資料自動帶入，可修改）</span></div>
       </div>
     </div>
 
     <h2>部件拆解 <span class="hint" id="ids"></span></h2>
     <div id="leaves"></div>
 
-    <h2>字義說明（老師填寫）</h2>
-    <textarea id="meaning" rows="3" placeholder="例：種植花木蔬果，或供人遊憩的地方。"></textarea>
+    <h2>字義說明 <span class="hint" id="meaning-src"></span>
+      <button class="tts" id="speak-meaning">🔊</button></h2>
+    <textarea id="meaning" rows="4" placeholder="教育部資料無此字時請自行填寫"></textarea>
 
-    <h2>常用造詞＋情境造句（老師填寫）</h2>
+    <h2>常用造詞＋情境造句 <span class="hint" id="vocab-src"></span></h2>
     <div id="vocab"></div>
+    <div class="row"><button class="secondary" id="addrow" style="width:auto;">＋ 加一列</button></div>
 
     <div class="dl">
       <button id="dl">⬇ 下載教學單檔 HTML</button>
     </div>
-    <div class="note">下載檔為自包含 HTML：含筆順動畫、部件、你填的字義與造詞造句、
+    <div class="note" id="attrib">下載檔為自包含 HTML：含筆順動畫、部件、字義與造詞造句、
       發音按鈕（開檔時由該電腦語音引擎合成，離線可用）。</div>
   </div>
 </div>
@@ -142,11 +145,21 @@ function animate(box){
   ps.forEach((p, i) => setTimeout(() => p.classList.add('on'), 250 + i*350));
 }
 
-function vocabRow(i){
+function vocabRow(i, w, s){
   return `<div class="row" data-i="${i}">`+
-    `<input class="word" type="text" placeholder="造詞 ${i+1}">`+
-    `<input class="sent" type="text" placeholder="情境造句">`+
+    `<input class="word" type="text" placeholder="造詞 ${i+1}" value="${esc(w||'')}">`+
+    `<input class="sent" type="text" placeholder="情境造句" value="${esc(s||'')}">`+
     `<button class="tts" data-say="${i}">🔊</button></div>`;
+}
+
+/* 教育部釋義（原文，含 [例]）→ 取第一條例句當造句素材。
+   只做「取出」不改寫（ND 授權：內容逐字保留）。 */
+function firstExample(def){
+  const m = String(def || '').match(/\[例\]([^\n]+)/);
+  if(!m) return '';
+  const seg = m[1].trim();
+  // 單字釋義的 [例] 常是例詞（頓號分隔）；詞條的 [例] 才是完整句子
+  return seg.includes('、') && !/[。！？]/.test(seg) ? '' : seg;
 }
 
 async function jget(path){
@@ -161,10 +174,11 @@ async function gen(){
   if(!ch){ $('status').textContent = '請輸入一個字'; return; }
   $('gen').disabled = true; $('status').textContent = '載入中…';
   try{
-    const [meta, data, comp] = await Promise.all([
+    const [meta, data, comp, dict] = await Promise.all([
       jget('/api/meta/' + encodeURIComponent(ch)),
       jget('/api/character/' + encodeURIComponent(ch)),
       jget('/api/components/' + encodeURIComponent(ch)),
+      jget('/api/dict/' + encodeURIComponent(ch)).catch(() => ({found: false})),
     ]);
     const leaves = [];
     for(const lf of (comp.leaves_distinct || [])){
@@ -175,7 +189,8 @@ async function gen(){
       }catch(e){ /* 部件非部首或查詢失敗＝無歸類，誠實留白 */ }
       leaves.push({ch: lf, cat});
     }
-    cur = {ch, meta, strokes: data.strokes || [], ids: comp.ids || '', leaves};
+    cur = {ch, meta, strokes: data.strokes || [], ids: comp.ids || '',
+           leaves, dict};
     render();
     $('status').textContent = '';
   }catch(err){ $('status').textContent = '載入失敗：' + err.message; }
@@ -190,18 +205,40 @@ function render(){
     `<span class="chip">筆畫 ${cur.meta.stroke_count}</span>`+
     `<span class="chip">${esc(cur.meta.unicode)}</span>`+
     `<span class="chip">資料源 ${esc(cur.meta.source)}</span>`;
-  // 部首自動建議：取第一個查得到歸類的部件（可修改——建議非權威）
+  const d = cur.dict || {};
+  const has = !!d.found;
+  // 部首：教育部權威值優先；缺才退回部件啟發式建議（皆可修改）
   const guess = cur.leaves.find(l => l.cat);
-  $('radical').value = guess ? guess.ch : '';
-  $('radical-hint').textContent = guess ? '（自動判別，可修改）' : '（請自填）';
+  $('radical').value = has && d.radical ? d.radical : (guess ? guess.ch : '');
+  $('radical-hint').textContent = has && d.radical ? '（教育部，可修改）'
+    : (guess ? '（自動判別，可修改）' : '（請自填）');
+  // 注音：T1 原為老師自填，T2 起由教育部資料帶入
+  $('zhuyin').value = has ? (d.zhuyin || '') : '';
+  $('zhuyin-hint').textContent = has && d.zhuyin ? '（教育部，可修改）'
+    : '（教育部資料無此字，請自填）';
   $('ids').textContent = cur.ids ? '結構式：' + cur.ids : '';
   $('leaves').innerHTML = cur.leaves.map(l =>
     `<span class="leaf">${esc(l.ch)}`+
     (l.cat ? `<span class="cat">${esc(l.cat)}</span>` : '')+
     `<button class="tts" data-tts="${esc(l.ch)}">🔊</button></span>`).join('') ||
     '<span class="hint">（此字為獨體字，無再拆部件）</span>';
-  if(!$('vocab').children.length)
-    $('vocab').innerHTML = [0,1,2,3].map(vocabRow).join('');
+
+  // 字義：教育部釋義原文帶入（不改寫）；老師仍可編輯
+  $('meaning').value = has ? (d.definition || '') : '';
+  $('meaning-src').textContent = has && d.definition
+    ? '（教育部原文，可修改）' : '（教育部資料無此字，請自行填寫）';
+
+  // 造詞造句：以該字開頭的常用詞＋其釋義中的例句
+  const rows = (has ? (d.words || []) : []).slice(0, 8)
+    .map((w, i) => vocabRow(i, w.word, firstExample(w.definition)));
+  while(rows.length < 4) rows.push(vocabRow(rows.length));
+  $('vocab').innerHTML = rows.join('');
+  $('vocab-src').textContent = has && (d.words || []).length
+    ? '（教育部常用詞與例句，可修改／刪改）' : '（老師填寫）';
+
+  $('attrib').textContent = '下載檔為自包含 HTML：含筆順動畫、部件、字義與造詞造句、'
+    + '發音按鈕（開檔時由該電腦語音引擎合成，離線可用）。'
+    + (has ? '　' + (d.attribution || '') : '');
 }
 
 /* ---- 下載：自包含教學單檔（含老師填寫內容＋執行期 TTS） ---- */
@@ -251,11 +288,13 @@ li{margin:6px 0;line-height:1.7;}
 <span class="chip">注音 ${esc($('zhuyin').value || '—')}</span></p>
 <h2>部件拆解 <small style="color:#666;">${esc(cur.ids)}</small></h2>
 <div>${leavesHtml || '（獨體字）'}</div>
-<h2>字義說明</h2><p>${esc($('meaning').value || '（未填寫）')}</p>
+<h2>字義說明</h2><p style="white-space:pre-wrap;">${esc($('meaning').value || '（未填寫）')}</p>
 <h2>常用造詞＋情境造句</h2><ul>${vocabHtml || '<li>（未填寫）</li>'}</ul>
 <div class="note">本檔由 stroke-order 識字教學頁產生；發音由本機語音引擎即時合成
 （zh-TW），離線可用、音色依電腦而異。部件資料：g0v／CHISE IDS；
-部首歸類：朱邦復四大類。字義與造詞為教師填寫內容。</div>
+部首歸類：朱邦復四大類。${cur.dict && cur.dict.found
+  ? esc(cur.dict.attribution || '') + '若經教師修改則非原文。'
+  : '字義與造詞為教師填寫內容。'}</div>
 </main><script>
 function speak(t){try{var u=new SpeechSynthesisUtterance(t);u.lang='zh-TW';
 speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
@@ -283,6 +322,11 @@ $('gen').addEventListener('click', gen);
 $('replay').addEventListener('click', () => animate($('glyph')));
 $('speak-char').addEventListener('click', () => cur && speak(cur.ch));
 $('dl').addEventListener('click', download);
+$('speak-meaning').addEventListener('click', () => speak($('meaning').value));
+$('addrow').addEventListener('click', () => {
+  $('vocab').insertAdjacentHTML('beforeend',
+    vocabRow($('vocab').querySelectorAll('.row').length));
+});
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-tts]');
   if(b){ speak(b.getAttribute('data-tts')); return; }
