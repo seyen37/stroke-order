@@ -59,6 +59,7 @@ def test_primary_blue_locked_across_three_scopes():
         "src/stroke_order/web/static/card.html": "--primary",
         "src/stroke_order/web/static/sutra-editor.html": "--primary",
         "src/stroke_order/web/static/popup.html": "--primary",
+        "src/stroke_order/web/static/teach.html": "--primary",
     }
     for relpath, token in checks.items():
         src = (ROOT / relpath).read_text(encoding="utf-8")
@@ -106,6 +107,7 @@ def test_accent_never_redefined_off_red():
         "src/stroke_order/web/static/index.html",
         "src/stroke_order/web/static/card.html",
         "src/stroke_order/web/static/popup.html",
+        "src/stroke_order/web/static/teach.html",
         "src/stroke_order/web/static/sutra-editor.html",
         "src/stroke_order/web/static/gallery.html",
         "src/stroke_order/web/static/handwriting.html",
@@ -142,7 +144,7 @@ def test_handwriting_single_breakpoint():
 
 def test_home_nav_arrow_unified():
     """5ge：各獨立頁「← 回主頁」統一箭頭（曾 ←/↩ 混用）。"""
-    pages = ["card.html", "popup.html", "gallery.html",
+    pages = ["card.html", "popup.html", "teach.html", "gallery.html",
              "handwriting.html", "sutra-editor.html"]
     bad = []
     for name in pages:

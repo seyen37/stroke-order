@@ -18,6 +18,8 @@ ROUTE_SNAPSHOT = {
     ("POST", "/api/card/pdf"),
     ("GET", "/popup"),
     ("POST", "/api/popup/svg"),
+    ("GET", "/teach"),
+    ("GET", "/api/radical-info/{char}"),
     ("GET", "/api/character/{char}"),
     ("GET", "/api/cns-status"),
     ("GET", "/api/cns-stroke-diagnostics/{char}"),

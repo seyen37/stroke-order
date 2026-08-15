@@ -127,6 +127,18 @@ def card_pdf(req: CardPdfRequest):
     )
 
 
+# T1：識字教學頁（部件與部首）——自包含 inline JS 獨立頁（照 popup 慣例）
+@router.get("/teach", include_in_schema=False)
+def teach_page():
+    page = STATIC_DIR / "teach.html"
+    if not page.is_file():
+        return PlainTextResponse(
+            "Teach page missing — static/teach.html not bundled.",
+            status_code=404,
+        )
+    return _versioned_page(page)
+
+
 # 立體字卡片（pop-up 鏤空字）：獨立頁＋SVG 產生端點
 @router.get("/popup", include_in_schema=False)
 def popup_page():

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>識字教學 · 部件與部首</title>
+<style>
+  /* T1（識字教學頁）：token 遵 DESIGN.md——主要動作藍 --primary、不定義
+     --accent（破壞性紅本頁無用場）。自包含 inline JS（無子模組 import，
+     不涉 §67 快取鍵）。 */
+  :root { --ink:#222; --line:#ddd; --muted:#666;
+          --primary:#2c5cb8; --primary-ink:#fff; --chip:#f0f4fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, "Noto Sans TC", sans-serif;
+         color:var(--ink); background:#fafafa; }
+  header { padding:14px 20px; background:#fff; border-bottom:1px solid var(--line);
+           display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:4px 0 0; font-size:12.5px; color:var(--muted); width:100%; }
+  header .nav { margin-left:auto; order:99; display:flex; gap:10px; }
+  header .nav a { font-size:13px; }
+  .wrap { display:flex; gap:16px; padding:16px; align-items:flex-start; flex-wrap:wrap; }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .controls { width:320px; flex:0 0 auto; }
+  .content { flex:1 1 420px; min-width:340px; display:none; }
+  label { display:block; font-size:13px; margin:12px 0 4px; font-weight:600; }
+  input[type=text], textarea { width:100%; padding:8px 10px; font-size:15px;
+    border:1px solid var(--line); border-radius:8px; font-family:inherit; }
+  textarea { resize:vertical; }
+  button { padding:8px 14px; font-size:14px; border:0; border-radius:8px;
+           background:var(--primary); color:var(--primary-ink); font-weight:600; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  button.tts { padding:2px 8px; font-size:13px; background:var(--chip); color:var(--ink);
+               border:1px solid var(--line); }
+  #gen { width:100%; margin-top:14px; padding:10px; font-size:15px; }
+  #status { font-size:12.5px; color:var(--muted); margin-top:10px; min-height:18px; }
+  .charbox { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+  #glyph { width:220px; height:220px; border:1px solid var(--line); border-radius:8px;
+           background:
+             linear-gradient(to right, transparent 49.6%, #f3d8d8 49.6%, #f3d8d8 50.4%, transparent 50.4%),
+             linear-gradient(to bottom, transparent 49.6%, #f3d8d8 49.6%, #f3d8d8 50.4%, transparent 50.4%),
+             #fff; }
+  #glyph svg { width:100%; height:100%; }
+  #glyph path { fill:#222; opacity:0; transition:opacity .25s; }
+  #glyph path.on { opacity:1; }
+  .metachips { display:flex; gap:8px; flex-wrap:wrap; font-size:13px; margin:10px 0; }
+  .chip { background:var(--chip); border:1px solid var(--line); border-radius:6px;
+          padding:3px 8px; }
+  .leaf { display:inline-flex; align-items:center; gap:6px; background:var(--chip);
+          border:1px solid var(--line); border-radius:8px; padding:6px 10px;
+          margin:4px 6px 4px 0; font-size:15px; }
+  .leaf .cat { font-size:11.5px; color:var(--muted); }
+  .row { display:flex; gap:8px; margin:6px 0; align-items:center; flex-wrap:wrap; }
+  .row input.word { width:130px; flex:0 0 auto; }
+  .row input.sent { flex:1 1 200px; }
+  .hint { font-size:12px; color:var(--muted); }
+  h2 { font-size:15px; margin:18px 0 6px; }
+  .dl { display:flex; gap:10px; margin-top:16px; }
+  .note { font-size:12px; color:var(--muted); margin-top:14px; line-height:1.6; }
+  @media (max-width: 640px) {
+    .controls { width:100%; }
+    .content { min-width:0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>識字教學 · 部件與部首</h1>
+  <span class="nav"><a href="/">← 回主頁</a></span>
+  <p>輸入一個字→筆順動畫＋部件拆解＋部首歸類＋點字發音；字義與造詞由老師填寫（非 AI 生成、免查核），可下載成離線教學單檔上課用。</p>
+</header>
+<div class="wrap">
+  <div class="panel controls">
+    <label>要教的字（一個）</label>
+    <input id="char" type="text" maxlength="1" value="園" placeholder="例：園">
+    <button id="gen">產生教學頁</button>
+    <div id="status"></div>
+    <div class="note">發音使用瀏覽器內建語音（zh-TW）——離線可用、音色依電腦而異。
+      部件資料來源：g0v／CHISE IDS；部首歸類：朱邦復四大類。</div>
+  </div>
+  <div class="panel content" id="content">
+    <div class="charbox">
+      <div id="glyph"></div>
+      <div style="flex:1;min-width:200px;">
+        <div class="row">
+          <button class="secondary" id="replay">▶ 重播筆順</button>
+          <button class="tts" id="speak-char">🔊 唸字</button>
+        </div>
+        <div class="metachips" id="meta"></div>
+        <div class="row"><label style="margin:0;">部首</label>
+          <input id="radical" type="text" maxlength="2" style="width:70px;">
+          <span class="hint" id="radical-hint"></span></div>
+        <div class="row"><label style="margin:0;">注音</label>
+          <input id="zhuyin" type="text" style="width:120px;" placeholder="老師填寫">
+          <span class="hint">（本站無逐字注音資料，請自填）</span></div>
+      </div>
+    </div>
+
+    <h2>部件拆解 <span class="hint" id="ids"></span></h2>
+    <div id="leaves"></div>
+
+    <h2>字義說明（老師填寫）</h2>
+    <textarea id="meaning" rows="3" placeholder="例：種植花木蔬果，或供人遊憩的地方。"></textarea>
+
+    <h2>常用造詞＋情境造句（老師填寫）</h2>
+    <div id="vocab"></div>
+
+    <div class="dl">
+      <button id="dl">⬇ 下載教學單檔 HTML</button>
+    </div>
+    <div class="note">下載檔為自包含 HTML：含筆順動畫、部件、你填的字義與造詞造句、
+      發音按鈕（開檔時由該電腦語音引擎合成，離線可用）。</div>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let cur = null;   // {ch, meta, strokes, ids, leaves:[{ch,cat}]}
+
+function speak(t){
+  if(!t) return;
+  try{
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = 'zh-TW';
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch(e){ $('status').textContent = '此瀏覽器不支援語音合成'; }
+}
+
+/* 筆順 SVG：hanzi-writer 慣例（1024 em、Y 朝上、ascender=900）→
+   g transform 翻回螢幕座標。逐筆 .on 淡入＝筆順動畫。 */
+function glyphSvg(strokes){
+  const paths = strokes.map(d => `<path d="${d}"/>`).join('');
+  return `<svg viewBox="0 0 1024 1024" aria-label="筆順動畫">`+
+    `<g transform="translate(0, 900) scale(1, -1)">${paths}</g></svg>`;
+}
+function animate(box){
+  const ps = box.querySelectorAll('path');
+  ps.forEach(p => p.classList.remove('on'));
+  ps.forEach((p, i) => setTimeout(() => p.classList.add('on'), 250 + i*350));
+}
+
+function vocabRow(i){
+  return `<div class="row" data-i="${i}">`+
+    `<input class="word" type="text" placeholder="造詞 ${i+1}">`+
+    `<input class="sent" type="text" placeholder="情境造句">`+
+    `<button class="tts" data-say="${i}">🔊</button></div>`;
+}
+
+async function jget(path){
+  const r = await fetch(path);
+  if(!r.ok){ const e = await r.json().catch(() => ({detail:r.statusText}));
+    throw new Error(e.detail || ('HTTP ' + r.status)); }
+  return r.json();
+}
+
+async function gen(){
+  const ch = $('char').value.trim();
+  if(!ch){ $('status').textContent = '請輸入一個字'; return; }
+  $('gen').disabled = true; $('status').textContent = '載入中…';
+  try{
+    const [meta, data, comp] = await Promise.all([
+      jget('/api/meta/' + encodeURIComponent(ch)),
+      jget('/api/character/' + encodeURIComponent(ch)),
+      jget('/api/components/' + encodeURIComponent(ch)),
+    ]);
+    const leaves = [];
+    for(const lf of (comp.leaves_distinct || [])){
+      let cat = null;
+      try{
+        const info = await jget('/api/radical-info/' + encodeURIComponent(lf));
+        if(info.is_radical) cat = info.category + '·' + info.subcategory;
+      }catch(e){ /* 部件非部首或查詢失敗＝無歸類，誠實留白 */ }
+      leaves.push({ch: lf, cat});
+    }
+    cur = {ch, meta, strokes: data.strokes || [], ids: comp.ids || '', leaves};
+    render();
+    $('status').textContent = '';
+  }catch(err){ $('status').textContent = '載入失敗：' + err.message; }
+  finally{ $('gen').disabled = false; }
+}
+
+function render(){
+  $('content').style.display = 'block';
+  $('glyph').innerHTML = glyphSvg(cur.strokes);
+  animate($('glyph'));
+  $('meta').innerHTML =
+    `<span class="chip">筆畫 ${cur.meta.stroke_count}</span>`+
+    `<span class="chip">${esc(cur.meta.unicode)}</span>`+
+    `<span class="chip">資料源 ${esc(cur.meta.source)}</span>`;
+  // 部首自動建議：取第一個查得到歸類的部件（可修改——建議非權威）
+  const guess = cur.leaves.find(l => l.cat);
+  $('radical').value = guess ? guess.ch : '';
+  $('radical-hint').textContent = guess ? '（自動判別，可修改）' : '（請自填）';
+  $('ids').textContent = cur.ids ? '結構式：' + cur.ids : '';
+  $('leaves').innerHTML = cur.leaves.map(l =>
+    `<span class="leaf">${esc(l.ch)}`+
+    (l.cat ? `<span class="cat">${esc(l.cat)}</span>` : '')+
+    `<button class="tts" data-tts="${esc(l.ch)}">🔊</button></span>`).join('') ||
+    '<span class="hint">（此字為獨體字，無再拆部件）</span>';
+  if(!$('vocab').children.length)
+    $('vocab').innerHTML = [0,1,2,3].map(vocabRow).join('');
+}
+
+/* ---- 下載：自包含教學單檔（含老師填寫內容＋執行期 TTS） ---- */
+function collectVocab(){
+  return [...$('vocab').querySelectorAll('.row')].map(r => ({
+    w: r.querySelector('.word').value.trim(),
+    s: r.querySelector('.sent').value.trim(),
+  })).filter(v => v.w || v.s);
+}
+function buildDoc(){
+  const v = collectVocab();
+  const leavesHtml = cur.leaves.map(l =>
+    `<span class="leaf">${esc(l.ch)}`+
+    (l.cat ? `<span class="cat">${esc(l.cat)}</span>` : '')+
+    `<button class="tts" data-tts="${esc(l.ch)}">🔊</button></span>`).join('');
+  const vocabHtml = v.map(x =>
+    `<li><b>${esc(x.w)}</b>：${esc(x.s)} `+
+    `<button class="tts" data-tts="${esc(x.w)}。${esc(x.s)}">🔊</button></li>`).join('');
+  return `<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>識字教學：${esc(cur.ch)}</title><style>
+body{margin:0;font-family:system-ui,"Noto Sans TC",sans-serif;color:#222;background:#fafafa;}
+main{max-width:720px;margin:0 auto;padding:20px;}
+h1{font-size:20px;}h2{font-size:16px;margin:20px 0 6px;}
+#glyph{width:240px;height:240px;border:1px solid #ddd;border-radius:8px;background:#fff;}
+#glyph svg{width:100%;height:100%;}
+#glyph path{fill:#222;opacity:0;transition:opacity .25s;}
+#glyph path.on{opacity:1;}
+.chip{background:#f0f4fa;border:1px solid #ddd;border-radius:6px;padding:3px 8px;
+  font-size:13px;margin-right:6px;}
+.leaf{display:inline-flex;align-items:center;gap:6px;background:#f0f4fa;
+  border:1px solid #ddd;border-radius:8px;padding:6px 10px;margin:4px 6px 4px 0;}
+.leaf .cat{font-size:11.5px;color:#666;}
+button.tts{padding:2px 8px;font-size:13px;background:#fff;border:1px solid #ddd;
+  border-radius:6px;cursor:pointer;}
+button.big{padding:6px 12px;font-size:14px;background:#2c5cb8;color:#fff;border:0;
+  border-radius:8px;cursor:pointer;}
+li{margin:6px 0;line-height:1.7;}
+.note{font-size:12px;color:#666;margin-top:18px;}
+</style></head><body><main>
+<h1>識字教學：${esc(cur.ch)}
+  <button class="big" id="replay">▶ 筆順</button>
+  <button class="big" data-tts="${esc(cur.ch)}">🔊 唸字</button></h1>
+<div id="glyph">${glyphSvg(cur.strokes)}</div>
+<p><span class="chip">筆畫 ${cur.meta.stroke_count}</span>
+<span class="chip">部首 ${esc($('radical').value || '—')}</span>
+<span class="chip">注音 ${esc($('zhuyin').value || '—')}</span></p>
+<h2>部件拆解 <small style="color:#666;">${esc(cur.ids)}</small></h2>
+<div>${leavesHtml || '（獨體字）'}</div>
+<h2>字義說明</h2><p>${esc($('meaning').value || '（未填寫）')}</p>
+<h2>常用造詞＋情境造句</h2><ul>${vocabHtml || '<li>（未填寫）</li>'}</ul>
+<div class="note">本檔由 stroke-order 識字教學頁產生；發音由本機語音引擎即時合成
+（zh-TW），離線可用、音色依電腦而異。部件資料：g0v／CHISE IDS；
+部首歸類：朱邦復四大類。字義與造詞為教師填寫內容。</div>
+</main><script>
+function speak(t){try{var u=new SpeechSynthesisUtterance(t);u.lang='zh-TW';
+speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+function animate(){var ps=document.querySelectorAll('#glyph path');
+ps.forEach(function(p){p.classList.remove('on');});
+ps.forEach(function(p,i){setTimeout(function(){p.classList.add('on');},250+i*350);});}
+document.addEventListener('click',function(e){
+var b=e.target.closest('[data-tts]');if(b){speak(b.getAttribute('data-tts'));return;}
+if(e.target.closest('#replay'))animate();});
+animate();
+<\/script></body></html>`;
+}
+function download(){
+  if(!cur) return;
+  const blob = new Blob([buildDoc()], {type: 'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '識字教學_' + cur.ch + '.html';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $('status').textContent = '教學單檔已下載';
+}
+
+$('gen').addEventListener('click', gen);
+$('replay').addEventListener('click', () => animate($('glyph')));
+$('speak-char').addEventListener('click', () => cur && speak(cur.ch));
+$('dl').addEventListener('click', download);
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-tts]');
+  if(b){ speak(b.getAttribute('data-tts')); return; }
+  const s = e.target.closest('[data-say]');
+  if(s){
+    const r = s.closest('.row');
+    const w = r.querySelector('.word').value.trim();
+    const sent = r.querySelector('.sent').value.trim();
+    speak([w, sent].filter(Boolean).join('。'));
+  }
+});
+gen();
+</script>
+</body>
+</html>

@@ -118,6 +118,23 @@ def character_meta(
     }
     return d
 
+# T1（識字教學頁）：部首歸類查詢——radicals.lookup（朱邦復四大類）的
+# 薄 API 包裝。單一事實源（§27）：表留在 radicals.py，不複製進前端。
+@router.get("/api/radical-info/{char}")
+def radical_info(char: str):
+    from ...radicals import lookup
+    char = (char or "").strip()
+    if len(char) != 1:
+        raise HTTPException(422, detail="請提供單一字元")
+    cat = lookup(char)
+    return {
+        "char": char,
+        "is_radical": cat is not None,
+        "category": cat.category if cat else None,
+        "subcategory": cat.subcategory if cat else None,
+    }
+
+
 # ------ 組件分析 (Phase A, 6b) ---------------------------------------
 # See docs/VISION.md and docs/decisions/2026-04-28_phase_a_backend.md.
 # Backend logic lives in stroke_order.components.
