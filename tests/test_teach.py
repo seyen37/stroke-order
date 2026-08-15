@@ -45,6 +45,21 @@ def test_radical_info_endpoint(client):
     assert client.get("/api/radical-info/ab").status_code == 422
 
 
+def test_pic_slot_is_self_contained_and_upload_only(client):
+    """T3 插圖槽：老師自備圖→data URL 內嵌（下載檔自包含）；不做任何生成。"""
+    t = client.get("/teach").text
+    assert 'id="picfile"' in t and 'accept="image/*"' in t
+    assert "picData" in t and "toDataURL" in t      # 縮放後內嵌
+    assert "MAX_PIC_PX" in t                        # 有尺寸上限，不塞原始大圖
+    assert "paste" in t                             # 支援剪貼簿貼上
+    assert 'id="picclear"' in t                     # 可移除
+    # 自包含鐵則：下載檔的圖必須是 data URL，不可外連
+    assert 'src="${picData}"' in t
+    # T3 明確不做生成：頁面不得出現任何影像生成端點/字樣
+    for banned in ("/api/image", "generate-image", "dall", "imagen"):
+        assert banned not in t.lower()
+
+
 def test_index_has_teach_entry(client):
     page = client.get("/").text
     # 錨定書寫練習「群組 div」（data-g="write" 另見於 CSS 選擇器與分頁鈕），

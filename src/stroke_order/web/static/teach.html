@@ -109,6 +109,17 @@
     <div id="vocab"></div>
     <div class="row"><button class="secondary" id="addrow" style="width:auto;">＋ 加一列</button></div>
 
+    <h2>插圖 <span class="hint">（老師自備：選檔或直接貼上；會一起存進教學單檔）</span></h2>
+    <div id="picslot">
+      <div class="row">
+        <input id="picfile" type="file" accept="image/*" style="flex:1 1 220px;">
+        <button class="secondary" id="picclear" style="width:auto;" disabled>移除</button>
+      </div>
+      <div id="picwrap" hidden><img id="picimg" alt="教學插圖"
+        style="max-width:100%;max-height:300px;border:1px solid var(--line);border-radius:8px;margin-top:8px;"></div>
+      <div class="hint" id="pichint">可貼上（Ctrl+V）剪貼簿圖片；過大會自動縮到長邊 900px 以內。</div>
+    </div>
+
     <div class="dl">
       <button id="dl">⬇ 下載教學單檔 HTML</button>
     </div>
@@ -237,11 +248,51 @@ function render(){
     ? '（教育部常用詞與例句，可修改／刪改）' : '（老師填寫）';
 
   $('attrib').textContent = '下載檔為自包含 HTML：含筆順動畫、部件、字義與造詞造句、'
-    + '發音按鈕（開檔時由該電腦語音引擎合成，離線可用）。'
+    + '插圖（若有）、發音按鈕（開檔時由該電腦語音引擎合成，離線可用）。'
     + (has ? '　' + (d.attribution || '') : '');
 }
 
-/* ---- 下載：自包含教學單檔（含老師填寫內容＋執行期 TTS） ---- */
+/* ---- 插圖槽（T3）：老師自備圖 → 縮放內嵌 data URL ----
+   自包含鐵則：下載檔不可外連圖片，故一律轉 data URL 併入。長邊超過
+   MAX_PIC_PX 先用 canvas 縮放（避免單檔動輒數 MB）。不做任何生成。 */
+const MAX_PIC_PX = 900;
+let picData = null;   // data URL 或 null
+
+function setPic(dataUrl){
+  picData = dataUrl || null;
+  $('picwrap').hidden = !picData;
+  if(picData) $('picimg').src = picData;
+  $('picclear').disabled = !picData;
+  $('pichint').textContent = picData
+    ? `已放入插圖（約 ${Math.round(picData.length / 1024)} KB，會存進教學單檔）`
+    : '可貼上（Ctrl+V）剪貼簿圖片；過大會自動縮到長邊 900px 以內。';
+}
+
+function loadPic(file){
+  if(!file || !/^image\//.test(file.type)){
+    $('pichint').textContent = '只接受圖片檔（PNG／JPEG／WebP 等）'; return;
+  }
+  const fr = new FileReader();
+  fr.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const long = Math.max(img.width, img.height);
+      if(long <= MAX_PIC_PX && fr.result.length < 400000){ setPic(fr.result); return; }
+      const k = Math.min(1, MAX_PIC_PX / long);
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k);
+      cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      setPic(cv.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { $('pichint').textContent = '這個檔案無法解讀為圖片'; };
+    img.src = fr.result;
+  };
+  fr.onerror = () => { $('pichint').textContent = '讀取失敗，請換一個檔案'; };
+  fr.readAsDataURL(file);
+}
+
+/* ---- 下載：自包含教學單檔（含老師填寫內容＋插圖＋執行期 TTS） ---- */
 function collectVocab(){
   return [...$('vocab').querySelectorAll('.row')].map(r => ({
     w: r.querySelector('.word').value.trim(),
@@ -277,6 +328,7 @@ button.tts{padding:2px 8px;font-size:13px;background:#fff;border:1px solid #ddd;
 button.big{padding:6px 12px;font-size:14px;background:#2c5cb8;color:#fff;border:0;
   border-radius:8px;cursor:pointer;}
 li{margin:6px 0;line-height:1.7;}
+img.pic{max-width:100%;max-height:420px;border:1px solid #ddd;border-radius:8px;}
 .note{font-size:12px;color:#666;margin-top:18px;}
 </style></head><body><main>
 <h1>識字教學：${esc(cur.ch)}
@@ -288,6 +340,7 @@ li{margin:6px 0;line-height:1.7;}
 <span class="chip">注音 ${esc($('zhuyin').value || '—')}</span></p>
 <h2>部件拆解 <small style="color:#666;">${esc(cur.ids)}</small></h2>
 <div>${leavesHtml || '（獨體字）'}</div>
+${picData ? `<h2>插圖</h2><img class="pic" src="${picData}" alt="教學插圖">` : ''}
 <h2>字義說明</h2><p style="white-space:pre-wrap;">${esc($('meaning').value || '（未填寫）')}</p>
 <h2>常用造詞＋情境造句</h2><ul>${vocabHtml || '<li>（未填寫）</li>'}</ul>
 <div class="note">本檔由 stroke-order 識字教學頁產生；發音由本機語音引擎即時合成
@@ -323,6 +376,12 @@ $('replay').addEventListener('click', () => animate($('glyph')));
 $('speak-char').addEventListener('click', () => cur && speak(cur.ch));
 $('dl').addEventListener('click', download);
 $('speak-meaning').addEventListener('click', () => speak($('meaning').value));
+$('picfile').addEventListener('change', e => loadPic(e.target.files[0]));
+$('picclear').addEventListener('click', () => { $('picfile').value = ''; setPic(null); });
+document.addEventListener('paste', e => {
+  const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  if(it) loadPic(it.getAsFile());
+});
 $('addrow').addEventListener('click', () => {
   $('vocab').insertAdjacentHTML('beforeend',
     vocabRow($('vocab').querySelectorAll('.row').length));
