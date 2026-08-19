@@ -1469,7 +1469,7 @@
              title="字模建議用黑體：筆畫粗細均勻、無收筆尖鋒，橋接/連筋落在厚壁上不易斷。楷書/宋體/隸書筆畫有細處，字模較易破字">字型風格</label><!-- 5fu：命名統一 -->
       <select id="sc-source">
         <option value="noto_hei" selected>思源黑體（字模推薦）</option>
-        <option value="chiron_round">昭源環方（圓體，圓端點）</option><!-- S1 -->
+        <option value="chiron_round" data-weight="1">昭源環方（圓體，圓端點）</option><!-- S1；data-weight=有可變字重軸（R1b） -->
         <option value="moe_kaishu">教育部楷書</option>
         <option value="moe_song">教育部宋體</option>
         <option value="moe_lishu">教育部隸書</option>
@@ -1505,9 +1505,17 @@
         <option value="2">2（轉角）</option>
       </select>
       <label style="margin-left:16px;"
-             title="路徑向外擴張，補償雷射光斑損耗（Kerf）或噴漆擴散；破字時可稍加粗">加粗 (mm)</label>
+             title="事後濾鏡：路徑向外擴張，補償雷射光斑損耗（Kerf）或噴漆擴散；破字時可稍加粗。與「字重」不同——字重換的是字型本身的粗細（見字型風格旁的滑桿）">加粗 (mm)</label>
       <input id="sc-bold" type="number" value="0" min="0" max="5"
              step="0.25" style="width:80px;">
+      <!-- R1b：字重軸——只有具可變字重的字源才顯示（由 option 的
+           data-weight 屬性驅動，不在 JS 硬寫字源名） -->
+      <span id="sc-weight-wrap" style="display:none;margin-left:16px;">
+        <label title="字型本身的字重（可變字體 wght 軸），不是事後加粗濾鏡。實測 300 以下筆畫過細、800 以上部件開始黏合，故夾在 300–800">字重
+          <span id="sc-weight-val" style="color:var(--muted);font-size:12px;">700</span></label>
+        <input id="sc-weight" type="range" min="300" max="800" step="50"
+               value="700" style="width:130px;vertical-align:middle;">
+      </span>
     </div>
     <div class="row">
       <label>字距 (mm)</label>

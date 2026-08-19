@@ -111,10 +111,13 @@ def test_list_sources_hei_label_and_registered():
 
 def test_list_sources_each_entry_has_required_fields():
     for entry in zentangle.list_sources():
-        assert set(entry.keys()) == {"key", "label", "ready"}
+        # R1b：新增 supports_weight（UI 靠它決定要不要給字重滑桿）
+        assert set(entry.keys()) == {"key", "label", "ready",
+                                     "supports_weight"}
         assert isinstance(entry["key"], str)
         assert isinstance(entry["label"], str)
         assert isinstance(entry["ready"], bool)
+        assert isinstance(entry["supports_weight"], bool)
 
 
 def test_list_sources_kaishu_label_is_chinese():

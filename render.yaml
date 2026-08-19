@@ -68,6 +68,10 @@ services:
       # S1 昭源環方 Chiron GoRound TC（第七種字模筆形風格：圓體）
       - key: STROKE_ORDER_ROUND_FONT_FILE
         value: /opt/render/project/src/.fonts/round-fonts/ChironGoRoundTC-700B.otf
+      # R1b 昭源環方可變字體（字重滑桿）。懶載：只有帶 weight 參數的
+      # 請求才會開這個檔（RSS +75 MB），預設路徑不碰。
+      - key: STROKE_ORDER_ROUND_VF_FILE
+        value: /opt/render/project/src/.fonts/round-fonts/ChironGoRoundTCVF.otf
 
       # ---- Vendor JS (5cq) — must match buildCommand's fetch_vendor dest --
       # Runtime reads the baked opencv.js / opentype.min.js from the git

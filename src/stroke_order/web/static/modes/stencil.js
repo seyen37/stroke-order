@@ -5,9 +5,18 @@ import { API_BASE } from "./core.js?v=__V__";
 // ============================================================
 // Stencil (鏤空字/噴漆字模) mode — Phase 5dc
 // ============================================================
+// R1b：該字源有沒有可變字重軸，讀 option 的 data-weight，不在 JS 硬寫
+// 字源名（那會變成第二個事實源；伺服器端的真理源是
+// /api/zentangle/sources 的 supports_weight，兩者由測試鎖成同一集合）。
+function scSourceHasWeight() {
+  const sel = document.getElementById("sc-source");
+  const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+  return !!(opt && opt.dataset && opt.dataset.weight);
+}
+
 function scParams() {
   const g = (id) => document.getElementById(id).value;
-  return new URLSearchParams({
+  const p = {
     chars: g("sc-chars"),
     kind: g("sc-kind"),
     source: g("sc-source"),
@@ -20,7 +29,11 @@ function scParams() {
     spacing_mm: g("sc-spacing"),
     frame: document.getElementById("sc-frame").checked ? "true" : "false",
     frame_width_mm: g("sc-frame-w"),
-  }).toString();
+  };
+  // 只有可調字重的字源才送 weight——其餘字源送了會 422，而且不送就是
+  // 走靜態字型（行為與記憶體與 R1b 之前完全相同）。
+  if (scSourceHasWeight()) p.weight = g("sc-weight");
+  return new URLSearchParams(p).toString();
 }
 
 async function renderStencil() {
@@ -77,5 +90,22 @@ document.getElementById("sc-render")
     sel.addEventListener("change", sync);
     sync();
   }
+})();
+
+// R1b：字型風格有可變字重軸時才顯示字重滑桿（同上，由 data-weight 驅動）。
+(function () {
+  const sel = document.getElementById("sc-source");
+  const wrap = document.getElementById("sc-weight-wrap");
+  const slider = document.getElementById("sc-weight");
+  const val = document.getElementById("sc-weight-val");
+  if (!sel || !wrap) return;
+  const sync = () => { wrap.style.display = scSourceHasWeight() ? "" : "none"; };
+  sel.addEventListener("change", sync);
+  if (slider && val) {
+    const show = () => { val.textContent = slider.value; };
+    slider.addEventListener("input", show);
+    show();
+  }
+  sync();
 })();
 

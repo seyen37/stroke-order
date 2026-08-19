@@ -66,10 +66,26 @@ _LABELS = {
 }
 
 
+def source_supports_weight(source: str) -> bool:
+    """該字源吃不吃 ``weight``（R1b 字重軸）——UI/API 的單一事實源。
+
+    由字源物件的 ``supports_weight`` 類別屬性宣告，呼叫端不必 try/except
+    TypeError 去猜。目前只有 ``chiron_round``（昭源環方有可變字體）。
+    """
+    factory = SOURCE_REGISTRY.get(source)
+    if factory is None:
+        return False
+    try:
+        return bool(getattr(factory(), "supports_weight", False))
+    except Exception:
+        return False
+
+
 def extract_outline_polylines(
     char: str,
     source: str = DEFAULT_SOURCE,
     samples_per_curve: int = DEFAULT_SAMPLES_PER_CURVE,
+    weight: int | None = None,
 ) -> list[list[tuple[float, float]]]:
     """Extract list of closed-polyline contours for ``char`` from ``source``.
 
@@ -89,6 +105,10 @@ def extract_outline_polylines(
     samples_per_curve
         Bezier sampling density. ``8`` is the established balance (see
         ``cns_font._outline_to_polylines``).
+    weight
+        R1b 字重軸。``None``（預設）＝走字源的靜態字型，行為與記憶體足跡
+        與 R1b 之前完全相同。給值則要求該字源有可變字重軸（見
+        :func:`source_supports_weight`），沒有就拋 ``ValueError``。
 
     Returns
     -------
@@ -116,19 +136,35 @@ def extract_outline_polylines(
             f"valid: {sorted(SOURCE_REGISTRY.keys())}"
         )
     src = SOURCE_REGISTRY[source]()
-    character = src.get_character(char)  # raises CharacterNotFound
+    if weight is None:
+        character = src.get_character(char)  # raises CharacterNotFound
+    else:
+        if not getattr(src, "supports_weight", False):
+            raise ValueError(
+                f"source {source!r} has no weight axis; sources that do: "
+                f"{sorted(k for k in SOURCE_REGISTRY if source_supports_weight(k))}"
+            )
+        character = src.get_character(char, weight=weight)
     if not character.strokes:
         return []
     outline_cmds = list(character.strokes[0].outline or [])
     if not outline_cmds:
         return []
-    return _outline_to_polylines(
+    polys = _outline_to_polylines(
         outline_cmds, samples_per_curve=samples_per_curve
     )
+    if weight is not None:
+        # 可變字體保留重疊輪廓（重疊消除無法沿字重軸內插），拿 even-odd
+        # 直接畫會在重疊處打出假洞。這裡是折線化後的唯一縫，統一補正；
+        # 靜態路徑（weight=None）完全不經過，故零回歸。
+        resolver = getattr(src, "resolve_overlaps", None)
+        if resolver is not None:
+            polys = resolver(polys)
+    return polys
 
 
 def list_sources() -> list[dict]:
-    """Return ``[{key, label, ready}]`` for each registered source.
+    """Return ``[{key, label, ready, supports_weight}]`` for each source.
 
     UI uses this to populate the source dropdown. ``ready=False`` indicates
     the font file is missing and that source should be visually disabled
@@ -146,6 +182,9 @@ def list_sources() -> list[dict]:
                 "key": key,
                 "label": _LABELS.get(key, key),
                 "ready": ready,
+                # R1b：UI 靠這欄決定要不要給字重滑桿（不要在前端硬寫
+                # 字源名——那就成了第二個事實源）
+                "supports_weight": source_supports_weight(key),
             }
         )
     return out
@@ -153,6 +192,7 @@ def list_sources() -> list[dict]:
 
 __all__ = [
     "extract_outline_polylines",
+    "source_supports_weight",
     "list_sources",
     "SOURCE_REGISTRY",
     "DEFAULT_SOURCE",

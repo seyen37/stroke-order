@@ -20,6 +20,12 @@ from ..char_pipeline import (
     make_char_loader,
 )
 from ..responses import SVG_MEDIA_TYPE, _content_disposition, svg_response
+# R1b 字重軸範圍——Query 的 ge/le 必須是模組層常數（FastAPI 在 import 時
+# 建 schema）。單一事實源在 sources.chiron_round，這裡只做別名，不複寫值。
+from ...sources.chiron_round import (
+    WEIGHT_MAX as _WEIGHT_MAX,
+    WEIGHT_MIN as _WEIGHT_MIN,
+)
 
 class PatchDecorationSpec(BaseModel):
     svg_content: str
@@ -746,6 +752,11 @@ def zentangle_outline(
     char: str = Query(..., min_length=1, max_length=1, description="single CJK char"),
     source: str = Query("moe_kaishu", description="font source key"),
     samples_per_curve: int = Query(8, ge=1, le=64, description="Bezier sampling density"),
+    weight: int | None = Query(
+        None, ge=_WEIGHT_MIN, le=_WEIGHT_MAX,
+        description="R1b 字重軸；僅有可變字重的字源支援（見 "
+                    "/api/zentangle/sources 的 supports_weight）。不給"
+                    "＝走該字源的靜態字型，行為與記憶體足跡皆不變"),
 ):
     """Return polyline contours for a single character.
 
@@ -760,9 +771,16 @@ def zentangle_outline(
     from ...exporters import zentangle as zt
     from ...ir import EM_SIZE
     from ...sources.g0v import CharacterNotFound
+    if weight is not None and not zt.source_supports_weight(source):
+        raise HTTPException(
+            422,
+            detail=f"字源 {source!r} 沒有可變字重軸；支援的字源："
+                   f"{sorted(k for k in zt.SOURCE_REGISTRY if zt.source_supports_weight(k))}",
+        )
     try:
         polylines = zt.extract_outline_polylines(
-            char, source=source, samples_per_curve=samples_per_curve
+            char, source=source, samples_per_curve=samples_per_curve,
+            weight=weight,
         )
     except ValueError as e:
         raise HTTPException(400, detail=str(e)) from e
@@ -780,6 +798,7 @@ def zentangle_outline(
         "char": char,
         "source": source,
         "samples_per_curve": samples_per_curve,
+        "weight": weight,
         "em_size": EM_SIZE,
     }
 
@@ -787,9 +806,11 @@ def zentangle_outline(
 def zentangle_sources():
     """List available outline sources for the UI dropdown.
 
-    Each entry: ``{key, label, ready}``. ``ready=False`` means the
-    font file is missing — the UI should grey out that option and
-    show an install tooltip rather than letting the user 503 on it.
+    Each entry: ``{key, label, ready, supports_weight}``. ``ready=False``
+    means the font file is missing — the UI should grey out that option
+    and show an install tooltip rather than letting the user 503 on it.
+    ``supports_weight=True`` means the source has a variable weight axis
+    (R1b) and the UI may offer a 字重 slider for it.
     """
     from ...exporters import zentangle as zt
     return {"sources": zt.list_sources()}

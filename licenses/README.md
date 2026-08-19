@@ -16,6 +16,7 @@
 |---|---|---|---|---|
 | `NotoSansTC-Bold.otf` | 思源黑體 / Noto Sans TC（立體字鏤空字模、黑體字模） | SIL OFL 1.1 | [`SIL-OFL-1.1.txt`](SIL-OFL-1.1.txt) | <https://github.com/notofonts/noto-cjk> |
 | `ChironGoRoundTC-700B.otf` | 昭源環方 / Chiron GoRound TC（圓體字模風格） | SIL OFL 1.1 | [`SIL-OFL-1.1.txt`](SIL-OFL-1.1.txt) | <https://github.com/chiron-fonts/chiron-go-round-tc> |
+| `ChironGoRoundTCVF.otf` | 昭源環方可變字體（R1b 字重滑桿，wght 200–900） | SIL OFL 1.1 | [`SIL-OFL-1.1.txt`](SIL-OFL-1.1.txt) | 同上 |
 | `chongxi_seal.otf` | 崇羲篆體（篆體印章） | CC BY-ND 4.0 | [`CC-BY-ND-4.0.txt`](CC-BY-ND-4.0.txt) | <https://github.com/ButTaiwan/chongxi> |
 | `TW-Kai-*.ttf` / `TW-Sung-*.ttf` | CNS 11643 全字庫（缺字補字） | 政府資料開放授權 1.0 | [`Taiwan-OGDL-1.0.md`](Taiwan-OGDL-1.0.md) | <https://www.cns11643.gov.tw/> |
 | `edukai.ttf` | 教育部標準楷書 | 政府資料開放授權 1.0 | [`Taiwan-OGDL-1.0.md`](Taiwan-OGDL-1.0.md) | <https://language.moe.gov.tw/result.aspx?classify_sn=23> |

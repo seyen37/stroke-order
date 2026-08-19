@@ -29,6 +29,12 @@ from ..char_pipeline import (
 from ..capacity import capacity_summary
 from ..responses import svg_response, _content_disposition
 from ..versioning import APP_VERSION
+# R1b 字重軸範圍——Query 的 ge/le 需模組層常數；值的單一事實源在
+# sources.chiron_round，這裡只做別名，不複寫數字。
+from ...sources.chiron_round import (
+    WEIGHT_MAX as _WEIGHT_MAX,
+    WEIGHT_MIN as _WEIGHT_MIN,
+)
 
 class ZoneSpec(BaseModel):
     x: float
@@ -552,7 +558,14 @@ def api_stencil(
     char_height_mm: float = Query(50.0, ge=10, le=300),
     bridge_width_mm: float = Query(2.0, ge=0.5, le=10),
     bridge_count: int = Query(4, ge=2, le=4),
-    bold_mm: float = Query(0.0, ge=0, le=5),
+    bold_mm: float = Query(0.0, ge=0, le=5,
+                           description="事後光柵膨脹濾鏡（與 weight 不同："
+                                       "weight 換的是字型本身的字重）"),
+    weight: int | None = Query(
+        None, ge=_WEIGHT_MIN, le=_WEIGHT_MAX,
+        description="R1b 字重軸；僅有可變字重的字源支援（見 "
+                    "/api/zentangle/sources 的 supports_weight）。不給"
+                    "＝走該字源的靜態字型，行為與記憶體足跡皆不變"),
     spacing_mm: float = Query(5.0, ge=0, le=100),
     frame: bool = Query(True, description="cutout 限定：外掛邊框"),
     frame_width_mm: float = Query(4.0, ge=1, le=20),
@@ -568,6 +581,12 @@ def api_stencil(
     )
     if source not in _zt.SOURCE_REGISTRY:
         raise HTTPException(422, detail=f"unknown source: {source}")
+    if weight is not None and not _zt.source_supports_weight(source):
+        raise HTTPException(
+            422,
+            detail=f"字源 {source!r} 沒有可變字重軸；支援的字源："
+                   f"{sorted(k for k in _zt.SOURCE_REGISTRY if _zt.source_supports_weight(k))}",
+        )
     if style not in CUTTING_STYLES:
         raise HTTPException(
             422, detail=f"unknown cutting style: {style!r}; "
@@ -579,7 +598,8 @@ def api_stencil(
         if ch.isspace():
             continue
         try:
-            polys = _zt.extract_outline_polylines(ch, source=source)
+            polys = _zt.extract_outline_polylines(
+                ch, source=source, weight=weight)
         except Exception:                  # noqa: BLE001 — 缺字/缺字型
             missing.append(ch)
             continue

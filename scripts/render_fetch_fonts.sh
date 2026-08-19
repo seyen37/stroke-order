@@ -164,6 +164,13 @@ fetch_one "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/Subset
 fetch_one "https://raw.githubusercontent.com/chiron-fonts/chiron-go-round-tc/master/STATIC_OTF/ChironGoRoundTC-700B.otf" \
                                       "$FONT_BASE/round-fonts/ChironGoRoundTC-700B.otf" 10000000
 
+# 昭源環方可變字體 — R1b 字重軸（wght 200–900，UI 夾在 300–800）。
+# 同 OFL、同 repo、同 raw 直取。~21.7 MB。首次取字約 217 ms、RSS +75 MB，
+# 故只在使用者真的拉字重滑桿時才載入（見 sources/chiron_round.py 雙軌）。
+# 抓失敗只讓字重滑桿失效，靜態 700B 與其餘字源不受影響。
+fetch_one "https://raw.githubusercontent.com/chiron-fonts/chiron-go-round-tc/master/VAR_OTF/ChironGoRoundTCVF.otf" \
+                                      "$FONT_BASE/round-fonts/ChironGoRoundTCVF.otf"  10000000
+
 # ---------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------
