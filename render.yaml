@@ -19,8 +19,9 @@ services:
     runtime: python
     plan: free                       # cold start，但個人專案 demo 夠用
     region: singapore                # 距台灣最近的免費區域
-    # buildCommand fetches the 10 third-party font files (5 sources,
-    # ~280 MB total) from GitHub Release fonts-v1 into the git-checkout
+    # buildCommand fetches the 11 third-party font files (7 sources,
+    # ~300 MB total) from GitHub Release fonts-v1 (+ two OFL fonts pulled
+    # straight from their upstream repos) into the git-checkout
     # path /opt/render/project/src/.fonts/. Crucially NOT $HOME/.stroke-order/
     # because Render's build-user home is ephemeral and does not survive
     # into the runtime container — only files under the git checkout path
@@ -64,6 +65,9 @@ services:
         value: /opt/render/project/src/.fonts/kaishu-fonts/edukai.ttf
       - key: STROKE_ORDER_HEI_FONT_FILE
         value: /opt/render/project/src/.fonts/hei-fonts/NotoSansTC-Bold.otf
+      # S1 昭源環方 Chiron GoRound TC（第七種字模筆形風格：圓體）
+      - key: STROKE_ORDER_ROUND_FONT_FILE
+        value: /opt/render/project/src/.fonts/round-fonts/ChironGoRoundTC-700B.otf
 
       # ---- Vendor JS (5cq) — must match buildCommand's fetch_vendor dest --
       # Runtime reads the baked opencv.js / opentype.min.js from the git

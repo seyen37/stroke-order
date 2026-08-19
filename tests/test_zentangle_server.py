@@ -51,7 +51,7 @@ def client(kaishu_env):
 # ---------------------------------------------------------------------------
 
 
-def test_sources_endpoint_returns_six_keys(client):
+def test_sources_endpoint_returns_seven_keys(client):
     r = client.get("/api/zentangle/sources")
     assert r.status_code == 200
     data = r.json()
@@ -59,6 +59,7 @@ def test_sources_endpoint_returns_six_keys(client):
     keys = [s["key"] for s in data["sources"]]
     assert keys == [
         "noto_hei",
+        "chiron_round",
         "moe_kaishu",
         "cns_kai",
         "moe_song",

@@ -54,8 +54,10 @@ bundle.**
 ### B. Font assets (fetched at deploy time, not bundled in repo)
 
 The Render.com deployment fetches these via
-`scripts/render_fetch_fonts.sh` from GitHub Release `fonts-v1`. All
-five sources permit redistribution under the terms below.
+`scripts/render_fetch_fonts.sh` — most from GitHub Release `fonts-v1`,
+and the two SIL OFL fonts (Noto Sans TC, 昭源環方) straight from their
+upstream repositories. All sources permit redistribution under the
+terms below.
 
 The **full license texts** for these fonts are kept under
 [`licenses/`](licenses/) and travel with the repo — see
@@ -101,6 +103,16 @@ The **full license texts** for these fonts are kept under
   and released by Google as Noto Sans CJK. Copyright 2014-2021 Adobe.
   License: SIL Open Font License 1.1. Reserved Font Name: "Noto".
   Source: https://github.com/notofonts/noto-cjk
+  Permits commercial use, bundling, and derivatives; the whole font may
+  not be sold on its own and the OFL notice must travel with it.
+
+- **昭源環方 / Chiron GoRound TC (ChironGoRoundTC-700B.otf)** — the 圓體
+  (rounded-gothic) 字模 style option; built by rounding the corners of
+  昭源黑體 (itself a modern-orthography rework of Source Han Sans HK).
+  Copyright 2024-2026 Tamcy; Copyright 2014-2025 Adobe; Copyright 2016
+  The Nunito Sans Project Authors (embedded Latin).
+  License: SIL Open Font License 1.1 (no Reserved Font Name declared).
+  Source: https://github.com/chiron-fonts/chiron-go-round-tc
   Permits commercial use, bundling, and derivatives; the whole font may
   not be sold on its own and the OFL notice must travel with it.
 

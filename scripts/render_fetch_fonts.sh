@@ -2,7 +2,7 @@
 # =====================================================================
 # Render.com build-phase font fetcher — stroke-order
 #
-# Downloads the 10 third-party font files into ~/.stroke-order/<type>/
+# Downloads the 11 third-party font files into ~/.stroke-order/<type>/
 # during Render build, so the deployed app can serve seal / lishu /
 # mingti / kaishu / CNS-fallback styles instead of falling back to
 # fonts-not-loaded warnings.
@@ -10,10 +10,11 @@
 # Hosted as GitHub Release assets on the canonical repo:
 #   https://github.com/seyen37/stroke-order/releases/tag/fonts-v1
 #
-# All five font sources are redistributable under their respective
-# licenses (CNS = Taiwan Open Data Lic 1.0; chongxi_seal = CC BY-ND;
-# MOE 楷/隸/宋 = Taiwan government public works). LICENSE末段 carries
-# the full attribution block.
+# All font sources are redistributable under their respective licenses
+# (CNS = Taiwan Open Data Lic 1.0; chongxi_seal = CC BY-ND; MOE 楷/隸/宋
+# = Taiwan government public works; Noto Sans TC + 昭源環方 = SIL OFL 1.1).
+# LICENSE末段 carries the full attribution block; licenses/ carries the
+# full license texts.
 #
 # Design: graceful per-font failure
 # ---------------------------------
@@ -51,7 +52,8 @@ mkdir -p \
   "$FONT_BASE/lishu-fonts"  \
   "$FONT_BASE/song-fonts"   \
   "$FONT_BASE/kaishu-fonts" \
-  "$FONT_BASE/hei-fonts"
+  "$FONT_BASE/hei-fonts"    \
+  "$FONT_BASE/round-fonts"
 
 ok=0
 fail=0
@@ -152,6 +154,15 @@ fetch_one "edukai.ttf"                "$FONT_BASE/kaishu-fonts/edukai.ttf"      
 # https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf
 fetch_one "https://raw.githubusercontent.com/notofonts/noto-cjk/main/Sans/SubsetOTF/TC/NotoSansTC-Bold.otf" \
                                       "$FONT_BASE/hei-fonts/NotoSansTC-Bold.otf"       3000000
+
+# 昭源環方 / Chiron GoRound TC Bold — 圓體字模風格 (S1)。
+# SIL OFL 1.1（同 Noto）。上游 repo 的 STATIC_OTF/ 目錄直接進版控，
+# 故走 raw.githubusercontent 直取（~18.7 MB），不必上傳 fonts-v1 release。
+# 收 700B 而非 400R：兩者殘腔皆 0，但 400R 筆寬比基準細約 35%，小尺寸
+# 字模餘裕不足；圓角絕對半徑兩者近乎相同（~70 EM）。
+# 依據：docs/decisions/2026-08-20_s1_chiron_round.md
+fetch_one "https://raw.githubusercontent.com/chiron-fonts/chiron-go-round-tc/master/STATIC_OTF/ChironGoRoundTC-700B.otf" \
+                                      "$FONT_BASE/round-fonts/ChironGoRoundTC-700B.otf" 10000000
 
 # ---------------------------------------------------------------------
 # Summary

@@ -157,11 +157,23 @@
 **加字體**（純提供更好的字模底：均勻黑體最佳）：
 
 1. 放字型檔（授權要能商用/打包；OFL 最佳，避開方正等商用字）。
-2. 仿 `sources/noto_hei.py` 寫 `get_XXX_source()`、登 `zentangle.py`
+   **先探上游 repo 樹**——若成品字型本身進版控（如 noto-cjk 的
+   `Sans/SubsetOTF/`、昭源環方的 `STATIC_OTF/`），直接 raw 直取即可，
+   不必轉存自家 `fonts-v1` release（連分支名一起確認，未必是 `main`）。
+2. **選字重要實測不要憑觀感**：跑第 5 步的殘腔 0 判準＋筆寬中位數，
+   和現行基準（思源黑體 Bold）比。過不過只是及格線，真正要看的是**餘裕**
+   ——筆寬隨輸出尺寸等比縮小，50 mm 過不代表 20 mm 過。
+3. 仿 `sources/noto_hei.py` 寫 `get_XXX_source()`、登 `zentangle.py`
    `SOURCE_REGISTRY`/`_LABELS`。
-3. `render_fetch_fonts.sh`＋`render.yaml` 加佈署路徑。
-4. `index.html` 的 `sc-source` 下拉加一項。
-5. 測試：`test_XXX.py` 驗註冊＋字模拓撲有效（殘腔 0）。
+4. `render_fetch_fonts.sh`（mkdir＋`fetch_one`）＋`render.yaml` envVar
+   加佈署路徑。
+5. `index.html` 的 `sc-source` 下拉加一項。
+6. 授權：`LICENSE` B 段＋`licenses/README.md` 對照表。**逐項查證上游原文**
+   （版權方、有無 Reserved Font Name），不要沿用姊妹字型的措辭。
+7. 測試：`test_XXX.py` 驗註冊＋字模拓撲有效（殘腔 0）＋筆寬落在黑體級距，
+   外加兩道 **parity 鎖**——(a) 下拉 option 集合 ≡ `SOURCE_REGISTRY` 鍵集合；
+   (b) 抓取落點／`render.yaml` env 值／模組內建檔名三處同名。
+   （範本：`tests/test_chiron_round.py`；原則 §91。）
 
 **加切割風格**（同一字體、不同斷法）：
 

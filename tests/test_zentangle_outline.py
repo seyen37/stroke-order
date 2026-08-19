@@ -76,8 +76,8 @@ def test_extract_unknown_source_message_lists_valid_keys():
     with pytest.raises(ValueError) as ei:
         zentangle.extract_outline_polylines("心", source="bogus")
     msg = str(ei.value)
-    for key in ("noto_hei", "moe_kaishu", "cns_kai", "moe_song",
-                "moe_lishu", "chongxi_seal"):
+    for key in ("noto_hei", "chiron_round", "moe_kaishu", "cns_kai",
+                "moe_song", "moe_lishu", "chongxi_seal"):
         assert key in msg, f"valid source {key!r} should appear in error: {msg}"
 
 
@@ -87,12 +87,13 @@ def test_extract_unknown_source_message_lists_valid_keys():
 # ---------------------------------------------------------------------------
 
 
-def test_list_sources_returns_six_entries():
+def test_list_sources_returns_seven_entries():
     sources = zentangle.list_sources()
-    assert len(sources) == 6
+    assert len(sources) == 7
     keys = [s["key"] for s in sources]
     assert keys == [
         "noto_hei",
+        "chiron_round",
         "moe_kaishu",
         "cns_kai",
         "moe_song",
