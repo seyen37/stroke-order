@@ -21,6 +21,7 @@ from ..char_pipeline import (
     _STYLE_PATTERN,
     _apply_style,
     _parse_zhuyin_map,
+    build_digit_glyphs,
     build_info_rows,
     _upgrade_to_lishu,
     _upgrade_to_seal,
@@ -1111,6 +1112,101 @@ def grid(
             basename, "svg"
         )
     return svg_response(svg, headers=headers, mode="grid")
+
+
+# ------ X1 筆順分解圖 steps mode ------------------------------------
+
+@router.get("/api/steps")
+def steps(
+    chars: str = Query(..., min_length=1, max_length=40,
+                       description="要產分解圖的生字（每字一條）"),
+    source: str = Query("auto"),
+    hook_policy: str = Query("animation"),
+    guide: str = Query("tian", pattern="^(tian|mi|hui|plain|none)$"),
+    cols: int = Query(12, ge=4, le=20,
+                      description="每列格數——頁寬由此決定，與單字筆畫數解耦"),
+    cell_size: int = Query(96, ge=40, le=300),
+    numbers: bool = Query(True, description="右上角筆畫序號（noto_hei 字形路徑；字型缺席自動省略）"),
+    download: bool = Query(False),
+    format: str = Query("svg", pattern="^(svg|pdf|png)$"),
+    dpi: int = Query(
+        _DEFAULT_DPI, ge=_MIN_DPI, le=600,
+        description="pdf/png 光柵化解析度；受記憶體配額自動下修，實際值見 X-Pdf-Dpi-Used"),
+    paper: str = Query("a4", pattern="^(a4|a5|letter)$"),
+    margin_mm: float = Query(10.0, ge=0, le=50),
+):
+    """X1：筆順分解圖——每字一條「第 N 格畫到第 N 筆」的靜態累積序列。
+
+    已寫淡灰、當前濃黑（黑白影印後仍可辨），序號走字形路徑不用
+    ``<text>``（§5bv）。資料為 g0v 教育部標準楷書筆順，原生渲染、
+    不抓任何外站。pdf/png 與字帖同路：整張貼合紙張後光柵化（W1）。
+    """
+    from ...exporters.steps import render_steps_svg
+
+    loaded = []
+    skipped: list[str] = []
+    for ch in chars:
+        if ch.isspace():
+            continue
+        try:
+            c, _r, _ = _pipeline._load(ch, source, hook_policy)
+            loaded.append(c)
+        except HTTPException as e:
+            if e.status_code == 404:
+                skipped.append(ch)
+                continue
+            raise
+    if not loaded:
+        raise HTTPException(
+            400, detail=f"no characters loaded (skipped: {skipped!r})")
+    basename = "".join(c.char for c in loaded) + "_筆順分解圖"
+    headers: dict[str, str] = {}
+
+    svg = render_steps_svg(
+        loaded, guide=guide, cols=cols, cell_size_px=cell_size,
+        digit_glyphs=build_digit_glyphs() if numbers else None,
+    )
+
+    if format in ("pdf", "png"):
+        from ...exporters.multi_page import (
+            PAPER_SIZES_MM, RasterBudgetExceeded, fit_svg_to_paper,
+            render_svg_as_pdf, render_svg_as_png,
+        )
+        pw_mm, ph_mm = PAPER_SIZES_MM[paper]
+        if margin_mm * 2 >= min(pw_mm, ph_mm):
+            raise HTTPException(
+                422, detail=f"margin_mm {margin_mm} 對 {paper} 太大")
+        sheet = fit_svg_to_paper(svg, pw_mm, ph_mm, margin_mm)
+        try:
+            if format == "pdf":
+                body, dpi_used = render_svg_as_pdf(
+                    sheet, pw_mm, ph_mm, dpi=dpi)
+                mime, ext = "application/pdf", "pdf"
+            else:
+                body, dpi_used = render_svg_as_png(
+                    sheet, pw_mm, ph_mm, dpi=dpi)
+                mime, ext = "image/png", "png"
+        except RasterBudgetExceeded as e:
+            raise HTTPException(422, detail=str(e)) from e
+        except ImportError as e:  # pragma: no cover — web extras 缺席
+            raise HTTPException(
+                500, detail=f"PDF/PNG backend unavailable: {e}. "
+                            "Install with `pip install cairosvg Pillow`.",
+            ) from e
+        headers["X-Pdf-Dpi-Requested"] = str(dpi)
+        headers["X-Pdf-Dpi-Used"] = str(dpi_used)
+        headers["X-Paper"] = paper
+        if download:
+            headers["Content-Disposition"] = _content_disposition(
+                basename, ext)
+        return Response(content=body, media_type=mime, headers=headers)
+
+    if download:
+        headers["Content-Disposition"] = _content_disposition(basename, "svg")
+    # mode=None：分解圖暫不進分享庫收件白名單（那是 12 模式的數量鎖，
+    # 登錄新 kind 是另一輪的事）——同 /api/qr 前例，刻意不嵌出口信封。
+    return svg_response(svg, headers=headers, mode=None)
+
 
 # ------ file download -----------------------------------------------
 

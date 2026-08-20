@@ -57,6 +57,8 @@ ROUTE_SNAPSHOT = {
     ("GET", "/api/gallery/users/{user_id}"),
     ("GET", "/api/gallery/users/{user_id}/avatar"),
     ("GET", "/api/grid"),
+    # X1: 筆順分解圖（2026-08-20）
+    ("GET", "/api/steps"),
     ("GET", "/api/handwriting/reference/{char}"),
     ("GET", "/api/health"),
     ("GET", "/api/kaishu-status"),

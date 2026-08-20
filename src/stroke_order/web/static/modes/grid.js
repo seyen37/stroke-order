@@ -187,6 +187,24 @@ function gridParams() {
   return p.toString();
 }
 
+// X1：筆順分解圖——用「字串」欄的生字批次產出（格線沿用 grid 的選項）
+function stepsUrl(format) {
+  const g = (id) => document.getElementById(id).value;
+  const p = new URLSearchParams({
+    chars: g("grid-chars"),
+    source: g("grid-source"),
+    hook_policy: g("grid-hook"),
+    guide: g("grid-guide"),
+    format,
+  });
+  if (format === "pdf") p.set("download", "true");
+  return `${API_BASE}/api/steps?${p.toString()}`;
+}
+document.getElementById("grid-steps-svg").onclick =
+  () => window.open(stepsUrl("svg"), "_blank");
+document.getElementById("grid-steps-pdf").onclick =
+  () => { window.location.href = stepsUrl("pdf"); };
+
 async function renderGrid() {
   const statusEl = document.getElementById("grid-status");
   const previewEl = document.getElementById("grid-preview");

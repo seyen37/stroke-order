@@ -334,6 +334,28 @@ def build_mandala_char_loader(
 INFO_MAX_WORDS = 3
 
 
+def build_digit_glyphs() -> dict:
+    """X1：阿拉伯數字 0–9 的字形表（noto_hei）——分解圖序號用。
+
+    序號走字形路徑而非 ``<text>``（§5bv）；noto_hei 缺席（本機沒放字型檔）
+    時回空 dict，呼叫端據此**省略序號**、不補符號（§87 不裝懂）。
+    """
+    glyphs: dict = {}
+    try:
+        from ..sources.noto_hei import get_hei_source
+        hei = get_hei_source()
+    except Exception:
+        return {}
+    for ch in "0123456789":
+        try:
+            g = hei.get_character(ch)
+        except Exception:
+            continue
+        if g is not None and g.strokes:
+            glyphs[ch] = g
+    return glyphs
+
+
 def build_info_rows(chars: list[str]) -> tuple[list[dict], dict]:
     """W2：生字清單 → ``(info_rows, info_glyphs)``，餵給 ``render_grid_svg``。
 

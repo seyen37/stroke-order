@@ -692,6 +692,16 @@
         照國小常用字頻表出字（可再手動增刪）
       </span>
     </div>
+    <!-- X1：筆順分解圖——每字一條「第 N 格畫到第 N 筆」。已寫淡灰、當前
+         濃黑（黑白影印仍可辨）。用上方「字串」欄的生字批次產出。 -->
+    <div class="row">
+      <label title="每字一條逐筆累積圖（第 N 格畫到第 N 筆），已寫淡灰、當前濃黑、右上角筆畫序號——黑白影印後仍可辨。用上方「字串」欄的生字批次產出">筆順分解圖</label>
+      <button id="grid-steps-svg" class="secondary">預覽 (SVG)</button>
+      <button id="grid-steps-pdf" style="margin-left:8px;">⬇ 下載 A4 PDF</button>
+      <span style="margin-left:8px;color:var(--muted);font-size:11px;">
+        每字一條、格數＝筆畫數、自動換列；格線跟上面「格線」選項
+      </span>
+    </div>
     <div class="row">
       <label>格線</label>
       <select id="grid-guide">
