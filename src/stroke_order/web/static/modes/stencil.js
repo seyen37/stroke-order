@@ -26,6 +26,7 @@ function scParams() {
     bridge_width_mm: g("sc-bridgew"),
     bridge_count: g("sc-bridgen"),
     bold_mm: g("sc-bold"),
+    delta_em: g("sc-delta"),   // B：向量域粗細微調（±20 EM 安全區）
     spacing_mm: g("sc-spacing"),
     frame: document.getElementById("sc-frame").checked ? "true" : "false",
     frame_width_mm: g("sc-frame-w"),

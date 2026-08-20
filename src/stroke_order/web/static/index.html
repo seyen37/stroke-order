@@ -1541,6 +1541,10 @@
              title="事後濾鏡：路徑向外擴張，補償雷射光斑損耗（Kerf）或噴漆擴散；破字時可稍加粗。與「字重」不同——字重換的是字型本身的粗細（見字型風格旁的滑桿）">加粗 (mm)</label>
       <input id="sc-bold" type="number" value="0" min="0" max="5"
              step="0.25" style="width:80px;">
+      <label style="margin-left:16px;"
+             title="B：字形粗細微調（正=加粗、負=減細）。在向量域動字形本身、保留起收筆風味，與「加粗」（光柵膨脹濾鏡）不同且可疊用。±20 為楷書級實測範圍（≈筆寬 ±9%）；黑體/圓體等粗筆畫字源在加粗端可能更早黏合——調整後看預覽與件數/孔數">微調 (±EM)</label>
+      <input id="sc-delta" type="number" value="0" min="-20" max="20"
+             step="2" style="width:80px;">
       <!-- R1b：字重軸——只有具可變字重的字源才顯示（由 option 的
            data-weight 屬性驅動，不在 JS 硬寫字源名） -->
       <span id="sc-weight-wrap" style="display:none;margin-left:16px;">

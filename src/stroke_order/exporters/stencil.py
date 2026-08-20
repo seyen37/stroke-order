@@ -117,6 +117,69 @@ PX_PER_MM = 8
 #: 的微段（微凸/微凹），但遠小於筆畫/橋（≥16px）與真轉角，故不損字形。
 _STENCIL_RDP_EPS = 2.0
 
+#: B 案：真輪廓 ±δ 粗細微調的夾限（EM 2048 域）。
+#:
+#: **這是量測涵蓋的範圍上限，不是跨字源的安全保證。** R1b 在楷書級筆寬
+#: 實測（國/歡/明、50 mm 字框）±20 EM ≈ 筆寬 ±9% 內件數/孔數不變、±40
+#: 才黏部件破字碗；但 B 輪動工時再量 **noto_hei（粗黑體）**，+20 就讓
+#: 「歡」黏合（3→1 件）、「國」孔 2→5——粗筆畫字源間隙小，黏合門檻
+#: 等比提前。所以夾限鎖 ±20（超出連楷書都會壞），字源相依的後果交給
+#: 既有的 X-Stencil-Components／X-Stencil-Holes 回應標頭誠實回報，
+#: 由使用者看著調。**EM 域而非 mm 域**：門檻隨字形等比縮放，mm 夾限
+#: 會在小字框失守（0.5 mm 在 10 mm 字框 ≈ 102 EM，早已出界）。
+DELTA_EM_LIMIT = 20.0
+
+
+def apply_delta_em(
+    polys: list[list[tuple[float, float]]],
+    delta_em: float,
+) -> list[list[tuple[float, float]]]:
+    """真輪廓 ±δ（B 案）：一個字的 even-odd 環群 → 粗細微調後的環群。
+
+    與 ``bold_mm``（事後光柵膨脹濾鏡、mm 物理域、只加不減）不同：本函式
+    在**向量域**動字形本身，雙向（加粗/減細）、保留起收筆風味，且發生在
+    光柵化之前——8 px/mm 下 20 EM 在 50 mm 字框只有 2 px，光柵形態學的
+    量化誤差會吃掉一半行程，向量域沒有這個問題。
+
+    even-odd 環群的正確重建走 **XOR**（``symmetric_difference``）——與
+    even-odd 填色逐點等價，不需要知道環向或巢狀深度（§29 Jordan 巢狀的
+    老坑，這裡直接繞開）。減細可能讓細小部件整個消失——照原樣回傳空
+    結果，呼叫端保留空字槽（版面對位不變）。
+    """
+    if not delta_em or not polys:
+        return polys
+    if abs(delta_em) > DELTA_EM_LIMIT:
+        raise ValueError(
+            f"delta_em {delta_em} 超出安全區 ±{DELTA_EM_LIMIT}"
+            f"（R1b 實測，超出就黏部件/破字碗）")
+    from shapely.geometry import MultiPolygon, Polygon
+
+    shape = None
+    for ring in polys:
+        if len(ring) < 3:
+            continue
+        p = Polygon(ring)
+        if not p.is_valid:
+            p = p.buffer(0)
+        if p.is_empty:
+            continue
+        shape = p if shape is None else shape.symmetric_difference(p)
+    if shape is None or shape.is_empty:
+        return []
+    shape = shape.buffer(float(delta_em), join_style="round")
+    if shape.is_empty:
+        return []
+    out: list[list[tuple[float, float]]] = []
+    geoms = (shape.geoms if isinstance(shape, MultiPolygon) else [shape])
+    for poly in geoms:
+        for ring in (poly.exterior, *poly.interiors):
+            coords = list(ring.coords)
+            if len(coords) >= 2 and coords[0] == coords[-1]:
+                coords = coords[:-1]
+            if len(coords) >= 3:
+                out.append([(float(x), float(y)) for x, y in coords])
+    return out
+
 
 # ---------------------------------------------------------------------------
 # 光柵化與形態學（純 numpy，零新依賴）
@@ -730,6 +793,7 @@ def stencil_geometry(
     bridge_width_mm: float = 2.0,
     bridge_count: int = 4,
     bold_mm: float = 0.0,
+    delta_em: float = 0.0,
     spacing_mm: float = 5.0,
     margin_mm: Optional[float] = None,
     frame: bool = True,
@@ -744,6 +808,11 @@ def stencil_geometry(
     n = len(char_polys)
     if n == 0:
         return [], 0.0, 0.0, {}
+    # B 案：向量域粗細微調——在光柵化之前動字形本身（保留起收筆），
+    # 與 bold_mm（事後光柵膨脹濾鏡）語意不同、可疊用。減細到消失的字
+    # 保留空槽（版面對位不變）。
+    if delta_em:
+        char_polys = [apply_delta_em(p, delta_em) for p in char_polys]
     cut_style = get_cutting_style(style)      # 未知風格 → KeyError（呼叫端轉 422）
     ch_px = max(8, int(round(char_height_mm * px_per_mm)))
     sp_px = max(0, int(round(spacing_mm * px_per_mm)))

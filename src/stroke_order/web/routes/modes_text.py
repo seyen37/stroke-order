@@ -42,6 +42,8 @@ from ...exporters.multi_page import (
     DEFAULT_DPI as _DEFAULT_DPI,
     MIN_DPI as _MIN_DPI,
 )
+# B 案：±δ 夾限（單一事實源在 exporters.stencil；Query 需模組層常數）
+from ...exporters.stencil import DELTA_EM_LIMIT as _DELTA_EM_LIMIT
 
 #: W1：四個字帖模式共用的 format 值域。加格式時只改這裡，端點的 pattern
 #: 由它推導，並由 `test_page_pdf` 的 parity 鎖確保「pattern 裡有的格式
@@ -656,6 +658,16 @@ def api_stencil(
     bold_mm: float = Query(0.0, ge=0, le=5,
                            description="事後光柵膨脹濾鏡（與 weight 不同："
                                        "weight 換的是字型本身的字重）"),
+    # B 案：真輪廓 ±δ 粗細微調（向量域、雙向、保留起收筆）。夾限 ±20 EM
+    # ＝量測涵蓋的範圍上限（單一事實源在 exporters；非跨字源安全保證，
+    # 粗筆畫字源在 +δ 端更早黏合——看件數/孔數標頭）。
+    delta_em: float = Query(
+        0.0, ge=-_DELTA_EM_LIMIT, le=_DELTA_EM_LIMIT,
+        description="B：字形粗細微調（EM 2048 域，正=加粗、負=減細）。"
+                    "在向量域動字形本身、保留起收筆風味；與 bold_mm（光柵"
+                    "膨脹濾鏡）不同且可疊用。±20 為楷書級實測範圍；粗筆畫"
+                    "字源（黑體/圓體）加粗端可能更早黏合，後果見 "
+                    "X-Stencil-Components/Holes 標頭"),
     weight: int | None = Query(
         None, ge=_WEIGHT_MIN, le=_WEIGHT_MAX,
         description="R1b 字重軸；僅有可變字重的字源支援（見 "
@@ -713,7 +725,7 @@ def api_stencil(
         char_height_mm=char_height_mm,
         bridge_width_mm=bridge_width_mm,
         bridge_count=bridge_count,
-        bold_mm=bold_mm, spacing_mm=spacing_mm,
+        bold_mm=bold_mm, delta_em=delta_em, spacing_mm=spacing_mm,
         frame=frame, frame_width_mm=frame_width_mm,
     )
     basename = "".join(loaded_chars) + (
