@@ -49,11 +49,15 @@ def test_char_loading_symbols_live_only_in_pipeline():
 
 MODE_SCRIPTS = [
     "core", "stencil", "grid", "notebook", "letter", "manuscript",
-    "doodle", "grid_route", "wordart", "mandala", "patch", "stamp",
+    "doodle", "grid_route",
+    # W4 分級選字（2026-08-20）：緊跟 grid_route（同為 grid 的帶入器）。
+    # ES module 間無載入序相依，位置純依功能相鄰。
+    "grid_freq",
+    "wordart", "mandala", "patch", "stamp",
     "sutra", "userdict", "handwrite", "fonts",
 ]
 
-#: W4-R2 次批完結：16 檔全數 ES module（跨檔相依＝顯式 import/export 網）。
+#: W4-R2 次批完結起全數 ES module（跨檔相依＝顯式 import/export 網）。
 ES_MODULE_MODES = set(MODE_SCRIPTS)
 
 

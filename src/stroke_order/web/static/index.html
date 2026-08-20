@@ -674,6 +674,24 @@
         部首按組件覆蓋排序——選一個部首，一鍵生成家族練習頁（例：選「氵」→ 江、河、洗、海…）
       </span>
     </div>
+    <!-- W4：分級選字——照教育部《國小學童常用字詞調查報告書》(2002)
+         字頻總表的名次帶入生字。標示誠實：名次是字頻排序，不代表年級難度
+         ——所以只寫名次不寫學段。填入而非鎖定：帶入後仍可手動增刪。 -->
+    <div class="row">
+      <label title="教育部《國小學童常用字詞調查報告書》(2002) 字頻總表。名次是字頻排序，不代表年級難度">分級選字</label>
+      <span style="font-size:12px;">字頻第</span>
+      <input id="grid-freq-from" type="number" value="1" min="1"
+             step="1" style="width:70px;">
+      <span style="font-size:12px;">名起，取</span>
+      <input id="grid-freq-count" type="number" value="12" min="1" max="40"
+             step="1" style="width:60px;">
+      <span style="font-size:12px;">字</span>
+      <button id="grid-freq-fill" style="margin-left:8px;">⬇ 帶入</button>
+      <span id="grid-freq-hint"
+            style="margin-left:8px;color:var(--muted);font-size:11px;">
+        照國小常用字頻表出字（可再手動增刪）
+      </span>
+    </div>
     <div class="row">
       <label>格線</label>
       <select id="grid-guide">
@@ -3447,6 +3465,7 @@
 <script type="module" src="/static/modes/manuscript.js?v=__V__"></script>
 <script type="module" src="/static/modes/doodle.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
 <script type="module" src="/static/modes/grid_route.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
+<script type="module" src="/static/modes/grid_freq.js?v=__V__"></script><!-- W4：分級選字（字頻名次帶入；純邏輯在 grid_freq_core.mjs） -->
 <script type="module" src="/static/modes/wordart.js?v=__V__"></script>
 <script type="module" src="/static/modes/mandala.js?v=__V__"></script><!-- W4-R2：零被依賴、轉 ES module（嚴格模式＋自有作用域；deferred 在傳統 script 後執行） -->
 <script type="module" src="/static/modes/patch.js?v=__V__"></script>
