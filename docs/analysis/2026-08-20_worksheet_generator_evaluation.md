@@ -227,7 +227,7 @@ SVG `<rect>`**（1,922 bytes），與專案「自己組 SVG 字串」的既有�
 | TOCFL 華語八千詞表 | **All rights reserved** | **不可打包** |
 | 國教院字詞表 | 未確認 | 本輪不納入，待查 |
 | `moe_elementary_5021` 等五份字表 | 公有領域政府出版品（已在 repo） | 可 |
-| `segno`（QR） | MIT，純 Python 零相依 | 可（缺套件時降級為不印 QR） |
+| `segno`（QR） | **BSD**，純 Python 零相依 | 可（缺套件時降級為不印 QR） |
 | 教育部《成語典》 | 同辭典 CC BY-ND 3.0 TW | 可，若要補成語缺口 |
 
 ---
@@ -243,3 +243,12 @@ SVG `<rect>`**（1,922 bytes），與專案「自己組 SVG 字串」的既有�
 （那是在補它自己的版面 bug，我們實測 50.0% 已置中）。
 
 **建議下一步**：sign-off W1（多頁 PDF／PNG），我出 QODA 規格再動工。
+
+---
+
+## 11. 落地進度與訂正（後補）
+
+- **W1 多頁 PDF／PNG** — 已完成，v0.14.288，見 [`../decisions/2026-08-20_w1_page_pdf.md`](../decisions/2026-08-20_w1_page_pdf.md)。
+- **W3 QR Code** — 已完成，v0.14.289，見 [`../decisions/2026-08-20_w3_qr.md`](../decisions/2026-08-20_w3_qr.md)。
+- **訂正**：§9 授權表原寫「`segno` MIT」——**實為 BSD**（`License :: OSI Approved :: BSD License`）。已更正。零執行期相依的部分屬實：`importlib-metadata` 只在 Python < 3.10 需要，本專案 `requires-python >= 3.10`。
+

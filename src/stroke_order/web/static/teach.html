@@ -105,6 +105,16 @@
       <button class="tts" id="speak-meaning">🔊</button></h2>
     <textarea id="meaning" rows="4" placeholder="教育部資料無此字時請自行填寫"></textarea>
 
+    <!-- W3：紙本 → 線上字典。連結與 QR 並存——螢幕上點連結，印出來掃碼。 -->
+    <h2>線上字典 <span class="hint">（列印後可掃碼，學生自學用）</span></h2>
+    <div id="dictlink" class="row" style="align-items:center;gap:12px;">
+      <div id="qrbox" style="flex:0 0 auto;"></div>
+      <div style="flex:1 1 200px;">
+        <a id="pedia" href="#" target="_blank" rel="noopener noreferrer">教育百科詞條</a>
+        <div class="hint" id="qrhint"></div>
+      </div>
+    </div>
+
     <h2>常用造詞＋情境造句 <span class="hint" id="vocab-src"></span></h2>
     <div id="vocab"></div>
     <div class="row"><button class="secondary" id="addrow" style="width:auto;">＋ 加一列</button></div>
@@ -248,8 +258,37 @@ function render(){
     ? '（教育部常用詞與例句，可修改／刪改）' : '（老師填寫）';
 
   $('attrib').textContent = '下載檔為自包含 HTML：含筆順動畫、部件、字義與造詞造句、'
-    + '插圖（若有）、發音按鈕（開檔時由該電腦語音引擎合成，離線可用）。'
+    + '插圖（若有）、QR（內嵌 SVG）、發音按鈕（開檔時由該電腦語音引擎合成，'
+    + '離線可用）。'
     + (has ? '　' + (d.attribution || '') : '');
+
+  fillDictLink(d);
+}
+
+/* ---- W3：線上字典連結＋QR ----
+   網址一律用伺服器給的 entry_url（樣板的單一事實源在 exporters/qr.py），
+   前端不自己拼——樣板改動時不會有人漏改。QR 取回後**內嵌**成 SVG 標記，
+   下載檔才能零外連（承 T3 自包含鐵則）。segno 缺席時 /api/qr 回 503，
+   這裡就只留可點連結，不讓整頁失敗（§8）。 */
+async function fillDictLink(d){
+  cur.entryUrl = (d && d.entry_url) || '';
+  cur.qrSvg = '';
+  const a = $('pedia'), box = $('qrbox'), hint = $('qrhint');
+  box.innerHTML = '';
+  if(!cur.entryUrl){ $('dictlink').hidden = true; return; }
+  $('dictlink').hidden = false;
+  a.href = cur.entryUrl;
+  a.textContent = '教育百科：' + cur.ch;
+  hint.textContent = '掃碼或點連結；教學單下載後 QR 仍可用（離線內嵌）。';
+  try{
+    const r = await fetch('/api/qr?text=' + encodeURIComponent(cur.entryUrl)
+                          + '&module_px=4');
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    cur.qrSvg = await r.text();
+    box.innerHTML = cur.qrSvg;
+  }catch(e){
+    hint.textContent = 'QR 產生器未安裝，僅提供連結（不影響教學單其餘內容）。';
+  }
 }
 
 /* ---- 插圖槽（T3）：老師自備圖 → 縮放內嵌 data URL ----
@@ -329,6 +368,7 @@ button.big{padding:6px 12px;font-size:14px;background:#2c5cb8;color:#fff;border:
   border-radius:8px;cursor:pointer;}
 li{margin:6px 0;line-height:1.7;}
 img.pic{max-width:100%;max-height:420px;border:1px solid #ddd;border-radius:8px;}
+.dictlink{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
 .note{font-size:12px;color:#666;margin-top:18px;}
 </style></head><body><main>
 <h1>識字教學：${esc(cur.ch)}
@@ -342,6 +382,10 @@ img.pic{max-width:100%;max-height:420px;border:1px solid #ddd;border-radius:8px;
 <div>${leavesHtml || '（獨體字）'}</div>
 ${picData ? `<h2>插圖</h2><img class="pic" src="${picData}" alt="教學插圖">` : ''}
 <h2>字義說明</h2><p style="white-space:pre-wrap;">${esc($('meaning').value || '（未填寫）')}</p>
+${cur.entryUrl ? `<h2>線上字典</h2>
+<div class="dictlink">${cur.qrSvg || ''}
+<div><a href="${esc(cur.entryUrl)}">教育百科：${esc(cur.ch)}</a>
+<div style="font-size:12px;color:#666;">用手機掃左邊的 QR 也可以打開。</div></div></div>` : ''}
 <h2>常用造詞＋情境造句</h2><ul>${vocabHtml || '<li>（未填寫）</li>'}</ul>
 <div class="note">本檔由 stroke-order 識字教學頁產生；發音由本機語音引擎即時合成
 （zh-TW），離線可用、音色依電腦而異。部件資料：g0v／CHISE IDS；

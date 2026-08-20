@@ -35,6 +35,78 @@ from ...sources.chiron_round import (
     WEIGHT_MAX as _WEIGHT_MAX,
     WEIGHT_MIN as _WEIGHT_MIN,
 )
+# W1：字帖四模式的 pdf|png 出口共用範圍常數（單一事實源在 exporters）
+from ...exporters.multi_page import (
+    DEFAULT_DPI as _DEFAULT_DPI,
+    MIN_DPI as _MIN_DPI,
+)
+
+#: W1：四個字帖模式共用的 format 值域。加格式時只改這裡，端點的 pattern
+#: 由它推導，並由 `test_page_pdf` 的 parity 鎖確保「pattern 裡有的格式
+#: 都真的有 handler 分支」。
+PAGED_FORMATS = ("svg", "gcode", "json", "pdf", "png")
+_PAGED_FORMAT_PATTERN = "^(" + "|".join(PAGED_FORMATS) + ")$"
+
+
+def _paged_raster_response(
+    fmt: str,
+    pages: list,
+    renderer,
+    *,
+    page: Optional[int],
+    basename: str,
+    envelope_mode: str,
+    dpi: int,
+    download: bool,
+    base_headers: dict,
+):
+    """W1：``format=pdf|png`` 的共用出口——notebook／letter／manuscript 三
+    個模式同一份實作（§76 單一事實源；三處各寫一份必然漂移）。
+
+    非 pdf/png 回 ``None``，呼叫端照原路徑繼續。
+
+    - **PDF**：全部頁面組成單一多頁 PDF，頁面實體尺寸取自 layout，列印 1:1。
+    - **PNG**：一次一頁——沿用既有的 ``?page=N``，不給就出第 1 頁；總頁數
+      由 ``X-Stroke-Order-Pages`` 告知（呼叫端已放進 ``base_headers``）。
+    - dpi 可能被配額自動下修，一律以 ``X-Pdf-Dpi-Requested`` /
+      ``X-Pdf-Dpi-Used`` 誠實回報（§86 不無聲降畫質）。
+    """
+    if fmt not in ("pdf", "png"):
+        return None
+    from ...exporters.multi_page import (
+        RasterBudgetExceeded, render_page_as_png, render_pages_as_pdf,
+    )
+    try:
+        if fmt == "pdf":
+            body, dpi_used = render_pages_as_pdf(
+                pages, renderer, dpi=dpi,
+                envelope_mode=envelope_mode, app_version=APP_VERSION)
+            mime, ext, name = "application/pdf", "pdf", basename
+        else:
+            idx = (page or 1) - 1
+            if idx >= len(pages):
+                raise HTTPException(
+                    404, detail=f"page {page} of {len(pages)}")
+            body, dpi_used = render_page_as_png(
+                pages[idx], renderer, dpi=dpi,
+                envelope_mode=envelope_mode, app_version=APP_VERSION)
+            mime, ext = "image/png", "png"
+            name = (f"{basename}-page-{idx + 1:02d}"
+                    if len(pages) > 1 else basename)
+    except RasterBudgetExceeded as e:
+        raise HTTPException(422, detail=str(e)) from e
+    except ImportError as e:      # pragma: no cover — web extras 缺席
+        raise HTTPException(
+            500, detail=f"PDF/PNG backend unavailable: {e}. "
+                        "Install with `pip install cairosvg Pillow`.",
+        ) from e
+    headers = dict(base_headers)
+    headers["X-Pdf-Dpi-Requested"] = str(dpi)
+    headers["X-Pdf-Dpi-Used"] = str(dpi_used)
+    if download:
+        headers["Content-Disposition"] = _content_disposition(name, ext)
+    return Response(content=body, media_type=mime, headers=headers)
+
 
 class ZoneSpec(BaseModel):
     x: float
@@ -164,8 +236,11 @@ def notebook(
         None, ge=0, le=400,
         description="First row bottom (橫) / first col left-from-right (直)"
     ),
-    format: str = Query("svg", pattern="^(svg|gcode|json)$",
-                        description="Phase 5v: svg | gcode | json"),
+    format: str = Query("svg", pattern=_PAGED_FORMAT_PATTERN,
+                        description="svg | gcode | json | pdf | png"),
+    dpi: int = Query(
+        _DEFAULT_DPI, ge=_MIN_DPI, le=600,
+        description="W1：pdf/png 光柵化解析度。頁數多時會被記憶體配額自動下修，實際採用值見 X-Pdf-Dpi-Used 標頭"),
     style: str = Query(
         "kaishu", pattern=_STYLE_PATTERN,
         description="Phase 5aj: stroke-filter style (kaishu/mingti/lishu/bold)",
@@ -243,27 +318,34 @@ def notebook(
                         media_type="application/json; charset=utf-8",
                         headers=headers)
 
+    def _render(p):
+        return render_notebook_page_svg(p, cell_style=cell_style,
+                                        zhuyin_map=zmap,
+                                        zhuyin_chars=zchars)
+
+    # W1：pdf|png 走共用出口（須在 ?page=N 的 SVG 分支之前——PNG 也要吃
+    # page 參數選頁，被 SVG 分支攔下就永遠出不了 PNG）
+    raster = _paged_raster_response(
+        format, pages, _render, page=page, basename="notebook",
+        envelope_mode="notebook", dpi=dpi, download=download,
+        base_headers={**cap_headers,
+                      "X-Stroke-Order-Pages": str(len(pages))})
+    if raster is not None:
+        return raster
+
     # Single-page request: ?page=N returns that page's SVG
     if page is not None:
         if page > len(pages):
             raise HTTPException(
                 404, detail=f"page {page} not found; only {len(pages)} pages"
             )
-        svg = render_notebook_page_svg(pages[page - 1],
-                                       cell_style=cell_style,
-                                       zhuyin_map=zmap,
-                                       zhuyin_chars=zchars)
+        svg = _render(pages[page - 1])
         headers = {}
         if download:
             headers["Content-Disposition"] = _content_disposition(
                 f"notebook-page-{page:02d}", "svg"
             )
         return svg_response(svg, headers=headers, mode="notebook")
-
-    def _render(p):
-        return render_notebook_page_svg(p, cell_style=cell_style,
-                                        zhuyin_map=zmap,
-                                        zhuyin_chars=zchars)
 
     body, mime, ext = render_pages_as_single_or_zip(
         pages, _render, filename_prefix="notebook-page",
@@ -422,9 +504,12 @@ def letter(
         description="Phase 5ab: override line_height to fit exactly N rows/columns",
     ),
     format: str = Query(
-        "svg", pattern="^(svg|gcode|json)$",
-        description="Phase 5ac: svg | gcode | json",
+        "svg", pattern=_PAGED_FORMAT_PATTERN,
+        description="svg | gcode | json | pdf | png",
     ),
+    dpi: int = Query(
+        _DEFAULT_DPI, ge=_MIN_DPI, le=600,
+        description="W1：pdf/png 光柵化解析度。頁數多時會被記憶體配額自動下修，實際採用值見 X-Pdf-Dpi-Used 標頭"),
     show_grid: bool = Query(
         True,
         description="Phase 5af: draw the ruled writing grid",
@@ -512,6 +597,14 @@ def letter(
             zhuyin_map=zmap,
             zhuyin_chars=zchars,
         )
+
+    raster = _paged_raster_response(          # W1
+        format, pages, _render, page=page, basename="letter",
+        envelope_mode="letter", dpi=dpi, download=download,
+        base_headers={**cap_headers,
+                      "X-Stroke-Order-Pages": str(len(pages))})
+    if raster is not None:
+        return raster
 
     if page is not None:
         if page > len(pages):
@@ -723,9 +816,12 @@ def manuscript(
     page: Optional[int] = Query(None, ge=1),
     download: bool = Query(False),
     format: str = Query(
-        "svg", pattern="^(svg|gcode|json)$",
-        description="svg | gcode | json",
+        "svg", pattern=_PAGED_FORMAT_PATTERN,
+        description="svg | gcode | json | pdf | png",
     ),
+    dpi: int = Query(
+        _DEFAULT_DPI, ge=_MIN_DPI, le=600,
+        description="W1：pdf/png 光柵化解析度。頁數多時會被記憶體配額自動下修，實際採用值見 X-Pdf-Dpi-Used 標頭"),
     style: str = Query(
         "kaishu", pattern=_STYLE_PATTERN,
         description="Phase 5aj: stroke-filter style",
@@ -788,6 +884,13 @@ def manuscript(
         return render_manuscript_page_svg(
             p, cell_style=cell_style, show_grid=show_grid)  # type: ignore
 
+    raster = _paged_raster_response(          # W1
+        format, pages, _render, page=page, basename="manuscript",
+        envelope_mode="manuscript", dpi=dpi, download=download,
+        base_headers=dict(cap_headers))
+    if raster is not None:
+        return raster
+
     if page is not None:
         if page > len(pages):
             raise HTTPException(
@@ -839,8 +942,17 @@ def grid(
     download: bool = Query(False),
     direction: str = Query("horizontal",
                            pattern="^(horizontal|vertical)$"),
-    format: str = Query("svg", pattern="^(svg|gcode|json)$",
-                        description="Output format"),
+    format: str = Query("svg", pattern=_PAGED_FORMAT_PATTERN,
+                        description="svg | gcode | json | pdf | png"),
+    dpi: int = Query(
+        _DEFAULT_DPI, ge=_MIN_DPI, le=600,
+        description="W1：pdf/png 光柵化解析度。頁數多時會被記憶體配額自動下修，實際採用值見 X-Pdf-Dpi-Used 標頭"),
+    # W1：grid 是單張、px 座標、無分頁的自由尺寸字帖，要出可列印的
+    # pdf/png 得先決定紙張。這兩個參數只在 format=pdf|png 時生效。
+    paper: str = Query("a4", pattern="^(a4|a5|letter)$",
+                       description="W1：pdf/png 的紙張；整張等比縮放置中"),
+    margin_mm: float = Query(10.0, ge=0, le=50,
+                             description="W1：pdf/png 的紙張留白"),
     # G-code specific
     gc_cell_size_mm: float = Query(20.0, ge=5, le=100),
     gc_cell_gap_mm: float = Query(0.0, ge=0, le=20),
@@ -931,7 +1043,7 @@ def grid(
                         media_type="application/json; charset=utf-8",
                         headers=headers)
 
-    # format == "svg" (default)
+    # format == "svg"（預設）／pdf／png——三者共用同一張 SVG
     svg = render_grid_svg(
         loaded, cols=cols, guide=guide,
         cell_style=cell_style, cell_size_px=cell_size,
@@ -942,6 +1054,43 @@ def grid(
         zhuyin_map=zmap,
         zhuyin_chars=zchars,
     )
+
+    # W1：grid 沒有分頁也沒有 mm，先貼進紙張再光柵化（見
+    # multi_page.fit_svg_to_paper 的說明）。SVG 路徑完全不經過這裡。
+    if format in ("pdf", "png"):
+        from ...exporters.multi_page import (
+            PAPER_SIZES_MM, RasterBudgetExceeded, fit_svg_to_paper,
+            render_svg_as_pdf, render_svg_as_png,
+        )
+        pw_mm, ph_mm = PAPER_SIZES_MM[paper]
+        if margin_mm * 2 >= min(pw_mm, ph_mm):
+            raise HTTPException(
+                422, detail=f"margin_mm {margin_mm} 對 {paper} 太大")
+        sheet = fit_svg_to_paper(svg, pw_mm, ph_mm, margin_mm)
+        try:
+            if format == "pdf":
+                body, dpi_used = render_svg_as_pdf(
+                    sheet, pw_mm, ph_mm, dpi=dpi)
+                mime, ext = "application/pdf", "pdf"
+            else:
+                body, dpi_used = render_svg_as_png(
+                    sheet, pw_mm, ph_mm, dpi=dpi)
+                mime, ext = "image/png", "png"
+        except RasterBudgetExceeded as e:
+            raise HTTPException(422, detail=str(e)) from e
+        except ImportError as e:  # pragma: no cover — web extras 缺席
+            raise HTTPException(
+                500, detail=f"PDF/PNG backend unavailable: {e}. "
+                            "Install with `pip install cairosvg Pillow`.",
+            ) from e
+        headers["X-Pdf-Dpi-Requested"] = str(dpi)
+        headers["X-Pdf-Dpi-Used"] = str(dpi_used)
+        headers["X-Paper"] = paper
+        if download:
+            headers["Content-Disposition"] = _content_disposition(
+                basename, ext)
+        return Response(content=body, media_type=mime, headers=headers)
+
     if download:
         headers["Content-Disposition"] = _content_disposition(
             basename, "svg"

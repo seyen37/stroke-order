@@ -120,6 +120,13 @@ function ltSetDownloadLinks(svgUrl, gcodeUrl, jsonUrl) {
   s.onclick = null;
   c.style.display = "";
   j.style.display = "";
+  // W1：PDF 由 svg 下載網址推導（format=svg → pdf），所以呼叫點
+  // 不必各自多傳一個參數——少一處會漏改的地方。
+  const pdfEl = document.getElementById("lt-download-pdf");
+  if (pdfEl && svgUrl) {
+    pdfEl.href = svgUrl.replace("format=svg", "format=pdf");
+    pdfEl.style.display = "";
+  }
   g.style.display = "inline";
 }
 

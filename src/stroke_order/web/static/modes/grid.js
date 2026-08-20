@@ -222,6 +222,9 @@ async function renderGrid() {
     const dlGcode = document.getElementById("grid-download-gcode");
     const dlJson = document.getElementById("grid-download-json");
     dlSvg.href = `${API_BASE}/api/grid?${qs}&format=svg&download=true`;
+    // W1：多頁/單張都出可列印 PDF（grid 貼合紙張，見 paper 參數）
+    const dlPdf = document.getElementById("grid-download-pdf");
+    if (dlPdf) dlPdf.href = `${API_BASE}/api/grid?${qs}&format=pdf&download=true`;
     dlSvg.removeAttribute("download");
     dlGcode.href = `${API_BASE}/api/grid?${qs}&format=gcode&download=true`;
     dlGcode.removeAttribute("download");   // 5cs：清 userfont blob 殘留

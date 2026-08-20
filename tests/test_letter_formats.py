@@ -200,6 +200,7 @@ def test_api_letter_format_default_is_svg(client):
 
 
 def test_api_letter_format_rejects_unknown_value(client):
-    r = client.get("/api/letter?text=永&preset=A5&format=pdf")
+    # W1 起 pdf/png 是合法格式；改用仍然未知的 tiff
+    r = client.get("/api/letter?text=永&preset=A5&format=tiff")
     # FastAPI/Pydantic returns 422 for regex-pattern violation
     assert r.status_code == 422

@@ -765,7 +765,8 @@ def test_api_notebook_format_json(client):
 
 
 def test_api_notebook_format_rejects_invalid(client):
-    r = client.get("/api/notebook?text=永&format=pdf")
+    # W1 起 pdf/png 是合法格式；改用仍然未知的 tiff
+    r = client.get("/api/notebook?text=永&format=tiff")
     assert r.status_code == 422
 
 

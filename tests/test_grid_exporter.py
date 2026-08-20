@@ -360,7 +360,8 @@ def test_api_grid_format_json(client):
 
 
 def test_api_grid_format_rejects_invalid(client):
-    r = client.get("/api/grid?chars=日永&format=pdf")
+    # W1 起 pdf/png 是合法格式；這條測的是「未知格式仍拒」，改用 tiff
+    r = client.get("/api/grid?chars=日永&format=tiff")
     assert r.status_code == 422
 
 

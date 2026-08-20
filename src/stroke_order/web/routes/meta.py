@@ -29,6 +29,7 @@ from ...sources.moe_song import (
     attribution_notice as _song_attribution,
     get_song_source as _get_song,
 )
+from ..responses import svg_response
 from .. import char_pipeline as _pipeline
 from ..char_pipeline import (
     _STYLE_PATTERN,
@@ -144,13 +145,20 @@ def dict_lookup(char: str):
     char = (char or "").strip()
     if len(char) != 1:
         raise HTTPException(422, detail="請提供單一字元")
+    from ...exporters.qr import pedia_url
     entry = moe_dict.lookup(char)
+    # W3：教育百科詞條頁網址。**只給網址、不給 QR**——QR 走 /api/qr，
+    # 網址樣板則只有 exporters/qr.PEDIA_ENTRY_URL 一份，前端不自己拼
+    # （§76；由 test_qr 的守門鎖住）。這裡只是深連結，不抓也不轉存
+    # 對方內容，因此不需要 api_key、也沒有額外的出處義務。
+    entry_url = pedia_url(char)
     if entry is None:
         return {
             "char": char,
             "found": False,
             "ready": moe_dict.is_ready(),
             "attribution": moe_dict.MOE_ATTRIBUTION,
+            "entry_url": entry_url,
         }
     return {
         **entry,
@@ -159,7 +167,38 @@ def dict_lookup(char: str):
         "attribution": moe_dict.MOE_ATTRIBUTION,
         "license": moe_dict.MOE_LICENSE,
         "source_url": moe_dict.MOE_SOURCE_URL,
+        "entry_url": entry_url,
     }
+
+
+# ------ W3：QR code（紙本 → 線上字典） -------------------------------
+# 獨立端點而非塞進 /api/dict，因為它與字典無關——日後 grid 字帖頁尾的
+# 生字索引要用，也是打這一個。
+@router.get("/api/qr")
+def qr_code(
+    text: str = Query(..., min_length=1, max_length=512,
+                      description="要編碼進 QR 的文字（通常是網址）"),
+    module_px: int = Query(4, ge=1, le=20,
+                           description="每個模組的邊長 px"),
+    quiet: int = Query(2, ge=0, le=8, description="靜區寬度（模組數）"),
+):
+    """回傳獨立的 QR SVG。segno 缺席時 503——呼叫端應降級為不印 QR。"""
+    from ...exporters.qr import QrUnavailable, qr_svg
+    if not text.strip():
+        raise HTTPException(422, detail="text 不得為空白")
+    try:
+        svg = qr_svg(text, module_px=module_px, quiet=quiet)
+    except QrUnavailable as e:
+        raise HTTPException(
+            503, detail=f"QR 產生器未安裝：{e}。"
+                        "安裝後即可使用；缺席不影響字帖與教學單產出。",
+        ) from e
+    except ValueError as e:
+        raise HTTPException(422, detail=str(e)) from e
+    # mode=None：QR 不是可分享的作品，不嵌出口信封（5fv 的信封是給分享庫
+    # 驗憑據用的）。走 svg_response 而非自組 Response——SVG 的 media type
+    # 全站只准寫在 responses.py 一處（test_web_layering 鎖，連註解都算）。
+    return svg_response(svg, mode=None)
 
 
 # ------ 組件分析 (Phase A, 6b) ---------------------------------------

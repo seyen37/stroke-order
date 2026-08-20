@@ -21,6 +21,7 @@ ROUTE_SNAPSHOT = {
     ("GET", "/teach"),
     ("GET", "/api/radical-info/{char}"),
     ("GET", "/api/dict/{char}"),
+    ("GET", "/api/qr"),
     ("GET", "/api/character/{char}"),
     ("GET", "/api/cns-status"),
     ("GET", "/api/cns-stroke-diagnostics/{char}"),
