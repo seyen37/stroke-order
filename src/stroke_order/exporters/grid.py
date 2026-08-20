@@ -221,6 +221,171 @@ def _zhuyin_strip(sym_str: str, zhuyin_chars: dict[str, Character],
     return "".join(parts)
 
 
+# ---------------------------------------------------------------------------
+# W2：頁尾生字資訊區
+# ---------------------------------------------------------------------------
+
+#: 註記文字的**字級上限**（EM 座標）。EM_SIZE 是一格字的高度，0.18 約等
+#: 於格高的六分之一——A4 上印出來約 9pt，教學單註記的常見大小。
+INFO_TEXT_EM: float = EM_SIZE * 0.18
+
+#: 一列註記的**目標字數**。字帖整張會等比縮放貼進 A4（W1 ``fit_svg_to_
+#: paper``），所以字級只能相對於**版面寬度**決定，不能只綁 EM_SIZE：兩個
+#: 生字的窄字帖放大到 A4 後，格高的六分之一會變成半個標題那麼大。實際
+#: 字級取 ``min(INFO_TEXT_EM, 版面寬 / 這個數)``，讓一列的字數不論字帖寬
+#: 窄都落在 40 上下。
+INFO_TARGET_CHARS: int = 40
+
+#: 行高與上下留白，皆相對於**實際**字級（見 :func:`_info_metrics`）。
+INFO_LINE_RATIO: float = 1.75
+INFO_PAD_EM: float = EM_SIZE * 0.12
+
+#: 釋義的**長度預算**：超過就整段不放（見 :func:`compose_info_line`）。
+#: 這是版面預算，不是授權判準——40 字約等於一列，再長就會把整個頁尾撐成
+#: 好幾倍高、喧賓奪主。實測第一義項（含例句）長度分佈：中位 18 字、75%
+#: 25 字、85.5% ≤32 字、**90.3% ≤40 字**、最長 227 字。
+INFO_MAX_CHARS: int = 40
+
+#: 義項放不下時**整段換成這句**——不是截斷後加刪節號。§88 把線畫在這裡：
+#: 節錄（選取整個義項）可以，截斷任何一條釋義不可以。所以放不下就不放，
+#: 並告訴使用者去看完整條目，絕不出現「…」「...」「（略）」。
+INFO_LONG_NOTICE: str = "釋義較長，見完整條目"
+
+#: 欄位分隔符（全形直線，前後各一空格由版面自然留白代替）。
+INFO_SEP: str = "｜"
+
+
+def _info_text_paths(
+    text: str,
+    glyphs: dict,
+    x: float,
+    y: float,
+    size_em: float,
+    color: str = "#444444",
+) -> str:
+    """把一串文字畫成**字形路徑**（不是 ``<text>``）。
+
+    為什麼不用 ``<text>``：cairosvg 光柵化時吃的是**伺服器**的字型堆疊，
+    乾淨 Linux 主機沒有 CJK 字型就會變成空框——§5bv 已經在抄經的句讀上
+    踩過並改走 polyline。W1 之後 PDF 是字帖的主要出口，這個坑不能再踩。
+    走自家字形資料則任何部署一致（實測 15 字 7.4 KB、快取後 1 ms）。
+
+    ``glyphs`` 缺的字直接跳過並留出空位——不以任何符號代替（§87 不猜）。
+    """
+    scale = size_em / EM_SIZE
+    parts: list[str] = []
+    cx = x
+    for ch in text:
+        g = glyphs.get(ch)
+        if g is not None and g.strokes:
+            body = _cell_content(g, "filled")
+            parts.append(
+                f'<g transform="translate({cx:.1f},{y:.1f}) '
+                f'scale({scale:.6f})" fill="{color}">{body}</g>')
+        cx += size_em
+    return "".join(parts)
+
+
+def _info_metrics(width_em: float) -> tuple[float, float, int]:
+    """版面寬度 → ``(字級, 行高, 一列字數)``。等寬前進，故字數＝寬÷字級。"""
+    text_em = min(INFO_TEXT_EM, width_em / INFO_TARGET_CHARS)
+    return text_em, text_em * INFO_LINE_RATIO, max(1, int(width_em / text_em))
+
+
+def _ink_band(glyphs: dict) -> tuple[float, float]:
+    """註記字形的實際墨跡上下緣（EM 座標）。
+
+    **不能假設字形填滿 0..EM_SIZE 的框。** 註記走的是 noto_hei，它的字形
+    是以基線為準放進 em 框的：實測墨跡落在 y∈[573, 2728]（EM_SIZE=2048）
+    ——上方空 0.28 em、下方**超出框 0.33 em**。照「框頂＝y、框高＝字級」
+    排版就會把最後一列削掉半個字（第一版的 PNG 正是如此）。所以量出來再
+    排，而不是相信框。
+
+    量不到（沒有字形）時回 ``(0, EM_SIZE)``——反正也沒有東西要畫。
+    """
+    lo = hi = None
+    for g in glyphs.values():
+        for st in getattr(g, "strokes", ()):  # type: ignore[attr-defined]
+            b = st.bbox
+            lo = b.y_min if lo is None else min(lo, b.y_min)
+            hi = b.y_max if hi is None else max(hi, b.y_max)
+    if lo is None or hi is None or hi <= lo:
+        return 0.0, float(EM_SIZE)
+    return float(lo), float(hi)
+
+
+def compose_info_line(row: dict) -> str:
+    """一筆生字資料 → 一列註記文字。**唯一決定「放不下怎麼辦」的地方。**
+
+    ``row`` 欄位（皆為選填字串）::
+
+        {"char": "春", "meta": "日部・9畫・ㄔㄨㄣ",
+         "definition": "教育部原文第一義項", "words": "造詞：春天、春季"}
+
+    釋義**要嘛整條原文、要嘛一個字都不放**：超過 :data:`INFO_MAX_CHARS`
+    就整段換成 :data:`INFO_LONG_NOTICE`，絕不截斷（§88 節錄可以、截斷不
+    行）。這是**內容長度**的判準，與版面寬窄無關——版面放不下是換行處理
+    的事（換行不減字，不涉及授權）。
+    """
+    char = (row.get("char") or "").strip()
+    meta = (row.get("meta") or "").strip()
+    definition = (row.get("definition") or "").strip()
+    words = (row.get("words") or "").strip()
+
+    if definition and len(definition) > INFO_MAX_CHARS:
+        definition = INFO_LONG_NOTICE
+    return INFO_SEP.join(p for p in (char, meta, definition, words) if p)
+
+
+def _wrap(text: str, capacity: int) -> list[str]:
+    """等寬硬換行。**不刪字**——所以與 §88 無關（截斷才是改作）。"""
+    if not text:
+        return []
+    return [text[i:i + capacity] for i in range(0, len(text), capacity)]
+
+
+def _info_footer_svg(
+    rows: list[dict],
+    glyphs: dict,
+    width_em: float,
+) -> tuple[str, int]:
+    """生字資訊區 → ``(svg 片段, 高度 EM)``。
+
+    每個生字一列：``部首・筆畫・注音 ｜ 第一義項 ｜ 造詞``。義項太長時
+    **整段留白並註明**，絕不截斷後當原文（§88：節錄可以、截斷不行）。
+    """
+    if not rows:
+        return "", 0
+    text_em, line_h, capacity = _info_metrics(width_em)
+    wrapped = [(r, _wrap(compose_info_line(r), capacity)) for r in rows]
+    n_lines = sum(len(w) for _r, w in wrapped)
+    scale = text_em / EM_SIZE
+    ink_top, ink_bot = _ink_band(glyphs)
+    ink_h = (ink_bot - ink_top) * scale
+    line_h = max(line_h, ink_h)          # 行距不得小於墨跡高，否則相疊
+    # 高度＝上下留白＋(n-1) 個行距＋最後一列的**墨跡**高
+    height = round(INFO_PAD_EM * 2 + line_h * (n_lines - 1) + ink_h)
+    parts = [f'<g class="info-footer" data-info-rows="{len(rows)}">',
+             f'<line x1="0" y1="{INFO_PAD_EM:.1f}" x2="{width_em:.1f}" '
+             f'y2="{INFO_PAD_EM:.1f}" stroke="#cccccc" stroke-width="6"/>']
+    # y 是該列**墨跡**頂端；扣掉字形框內上方的空白才是 translate 的原點
+    y = INFO_PAD_EM * 2 - ink_top * scale
+    for r, lines in wrapped:
+        parts.append(
+            f'<g class="info-row" data-char="{_esc_attr(r.get("char", ""))}">')
+        for ln in lines:
+            parts.append(_info_text_paths(ln, glyphs, 0.0, y, text_em))
+            y += line_h
+        parts.append("</g>")
+    parts.append("</g>")
+    return "".join(parts), height
+
+
+def _esc_attr(s: str) -> str:
+    return (s.replace("&", "&amp;").replace("<", "&lt;")
+             .replace('"', "&quot;"))
+
+
 def render_grid_svg(
     chars: list[Character],
     *,
@@ -236,6 +401,15 @@ def render_grid_svg(
     # zhuyin_chars 為符號 Character 表（server 以 char_loader 載入）
     zhuyin_map: Optional[dict[str, str]] = None,
     zhuyin_chars: Optional[dict[str, Character]] = None,
+    # W2：頁尾生字資訊區。**opt-in（預設關）**——它會加高整張 SVG，開了就
+    # 改變既有字帖的輸出尺寸，故絕不預設開啟（同 W1 對 grid 加紙張的顧慮）。
+    # info_rows 由呼叫端備妥（伺服器層查字典），這裡只排版；info_glyphs 是
+    # 註記文字要用到的字形表——文字走**自家字形路徑**而非 <text>，因為
+    # cairosvg 的 <text> 吃伺服器字型堆疊，缺 CJK 會變空框（§5bv 已踩過，
+    # 而 W1 之後 PDF 是主要出口）。
+    info_footer: bool = False,
+    info_rows: Optional[list[dict]] = None,
+    info_glyphs: Optional[dict[str, Character]] = None,
 ) -> str:
     """
     Render a 字帖-style worksheet SVG with **tier-based** layout (Phase 5j).
@@ -308,9 +482,20 @@ def render_grid_svg(
     pair_w = EM_SIZE + (ZHUYIN_STRIP_EM if zy_on else 0)
 
     total_w_em = grid_cols * pair_w
-    total_h_em = grid_rows * EM_SIZE
+    grid_h_em = grid_rows * EM_SIZE
+
+    # W2：先算頁尾（高度要併進畫布），最後才輸出。關閉時 footer_h_em 為 0，
+    # 下面每一項尺寸都與 W2 之前逐位元組相同——零回歸由測試鎖住。
+    footer_svg = ""
+    footer_h_em = 0
+    if info_footer and info_rows:
+        footer_svg, footer_h_em = _info_footer_svg(
+            info_rows, info_glyphs or {}, total_w_em)
+
+    # footer 關閉時保持 int，viewBox 字串才與 W2 之前逐位元組相同
+    total_h_em = grid_h_em + footer_h_em if footer_h_em else grid_h_em
     total_w_px = round(grid_cols * cell_size_px * pair_w / EM_SIZE)
-    total_h_px = grid_rows * cell_size_px
+    total_h_px = round(total_h_em * cell_size_px / EM_SIZE)
 
     out: list[str] = [
         f'<svg xmlns="http://www.w3.org/2000/svg" '
@@ -347,6 +532,9 @@ def render_grid_svg(
                 sym = zhuyin_map.get(ch.char, "")
                 out.append(f'<g transform="translate({tx + EM_SIZE},{ty})">'
                            f'{_zhuyin_strip(sym, zhuyin_chars, style)}</g>')
+    if footer_svg:
+        out.append(f'<g transform="translate(0,{grid_h_em})">'
+                   f'{footer_svg}</g>')
     out.append("</svg>")
     return "\n".join(out)
 
@@ -672,4 +860,7 @@ def render_grid_json(
 
 __all__ = ["render_grid_svg", "save_grid_svg", "auto_tier_counts",
            "render_grid_gcode", "render_grid_json",
-           "GridStyle", "CellStyle"]
+           "GridStyle", "CellStyle",
+           # W2 頁尾生字資訊區
+           "INFO_LONG_NOTICE", "INFO_MAX_CHARS", "INFO_SEP",
+           "compose_info_line"]

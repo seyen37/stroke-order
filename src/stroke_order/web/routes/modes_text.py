@@ -21,6 +21,7 @@ from ..char_pipeline import (
     _STYLE_PATTERN,
     _apply_style,
     _parse_zhuyin_map,
+    build_info_rows,
     _upgrade_to_lishu,
     _upgrade_to_seal,
     _upgrade_to_sung,
@@ -966,6 +967,11 @@ def grid(
     zhuyin_map: Optional[str] = Query(
         None, max_length=800,
         description="注音欄映射，格式：字:ㄅㄆㄇˊ,字:…（前端供給）"),
+    # W2：頁尾生字資訊區。**opt-in**——它會加高整張 SVG，預設關才能維持
+    # 既有字帖零回歸。只影響 svg/pdf/png（gcode/json 不含註記文字）。
+    info_footer: bool = Query(
+        False,
+        description="W2：頁尾附每個生字的部首／筆畫／注音、教育部原文第一義項與造詞"),
 ):
     """Render a 字帖 for multiple characters in SVG / G-code / JSON.
 
@@ -1043,6 +1049,12 @@ def grid(
                         media_type="application/json; charset=utf-8",
                         headers=headers)
 
+    # W2：頁尾註記的資料與字形（查字典＋思源黑體字形）由伺服器層備妥，
+    # 排版層只排版。關閉時完全不查、不載——預設路徑零額外成本。
+    irows, iglyphs = ([], {})
+    if info_footer:
+        irows, iglyphs = build_info_rows([c.char for c in loaded])
+
     # format == "svg"（預設）／pdf／png——三者共用同一張 SVG
     svg = render_grid_svg(
         loaded, cols=cols, guide=guide,
@@ -1053,6 +1065,9 @@ def grid(
         repeat_per_char=repeat,
         zhuyin_map=zmap,
         zhuyin_chars=zchars,
+        info_footer=info_footer,
+        info_rows=irows,
+        info_glyphs=iglyphs,
     )
 
     # W1：grid 沒有分頁也沒有 mm，先貼進紙張再光柵化（見

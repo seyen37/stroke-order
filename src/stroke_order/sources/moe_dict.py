@@ -17,6 +17,7 @@ from __future__ import annotations
 import gzip
 import json
 import logging
+import re
 import threading
 from pathlib import Path
 from typing import Optional
@@ -24,7 +25,8 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 __all__ = ["MOE_ATTRIBUTION", "MOE_LICENSE", "MOE_SOURCE_URL",
-           "bundle_path", "is_ready", "lookup", "entry_count"]
+           "bundle_path", "first_sense", "is_ready", "lookup",
+           "entry_count", "split_senses"]
 
 BUNDLE_FILENAME = "moe_dict_bundle.jsonl.gz"
 
@@ -114,6 +116,57 @@ def lookup(char: str) -> Optional[dict]:
             for w in (d.get("w") or [])
         ],
     }
+
+
+# ---------------------------------------------------------------------
+# W2：義項切分——「節錄」而非「摘要」
+# ---------------------------------------------------------------------
+#
+# §88 把 ND 授權的線畫在這裡：**節錄（選取整個條目）可以，改寫／摘要／
+# 截斷任何一條釋義不可以**。字帖格子放不下整條釋義（中位 36 字、90% 到
+# 109 字），但**第一個完整義項**放得下（含例句中位 18 字、85.5% ≤32 字）
+# ——取一個完整單元是選取，切斷一個單元不是。
+#
+# 分隔樣態實測（6,028 條，缺一不可）：
+#   · 無換行           2,758 條   單一義項
+#   · 單 ``\n`` 分隔    2,935 條   編號義項
+#   · ``\n\n`` 分隔       335 條   編號義項
+# 先前只切 ``\n\n`` 會讓 2,935 條的「第一義項」取到整條——所以這裡用
+# ``\n+``。
+_SENSE_SPLIT_RE = re.compile(r"\n+")
+
+
+def split_senses(definition: str) -> list[str]:
+    """釋義原文 → 義項清單。**每一項都是原文的連續子字串**（只切不改）。
+
+    刻意**保留原本的「1.」「2.」編號**：拿掉序號是對內容動手，呈現端要
+    標第幾義請用 :func:`first_sense` 回的 ``index``／``total``。
+    """
+    if not definition:
+        return []
+    return [s for s in (p.strip() for p in _SENSE_SPLIT_RE.split(definition))
+            if s]
+
+
+def first_sense(char: str) -> Optional[dict]:
+    """單字 → 第一個**完整**義項。
+
+    Returns
+    -------
+    ``{"text": 原文義項, "index": 1, "total": 義項總數}``，查無此字或無
+    釋義時回 ``None``。
+
+    ``text`` 是 ``lookup()["definition"]`` 的**連續子字串**（前後空白除
+    外）——由 ``test_grid_info_footer`` 抽驗 300 條鎖住。呼叫端若因版面
+    放不下，**應留白，不得自行截斷**（§88）。
+    """
+    entry = lookup(char)
+    if entry is None:
+        return None
+    senses = split_senses(entry.get("definition") or "")
+    if not senses:
+        return None
+    return {"text": senses[0], "index": 1, "total": len(senses)}
 
 
 def reset_cache() -> None:

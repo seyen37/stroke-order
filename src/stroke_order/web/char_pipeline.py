@@ -330,6 +330,64 @@ def build_mandala_char_loader(
     )
 
 
+#: W2：頁尾註記一列最多列幾個造詞。造詞是加值資訊，列太多會擠掉釋義。
+INFO_MAX_WORDS = 3
+
+
+def build_info_rows(chars: list[str]) -> tuple[list[dict], dict]:
+    """W2：生字清單 → ``(info_rows, info_glyphs)``，餵給 ``render_grid_svg``。
+
+    **釋義取自教育部《國語辭典簡編本》原文第一義項**（``moe_dict.
+    first_sense``），逐字照抄不改寫、不摘要、不截斷——§88 的線畫在
+    「節錄整條義項可以、動任何一條的字不可以」。
+
+    註記文字的字形一律走 **noto_hei（思源黑體）**，因為它涵蓋阿拉伯數字
+    與全形分隔符號——那些字帖字源（g0v/kanjivg…只有漢字）沒有的字符；缺
+    一個字就是版面上一個看不見的洞，而釋義裡「1.」的編號正好會踩到。
+    noto_hei 缺席（本機沒放字型檔）時整個註記區留白——不以任何符號代替
+    （§87 不裝懂）。
+
+    回傳的 ``info_rows`` 只含**每個查得到的生字一列**；查無此字者不列。
+    """
+    from ..exporters.grid import compose_info_line
+    from ..sources import moe_dict
+
+    rows: list[dict] = []
+    for ch in chars:
+        entry = moe_dict.lookup(ch)
+        if entry is None:
+            continue
+        sense = moe_dict.first_sense(ch)
+        meta_bits = [f"{entry['radical']}部" if entry.get("radical") else "",
+                     f"{entry['stroke_count']}畫"
+                     if entry.get("stroke_count") else "",
+                     entry.get("zhuyin") or ""]
+        words = [w["word"] for w in (entry.get("words") or [])
+                 if w.get("word")][:INFO_MAX_WORDS]
+        rows.append({
+            "char": ch,
+            "meta": "・".join(b for b in meta_bits if b),
+            "definition": (sense or {}).get("text", ""),
+            "words": ("造詞：" + "、".join(words)) if words else "",
+        })
+
+    glyphs: dict = {}
+    if rows:
+        from ..sources.noto_hei import get_hei_source
+        try:
+            hei = get_hei_source()
+        except Exception:          # 字型檔缺席 → 註記區留白
+            return rows, {}
+        for ch in set("".join(compose_info_line(r) for r in rows)):
+            try:
+                g = hei.get_character(ch)
+            except Exception:
+                continue
+            if g is not None and g.strokes:
+                glyphs[ch] = g
+    return rows, glyphs
+
+
 def _parse_zhuyin_map(zhuyin_map: Optional[str], source: str,
                       hook_policy: str) -> tuple[Optional[dict], dict]:
     """5cz：解析「字:注音,字:注音」映射並載入符號 Character。

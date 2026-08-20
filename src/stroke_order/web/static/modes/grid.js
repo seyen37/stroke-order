@@ -179,6 +179,11 @@ function gridParams() {
   if (document.getElementById("grid-zhuyin").checked) {
     p.set("zhuyin_map", gridZhuyinMap(g("grid-chars")));
   }
+  // W2：頁尾生字資訊區——教育部原文由伺服器查（bundle 隨 repo 部署，
+  // 零外部服務），前端只送開關
+  if (document.getElementById("grid-info-footer").checked) {
+    p.set("info_footer", "true");
+  }
   return p.toString();
 }
 
