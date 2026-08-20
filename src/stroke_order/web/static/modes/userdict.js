@@ -29,6 +29,7 @@ function udInit() {
   document.getElementById("ud-save").onclick = udSave;
   // Phase 5ar
   document.getElementById("ud-export").onclick = udExport;
+  document.getElementById("ud-font").onclick = udFont;
   document.getElementById("ud-import").onclick = udImport;
   udBindCanvas();
 }
@@ -164,6 +165,11 @@ async function udLoadIntoEditor(ch) {
 function udExport() {
   // Browser handles the download via Content-Disposition header.
   window.location.href = `${API_BASE}/api/user-dict/export`;
+}
+
+// ---- R3: 手寫字型下載（只含寫過的字；著作權歸書寫者） ----------
+function udFont() {
+  window.location.href = `${API_BASE}/api/user-dict/font`;
 }
 
 // ---- Phase 5ar: bulk import -----------------------------------

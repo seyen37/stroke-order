@@ -31,6 +31,7 @@ from .g0v import G0VSource
 
 __all__ = [
     "SkeletonGlyphUnavailable",
+    "flesh_character",
     "glyph_polylines",
     "is_available",
 ]
@@ -89,6 +90,60 @@ def _chaikin(pts: list[tuple[float, float]],
     return pts
 
 
+def flesh_character(c, *,
+                    weight: float = 120.0,
+                    cap: str = "round",
+                    width_ratio: float = 1.0):
+    """骨架長肉核心：任意 ``Character`` → shapely Polygon 清單。
+
+    R3 抽出的 seam（原先綁死 g0v 來源）：``glyph_polylines`` 與手寫字型
+    （R3 的 user_dict → TTF）共用同一顆長肉引擎。回傳保留 shapely 的
+    exterior/interiors 結構——字型組裝需要**環向資訊**（TrueType nonzero
+    填色），攤平的 even-odd 折線給不了。
+
+    Raises 同 :func:`glyph_polylines`（shapely 缺席／參數不合法），另在
+    無可用筆畫時拋 ``CharacterNotFound``。
+    """
+    try:
+        from shapely.geometry import LineString, MultiPolygon
+        from shapely.ops import unary_union
+    except Exception as e:
+        raise SkeletonGlyphUnavailable(
+            "shapely（GEOS）未安裝——骨架長肉字模不可用；"
+            "pip install shapely 或安裝 web extras。"
+        ) from e
+
+    if weight <= 0:
+        raise ValueError(f"weight 必須為正：{weight}")
+    if width_ratio <= 0:
+        raise ValueError(f"width_ratio 必須為正：{width_ratio}")
+    if cap not in ("round", "square"):
+        raise ValueError(f"cap 僅支援 round/square：{cap!r}")
+
+    w = _effective_width(weight, c.stroke_count)
+
+    parts = []
+    for st in c.strokes:
+        pts = [(p.x, p.y) for p in st.raw_track]
+        if len(pts) < 2:
+            continue
+        pts = _chaikin(pts)
+        parts.append(LineString(pts).buffer(
+            w / 2.0, cap_style=cap, join_style="round"))
+    if not parts:
+        from .g0v import CharacterNotFound
+        raise CharacterNotFound(f"{c.char!r} 骨架無可用筆畫 track")
+    glyph = unary_union(parts)
+
+    if width_ratio != 1.0:
+        from shapely.affinity import scale as _scale
+        ctr = EM_SIZE / 2.0
+        glyph = _scale(glyph, xfact=width_ratio, yfact=width_ratio,
+                       origin=(ctr, ctr))
+
+    return list(glyph.geoms) if isinstance(glyph, MultiPolygon) else [glyph]
+
+
 def glyph_polylines(char: str, *,
                     weight: float = 120.0,
                     cap: str = "round",
@@ -108,45 +163,9 @@ def glyph_polylines(char: str, *,
     ValueError
         參數不合法（weight/width_ratio 非正、cap 未知）。
     """
-    try:
-        from shapely.geometry import LineString, MultiPolygon
-        from shapely.ops import unary_union
-    except Exception as e:
-        raise SkeletonGlyphUnavailable(
-            "shapely（GEOS）未安裝——骨架長肉字模不可用；"
-            "pip install shapely 或安裝 web extras。"
-        ) from e
-
-    if weight <= 0:
-        raise ValueError(f"weight 必須為正：{weight}")
-    if width_ratio <= 0:
-        raise ValueError(f"width_ratio 必須為正：{width_ratio}")
-    if cap not in ("round", "square"):
-        raise ValueError(f"cap 僅支援 round/square：{cap!r}")
-
     c = _get_g0v().get_character(char)   # 缺字 → CharacterNotFound（原語意）
-    w = _effective_width(weight, c.stroke_count)
-
-    parts = []
-    for st in c.strokes:
-        pts = [(p.x, p.y) for p in st.raw_track]
-        if len(pts) < 2:
-            continue
-        pts = _chaikin(pts)
-        parts.append(LineString(pts).buffer(
-            w / 2.0, cap_style=cap, join_style="round"))
-    if not parts:
-        from .g0v import CharacterNotFound
-        raise CharacterNotFound(f"{char!r} 骨架無可用筆畫 track")
-    glyph = unary_union(parts)
-
-    if width_ratio != 1.0:
-        from shapely.affinity import scale as _scale
-        ctr = EM_SIZE / 2.0
-        glyph = _scale(glyph, xfact=width_ratio, yfact=width_ratio,
-                       origin=(ctr, ctr))
-
-    polys = list(glyph.geoms) if isinstance(glyph, MultiPolygon) else [glyph]
+    polys = flesh_character(c, weight=weight, cap=cap,
+                            width_ratio=width_ratio)
     contours: list[list[tuple[float, float]]] = []
     for poly in polys:
         for ring in (poly.exterior, *poly.interiors):

@@ -83,6 +83,45 @@ def user_dict_export(style: str = Query("")):
         headers={"Content-Disposition": disposition},
     )
 
+@router.get("/api/user-dict/font")
+def user_dict_font(
+    weight: float = Query(120.0, gt=0, le=400,
+                          description="R3：筆畫全寬（EM2048；經 R1a 密度補償）"),
+    cap: str = Query("round", pattern="^(round|square)$",
+                     description="筆畫端頭：round=手寫感圓頭、square=方頭"),
+    owner: str = Query("", max_length=40,
+                       description="書寫者名字（進字型著作權標注；可留空）"),
+):
+    """R3：把使用者的手寫字打包成可安裝的 TrueType 字型檔。
+
+    字集**只含寫過的字**（sign-off）——字型裡每個字形都是本人手寫，沒寫
+    過的字顯示 .notdef（字型的正常行為，也是「純手寫」的誠實保證）。
+    字形著作權歸書寫者本人，name table 寫明。
+    """
+    from ...exporters.handfont import HandFontUnavailable, build_hand_font
+    from ...sources.user_dict import UserDictSource
+
+    src = UserDictSource()
+    written = src.list_chars()
+    if not written:
+        raise HTTPException(
+            400, detail="還沒有任何手寫字——先在手寫練習或罕用字管理寫幾個字")
+    chars = [src.get_character(ch) for ch in written]
+    try:
+        ttf = build_hand_font(chars, weight=weight, cap=cap,
+                              owner=owner or None)
+    except HandFontUnavailable as e:   # pragma: no cover — fonttools 必要相依
+        raise HTTPException(503, detail=str(e)) from e
+    basename = f"{_safe_filename_part(owner) + '_' if owner else ''}手寫字型"
+    return Response(
+        content=ttf,
+        media_type="font/ttf",
+        headers={
+            "Content-Disposition": _content_disposition(basename, "ttf"),
+            "X-Hand-Font-Chars": str(len(chars)),
+        },
+    )
+
 @router.post("/api/user-dict/import")
 def user_dict_import(
     file: UploadFile = File(...),

@@ -101,6 +101,8 @@ ROUTE_SNAPSHOT = {
     ("GET", "/api/user-dict"),
     ("POST", "/api/user-dict"),
     ("GET", "/api/user-dict/export"),
+    # R3: 手寫字型（2026-08-20）
+    ("GET", "/api/user-dict/font"),
     ("POST", "/api/user-dict/import"),
     ("DELETE", "/api/user-dict/{char}"),
     ("GET", "/api/user-dict/{char}"),
