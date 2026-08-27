@@ -22,6 +22,9 @@ ROUTE_SNAPSHOT = {
     ("GET", "/api/radical-info/{char}"),
     ("GET", "/api/dict/{char}"),
     ("GET", "/api/qr"),
+    # D2/W0（Blueprint Phase 0，2026-08-27）
+    ("GET", "/api/metrics"),
+    ("GET", "/guide"),
     ("GET", "/api/character/{char}"),
     ("GET", "/api/cns-status"),
     ("GET", "/api/cns-stroke-diagnostics/{char}"),

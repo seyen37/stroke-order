@@ -230,6 +230,19 @@ def components_data(char: str):
         "is_atomic": is_atomic(char, ids_map),
     }
 
+@router.get("/api/metrics")
+def api_metrics():
+    """D2：匿名使用計數快照（Blueprint gate 判定用的溫度計）。
+
+    只有次數，無 IP/UA/cookie/時間序列（隱私設計約束，測試鎖住）。
+    ``since``＝本計數視窗起點——Render free tier 磁碟是暫時的，重新
+    部署會歸零；歷史靠 metrics-flush log 行保留。gate 判定用的是
+    相對訊號（哪個模式多、缺字是否出現），不受歸零影響。
+    """
+    from ..metrics import snapshot
+    return snapshot()
+
+
 @router.get("/api/coverset/list")
 def coverset_list():
     """List built-in cover-sets (metadata only — no char lists)."""

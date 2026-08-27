@@ -240,6 +240,37 @@ def create_app() -> FastAPI:
     app.state.render_cache_stat = render_cache_stat
     app.state.render_gate_stat = render_gate_stat
 
+    # D2（Blueprint Phase 0）：模式使用計數——純 ASGI（同 §50 教訓，不用
+    # BaseHTTPMiddleware）。只認前綴表裡的功能面（有界集合、無 PII），
+    # 其餘請求零成本穿過。計數在請求「進入」時記——回應成敗不影響
+    # 「有人想用這個功能」這個訊號。
+    _MODE_BUCKETS = (
+        ("/api/grid", "grid"), ("/api/steps", "steps"),
+        ("/api/stencil", "stencil"), ("/api/sutra", "sutra"),
+        ("/api/notebook", "notebook"), ("/api/letter", "letter"),
+        ("/api/manuscript", "manuscript"), ("/api/dict/", "dict"),
+        ("/api/qr", "qr"), ("/api/user-dict/font", "handfont"),
+        ("/api/popup", "popup"), ("/api/card", "card"),
+        ("/api/zentangle", "zentangle"), ("/api/mandala", "mandala"),
+        ("/teach", "teach_page"), ("/guide", "guide_page"),
+    )
+
+    class _MetricsMiddleware:
+        def __init__(self, inner):
+            self.inner = inner
+
+        async def __call__(self, scope, receive, send):
+            if scope.get("type") == "http":
+                path = scope.get("path", "")
+                for prefix, bucket in _MODE_BUCKETS:
+                    if path.startswith(prefix):
+                        from .metrics import record_mode
+                        record_mode(bucket)
+                        break
+            await self.inner(scope, receive, send)
+
+    app.add_middleware(_MetricsMiddleware)
+
     # W1-B（架構健檢 2026-07-18）：大型 SVG/JSON 回應壓縮。心經整頁 SVG
     # 1.25MB → 約 150KB；zhuyin_tw.json 454KB → 約 60KB。
     app.add_middleware(GZipMiddleware, minimum_size=1024)

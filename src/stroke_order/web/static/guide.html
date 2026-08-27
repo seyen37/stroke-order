@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>給老師的一頁說明｜筆順練習紙產生器</title>
+<!-- W0（Blueprint Phase 0）：教案語言的觸達頁——老師拿到這個網址就知道
+     能做什麼、怎麼做。自包含（無外連、可離線列印）；措辭守 §87/§88/W4
+     誠實原則：分級只講字頻名次、不誇資料、出處照實。 -->
+<style>
+  :root { --ink:#222; --muted:#666; --line:#ddd; --accent:#1a56a0; }
+  * { box-sizing:border-box; }
+  body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",
+         sans-serif; color:var(--ink); max-width:720px; margin:0 auto;
+         padding:24px 20px 48px; line-height:1.75; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:14px; margin-bottom:20px; }
+  h2 { font-size:18px; border-left:4px solid var(--accent);
+       padding-left:10px; margin:28px 0 8px; }
+  a.btn { display:inline-block; background:var(--accent); color:#fff;
+          padding:6px 14px; border-radius:6px; text-decoration:none;
+          font-size:14px; margin:4px 6px 4px 0; }
+  ol { padding-left:1.4em; margin:6px 0; }
+  li { margin:2px 0; }
+  .note { background:#f6f8fb; border:1px solid var(--line);
+          border-radius:8px; padding:10px 14px; font-size:14px;
+          color:var(--muted); margin:10px 0; }
+  footer { margin-top:36px; padding-top:12px; border-top:1px solid
+           var(--line); font-size:12px; color:var(--muted); }
+  @media print { a.btn { border:1px solid var(--ink); color:var(--ink);
+                 background:none; } }
+</style>
+</head>
+<body>
+<h1>筆順練習紙產生器——給老師的一頁說明</h1>
+<div class="sub">免費、免登入、免安裝。生字進去，可以印的紙出來。
+黑白影印機印出來一樣清楚。</div>
+
+<h2>1. 印一份生字字帖（約一分鐘）</h2>
+<ol>
+  <li>打開首頁，在「字帖」模式的字串欄輸入這課的生字（例：春天日月）。</li>
+  <li>想省打字：用「分級選字」輸入字頻名次一鍵帶入
+      （名次是常用程度的排序，不代表年級難度）。</li>
+  <li>可勾「注音欄」（注音也能描紅）與「頁尾生字資訊」
+      （部首、筆畫、教育部辭典的字義原文與造詞）。</li>
+  <li>按「下載 A4 PDF」→ 直接印。</li>
+</ol>
+<a class="btn" href="/">開啟字帖產生器</a>
+
+<h2>2. 印筆順分解圖（取代到別的網站抓圖）</h2>
+<p>每個字一條「第 1 筆、第 1–2 筆、…」的分解圖：已寫的筆畫淡灰、
+正在寫的濃黑、右上角標第幾筆。字帖模式輸入生字後，按
+「筆順分解圖 → 下載 A4 PDF」即可，一次可出整課的字。筆順採
+教育部標準楷書資料，不必再去外站截圖。</p>
+
+<h2>3. 課堂上教一個字（投影／平板）</h2>
+<p>教學頁輸入一個字，就有<strong>逐筆順動畫</strong>、注音發音、
+部件拆解，以及教育部辭典的字義原文；頁面附教育百科的
+QR Code——印在教學單上，學生回家掃碼就能自學。</p>
+<a class="btn" href="/teach">開啟教學頁</a>
+
+<h2>4. 進階：把手寫變成字型、做雷雕字模</h2>
+<p>在手寫練習裡寫過的字，可以一鍵打包成能安裝到電腦的手寫字型
+（字型裡每個字都是本人手寫，著作權歸書寫者）。另有噴漆字模、
+雷雕鏤空字、立體字卡片等勞作／maker 功能，適合藝文課延伸。</p>
+
+<div class="note">
+找不到某個字？字帖與動畫涵蓋常用字；查無的字系統會誠實顯示
+「查無此字」而不是給錯的資料——遇到需要的缺字，歡迎回報。
+</div>
+
+<footer>
+字義／注音／部首／常用詞取自教育部《國語辭典簡編本》開放資料
+（創用CC-姓名標示-禁止改作 3.0 臺灣，原文呈現、未改作）；筆順資料
+採教育部標準楷書（g0v/zh-stroke-data）。本工具開放原始碼、無廣告、
+不蒐集個人資料。
+</footer>
+</body>
+</html>

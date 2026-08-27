@@ -9,6 +9,9 @@ scripts/render_fetch_fonts.sh 於部署時抓）。
 import numpy as np
 import pytest
 
+# D3：本檔以光柵化/PDF 為主——整檔標 slow（開發可 -m 'not slow' 跳過）
+pytestmark = pytest.mark.slow
+
 from stroke_order.sources.noto_hei import default_hei_font_path
 from stroke_order.exporters.popup import (
     generate_popup, build_popup, PopupParams, _label, _label_runs,

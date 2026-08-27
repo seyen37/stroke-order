@@ -3306,6 +3306,8 @@ ADR 寫明五步（dump 管道→bundle 慣例→解析器落點→誠實標注�
   - [`2026-08-20_r3_hand_font.md`](decisions/2026-08-20_r3_hand_font.md)（R3 手寫字型四決策 QODA：字集只含寫過的字（純手寫誠實保證，.notdef 是特性）／長肉引擎抽 flesh_character seam 零行為變（字型需環向、even-odd 攤平契約給不了）／環向 signed area 明確定向＋兩層驗證（fontTools 回讀＋FreeType 真渲染驗字碗留白）／著作權歸書寫者進 name table）
   - [`2026-08-20_b_delta_em.md`](decisions/2026-08-20_b_delta_em.md)（B 真輪廓 ±δ 三決策：向量域光柵化前施作（8px/mm 下 20EM 只有 2px，光柵量化吃掉半行程）／even-odd 重建走 XOR 繞開 Jordan 巢狀／夾限 ±20 但措辭不許諾安全——中途實測 noto_hei +20 就黏合，「安全區」適用範圍跟著量測條件走，換字源要重新問）
   - [`2026-08-20_r2_glyphwiki_spike.md`](decisions/2026-08-20_r2_glyphwiki_spike.md)（R2 GlyphWiki spike 後緩議：缺口＝筆順鏈 9k→CNS 95k 的筆順幾何（真實但窄）／授權自由（robots 擋原站、改引 Mozilla 收錄原文並如實記錄）／執行期 API 不可行、合規只剩 dump 子集打包／授權可技術可行≠值得付永久成本（同 T3 同構）；翻案條件與動工路徑已鋪，含 404 缺字計數前置）
+  - [`../BLUEPRINT.md`](../BLUEPRINT.md)（2026-08-26 全案規劃建議書 v1.0：定位／六隱憂／D1–D4 新方向／七條路線圖層級策略／Phase 0–3 gate 制路線圖——方向層決策的單一參考點，與本檔（工程原則）、ADR（單項決策）成三層）
+  - [`2026-08-27_phase0_verification_kit.md`](decisions/2026-08-27_phase0_verification_kit.md)（Phase 0 驗證期三件套：D3 先量再標模組層 slow（快車道省 54%）／D2 儀器化「只數次數不記人」鎖成測試＋暫時性磁碟誠實補償不上 DB／W0 教案語言自包含頁；本輪未立新原則——§93/§95/日期守門皆再套用）
   - [`RETROSPECTIVE_2026-08-20_backlog_clearing_arc.md`](RETROSPECTIVE_2026-08-20_backlog_clearing_arc.md)（借鏡收尾弧收工：X1/R3/B 出貨＋R2 緩議、架上清空／自己的量測換條件就不成立（→§98）／緩議是一等結案、翻案條件儀器化（→§99），對應 §98–§99）
   - [`RETROSPECTIVE_2026-08-20_worksheet_arc.md`](RETROSPECTIVE_2026-08-20_worksheet_arc.md)（字帖借鏡弧收工：一份建議書四輪照序落地零改序／風險註記四之四變成機器守門（→§97）／守門攔自己三次皆改措辭不放寬／測試全綠但圖是錯的（→§96），對應 §94–§97）
   - [`2026-08-20_w1_page_pdf.md`](decisions/2026-08-20_w1_page_pdf.md)（W1 字帖多頁 PDF/PNG 四決策 QODA：先量記憶體發現照抄會 OOM 並否證 generator 串流／配額模型補上光柵器工作緩衝第三項且係數只准高估／grid 貼合紙張其餘三模式零新參數／三模式共用一份出口且須插在早退分支之前；附兩個自己的錯——鎖到 ZIP 時戳、既有測試拿 pdf 當反例，對應 §94）

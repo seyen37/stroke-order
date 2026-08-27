@@ -56,6 +56,10 @@ def _load(char: str, source: str, hook_policy: str, auto_fix: bool = True):
     try:
         c = src.get_character(char)
     except CharacterNotFound as e:
+        # D2：缺字請求計數——R2 GlyphWiki 翻案的感測器（§99 儀器化）。
+        # 只記字元本身，無任何請求脈絡。
+        from .metrics import record_missing_char
+        record_missing_char(char)
         raise HTTPException(404, detail=str(e)) from e
     # Phase 5ai-5av: characters from non-Han / outline-only pipelines
     # (punctuation, user dict, CNS-font fallback in Kai/Sung, MoE Song

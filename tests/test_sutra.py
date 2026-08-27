@@ -7,6 +7,9 @@ from pathlib import Path
 
 import pytest
 
+# D3：本檔以光柵化/PDF 為主——整檔標 slow（開發可 -m 'not slow' 跳過）
+pytestmark = pytest.mark.slow
+
 from stroke_order.exporters.sutra import (
     CELLS_PER_PAGE,
     COLS,

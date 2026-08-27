@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stroke-order"
-version = "0.14.294"
+version = "0.14.295"
 description = "中文字元 → 向量筆跡轉換器（給寫字機器人用）"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -63,3 +63,9 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-p no:cacheprovider"
+# D3（Blueprint Phase 0）：慢測分層。收工檢查照跑全套；開發迭代可
+#   pytest -m "not slow"
+# 快速回饋（實測省 ~80s/167s）。標記單位＝模組（光柵化/PDF 重的檔）。
+markers = [
+    "slow: 光柵化/PDF/端到端等慢測試（開發可 -m 'not slow' 跳過；收工檢查全跑）",
+]

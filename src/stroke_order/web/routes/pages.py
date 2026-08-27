@@ -139,6 +139,19 @@ def teach_page():
     return _versioned_page(page)
 
 
+# W0（Blueprint Phase 0）：給老師的一頁說明——教案語言、可直接轉發的
+# 觸達入口（不是 README）。自包含靜態頁，照 /teach 慣例服務。
+@router.get("/guide", include_in_schema=False)
+def guide_page():
+    page = STATIC_DIR / "guide.html"
+    if not page.is_file():
+        return PlainTextResponse(
+            "Guide page missing — static/guide.html not bundled.",
+            status_code=404,
+        )
+    return _versioned_page(page)
+
+
 # 立體字卡片（pop-up 鏤空字）：獨立頁＋SVG 產生端點
 @router.get("/popup", include_in_schema=False)
 def popup_page():
