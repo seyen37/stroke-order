@@ -78,8 +78,9 @@ def test_d2_no_pii_fields_ever(metrics_env, client):
     """隱私設計約束：快照裡不得出現任何請求脈絡欄位。"""
     client.get("/api/grid", params={"chars": "春"})
     s = client.get("/api/metrics").json()
+    # v0.14.296：多一個 persistence（儲存位置標示，非請求脈絡）
     assert set(s.keys()) == {"since", "mode", "missing_char",
-                             "missing_char_overflow"}
+                             "missing_char_overflow", "persistence"}
     dump = json.dumps(s)
     for banned in ("ip", "user_agent", "cookie", "session", "referer"):
         assert banned not in dump.lower()

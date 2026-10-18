@@ -121,6 +121,12 @@ button:focus-visible {
   color: var(--gl-info-fg);
   border-color: var(--gl-info-border);
 }
+/* v0.14.296：免費主機資料可能消失的誠實標示（沿用既有警示 token） */
+.gl-banner-warn {
+  background: var(--gl-warn-bg);
+  color: var(--gl-warn-fg);
+  border-color: var(--gl-warn-fg);
+}
 
 /* ----- toolbar ------------------------------------------------------ */
 .gl-toolbar {

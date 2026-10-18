@@ -80,6 +80,21 @@ services:
       - key: STROKE_ORDER_VENDOR_DIR
         value: /opt/render/project/src/.vendor
 
+      # ---- 暫時性磁碟誠實標示＋計數器跨重啟累計（v0.14.296）----
+      # 免費層閒置 15 分鐘休眠、重啟／重新部署即清空本機檔案（官方
+      # https://render.com/docs/free）。宣告後：分享庫頁顯示警示橫幅、
+      # /api/metrics 的 persistence 欄位標 ephemeral（或 gist）。
+      # 改付費＋永久硬碟時把這個值改成 "false"。
+      - key: STROKE_ORDER_EPHEMERAL_STORAGE
+        value: "true"
+      # 計數總數同步到私密 GitHub Gist（兩個都填才啟用；任一空白＝
+      # 與先前行為相同）。建立方式：docs/PUBLIC_DEPLOYMENT.md「計數器
+      # 跨重啟累計」一節。token 只需 gist 權限。
+      - key: STROKE_ORDER_METRICS_GIST_ID
+        sync: false
+      - key: STROKE_ORDER_METRICS_GIST_TOKEN
+        sync: false
+
       # ---- Gallery (5g) auth ----
       # AUTH_SECRET 用 Render 自動產生 32-byte 隨機值，永不外洩
       - key: STROKE_ORDER_AUTH_SECRET

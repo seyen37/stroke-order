@@ -358,9 +358,20 @@ sudo certbot --nginx -d stroke-order.tw
 個人 demo 不太影響（朋友看到一次慢點就好）。**重度使用者**會抱怨。一旦你看到流量穩定 → 升 $7/月就無 cold start。
 
 ### Q: 我的 SQLite 資料庫在 Render 重啟後會消失嗎？
-**會**（免費 tier 沒有持久 disk）。免費 tier 適合「無使用者狀態」的 demo。一旦要保留 gallery 上傳資料：
-- 升 Starter plan 加 disk
-- 或改用外部 PostgreSQL（Render 也有免費 PostgreSQL）
+**會**，而且比想像中頻繁：免費層閒置 **15 分鐘**就休眠，休眠、重啟、重新部署都會清空本機檔案，免費層也不能掛永久硬碟（官方 https://render.com/docs/free ，2026-10-18 查證）。`render.yaml` 已宣告 `STROKE_ORDER_EPHEMERAL_STORAGE=true`，分享庫頁會顯示警示橫幅。一旦要保留 gallery 上傳資料：
+- 升付費方案（US$7/月起）＋永久硬碟（US$0.25/GB/月），把 `STROKE_ORDER_GALLERY_DIR`／`STROKE_ORDER_METRICS_DIR` 指到硬碟掛載點，並把 `STROKE_ORDER_EPHEMERAL_STORAGE` 改 `false`
+- ⚠ Render 免費 PostgreSQL **30 天後到期**（寬限 14 天後連資料刪除），不適合當長期儲存
+
+### 計數器跨重啟累計（GitHub Gist，v0.14.296）
+
+`/api/metrics` 的匿名計數在免費層每次醒來都會歸零。設定以下兩個環境變數後，總數會同步到一個私密 Gist（開機讀回並合併、每 10 分鐘與關機時寫回；讀回失敗時不寫，避免覆蓋歷史）：
+
+1. GitHub → 右上頭像 → Your gists → **+**：建立一個 **Secret gist**，檔名填 `stroke-order-metrics.json`，內容填 `{}`，存檔。網址最後一段（例如 `https://gist.github.com/你的帳號/abc123…` 的 `abc123…`）就是 **Gist ID**。
+2. GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → Generate new token：Note 填 `stroke-order metrics`、Expiration 依習慣、**Scopes 只勾 `gist`**，產生後複製（只顯示一次）。
+3. Render Dashboard → stroke-order → Environment：新增 `STROKE_ORDER_METRICS_GIST_ID`（第 1 步的 ID）與 `STROKE_ORDER_METRICS_GIST_TOKEN`（第 2 步的 token），確認 `STROKE_ORDER_EPHEMERAL_STORAGE=true` 也在，存檔（會觸發重新部署）。
+4. 驗收：開 `/api/metrics`，`persistence` 應為 `gist`（剛開機的前幾秒可能是 `gist-pending`）。之後隨時打開那個 Gist 就能看到總數；Gist 的 Revisions 是 ≥10 分鐘粒度的總數快照，沒有任何個人資料。
+
+兩個變數任一沒填＝功能關閉，行為與先前完全相同。token 到期後只會讓同步失敗（log 有 `metrics gist ... failed`），不影響網站。
 
 ### Q: 要不要先付費？
 不用。Render 免費 tier 部署完，先看真實流量——大部分專案永遠在免費 tier 就夠。

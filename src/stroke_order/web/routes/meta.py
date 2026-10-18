@@ -235,12 +235,33 @@ def api_metrics():
     """D2：匿名使用計數快照（Blueprint gate 判定用的溫度計）。
 
     只有次數，無 IP/UA/cookie/時間序列（隱私設計約束，測試鎖住）。
-    ``since``＝本計數視窗起點——Render free tier 磁碟是暫時的，重新
-    部署會歸零；歷史靠 metrics-flush log 行保留。gate 判定用的是
-    相對訊號（哪個模式多、缺字是否出現），不受歸零影響。
+    ``since``＝本計數視窗起點。``persistence`` 誠實標示計數存在哪：
+    ``gist``（跨重啟累計）／``gist-pending``（尚未讀回）／``ephemeral``
+    （免費主機休眠即歸零）／``local``——讀數前先看它，才知道視窗多長。
     """
-    from ..metrics import snapshot
-    return snapshot()
+    from ..metrics import persistence_mode, snapshot
+    return {**snapshot(), "persistence": persistence_mode()}
+
+
+async def _startup_metrics_restore():   # pragma: no cover — 真啟動才跑
+    """v0.14.296：開機背景讀回 Gist 總數（沒設 Gist 即 no-op）。
+
+    TestClient 不進 context manager 不觸發——測試零網路。
+    """
+    import threading
+    from ..metrics import restore_from_gist
+    threading.Thread(target=restore_from_gist, name="metrics-gist-restore",
+                     daemon=True).start()
+
+
+async def _shutdown_metrics_push():     # pragma: no cover — 真關機才跑
+    """v0.14.296：休眠／重新部署前把總數寫進 Gist（沒設即 no-op）。"""
+    from ..metrics import push_now
+    push_now()
+
+
+router.on_startup.append(_startup_metrics_restore)
+router.on_shutdown.append(_shutdown_metrics_push)
 
 
 @router.get("/api/coverset/list")

@@ -8,7 +8,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 from fastapi import File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from typing import Optional
 from fastapi import APIRouter
 from ..char_pipeline import build_mandala_char_loader
@@ -119,7 +119,30 @@ def gallery_page():
         )
     # 5fo：改走版本注入（?v=__V__ → APP_VERSION）——與 / /card /handwriting
     # 同款；本頁先前走 FileResponse＝佔位符原樣吐出、標籤手刻卡版（§57）。
-    return _versioned_page(page)
+    resp = _versioned_page(page)
+    # v0.14.296 誠實標示：主機宣告磁碟暫時性（Render 免費層：休眠／重啟／
+    # 重新部署即清空）時，插入警示橫幅。不宣告＝頁面與先前逐位元組相同。
+    if _ephemeral_storage() and resp.status_code == 200:
+        body = resp.body.replace(_EPHEMERAL_MARK, _EPHEMERAL_BANNER, 1)
+        etag = resp.headers.get("ETag", "").rstrip('"') + '-eph"'
+        return Response(content=body, media_type=resp.media_type,
+                        headers={"ETag": etag})
+    return resp
+
+
+_EPHEMERAL_MARK = b"<!--EPHEMERAL_NOTICE-->"
+_EPHEMERAL_BANNER = (
+    '<div class="gl-banner gl-banner-warn" id="gl-ephemeral-notice" '
+    'role="note"><b>⚠ 試營運提醒</b>：本站目前架在免費主機上，主機重啟或'
+    '閒置休眠後，分享庫的帳號、上傳與收藏<b>可能消失</b>。'
+    '上傳前請自行保留原始檔案。</div>'
+).encode("utf-8")
+
+
+def _ephemeral_storage() -> bool:
+    import os
+    return os.environ.get("STROKE_ORDER_EPHEMERAL_STORAGE", "").strip().lower() \
+        in {"1", "true", "yes", "on", "y", "t"}
 
 # ----- magic-link auth ---------------------------------------------
 
