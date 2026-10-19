@@ -22,6 +22,7 @@
 //   canvas.on('strokeEnd', (stroke) => { ... });
 //   canvas.on('clear', () => { ... });
 //   canvas.clear();
+//   canvas.loadStrokes(traceStrokes);   // v0.14.299：載回既有筆畫
 //   canvas.getTrace();   // → { em_size, canvas_size, strokes: [...] }
 //   canvas.stats();      // → { strokes, points, duration_s }
 //
@@ -253,6 +254,18 @@ export class WritingCanvas {
     const ctx = this.ink.getContext('2d');
     ctx.clearRect(0, 0, this._cssW, this._cssH);
     this._emit('clear', null);
+  }
+
+  /**
+   * v0.14.299（/myfont）：載回先前寫好的筆畫（trace 格式，EM 2048）並重繪，
+   * 供「上一字」回看與修改。複製點列，不與呼叫端共用陣列。
+   */
+  loadStrokes(strokes) {
+    this.strokes = (strokes || []).map(s => ({
+      ...s, points: (s.points || []).map(p => p.slice()),
+    }));
+    this._active = null;
+    this._redrawAllInk();
   }
 
   /** Drop the most recently committed stroke (undo). */

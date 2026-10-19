@@ -152,6 +152,21 @@ def guide_page():
     return _versioned_page(page)
 
 
+@router.get("/myfont", include_in_schema=False)
+def myfont_page():
+    """v0.14.299 P2：「寫你的名字→得到字型」三分鐘體驗頁。
+
+    筆跡只存在使用者瀏覽器；產生字型時才送 POST /api/handfont（無狀態）。
+    """
+    page = STATIC_DIR / "myfont.html"
+    if not page.is_file():
+        return PlainTextResponse(
+            "Myfont page missing — static/myfont.html not bundled.",
+            status_code=404,
+        )
+    return _versioned_page(page)
+
+
 # 立體字卡片（pop-up 鏤空字）：獨立頁＋SVG 產生端點
 @router.get("/popup", include_in_schema=False)
 def popup_page():

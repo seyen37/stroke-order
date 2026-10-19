@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>寫你的名字，做成你的字型｜筆順練習紙產生器</title>
+<!-- v0.14.299 P2（Blueprint 個人化線 Phase 2 第 7 項）：三分鐘體驗。
+     筆跡只存在使用者瀏覽器（IndexedDB 練習紀錄，與筆順練習頁共用）；
+     按「產生字型」時才把筆跡送 POST /api/handfont，伺服器算完即丟、
+     不保存（P0 關了共用字庫、P1 無狀態端點）。自包含：無外連資源。 -->
+<style>
+  :root {
+    --ink:#222; --muted:#666; --line:#ddd; --bg:#fafafa;
+    --primary:#2c5cb8; --primary-ink:#fff; --focus:#2c5cb8;
+    --info-bg:#f1f5fc; --info-fg:#334; --ok:#1d7a3a; --warn:#8a5a00;
+  }
+  * { box-sizing:border-box; }
+  body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",
+         sans-serif; color:var(--ink); background:var(--bg); margin:0;
+         line-height:1.5; font-size:14px; }
+  main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px;
+          box-shadow:0 1px 2px rgba(0,0,0,.04); padding:16px; margin:12px 0; }
+  .card[aria-disabled="true"] { opacity:.45; pointer-events:none; }
+  .step { font-size:14px; letter-spacing:.5px; color:var(--muted);
+          margin:0 0 8px; }
+  .step b { color:var(--ink); }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+         margin:8px 0; }
+  input[type=text] { font-size:18px; padding:6px 10px; border:1px solid
+         var(--line); border-radius:4px; min-width:0; flex:1 1 180px; }
+  .btn { padding:7px 16px; border-radius:4px; font-size:14px; cursor:pointer;
+         border:1px solid var(--line); background:#fff; color:var(--ink);
+         text-decoration:none; display:inline-block; }
+  .btn:hover { filter:brightness(.96); }
+  .btn:disabled, .btn[aria-disabled="true"] { opacity:.5; cursor:default;
+         pointer-events:none; }
+  .btn:focus-visible { outline:2px solid var(--focus); outline-offset:1px; }
+  .btn-primary { background:var(--primary); color:var(--primary-ink);
+         border-color:var(--primary); font-weight:600; }
+  .btn-ghost { border-color:transparent; background:transparent;
+         color:var(--muted); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 10px; }
+  .chip { min-width:40px; height:40px; font-size:20px; border-radius:6px;
+          border:1px solid var(--line); background:#fff; cursor:pointer; }
+  .chip.done { border-color:var(--ok); color:var(--ok); }
+  .chip.done::after { content:"✓"; font-size:11px; vertical-align:super; }
+  .chip.cur { outline:2px solid var(--primary); outline-offset:1px; }
+  .pad { position:relative; width:min(100%, 360px); aspect-ratio:1;
+         margin:4px auto 8px; background:#fff; border:1px solid #bbb;
+         border-radius:4px; touch-action:none; }
+  .pad canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .pad canvas.ink { touch-action:none; cursor:crosshair; }
+  .status { min-height:1.5em; font-size:13px; color:var(--muted); }
+  .status.ok { color:var(--ok); } .status.warn { color:var(--warn); }
+  .info { background:var(--info-bg); border-left:3px solid var(--primary);
+          color:var(--info-fg); padding:8px 12px; font-size:13px;
+          border-radius:4px; margin:8px 0; }
+  .preview { font-family:"MyHandFont", serif; font-size:64px; line-height:1.3;
+             min-height:1.3em; text-align:center; margin:8px 0;
+             word-break:break-all; }
+  .preview.empty { font-family:inherit; font-size:13px; color:var(--muted); }
+  details { margin-top:8px; font-size:13px; }
+  details li { margin:2px 0; }
+  select { font-size:14px; padding:4px 6px; }
+  footer { margin-top:24px; font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>寫你的名字，做成你的字型</h1>
+<div class="sub">大約三分鐘、免登入。你寫的筆跡只存在<b>這台裝置的瀏覽器</b>裡；
+按「產生字型」時才送到伺服器算成字型檔，伺服器不保存。</div>
+
+<!-- 第 1 步 -->
+<section class="card" id="mf-step1">
+  <p class="step"><b>1.</b> 輸入名字（最多 6 個不同的字）</p>
+  <div class="row">
+    <input type="text" id="mf-name" maxlength="20" placeholder="例：王小明"
+           autocomplete="off">
+    <button class="btn btn-primary" id="mf-start" type="button">開始寫</button>
+  </div>
+  <div class="status" id="mf-name-status"></div>
+</section>
+
+<!-- 第 2 步 -->
+<section class="card" id="mf-step2" aria-disabled="true">
+  <p class="step"><b>2.</b> 一個字一個字寫在格子裡</p>
+  <div class="chips" id="mf-chips"></div>
+  <div class="pad">
+    <canvas class="bg" id="mf-bg"></canvas>
+    <canvas class="ink" id="mf-ink"></canvas>
+  </div>
+  <div class="row" style="justify-content:center;">
+    <button class="btn btn-ghost" id="mf-undo" type="button">↶ 復原一筆</button>
+    <button class="btn btn-ghost" id="mf-clear" type="button">清除這字</button>
+    <label style="font-size:13px;color:var(--muted);">
+      <input type="checkbox" id="mf-ghost" checked> 顯示淡灰範字</label>
+  </div>
+  <div class="row" style="justify-content:center;">
+    <button class="btn" id="mf-prev" type="button">◀ 上一字</button>
+    <button class="btn btn-primary" id="mf-next" type="button">這字寫好了 ▶</button>
+  </div>
+  <div class="status" id="mf-status"></div>
+</section>
+
+<!-- 第 3 步 -->
+<section class="card" id="mf-step3" aria-disabled="true">
+  <p class="step"><b>3.</b> 產生字型、預覽、下載</p>
+  <div class="row">
+    <label>筆畫粗細
+      <select id="mf-weight">
+        <option value="80">細</option>
+        <option value="120" selected>中</option>
+        <option value="180">粗</option>
+      </select></label>
+    <label style="font-size:13px;color:var(--muted);">
+      <input type="checkbox" id="mf-owner" checked>
+      把名字寫進字型檔的著作權欄（只在你下載的檔案裡）</label>
+  </div>
+  <div class="row">
+    <button class="btn btn-primary" id="mf-build" type="button">產生字型</button>
+    <a class="btn" id="mf-download" aria-disabled="true" href="#"
+       download="手寫字型.ttf">↓ 下載 TTF 字型</a>
+  </div>
+  <div class="status" id="mf-build-status"></div>
+  <div class="preview empty" id="mf-preview">（寫完名字後按「產生字型」以顯示）</div>
+  <div class="row">
+    <input type="text" id="mf-sample" placeholder="打字試試看（只有寫過的字會是你的筆跡）"
+           style="font-size:14px;">
+  </div>
+  <div class="info">字型裡<b>只有你寫過的字</b>——每個字都是你親手寫的。沒寫過的字
+    會由電腦改用內建字型顯示（這是字型的正常行為）。想要更多字，就到第 4 步再寫幾個。</div>
+  <details>
+    <summary>怎麼安裝字型？</summary>
+    <ul>
+      <li><b>Windows</b>：在下載的 .ttf 檔上按右鍵 →「安裝」（或「為所有使用者安裝」）。
+        之後 Word、簡報的字型清單就找得到。</li>
+      <li><b>Mac</b>：雙擊 .ttf 檔 → 在「字體簿」按「安裝字體」。</li>
+      <li><b>iPad／手機</b>：系統不能直接雙擊安裝，需要另外的字型 App；
+        建議先在電腦上安裝使用。</li>
+    </ul>
+  </details>
+</section>
+
+<!-- 第 4 步 -->
+<section class="card" id="mf-step4" aria-disabled="true">
+  <p class="step"><b>4.</b> 再多寫幾個字（選做；一顆字型最多 100 字）</p>
+  <div class="row">
+    <input type="text" id="mf-more" maxlength="200" placeholder="例：你好謝謝老師"
+           autocomplete="off" style="font-size:16px;">
+    <button class="btn" id="mf-add" type="button">加進來寫</button>
+  </div>
+  <div class="status" id="mf-more-status"></div>
+</section>
+
+<footer>
+字形著作權歸書寫者本人。寫過的字也會出現在「筆順練習」的練習紀錄裡
+（同一台裝置、同一個瀏覽器）；換裝置不會跟著走。淡灰範字取自教育部標準楷書。
+<a href="/guide">給老師的說明</a>・<a href="/handwriting">筆順練習</a>
+</footer>
+</main>
+
+<script type="module">
+  import { WritingCanvas } from '/static/handwriting/canvas.js?v=__V__';
+  import { drawGrid } from '/static/handwriting/grid.js?v=__V__';
+  import { fetchReference, drawReference, prefetchReferences }
+    from '/static/handwriting/reference.js?v=__V__';
+  import { saveTrace, listAllTraces, uuid }
+    from '/static/handwriting/storage.js?v=__V__';
+  import { MAX_NAME_CHARS, MAX_TOTAL_CHARS, parseChars, buildPayload,
+           latestByChar, fontFileName } from '/static/myfont/core.mjs?v=__V__';
+
+  const $ = id => document.getElementById(id);
+  const st = (id, msg, kind = '') => {
+    const el = $(id); el.textContent = msg; el.className = 'status ' + kind;
+  };
+  const enable = (id, on) => $(id).setAttribute('aria-disabled', on ? 'false' : 'true');
+
+  const S = { name: '', chars: [], idx: 0, written: {}, fontUrl: null };
+  const canvas = new WritingCanvas({ ink: $('mf-ink'), bg: $('mf-bg') });
+
+  async function renderBg() {
+    const ctx = canvas.bgContext();
+    const [w, h] = canvas.bgSize();
+    drawGrid(ctx, w, h, 'mizi');
+    const ch = S.chars[S.idx];
+    if (ch && $('mf-ghost').checked) {
+      const strokes = await fetchReference(ch, 'kaishu');
+      if (S.chars[S.idx] === ch && $('mf-ghost').checked) drawReference(ctx, w, h, strokes);
+    }
+  }
+  canvas.on('resize', () => { renderBg(); });
+
+  function renderChips() {
+    $('mf-chips').innerHTML = '';
+    S.chars.forEach((ch, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip';
+      if (S.written[ch]) b.classList.add('done');
+      if (i === S.idx) b.classList.add('cur');
+      b.textContent = ch;
+      b.addEventListener('click', () => goTo(i));
+      $('mf-chips').appendChild(b);
+    });
+    const n = S.chars.filter(c => S.written[c]).length;
+    enable('mf-step3', n > 0);
+    enable('mf-step4', n > 0);
+  }
+
+  function goTo(i) {
+    S.idx = Math.max(0, Math.min(S.chars.length - 1, i));
+    const ch = S.chars[S.idx];
+    if (S.written[ch]) canvas.loadStrokes(S.written[ch]); else canvas.clear();
+    renderChips();
+    renderBg();
+    const n = S.chars.filter(c => S.written[c]).length;
+    st('mf-status', `第 ${S.idx + 1}／${S.chars.length} 字「${ch}」・已寫好 ${n} 字` +
+       (S.written[ch] ? '（已寫過，可以直接重寫覆蓋）' : ''));
+  }
+
+  async function startWith(chars, { append = false } = {}) {
+    S.chars = append ? [...S.chars, ...chars.filter(c => !S.chars.includes(c))] : chars;
+    // 之前在這台裝置寫過的字（練習頁或本頁）自動帶入，可重寫
+    try {
+      const prev = latestByChar(await listAllTraces(), S.chars);
+      for (const [ch, strokes] of Object.entries(prev)) {
+        if (!S.written[ch]) S.written[ch] = strokes;
+      }
+    } catch (e) { console.warn('讀取練習紀錄失敗', e); }
+    enable('mf-step2', true);
+    prefetchReferences(S.chars, 'kaishu');
+    const firstTodo = S.chars.findIndex(c => !S.written[c]);
+    goTo(firstTodo >= 0 ? firstTodo : (append ? S.chars.length - 1 : 0));
+  }
+
+  $('mf-start').addEventListener('click', () => {
+    const chars = parseChars($('mf-name').value);
+    if (!chars.length) return st('mf-name-status', '先輸入名字', 'warn');
+    if (chars.length > MAX_NAME_CHARS)
+      return st('mf-name-status', `名字最多 ${MAX_NAME_CHARS} 個不同的字（現在 ${chars.length} 個）`, 'warn');
+    S.name = $('mf-name').value.replace(/\s+/g, '');   // 著作權欄／檔名不帶空白
+    S.written = {};
+    st('mf-name-status', `要寫：${chars.join(' ')}`, 'ok');
+    startWith(chars);
+  });
+  $('mf-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('mf-start').click(); });
+
+  $('mf-undo').addEventListener('click', () => canvas.popLastStroke());
+  $('mf-clear').addEventListener('click', () => canvas.clear());
+  $('mf-ghost').addEventListener('change', renderBg);
+  $('mf-prev').addEventListener('click', () => goTo(S.idx - 1));
+
+  $('mf-next').addEventListener('click', async () => {
+    const ch = S.chars[S.idx];
+    if (!ch) return;
+    const trace = canvas.getTrace();
+    if (!trace.strokes.length) return st('mf-status', `「${ch}」還沒寫，先寫一筆再按`, 'warn');
+    S.written[ch] = trace.strokes;
+    try {
+      await saveTrace({
+        id: uuid(), char: ch, style: 'kaishu', tags: ['myfont'],
+        device: trace.device, ts: new Date().toISOString(),
+        canvas_size: trace.canvas_size, em_size: trace.em_size,
+        strokes: trace.strokes, source: { type: 'myfont' },
+      });
+    } catch (e) { console.warn('練習紀錄儲存失敗（本次仍可產生字型）', e); }
+    const nextTodo = S.chars.findIndex((c, i) => i > S.idx && !S.written[c]);
+    const anyTodo = S.chars.findIndex(c => !S.written[c]);
+    if (nextTodo >= 0) goTo(nextTodo);
+    else if (anyTodo >= 0) goTo(anyTodo);
+    else { renderChips(); st('mf-status', '✓ 全部寫好了——往下按「產生字型」', 'ok');
+           $('mf-step3').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+
+  $('mf-build').addEventListener('click', async () => {
+    const written = {};
+    for (const c of S.chars) if (S.written[c]) written[c] = S.written[c];
+    const owner = $('mf-owner').checked ? S.name : '';
+    const { body, skipped } = buildPayload(written,
+      { weight: Number($('mf-weight').value), owner });
+    const n = Object.keys(body.chars).length;
+    if (!n) return st('mf-build-status', '還沒有寫好的字', 'warn');
+    st('mf-build-status', `產生中…（${n} 字；免費主機剛醒時可能要等一分鐘）`);
+    $('mf-build').disabled = true;
+    try {
+      const r = await fetch('/api/handfont', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({ detail: r.statusText }));
+        throw new Error(e.detail || `HTTP ${r.status}`);
+      }
+      const blob = await r.blob();
+      const face = new FontFace('MyHandFont', await blob.arrayBuffer());
+      await face.load();
+      for (const f of [...document.fonts]) if (f.family === 'MyHandFont') document.fonts.delete(f);
+      document.fonts.add(face);
+      if (S.fontUrl) URL.revokeObjectURL(S.fontUrl);
+      S.fontUrl = URL.createObjectURL(blob);
+      const dl = $('mf-download');
+      dl.href = S.fontUrl; dl.download = fontFileName(S.name);
+      dl.setAttribute('aria-disabled', 'false');
+      const pv = $('mf-preview');
+      pv.classList.remove('empty');
+      pv.textContent = $('mf-sample').value.trim() || S.name || Object.keys(body.chars).join('');
+      st('mf-build-status', `✓ 字型完成（${n} 字）` +
+         (skipped.length ? `；「${skipped.join('')}」沒有有效筆畫，已略過` : ''), 'ok');
+    } catch (e) {
+      st('mf-build-status', '產生失敗：' + e.message, 'warn');
+    } finally {
+      $('mf-build').disabled = false;
+    }
+  });
+
+  $('mf-sample').addEventListener('input', () => {
+    const pv = $('mf-preview');
+    if (pv.classList.contains('empty')) return;
+    pv.textContent = $('mf-sample').value.trim() || S.name;
+  });
+
+  $('mf-add').addEventListener('click', () => {
+    const add = parseChars($('mf-more').value).filter(c => !S.chars.includes(c));
+    if (!add.length) return st('mf-more-status', '沒有新的字（已在清單裡的字不重複加）', 'warn');
+    const room = MAX_TOTAL_CHARS - S.chars.length;
+    if (room <= 0) return st('mf-more-status', `一顆字型最多 ${MAX_TOTAL_CHARS} 字，已經滿了`, 'warn');
+    const take = add.slice(0, room);
+    st('mf-more-status', `加入 ${take.length} 字` +
+       (take.length < add.length ? `（超過上限，略過 ${add.length - take.length} 字）` : ''), 'ok');
+    $('mf-more').value = '';
+    startWith(take, { append: true });
+    $('mf-step2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+</script>
+</body>
+</html>
