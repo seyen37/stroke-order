@@ -106,6 +106,7 @@ ROUTE_SNAPSHOT = {
     ("GET", "/api/user-dict/export"),
     # R3: 手寫字型（2026-08-20）
     ("GET", "/api/user-dict/font"),
+    ("POST", "/api/handfont"),       # v0.14.297 P1 無狀態手寫字型
     ("POST", "/api/user-dict/import"),
     ("DELETE", "/api/user-dict/{char}"),
     ("GET", "/api/user-dict/{char}"),

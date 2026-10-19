@@ -51,6 +51,9 @@ RENDER_CACHE_PREFIXES = (
     "/api/manuscript", "/api/wordart", "/api/mandala", "/api/patch",
     "/api/stamp", "/api/stencil", "/api/export",
     "/api/handwriting/reference",
+    # v0.14.297 P1：POST 手寫字型（每字數十 ms～秒級 CPU）——只為進閘門；
+    # 非 GET 不入快取（手寫筆跡因人而異、也不該被快取）。
+    "/api/handfont",
 )
 RENDER_CACHE_MUTATING_PREFIXES = (
     "/api/user-dict", "/api/sutra/upload", "/api/sutra/user",
@@ -250,6 +253,7 @@ def create_app() -> FastAPI:
         ("/api/notebook", "notebook"), ("/api/letter", "letter"),
         ("/api/manuscript", "manuscript"), ("/api/dict/", "dict"),
         ("/api/qr", "qr"), ("/api/user-dict/font", "handfont"),
+        ("/api/handfont", "handfont"),
         ("/api/popup", "popup"), ("/api/card", "card"),
         ("/api/zentangle", "zentangle"), ("/api/mandala", "mandala"),
         ("/teach", "teach_page"), ("/guide", "guide_page"),

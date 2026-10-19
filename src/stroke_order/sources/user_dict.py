@@ -309,23 +309,40 @@ class UserDictSource:
     def _load_from_file(path: Path) -> Character:
         raw = json.loads(path.read_text(encoding="utf-8"))
         ch = raw["char"]
-        strokes: list[Stroke] = []
-        for idx, s in enumerate(raw.get("strokes", [])):
-            pts = [Point(float(p[0]), float(p[1])) for p in s["track"]]
-            strokes.append(Stroke(
-                index=idx,
-                raw_track=pts,
-                outline=[],   # user dict only provides tracks
-                kind_code=int(s.get("kind_code", 9)),
-                kind_name=str(s.get("kind_name", "其他")),
-                has_hook=bool(s.get("has_hook", False)),
-            ))
-        return Character(
-            char=ch,
-            unicode_hex=raw.get("unicode_hex", f"{ord(ch):04x}"),
-            strokes=strokes,
-            data_source="user",
-        )
+        return character_from_strokes(
+            ch, raw.get("strokes", []),
+            unicode_hex=raw.get("unicode_hex", f"{ord(ch):04x}"))
+
+
+def character_from_strokes(
+    char: str,
+    strokes: Iterable[dict],
+    *,
+    unicode_hex: Optional[str] = None,
+) -> Character:
+    """``[{"track": [[x, y], ...], ...}, ...]``（EM 2048）→ 手寫 Character。
+
+    v0.14.297 P1：自 ``_load_from_file`` 抽出的 seam——存檔讀回與無狀態
+    ``POST /api/handfont``（筆跡在請求裡、不落地）共用同一條轉換，
+    兩邊的 Character 逐欄位相同。
+    """
+    out: list[Stroke] = []
+    for idx, s in enumerate(strokes):
+        pts = [Point(float(p[0]), float(p[1])) for p in s["track"]]
+        out.append(Stroke(
+            index=idx,
+            raw_track=pts,
+            outline=[],   # user dict only provides tracks
+            kind_code=int(s.get("kind_code", 9)),
+            kind_name=str(s.get("kind_name", "其他")),
+            has_hook=bool(s.get("has_hook", False)),
+        ))
+    return Character(
+        char=char,
+        unicode_hex=unicode_hex or f"{ord(char):04x}",
+        strokes=out,
+        data_source="user",
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from fastapi import File, Form, HTTPException, Query, UploadFile
+from fastapi import File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from fastapi import APIRouter
 from ...sources import CharacterNotFound
@@ -150,6 +150,121 @@ def user_dict_font(
             "X-Hand-Font-Chars": str(len(chars)),
         },
     )
+
+# ------ v0.14.297 P1：無狀態手寫字型 POST /api/handfont --------------
+# 筆跡在請求裡、字型在回應裡——伺服器**不落地任何東西**（P0 關了共用
+# 字庫；個人手寫的正解是資料留在使用者瀏覽器）。上限依實測：沙箱 100 字
+# 6.1s／200 字 12.2s、RSS +60MB；Render 免費層 CPU 慢數倍，故 100 字。
+# 端點 sync def（重 CPU 走 threadpool，不凍 event loop——5ck 教訓），並在
+# server.py 掛進渲染閘門（同時 ≤2）。
+
+HANDFONT_MAX_CHARS = 100
+HANDFONT_MAX_STROKES_PER_CHAR = 64
+HANDFONT_MAX_POINTS_PER_STROKE = 2000
+HANDFONT_MAX_TOTAL_POINTS = 200_000
+HANDFONT_MAX_BODY_BYTES = 6 * 1024 * 1024
+# 座標以 EM 2048 為框；容許寫出框一些（手寫常超格），但擋荒謬值
+HANDFONT_COORD_MIN, HANDFONT_COORD_MAX = -1024.0, 3072.0
+
+
+class HandFontRequest(BaseModel):
+    """``chars``：{字: [筆畫, ...]}，筆畫＝``[[x, y], ...]``（EM 2048）。"""
+    chars: dict[str, list[list[list[float]]]]
+    weight: float = 120.0
+    cap: str = "round"
+    owner: str = ""
+
+
+def _validate_handfont_char(ch: str) -> None:
+    import unicodedata
+    if len(ch) != 1:
+        raise HTTPException(422, detail=f"每個鍵必須是單一個字，收到 {ch!r}")
+    if unicodedata.category(ch)[0] in ("C", "Z"):
+        raise HTTPException(
+            422, detail=f"U+{ord(ch):04X} 是空白或控制字元，不能做成字形")
+
+
+def _handfont_tracks(ch: str, strokes: list) -> list[dict]:
+    import math
+    if len(strokes) > HANDFONT_MAX_STROKES_PER_CHAR:
+        raise HTTPException(
+            413, detail=f"「{ch}」筆畫數 {len(strokes)} 超過上限 "
+                        f"{HANDFONT_MAX_STROKES_PER_CHAR}")
+    out = []
+    for s in strokes:
+        if len(s) > HANDFONT_MAX_POINTS_PER_STROKE:
+            raise HTTPException(
+                413, detail=f"「{ch}」單一筆畫點數超過上限 "
+                            f"{HANDFONT_MAX_POINTS_PER_STROKE}")
+        track = []
+        for p in s:
+            if len(p) != 2:
+                raise HTTPException(422, detail=f"「{ch}」座標必須是 [x, y]")
+            x, y = float(p[0]), float(p[1])
+            if not (math.isfinite(x) and math.isfinite(y)):
+                raise HTTPException(422, detail=f"「{ch}」含非數值座標")
+            if not (HANDFONT_COORD_MIN <= x <= HANDFONT_COORD_MAX
+                    and HANDFONT_COORD_MIN <= y <= HANDFONT_COORD_MAX):
+                raise HTTPException(
+                    422, detail=f"「{ch}」座標超出範圍（EM 2048 座標系）")
+            track.append([x, y])
+        if len(track) >= 2:          # 單點輕觸不算筆畫（同 handwriting_to_strokes）
+            out.append({"track": track})
+    if not out:
+        raise HTTPException(422, detail=f"「{ch}」沒有有效筆畫（每筆至少 2 點）")
+    return out
+
+
+@router.post("/api/handfont")
+def handfont_post(req: HandFontRequest, request: Request):
+    """P1：把請求裡的手寫筆跡做成可安裝的 TrueType 字型，**不保存任何資料**。
+
+    與 ``GET /api/user-dict/font`` 同一顆引擎（R3：純手寫字集、著作權歸
+    書寫者），差別只在資料來源：這裡的筆跡來自請求本體（使用者瀏覽器裡
+    的練習紀錄），處理完即丟，不經任何字庫。
+    """
+    from ...exporters.handfont import HandFontUnavailable, build_hand_font
+    from ...sources.user_dict import character_from_strokes
+
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > HANDFONT_MAX_BODY_BYTES:
+        raise HTTPException(413, detail="請求太大（上限 6 MB）")
+    if not (0 < req.weight <= 400):
+        raise HTTPException(422, detail="weight 必須在 0～400 之間")
+    if req.cap not in ("round", "square"):
+        raise HTTPException(422, detail="cap 必須是 round 或 square")
+    if len(req.owner) > 40:
+        raise HTTPException(422, detail="owner 最多 40 字")
+    if not req.chars:
+        raise HTTPException(400, detail="還沒有任何手寫字——先寫幾個字")
+    if len(req.chars) > HANDFONT_MAX_CHARS:
+        raise HTTPException(
+            413, detail=f"一次最多 {HANDFONT_MAX_CHARS} 個字（收到 {len(req.chars)}）")
+    total = sum(len(s) for strokes in req.chars.values() for s in strokes)
+    if total > HANDFONT_MAX_TOTAL_POINTS:
+        raise HTTPException(413, detail="筆跡總點數超過上限，請分批產生")
+
+    chars = []
+    for ch, strokes in req.chars.items():
+        _validate_handfont_char(ch)
+        chars.append(character_from_strokes(ch, _handfont_tracks(ch, strokes)))
+    try:
+        ttf = build_hand_font(chars, weight=req.weight, cap=req.cap,
+                              owner=req.owner or None)
+    except HandFontUnavailable as e:   # pragma: no cover — fonttools 必要相依
+        raise HTTPException(503, detail=str(e)) from e
+    basename = (f"{_safe_filename_part(req.owner) + '_' if req.owner else ''}"
+                "手寫字型")
+    return Response(
+        content=ttf,
+        media_type="font/ttf",
+        headers={
+            "Content-Disposition": _content_disposition(basename, "ttf"),
+            "X-Hand-Font-Chars": str(len(chars)),
+            "Cache-Control": "no-store",
+        },
+    )
+
 
 @router.post("/api/user-dict/import")
 def user_dict_import(
