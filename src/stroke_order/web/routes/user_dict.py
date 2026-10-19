@@ -5,6 +5,7 @@ W3-R1（架構健檢 Wave 3）：自 server.py create_app() 機械搬遷，行�
 """
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 from pydantic import BaseModel
@@ -35,6 +36,33 @@ class UserDictPostRequest(BaseModel):
 
 router = APIRouter()
 
+# ------ v0.14.297 P0：公開站關閉共用字庫寫入 ------------------------
+# user_dict 存在伺服器「單一」資料夾、位於 AutoSource 第一順位——本機
+# 單人使用時是特性（自訂字覆蓋標準字），搬到公開網站就成了「任何訪客
+# 寫一個字，所有人的字帖都換成那份筆跡」。公開部署以環境變數關閉寫入；
+# 沒設＝可寫（本機行為零變）。讀取照常（字庫保持空，各模式自然落到
+# 教育部／g0v 字源）。
+
+_WRITABLE_ENV = "STROKE_ORDER_USER_DICT_WRITABLE"
+_FALSE_STRINGS = {"0", "false", "no", "off", "n", "f"}
+
+USER_DICT_READONLY_DETAIL = (
+    "本站是公開網站，不保存手寫字：這份字庫會被所有訪客共用，"
+    "為避免你的筆跡出現在別人的字帖裡（或反過來），寫入已關閉。"
+    "練習紀錄仍會存在你自己的瀏覽器裡。"
+)
+
+
+def user_dict_writable() -> bool:
+    raw = os.environ.get(_WRITABLE_ENV, "").strip().lower()
+    return raw not in _FALSE_STRINGS
+
+
+def _require_writable() -> None:
+    if not user_dict_writable():
+        raise HTTPException(403, detail=USER_DICT_READONLY_DETAIL)
+
+
 # ------ User dictionary CRUD (Phase 5ak) ----------------------------
 
 @router.get("/api/user-dict")
@@ -45,6 +73,7 @@ def user_dict_list():
     chars = src.list_chars()
     return {
         "dict_dir": str(src.dict_dir),
+        "writable": user_dict_writable(),
         "count": len(chars),
         "chars": [
             {
@@ -129,6 +158,7 @@ def user_dict_import(
 ):
     """Restore characters from a ZIP. ``policy`` is ``skip`` or ``replace``."""
     from ...sources.user_dict import UserDictSource
+    _require_writable()
     if policy not in ("skip", "replace"):
         raise HTTPException(
             422, detail=f"policy must be 'skip' or 'replace', got {policy!r}",
@@ -184,6 +214,7 @@ def user_dict_post(req: UserDictPostRequest):
     from ...sources.user_dict import (
         UserDictSource, handwriting_to_strokes, svg_to_strokes,
     )
+    _require_writable()
     if len(req.char) != 1:
         raise HTTPException(400, detail="char must be a single character")
 
@@ -235,6 +266,7 @@ def user_dict_post(req: UserDictPostRequest):
 @router.delete("/api/user-dict/{char}")
 def user_dict_delete(char: str):
     from ...sources.user_dict import UserDictSource
+    _require_writable()
     if len(char) != 1:
         raise HTTPException(400, detail="char must be a single character")
     src = UserDictSource()

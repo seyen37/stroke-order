@@ -62,6 +62,12 @@ async function udRefreshList() {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const d = await r.json();
     document.getElementById("ud-path").textContent = d.dict_dir;
+    // v0.14.297 P0：公開站唯讀——說明原因（伺服器同句），寫入鈕照留，
+    // 按了會得到同一句 403 說明，不會默默失敗。
+    if (d.writable === false) {
+      document.getElementById("ud-path").textContent =
+        "（公開網站：共用字庫已關閉寫入，不保存任何人的手寫字）";
+    }
     if (d.count === 0) {
       el.innerHTML = `<span style="color:var(--muted);font-size:12px;">
         （尚未自訂任何字。在下方畫一個或上傳 SVG 試試）</span>`;
@@ -127,7 +133,12 @@ async function udRenderChipPreview(ch, container) {
 
 async function udDelete(ch) {
   if (!confirm(`刪除 "${ch}"？`)) return;
-  await fetch(`${API_BASE}/api/user-dict/${encodeURIComponent(ch)}`, {method: "DELETE"});
+  const r = await fetch(`${API_BASE}/api/user-dict/${encodeURIComponent(ch)}`, {method: "DELETE"});
+  if (!r.ok) {   // v0.14.297：失敗要說原因（如公開站唯讀 403），不默默吞掉
+    const e = await r.json().catch(() => ({detail: r.statusText}));
+    alert("刪除失敗：" + (e.detail || `HTTP ${r.status}`));
+    return;
+  }
   if (UD.editingChar === ch) UD.editingChar = null;   // exit edit mode
   await udRefreshList();
 }

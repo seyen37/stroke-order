@@ -87,6 +87,11 @@ services:
       # 改付費＋永久硬碟時把這個值改成 "false"。
       - key: STROKE_ORDER_EPHEMERAL_STORAGE
         value: "true"
+      # v0.14.297 P0：公開站關閉共用字庫（user_dict）寫入。字庫位於
+      # 字源鏈第一順位且全站共用——開著＝任何訪客的筆跡會出現在所有人的
+      # 字帖裡。本機執行不設此變數＝照舊可寫。
+      - key: STROKE_ORDER_USER_DICT_WRITABLE
+        value: "false"
       # 計數總數同步到私密 GitHub Gist（兩個都填才啟用；任一空白＝
       # 與先前行為相同）。建立方式：docs/PUBLIC_DEPLOYMENT.md「計數器
       # 跨重啟累計」一節。token 只需 gist 權限。

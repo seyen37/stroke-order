@@ -547,7 +547,10 @@ async function swImport(e) {
     fd.append("file", f);
     fd.append("policy", "replace");
     const r = await fetch(`${API_BASE}/api/user-dict/import`, { method: "POST", body: fd });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (!r.ok) {   // v0.14.297：帶出伺服器說明（如公開站唯讀 403）
+      const e = await r.json().catch(() => ({ detail: r.statusText }));
+      throw new Error(e.detail || `HTTP ${r.status}`);
+    }
     const d = await r.json();
     st.textContent = `✓ 已匯入（新增 ${d.imported ?? "?"}）`; st.style.color = "#080";
     SW.dirty = true;

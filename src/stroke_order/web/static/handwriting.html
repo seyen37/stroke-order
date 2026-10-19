@@ -1085,6 +1085,23 @@
       setSetting('sync_userdict', e.target.checked)
         .catch(err => console.warn('sync 設定儲存失敗', err));
     });
+    // v0.14.297 P0：公開站共用字庫唯讀——開頁就停用同步（不改使用者
+    // 記憶的偏好，只是這個站做不到），免得每完成一字都跳失敗警告。
+    try {
+      const r = await fetch('/api/user-dict');
+      const d = r.ok ? await r.json() : null;
+      if (d && d.writable === false) {
+        const cb = $('hw-sync-userdict');
+        cb.checked = false;
+        cb.disabled = true;
+        const lab = cb.closest('label');
+        if (lab) {
+          lab.title = '本站是公開網站，不保存手寫字（共用字庫會被所有訪客共用）。' +
+                      '練習紀錄仍存在你的瀏覽器裡。';
+          lab.appendChild(document.createTextNode('（本站不保存）'));
+        }
+      }
+    } catch (err) { console.warn('user-dict 狀態讀取失敗', err); }
   }
 
   showSourcePanel(state.sourceType);
