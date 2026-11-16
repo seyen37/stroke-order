@@ -168,6 +168,19 @@ def myfont_page():
 
 
 # 立體字卡片（pop-up 鏤空字）：獨立頁＋SVG 產生端點
+@router.get("/class", include_in_schema=False)
+def class_page():
+    """v0.14.302 R3：課堂筆順——一頁投影用（筆順動畫＋分解圖＋字義＋造詞，
+    可下載 A4 寫字格）。教師主題（DESIGN.md §10）。"""
+    page = STATIC_DIR / "class.html"
+    if not page.is_file():
+        return PlainTextResponse(
+            "Class page missing — static/class.html not bundled.",
+            status_code=404,
+        )
+    return _versioned_page(page)
+
+
 @router.get("/popup", include_in_schema=False)
 def popup_page():
     page = STATIC_DIR / "popup.html"

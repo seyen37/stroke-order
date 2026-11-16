@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>課堂筆順｜筆順練習紙產生器</title>
+<!-- v0.14.302 R3：課堂筆順（教師主題 DESIGN.md §10）。一頁投影用：輸入
+     一個字或一個詞→逐字切換；左＝米字格筆順播放＋逐筆分解圖，右＝字卡＋
+     字義＋詞語釋義＋造詞（點了換查）；頁首可下載 A4 寫字格（/api/grid）。
+     資料全走本站端點（教育部辭典簡編本、g0v 筆順），無外連。播放器與
+     字義卡共用 teacher/player.mjs、teacher/dictcard.mjs（與 /teach 同一份）。 -->
+<link rel="stylesheet" href="/static/teacher/theme.css?v=__V__">
+<style>
+  /* 頁面局部樣式：只用 --t-* token（DESIGN.md §10） */
+  .inputbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+              padding:14px 20px; }
+  .inputbar label { font-weight:600; }
+  #q { flex:1 1 200px; min-width:0; font:inherit; font-size:24px;
+       padding:6px 12px; border:2px solid var(--t-line);
+       border-radius:var(--t-radius-btn); background:var(--t-surface);
+       color:var(--t-fg); }
+  #q:focus-visible { outline:2px solid var(--t-focus); outline-offset:1px; }
+  .inputbar .t-status { flex:1 1 100%; }
+  .inputbar .t-status:empty { display:none; }
+  #chars { margin:0 0 16px; justify-content:center; }
+  #glyph.t-mizi { max-width:380px; }
+  .ctl { display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+         margin-top:14px; }
+  .ctl select { font:inherit; font-size:14px; padding:6px 8px;
+                border:1px solid var(--t-line); border-radius:var(--t-radius-btn);
+                background:var(--t-surface); color:var(--t-fg); }
+  #steps-img { display:block; width:100%; height:auto;
+               border:1px solid var(--t-line); border-radius:8px;
+               background:var(--t-surface); }
+  .bigchar { display:flex; gap:16px; align-items:center; }
+  #card-ch { font-size:80px; line-height:1; font-weight:600; min-width:1em;
+             font-family:"BiauKai","DFKai-SB","TW-Kai","Kaiti TC",serif; }
+  .facts { display:flex; flex-wrap:wrap; gap:6px; }
+  .word-zy { color:var(--t-muted); font-size:14px; margin-left:6px; }
+  .hint { font-size:13px; color:var(--t-muted); }
+  .tts { padding:2px 8px; font-size:13px; border-radius:6px; cursor:pointer;
+         border:1px solid var(--t-line); background:var(--t-surface);
+         color:var(--t-fg); font-family:inherit; }
+  .t-card h2 .tts { margin-left:4px; }
+</style>
+</head>
+<body class="t-page">
+<header class="t-header">
+  <div class="t-logo" aria-hidden="true">課</div>
+  <div class="t-title">
+    <h1>課堂筆順 <span class="t-badge">教育部資料</span></h1>
+    <p>輸入一個字或一個詞：筆順動畫、逐筆分解圖、字義與造詞，一頁投影上課。</p>
+  </div>
+  <div class="t-right">
+    <span>範例</span>
+    <span class="t-chips" id="examples">
+      <button class="t-chip" type="button">春天</button>
+      <button class="t-chip" type="button">園藝</button>
+      <button class="t-chip" type="button">好看</button>
+      <button class="t-chip" type="button">學</button>
+    </span>
+    <a href="/guide">給老師的說明</a>
+    <a href="/">← 回主頁</a>
+  </div>
+</header>
+
+<main class="t-main">
+<section class="t-card inputbar">
+  <label for="q">要教的字或詞</label>
+  <input id="q" type="text" maxlength="20" value="春天" autocomplete="off"
+         placeholder="例：春天">
+  <button class="t-btn t-btn-primary t-btn-lg" id="go" type="button">開始</button>
+  <a class="t-btn t-btn-practice t-btn-lg" id="dl-grid" href="#"
+     aria-disabled="true">⬇ 下載 A4 寫字格</a>
+  <div class="t-status" id="status"></div>
+</section>
+
+<div id="content" hidden>
+  <div class="t-chips" id="chars" role="tablist" aria-label="切換要看的字"></div>
+
+  <div class="t-cols">
+    <!-- 左：示範 -->
+    <div>
+      <section class="t-card">
+        <h2>筆順示範<span class="t-sub" id="stepinfo"></span></h2>
+        <div class="t-mizi t-glyph" id="glyph"></div>
+        <div class="ctl">
+          <button class="t-btn t-btn-primary" id="play" type="button">▶ 播放</button>
+          <button class="t-btn" id="step" type="button">下一筆 ›</button>
+          <button class="t-btn" id="showall" type="button">全部</button>
+        </div>
+        <div class="ctl">
+          <button class="t-btn t-btn-ghost" id="ghost" type="button"
+                  aria-pressed="true">淡灰底字</button>
+          <select id="speed" aria-label="播放速度">
+            <option value="slow">慢</option>
+            <option value="normal" selected>中</option>
+            <option value="fast">快</option>
+          </select>
+          <button class="t-btn" id="speak" type="button">🔊 唸字</button>
+        </div>
+      </section>
+
+      <section class="t-card">
+        <h2>逐筆分解圖
+          <a class="t-btn t-btn-ghost" id="dl-steps" href="#"
+             style="margin-left:auto;">⬇ 分解圖 PDF</a></h2>
+        <img id="steps-img" alt="逐筆分解圖">
+        <div class="hint">已寫的筆畫淡灰、正在寫的濃黑、右上角標第幾筆。</div>
+      </section>
+    </div>
+
+    <!-- 右：查字 -->
+    <div>
+      <section class="t-card bigchar">
+        <div id="card-ch"></div>
+        <div class="facts" id="facts"></div>
+      </section>
+
+      <section class="t-card" id="word-card" hidden>
+        <h2>詞語釋義<span class="word-zy" id="word-zy"></span>
+          <button class="tts" id="speak-word" type="button">🔊</button></h2>
+        <div id="word-senses"></div>
+      </section>
+
+      <section class="t-card">
+        <h2>字義<span class="t-sub" id="sense-src"></span></h2>
+        <div id="senses"></div>
+      </section>
+
+      <section class="t-card">
+        <h2>造詞<span class="t-sub">點一下換查這個詞</span></h2>
+        <div class="t-chips" id="words"></div>
+      </section>
+    </div>
+  </div>
+</div>
+</main>
+
+<footer class="t-footer" id="attrib">
+  字義／注音／部首／常用詞取自教育部《國語辭典簡編本》開放資料（創用CC-姓名標示-
+  禁止改作 3.0 臺灣，原文呈現、未改作）；筆順資料採教育部標準楷書（g0v/zh-stroke-data）。
+  發音使用瀏覽器內建語音（zh-TW）。
+</footer>
+
+<script type="module">
+import { StrokePlayer } from '/static/teacher/player.mjs?v=__V__';
+import { esc, sensesHtml } from '/static/teacher/dictcard.mjs?v=__V__';
+import { parseQuery, gridUrl, stepsUrl, findWord }
+  from '/static/teacher/classcore.mjs?v=__V__';
+
+const $ = id => document.getElementById(id);
+const S = { q: '', chars: [], idx: 0, cache: new Map() };
+
+const player = new StrokePlayer($('glyph'), {
+  onChange: (n, total) => {
+    $('stepinfo').textContent = total ? `第 ${n}／${total} 筆` : '';
+  },
+});
+
+function speak(t){
+  if(!t) return;
+  try{
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = 'zh-TW'; speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(e){ $('status').textContent = '此瀏覽器不支援語音合成'; }
+}
+
+async function jget(path){
+  const r = await fetch(path);
+  if(!r.ok){ const e = await r.json().catch(() => ({detail: r.statusText}));
+    throw new Error(e.detail || ('HTTP ' + r.status)); }
+  return r.json();
+}
+
+/** 一個字的資料（筆順＋辭典），快取避免切來切去重抓。 */
+async function load(ch){
+  if(S.cache.has(ch)) return S.cache.get(ch);
+  const [data, dict] = await Promise.all([
+    jget('/api/character/' + encodeURIComponent(ch)).catch(() => null),
+    jget('/api/dict/' + encodeURIComponent(ch)).catch(() => ({found: false})),
+  ]);
+  const v = {ch, strokes: data ? (data.strokes || []) : null, dict};
+  S.cache.set(ch, v);
+  return v;
+}
+
+async function go(text){
+  const chars = parseQuery(text);
+  if(!chars.length){ $('status').textContent = '請輸入一個字或一個詞'; return; }
+  S.q = chars.join(''); S.chars = chars; S.idx = 0;
+  $('q').value = S.q;
+  $('status').textContent = '載入中…';
+  $('go').disabled = true;
+  try{
+    const first = await load(chars[0]);
+    $('content').hidden = false;
+    renderChips();
+    renderWord(first);
+    await show(0);
+    const g = $('dl-grid');
+    g.href = gridUrl(S.q); g.removeAttribute('aria-disabled');
+    g.setAttribute('download', '');
+    $('status').textContent = '';
+  }catch(err){ $('status').textContent = '載入失敗：' + err.message; }
+  finally{ $('go').disabled = false; }
+}
+
+function renderChips(){
+  $('chars').hidden = S.chars.length < 2;
+  $('chars').innerHTML = S.chars.map((c, i) =>
+    `<button class="t-chip big${i === S.idx ? ' on' : ''}" type="button" role="tab"`+
+    ` aria-selected="${i === S.idx}" data-i="${i}">${esc(c)}</button>`).join('');
+}
+
+/** 詞語釋義：只在輸入是詞時出現；查第一個字的教育部常用詞。 */
+function renderWord(first){
+  const isWord = S.chars.length > 1;
+  $('word-card').hidden = !isWord;
+  if(!isWord) return;
+  const w = findWord(first.dict, S.q);
+  $('word-zy').textContent = w && w.zhuyin ? w.zhuyin : '';
+  $('word-senses').innerHTML = w ? sensesHtml(w.definition)
+    : `<div class="hint">本站收錄的教育部常用詞（每字最多 12 條）沒有「${esc(S.q)}」。`+
+      `下面的單字字義仍可用。</div>`;
+}
+
+async function show(i){
+  S.idx = i; renderChips();
+  const v = await load(S.chars[i]);
+  $('card-ch').textContent = v.ch;
+  if(v.strokes && v.strokes.length){
+    player.load(v.strokes); player.play();
+  }else{
+    player.load([]);
+    $('stepinfo').textContent = '查無筆順資料';
+  }
+  const d = v.dict || {};
+  const facts = [];
+  if(d.zhuyin) facts.push(`<span class="t-badge">注音 ${esc(d.zhuyin)}</span>`);
+  if(d.radical) facts.push(`<span class="t-badge">部首 ${esc(d.radical)}</span>`);
+  const sc = d.stroke_count || (v.strokes ? v.strokes.length : 0);
+  if(sc) facts.push(`<span class="t-badge">筆畫 ${esc(sc)}</span>`);
+  $('facts').innerHTML = facts.join('');
+  $('senses').innerHTML = d.found && d.definition ? sensesHtml(d.definition)
+    : '<div class="hint">教育部辭典簡編本未收此字。</div>';
+  $('sense-src').textContent = d.found ? '教育部原文' : '';
+  $('words').innerHTML = (d.found ? (d.words || []) : []).map(w =>
+    `<button class="t-chip" type="button" data-word="${esc(w.word)}">${esc(w.word)}</button>`
+  ).join('') || '<span class="hint">（無常用詞資料）</span>';
+  $('steps-img').src = stepsUrl(v.ch, 'svg', sc);
+  $('steps-img').alt = `「${v.ch}」逐筆分解圖`;
+  $('dl-steps').href = stepsUrl(v.ch, 'pdf', sc);
+  $('dl-steps').setAttribute('download', '');
+}
+
+$('go').addEventListener('click', () => go($('q').value));
+$('q').addEventListener('keydown', e => { if(e.key === 'Enter') go($('q').value); });
+$('examples').addEventListener('click', e => {
+  const b = e.target.closest('.t-chip'); if(b) go(b.textContent);
+});
+$('chars').addEventListener('click', e => {
+  const b = e.target.closest('[data-i]'); if(b) show(Number(b.dataset.i));
+});
+$('words').addEventListener('click', e => {
+  const b = e.target.closest('[data-word]'); if(b) go(b.dataset.word);
+});
+$('play').addEventListener('click', () => player.play());
+$('step').addEventListener('click', () => player.step());
+$('showall').addEventListener('click', () => player.showAll());
+$('ghost').addEventListener('click', e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', String(on));
+  player.setGhost(on);
+});
+$('speed').addEventListener('change', e => player.setSpeed(e.target.value));
+$('speak').addEventListener('click', () => speak(S.chars[S.idx]));
+$('speak-word').addEventListener('click', () => speak(S.q));
+go($('q').value);
+</script>
+</body>
+</html>

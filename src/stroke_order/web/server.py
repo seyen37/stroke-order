@@ -257,7 +257,7 @@ def create_app() -> FastAPI:
         ("/api/popup", "popup"), ("/api/card", "card"),
         ("/api/zentangle", "zentangle"), ("/api/mandala", "mandala"),
         ("/teach", "teach_page"), ("/guide", "guide_page"),
-        ("/myfont", "myfont_page"),
+        ("/myfont", "myfont_page"), ("/class", "class_page"),
     )
 
     class _MetricsMiddleware:

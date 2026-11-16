@@ -245,6 +245,12 @@ shadow）→ `<dialog>`（原生遮罩）。分享庫卡片 shadow
 - **字義卡** `.t-sense`：`.n` 編號＋釋義＋`.ex` 例句（暖黃左緣線）。
 - **提示框** `.t-note`、狀態列 `.t-status`（`.ok` 墨綠／`.warn` 暖黃字）、
   頁尾 `.t-footer`（資料來源一行）。
+- **筆順播放器** `teacher/player.mjs`（`StrokePlayer`：播放／逐筆／全部／
+  速度／淡灰底字）＋容器 `.t-mizi.t-glyph`：已寫筆畫墨色、**目前這一筆
+  朱紅**、底字 `--t-line`。/teach、/class 共用，不各寫一份。
+- **字義卡資料** `teacher/dictcard.mjs`：教育部釋義依「1.」「2.」切義項、
+  依第一個「[例]」分釋義與例句；**只切版面、文字逐字保留**（CC BY-ND，
+  node 測試鎖逐字守恆）。
 
 ### 10.3 版面
 

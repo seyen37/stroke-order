@@ -185,3 +185,15 @@ body.t-page {
            border: 1px solid var(--t-fg); }
   .t-card { box-shadow: none; }
 }
+
+/* ---------- 筆順播放器（teacher/player.mjs）：ghost 底＋逐筆 ink ---------- */
+.t-glyph .ghost path { fill: var(--t-line); transition: opacity .2s; }
+.t-glyph.no-ghost .ghost path { opacity: 0; }
+.t-glyph .ink path { fill: var(--t-fg); opacity: 0; transition: opacity .2s; }
+.t-glyph .ink path.on { opacity: 1; }
+.t-glyph .ink path.cur { fill: var(--t-primary); }
+.t-sense .ex .lab {
+  display: inline-block; margin-right: 6px; padding: 0 6px;
+  border-radius: 4px; font-size: 12px; font-weight: 600;
+  background: var(--t-hint-bg); color: var(--t-hint-fg);
+}

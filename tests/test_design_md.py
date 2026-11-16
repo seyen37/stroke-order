@@ -59,8 +59,7 @@ def test_primary_blue_locked_across_three_scopes():
         "src/stroke_order/web/static/card.html": "--primary",
         "src/stroke_order/web/static/sutra-editor.html": "--primary",
         "src/stroke_order/web/static/popup.html": "--primary",
-        "src/stroke_order/web/static/teach.html": "--primary",
-    }
+    }   # teach.html 於 v0.14.301 改穿 §10 教師主題，移到 TEACHER_PAGES
     for relpath, token in checks.items():
         src = (ROOT / relpath).read_text(encoding="utf-8")
         assert re.search(re.escape(token) + r"\s*:\s*" + blue, src, re.I), \
@@ -190,7 +189,7 @@ def test_info_box_stray_blues_never_return():
 _STATIC = ROOT / "src/stroke_order/web/static"
 _THEME = _STATIC / "teacher" / "theme.css"
 # 已切換到教師主題的頁面（R2 起加入 teach.html、R3 起加入 class.html）
-TEACHER_PAGES = ["guide.html", "myfont.html"]
+TEACHER_PAGES = ["guide.html", "myfont.html", "teach.html", "class.html"]
 # 主工作頁：維持 §2 藍色主題，不得載入教師主題
 MAIN_PAGES = ["index.html", "handwriting.html", "gallery.html", "card.html",
               "popup.html", "sutra-editor.html"]
@@ -212,10 +211,13 @@ def test_teacher_pages_load_shared_theme():
 
 
 def test_teacher_pages_no_scattered_hex():
-    """教師頁的頁面局部 <style> 只用 --t-* token，不散寫色值。"""
+    """教師頁的頁面局部 <style> 只用 --t-* token，不散寫色值。
+
+    只看 <head>：teach.html 的離線教學單檔模板（buildDoc）自帶獨立樣式，
+    是下載出去的另一份文件，不屬本頁主題。"""
     bad = []
     for name in TEACHER_PAGES:
-        src = (_STATIC / name).read_text(encoding="utf-8")
+        src = (_STATIC / name).read_text(encoding="utf-8").split("</head>")[0]
         for block in re.findall(r"<style>(.*?)</style>", src, re.S):
             for m in re.finditer(r"#[0-9a-fA-F]{3,8}\b", block):
                 bad.append(f"{name}: {m.group(0)}")

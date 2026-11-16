@@ -4,144 +4,210 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>識字教學 · 部件與部首</title>
+<!-- T1（識字教學頁）→ v0.14.301 R2：改穿教師主題（DESIGN.md §10）。
+     兩欄：左＝示範（米字格筆順播放＋部件＋線上字典）、右＝查字（字卡＋
+     字義卡＋造詞例句＋插圖）；編輯欄位收進「✎ 編輯」。播放器與字義卡
+     抽成 teacher/player.mjs、teacher/dictcard.mjs（/class 共用）。離線
+     教學單檔（buildDoc）內容與格式不變。 -->
+<link rel="stylesheet" href="/static/teacher/theme.css?v=__V__">
 <style>
-  /* T1（識字教學頁）：token 遵 DESIGN.md——主要動作藍 --primary、不定義
-     --accent（破壞性紅本頁無用場）。自包含 inline JS（無子模組 import，
-     不涉 §67 快取鍵）。 */
-  :root { --ink:#222; --line:#ddd; --muted:#666;
-          --primary:#2c5cb8; --primary-ink:#fff; --chip:#f0f4fa; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, "Noto Sans TC", sans-serif;
-         color:var(--ink); background:#fafafa; }
-  header { padding:14px 20px; background:#fff; border-bottom:1px solid var(--line);
-           display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
-  header h1 { margin:0; font-size:18px; }
-  header p { margin:4px 0 0; font-size:12.5px; color:var(--muted); width:100%; }
-  header .nav { margin-left:auto; order:99; display:flex; gap:10px; }
-  header .nav a { font-size:13px; }
-  .wrap { display:flex; gap:16px; padding:16px; align-items:flex-start; flex-wrap:wrap; }
-  .panel { background:#fff; border:1px solid var(--line); border-radius:10px; padding:16px; }
-  .controls { width:320px; flex:0 0 auto; }
-  .content { flex:1 1 420px; min-width:340px; display:none; }
-  label { display:block; font-size:13px; margin:12px 0 4px; font-weight:600; }
-  input[type=text], textarea { width:100%; padding:8px 10px; font-size:15px;
-    border:1px solid var(--line); border-radius:8px; font-family:inherit; }
-  textarea { resize:vertical; }
-  button { padding:8px 14px; font-size:14px; border:0; border-radius:8px;
-           background:var(--primary); color:var(--primary-ink); font-weight:600; cursor:pointer; }
-  button.secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
-  button:disabled { opacity:.5; cursor:default; }
-  button.tts { padding:2px 8px; font-size:13px; background:var(--chip); color:var(--ink);
-               border:1px solid var(--line); }
-  #gen { width:100%; margin-top:14px; padding:10px; font-size:15px; }
-  #status { font-size:12.5px; color:var(--muted); margin-top:10px; min-height:18px; }
-  .charbox { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
-  #glyph { width:220px; height:220px; border:1px solid var(--line); border-radius:8px;
-           background:
-             linear-gradient(to right, transparent 49.6%, #f3d8d8 49.6%, #f3d8d8 50.4%, transparent 50.4%),
-             linear-gradient(to bottom, transparent 49.6%, #f3d8d8 49.6%, #f3d8d8 50.4%, transparent 50.4%),
-             #fff; }
-  #glyph svg { width:100%; height:100%; }
-  #glyph path { fill:#222; opacity:0; transition:opacity .25s; }
-  #glyph path.on { opacity:1; }
-  .metachips { display:flex; gap:8px; flex-wrap:wrap; font-size:13px; margin:10px 0; }
-  .chip { background:var(--chip); border:1px solid var(--line); border-radius:6px;
-          padding:3px 8px; }
-  .leaf { display:inline-flex; align-items:center; gap:6px; background:var(--chip);
-          border:1px solid var(--line); border-radius:8px; padding:6px 10px;
-          margin:4px 6px 4px 0; font-size:15px; }
-  .leaf .cat { font-size:11.5px; color:var(--muted); }
+  /* 頁面局部樣式：只用 --t-* token（DESIGN.md §10） */
+  .inputbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .inputbar label { font-weight:600; }
+  #char { width:3.2em; font:inherit; font-size:28px; text-align:center;
+          padding:4px 6px; border:2px solid var(--t-line);
+          border-radius:var(--t-radius-btn); background:var(--t-surface);
+          color:var(--t-fg); }
+  #char:focus-visible { outline:2px solid var(--t-focus); outline-offset:1px; }
+  .inputbar .t-status { flex:1 1 100%; }
+  .inputbar .t-status:empty { display:none; }
+  .inputbar.t-card { padding:14px 20px; }
+  #glyph.t-mizi { max-width:360px; }
+  .ctl { display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+         margin-top:14px; }
+  .ctl select { font:inherit; font-size:14px; padding:6px 8px;
+                border:1px solid var(--t-line); border-radius:var(--t-radius-btn);
+                background:var(--t-surface); color:var(--t-fg); }
+  .bigchar { display:flex; gap:16px; align-items:center; }
+  #card-ch { font-size:72px; line-height:1; font-weight:600; min-width:1em;
+             font-family:"BiauKai","DFKai-SB","TW-Kai","Kaiti TC",serif; }
+  .bigchar .facts { display:flex; flex-wrap:wrap; gap:6px; }
+  .leaf { display:inline-flex; align-items:center; gap:6px;
+          background:var(--t-soft); border:1px solid var(--t-line);
+          border-radius:var(--t-radius-chip); padding:6px 10px;
+          margin:4px 6px 4px 0; font-size:18px; }
+  .leaf .cat { font-size:12px; color:var(--t-muted); }
+  .tts { padding:2px 8px; font-size:13px; border-radius:6px; cursor:pointer;
+         border:1px solid var(--t-line); background:var(--t-surface);
+         color:var(--t-fg); font-family:inherit; }
+  .vv { display:flex; gap:10px; align-items:flex-start; margin:0 0 10px; }
+  .vv .t-chip { flex:0 0 auto; font-weight:600; }
+  .vv .s { flex:1 1 auto; color:var(--t-muted); font-size:14px; padding-top:6px; }
+  #dictlink { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  #picimg { max-width:100%; max-height:300px; border:1px solid var(--t-line);
+            border-radius:8px; }
+  .hint { font-size:12px; color:var(--t-muted); }
+  .ed label { display:block; font-size:13px; font-weight:600; margin:12px 0 4px; }
+  .ed input[type=text], .ed textarea { width:100%; font:inherit; font-size:15px;
+       padding:8px 10px; border:1px solid var(--t-line); border-radius:8px;
+       background:var(--t-surface); color:var(--t-fg); }
+  .ed textarea { resize:vertical; }
   .row { display:flex; gap:8px; margin:6px 0; align-items:center; flex-wrap:wrap; }
   .row input.word { width:130px; flex:0 0 auto; }
   .row input.sent { flex:1 1 200px; }
-  .hint { font-size:12px; color:var(--muted); }
-  h2 { font-size:15px; margin:18px 0 6px; }
-  .dl { display:flex; gap:10px; margin-top:16px; }
-  .note { font-size:12px; color:var(--muted); margin-top:14px; line-height:1.6; }
-  @media (max-width: 640px) {
-    .controls { width:100%; }
-    .content { min-width:0; }
-  }
+  .ed .short { width:auto !important; }
 </style>
 </head>
-<body>
-<header>
-  <h1>識字教學 · 部件與部首</h1>
-  <span class="nav"><a href="/">← 回主頁</a></span>
-  <p>輸入一個字→筆順動畫＋部件拆解＋部首歸類＋注音字義造詞＋點字發音。資料取自教育部辭典與開放字形資料（非 AI 生成、免逐條查核），全部可修改，並可下載成離線教學單檔上課用。</p>
-</header>
-<div class="wrap">
-  <div class="panel controls">
-    <label>要教的字（一個）</label>
-    <input id="char" type="text" maxlength="1" value="園" placeholder="例：園">
-    <button id="gen">產生教學頁</button>
-    <div id="status"></div>
-    <div class="note">注音／部首／字義／常用詞例句：教育部《國語辭典簡編本》開放資料
-      （原文呈現，可自行修改）。筆順：g0v；部件：CHISE IDS；部件歸類：朱邦復四大類。
-      發音使用瀏覽器內建語音（zh-TW）——離線可用、音色依電腦而異。</div>
+<body class="t-page">
+<header class="t-header">
+  <div class="t-logo" aria-hidden="true">教</div>
+  <div class="t-title">
+    <h1>識字教學 <span class="t-badge">教育部資料</span></h1>
+    <p>輸入一個字→筆順動畫、部件拆解、字義與造詞；全部可修改，可下載成離線教學單。</p>
   </div>
-  <div class="panel content" id="content">
-    <div class="charbox">
-      <div id="glyph"></div>
-      <div style="flex:1;min-width:200px;">
-        <div class="row">
-          <button class="secondary" id="replay">▶ 重播筆順</button>
-          <button class="tts" id="speak-char">🔊 唸字</button>
-        </div>
-        <div class="metachips" id="meta"></div>
-        <div class="row"><label style="margin:0;">部首</label>
-          <input id="radical" type="text" maxlength="2" style="width:70px;">
-          <span class="hint" id="radical-hint"></span></div>
-        <div class="row"><label style="margin:0;">注音</label>
-          <input id="zhuyin" type="text" style="width:120px;" placeholder="老師填寫">
-          <span class="hint" id="zhuyin-hint">（教育部資料自動帶入，可修改）</span></div>
+  <div class="t-right">
+    <span>範例</span>
+    <span class="t-chips" id="examples">
+      <button class="t-chip" type="button">園</button>
+      <button class="t-chip" type="button">好</button>
+      <button class="t-chip" type="button">春</button>
+      <button class="t-chip" type="button">鳥</button>
+      <button class="t-chip" type="button">學</button>
+    </span>
+    <a href="/">← 回主頁</a>
+  </div>
+</header>
+
+<main class="t-main">
+<section class="t-card inputbar">
+  <label for="char">要教的字（一個）</label>
+  <input id="char" type="text" maxlength="1" value="園" placeholder="園"
+         autocomplete="off">
+  <button class="t-btn t-btn-primary t-btn-lg" id="gen" type="button">產生教學頁</button>
+  <button class="t-btn t-btn-practice t-btn-lg" id="dl" type="button" disabled>⬇ 下載教學單檔</button>
+  <div class="t-status" id="status"></div>
+</section>
+
+<div class="t-cols" id="content" hidden>
+  <!-- 左：示範 -->
+  <div>
+    <section class="t-card">
+      <h2>筆順示範<span class="t-sub" id="stepinfo"></span></h2>
+      <div class="t-mizi t-glyph" id="glyph"></div>
+      <div class="ctl">
+        <button class="t-btn t-btn-primary" id="replay" type="button">▶ 播放</button>
+        <button class="t-btn" id="step" type="button">下一筆 ›</button>
+        <button class="t-btn" id="showall" type="button">全部</button>
       </div>
-    </div>
+      <div class="ctl">
+        <button class="t-btn t-btn-ghost" id="ghost" type="button"
+                aria-pressed="true">淡灰底字</button>
+        <select id="speed" aria-label="播放速度">
+          <option value="slow">慢</option>
+          <option value="normal" selected>中</option>
+          <option value="fast">快</option>
+        </select>
+        <button class="t-btn" id="speak-char" type="button">🔊 唸字</button>
+      </div>
+    </section>
 
-    <h2>部件拆解 <span class="hint" id="ids"></span></h2>
-    <div id="leaves"></div>
-
-    <h2>字義說明 <span class="hint" id="meaning-src"></span>
-      <button class="tts" id="speak-meaning">🔊</button></h2>
-    <textarea id="meaning" rows="4" placeholder="教育部資料無此字時請自行填寫"></textarea>
+    <section class="t-card">
+      <h2>部件拆解<span class="t-sub" id="ids"></span></h2>
+      <div id="leaves"></div>
+    </section>
 
     <!-- W3：紙本 → 線上字典。連結與 QR 並存——螢幕上點連結，印出來掃碼。 -->
-    <h2>線上字典 <span class="hint">（列印後可掃碼，學生自學用）</span></h2>
-    <div id="dictlink" class="row" style="align-items:center;gap:12px;">
-      <div id="qrbox" style="flex:0 0 auto;"></div>
-      <div style="flex:1 1 200px;">
-        <a id="pedia" href="#" target="_blank" rel="noopener noreferrer">教育百科詞條</a>
-        <div class="hint" id="qrhint"></div>
+    <section class="t-card">
+      <h2>線上字典<span class="t-sub">列印後可掃碼自學</span></h2>
+      <div id="dictlink">
+        <div id="qrbox" style="flex:0 0 auto;"></div>
+        <div style="flex:1 1 180px;">
+          <a id="pedia" href="#" target="_blank" rel="noopener noreferrer">教育百科詞條</a>
+          <div class="hint" id="qrhint"></div>
+        </div>
       </div>
-    </div>
+    </section>
+  </div>
 
-    <h2>常用造詞＋情境造句 <span class="hint" id="vocab-src"></span></h2>
-    <div id="vocab"></div>
-    <div class="row"><button class="secondary" id="addrow" style="width:auto;">＋ 加一列</button></div>
-
-    <h2>插圖 <span class="hint">（老師自備：選檔或直接貼上；會一起存進教學單檔）</span></h2>
-    <div id="picslot">
-      <div class="row">
-        <input id="picfile" type="file" accept="image/*" style="flex:1 1 220px;">
-        <button class="secondary" id="picclear" style="width:auto;" disabled>移除</button>
+  <!-- 右：查字 -->
+  <div>
+    <section class="t-card bigchar">
+      <div id="card-ch"></div>
+      <div>
+        <div class="facts" id="facts"></div>
+        <div class="facts" id="meta" style="margin-top:6px;"></div>
       </div>
-      <div id="picwrap" hidden><img id="picimg" alt="教學插圖"
-        style="max-width:100%;max-height:300px;border:1px solid var(--line);border-radius:8px;margin-top:8px;"></div>
-      <div class="hint" id="pichint">可貼上（Ctrl+V）剪貼簿圖片；過大會自動縮到長邊 900px 以內。</div>
-    </div>
+    </section>
 
-    <div class="dl">
-      <button id="dl">⬇ 下載教學單檔 HTML</button>
-    </div>
-    <div class="note" id="attrib">下載檔為自包含 HTML：含筆順動畫、部件、字義與造詞造句、
-      發音按鈕（開檔時由該電腦語音引擎合成，離線可用）。</div>
+    <section class="t-card">
+      <h2>字義<button class="tts" id="speak-meaning" type="button">🔊</button>
+        <span class="t-sub" id="meaning-src"></span></h2>
+      <div id="senses"></div>
+    </section>
+
+    <section class="t-card">
+      <h2>造詞與例句<span class="t-sub" id="vocab-src"></span></h2>
+      <div id="vocab-view"></div>
+    </section>
+
+    <section class="t-card" id="picview" hidden>
+      <h2>插圖</h2>
+      <div id="picwrap" hidden><img id="picimg" alt="教學插圖"></div>
+    </section>
+
+    <section class="t-card">
+      <h2>教學單內容
+        <button class="t-btn" id="edit-toggle" type="button"
+                aria-expanded="false" style="margin-left:auto;">✎ 編輯</button></h2>
+      <div class="hint">部首、注音、字義、造詞造句、插圖都可以改；改完上面即時更新，
+        下載的教學單也用改過的內容。</div>
+      <div class="ed" id="editor" hidden>
+        <div class="row"><label class="short" for="radical" style="margin:0;">部首</label>
+          <input id="radical" type="text" maxlength="2" style="width:70px;">
+          <span class="hint" id="radical-hint"></span></div>
+        <div class="row"><label class="short" for="zhuyin" style="margin:0;">注音</label>
+          <input id="zhuyin" type="text" style="width:120px;" placeholder="老師填寫">
+          <span class="hint" id="zhuyin-hint">（教育部資料自動帶入，可修改）</span></div>
+
+        <label for="meaning">字義說明</label>
+        <textarea id="meaning" rows="5" placeholder="教育部資料無此字時請自行填寫"></textarea>
+
+        <label>常用造詞＋情境造句</label>
+        <div id="vocab"></div>
+        <div class="row"><button class="t-btn" id="addrow" type="button">＋ 加一列</button></div>
+
+        <label for="picfile">插圖（老師自備：選檔或直接貼上；會一起存進教學單檔）</label>
+        <div class="row">
+          <input id="picfile" type="file" accept="image/*" style="flex:1 1 220px;">
+          <button class="t-btn t-btn-ghost" id="picclear" type="button" disabled>移除</button>
+        </div>
+        <div class="hint" id="pichint">可貼上（Ctrl+V）剪貼簿圖片；過大會自動縮到長邊 900px 以內。</div>
+      </div>
+    </section>
   </div>
 </div>
-<script>
+</main>
+
+<footer class="t-footer">
+  <div id="attrib">下載檔為自包含 HTML：含筆順動畫、部件、字義與造詞造句、
+    發音按鈕（開檔時由該電腦語音引擎合成，離線可用）。</div>
+  注音／部首／字義／常用詞例句：教育部《國語辭典簡編本》開放資料（原文呈現，可自行修改；
+  非 AI 生成）。筆順：g0v；部件：CHISE IDS；部件歸類：朱邦復四大類。
+  發音使用瀏覽器內建語音（zh-TW）——離線可用、音色依電腦而異。
+</footer>
+
+<script type="module">
+import { StrokePlayer, glyphSvg } from '/static/teacher/player.mjs?v=__V__';
+import { esc, sensesHtml, firstExample } from '/static/teacher/dictcard.mjs?v=__V__';
+
 const $ = id => document.getElementById(id);
-const esc = s => String(s).replace(/[&<>"']/g,
-  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let cur = null;   // {ch, meta, strokes, ids, leaves:[{ch,cat}]}
+let cur = null;   // {ch, meta, strokes, ids, leaves:[{ch,cat}], dict}
+
+const player = new StrokePlayer($('glyph'), {
+  onChange: (n, total) => {
+    $('stepinfo').textContent = total ? `第 ${n}／${total} 筆` : '';
+  },
+});
 
 function speak(t){
   if(!t) return;
@@ -153,34 +219,11 @@ function speak(t){
   }catch(e){ $('status').textContent = '此瀏覽器不支援語音合成'; }
 }
 
-/* 筆順 SVG：hanzi-writer 慣例（1024 em、Y 朝上、ascender=900）→
-   g transform 翻回螢幕座標。逐筆 .on 淡入＝筆順動畫。 */
-function glyphSvg(strokes){
-  const paths = strokes.map(d => `<path d="${d}"/>`).join('');
-  return `<svg viewBox="0 0 1024 1024" aria-label="筆順動畫">`+
-    `<g transform="translate(0, 900) scale(1, -1)">${paths}</g></svg>`;
-}
-function animate(box){
-  const ps = box.querySelectorAll('path');
-  ps.forEach(p => p.classList.remove('on'));
-  ps.forEach((p, i) => setTimeout(() => p.classList.add('on'), 250 + i*350));
-}
-
 function vocabRow(i, w, s){
   return `<div class="row" data-i="${i}">`+
     `<input class="word" type="text" placeholder="造詞 ${i+1}" value="${esc(w||'')}">`+
     `<input class="sent" type="text" placeholder="情境造句" value="${esc(s||'')}">`+
-    `<button class="tts" data-say="${i}">🔊</button></div>`;
-}
-
-/* 教育部釋義（原文，含 [例]）→ 取第一條例句當造句素材。
-   只做「取出」不改寫（ND 授權：內容逐字保留）。 */
-function firstExample(def){
-  const m = String(def || '').match(/\[例\]([^\n]+)/);
-  if(!m) return '';
-  const seg = m[1].trim();
-  // 單字釋義的 [例] 常是例詞（頓號分隔）；詞條的 [例] 才是完整句子
-  return seg.includes('、') && !/[。！？]/.test(seg) ? '' : seg;
+    `<button class="tts" type="button" data-say="${i}">🔊</button></div>`;
 }
 
 async function jget(path){
@@ -214,18 +257,19 @@ async function gen(){
            leaves, dict};
     render();
     $('status').textContent = '';
+    $('dl').disabled = false;
   }catch(err){ $('status').textContent = '載入失敗：' + err.message; }
   finally{ $('gen').disabled = false; }
 }
 
 function render(){
-  $('content').style.display = 'block';
-  $('glyph').innerHTML = glyphSvg(cur.strokes);
-  animate($('glyph'));
+  $('content').hidden = false;
+  player.load(cur.strokes);
+  player.play();
+  $('card-ch').textContent = cur.ch;
   $('meta').innerHTML =
-    `<span class="chip">筆畫 ${cur.meta.stroke_count}</span>`+
-    `<span class="chip">${esc(cur.meta.unicode)}</span>`+
-    `<span class="chip">資料源 ${esc(cur.meta.source)}</span>`;
+    `<span class="t-badge meta">${esc(cur.meta.unicode)}</span>`+
+    `<span class="t-badge meta">資料源 ${esc(cur.meta.source)}</span>`;
   const d = cur.dict || {};
   const has = !!d.found;
   // 部首：教育部權威值優先；缺才退回部件啟發式建議（皆可修改）
@@ -241,13 +285,13 @@ function render(){
   $('leaves').innerHTML = cur.leaves.map(l =>
     `<span class="leaf">${esc(l.ch)}`+
     (l.cat ? `<span class="cat">${esc(l.cat)}</span>` : '')+
-    `<button class="tts" data-tts="${esc(l.ch)}">🔊</button></span>`).join('') ||
+    `<button class="tts" type="button" data-tts="${esc(l.ch)}">🔊</button></span>`).join('') ||
     '<span class="hint">（此字為獨體字，無再拆部件）</span>';
 
   // 字義：教育部釋義原文帶入（不改寫）；老師仍可編輯
   $('meaning').value = has ? (d.definition || '') : '';
   $('meaning-src').textContent = has && d.definition
-    ? '（教育部原文，可修改）' : '（教育部資料無此字，請自行填寫）';
+    ? '教育部原文，可修改' : '教育部資料無此字，請自行填寫';
 
   // 造詞造句：以該字開頭的常用詞＋其釋義中的例句
   const rows = (has ? (d.words || []) : []).slice(0, 8)
@@ -255,14 +299,35 @@ function render(){
   while(rows.length < 4) rows.push(vocabRow(rows.length));
   $('vocab').innerHTML = rows.join('');
   $('vocab-src').textContent = has && (d.words || []).length
-    ? '（教育部常用詞與例句，可修改／刪改）' : '（老師填寫）';
+    ? '教育部常用詞與例句，可修改' : '老師填寫';
 
   $('attrib').textContent = '下載檔為自包含 HTML：含筆順動畫、部件、字義與造詞造句、'
     + '插圖（若有）、QR（內嵌 SVG）、發音按鈕（開檔時由該電腦語音引擎合成，'
     + '離線可用）。'
     + (has ? '　' + (d.attribution || '') : '');
 
+  syncView();
   fillDictLink(d);
+}
+
+/* 編輯欄位 → 顯示區（字卡、字義卡、造詞）。編輯欄位是唯一事實源，
+   下載教學單也讀它們——畫面與檔案不會不一致。 */
+function syncView(){
+  if(!cur) return;
+  const facts = [];
+  if($('zhuyin').value.trim()) facts.push(`<span class="t-badge">注音 ${esc($('zhuyin').value.trim())}</span>`);
+  if($('radical').value.trim()) facts.push(`<span class="t-badge">部首 ${esc($('radical').value.trim())}</span>`);
+  facts.push(`<span class="t-badge">筆畫 ${esc(cur.meta.stroke_count)}</span>`);
+  $('facts').innerHTML = facts.join('');
+  const m = $('meaning').value.trim();
+  $('senses').innerHTML = m ? sensesHtml(m)
+    : '<div class="hint">（未填寫。按「✎ 編輯」補上字義。）</div>';
+  const v = collectVocab();
+  $('vocab-view').innerHTML = v.length ? v.map(x =>
+    `<div class="vv"><span class="t-chip">${esc(x.w || '—')}</span>`+
+    `<span class="s">${esc(x.s)}</span>`+
+    `<button class="tts" type="button" data-tts="${esc([x.w, x.s].filter(Boolean).join('。'))}">🔊</button></div>`
+  ).join('') : '<div class="hint">（未填寫。按「✎ 編輯」加入造詞。）</div>';
 }
 
 /* ---- W3：線上字典連結＋QR ----
@@ -300,6 +365,7 @@ let picData = null;   // data URL 或 null
 function setPic(dataUrl){
   picData = dataUrl || null;
   $('picwrap').hidden = !picData;
+  $('picview').hidden = !picData;
   if(picData) $('picimg').src = picData;
   $('picclear').disabled = !picData;
   $('pichint').textContent = picData
@@ -415,11 +481,32 @@ function download(){
   $('status').textContent = '教學單檔已下載';
 }
 
+
 $('gen').addEventListener('click', gen);
-$('replay').addEventListener('click', () => animate($('glyph')));
+$('char').addEventListener('keydown', e => { if(e.key === 'Enter') gen(); });
+$('examples').addEventListener('click', e => {
+  const b = e.target.closest('.t-chip');
+  if(b){ $('char').value = b.textContent.trim(); gen(); }
+});
+$('replay').addEventListener('click', () => player.play());
+$('step').addEventListener('click', () => player.step());
+$('showall').addEventListener('click', () => player.showAll());
+$('ghost').addEventListener('click', e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', String(on));
+  player.setGhost(on);
+});
+$('speed').addEventListener('change', e => player.setSpeed(e.target.value));
 $('speak-char').addEventListener('click', () => cur && speak(cur.ch));
 $('dl').addEventListener('click', download);
 $('speak-meaning').addEventListener('click', () => speak($('meaning').value));
+$('edit-toggle').addEventListener('click', e => {
+  const open = $('editor').hidden;
+  $('editor').hidden = !open;
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+  e.currentTarget.textContent = open ? '✓ 收起編輯' : '✎ 編輯';
+});
+$('editor').addEventListener('input', syncView);
 $('picfile').addEventListener('change', e => loadPic(e.target.files[0]));
 $('picclear').addEventListener('click', () => { $('picfile').value = ''; setPic(null); });
 document.addEventListener('paste', e => {
