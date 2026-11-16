@@ -8,7 +8,9 @@
      一個字或一個詞→逐字切換；左＝米字格筆順播放＋逐筆分解圖，右＝字卡＋
      字義＋詞語釋義＋造詞（點了換查）；頁首可下載 A4 寫字格（/api/grid）。
      資料全走本站端點（教育部辭典簡編本、g0v 筆順），無外連。播放器與
-     字義卡共用 teacher/player.mjs、teacher/dictcard.mjs（與 /teach 同一份）。 -->
+     字義卡共用 teacher/player.mjs、teacher/dictcard.mjs（與 /teach 同一份）。
+     v0.14.303 R4：自由描寫（WritingCanvas＋淡灰範字，不評分、不存檔）、
+     全螢幕投影模式（隱藏輸入與頁首尾、放大示範與字卡、鍵盤操作）。 -->
 <link rel="stylesheet" href="/static/teacher/theme.css?v=__V__">
 <style>
   /* 頁面局部樣式：只用 --t-* token（DESIGN.md §10） */
@@ -42,6 +44,26 @@
          border:1px solid var(--t-line); background:var(--t-surface);
          color:var(--t-fg); font-family:inherit; }
   .t-card h2 .tts { margin-left:4px; }
+  /* R4 自由描寫 */
+  .modes { display:flex; gap:6px; justify-content:center; margin:0 0 12px; }
+  .pad.t-mizi { max-width:380px; touch-action:none; }
+  .pad canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .pad canvas.ink { touch-action:none; cursor:crosshair; }
+  /* R4 投影模式：只留字片、示範、字卡與字義；字放大給教室後排看 */
+  #proj-exit { position:fixed; top:12px; right:12px; z-index:10; }
+  body.projecting .t-header, body.projecting .inputbar,
+  body.projecting .t-footer, body.projecting #steps-card,
+  body.projecting #words-card { display:none; }
+  body.projecting .t-main { max-width:none; padding:16px 24px; }
+  body.projecting #glyph.t-mizi, body.projecting .pad.t-mizi {
+    max-width:min(calc(100vh - 320px), 640px); }   /* 控制鈕留在一屏內 */
+  body.projecting #card-ch { font-size:128px; }
+  body.projecting .t-sense { font-size:20px; }
+  body.projecting .t-sense .ex { font-size:17px; }
+  body.projecting .t-chip.big { font-size:30px; height:56px; min-width:56px; }
+  @media (min-width: 761px) {
+    body.projecting .t-cols { grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); }
+  }
 </style>
 </head>
 <body class="t-page">
@@ -72,6 +94,7 @@
   <button class="t-btn t-btn-primary t-btn-lg" id="go" type="button">開始</button>
   <a class="t-btn t-btn-practice t-btn-lg" id="dl-grid" href="#"
      aria-disabled="true">⬇ 下載 A4 寫字格</a>
+  <button class="t-btn t-btn-lg" id="proj" type="button" disabled>⛶ 投影模式</button>
   <div class="t-status" id="status"></div>
 </section>
 
@@ -82,6 +105,11 @@
     <!-- 左：示範 -->
     <div>
       <section class="t-card">
+        <div class="modes" role="group" aria-label="示範或描寫">
+          <button class="t-btn" id="mode-demo" type="button" aria-pressed="true">▶ 看筆順</button>
+          <button class="t-btn" id="mode-trace" type="button" aria-pressed="false">✎ 自由描寫</button>
+        </div>
+        <div id="demo">
         <h2>筆順示範<span class="t-sub" id="stepinfo"></span></h2>
         <div class="t-mizi t-glyph" id="glyph"></div>
         <div class="ctl">
@@ -99,9 +127,26 @@
           </select>
           <button class="t-btn" id="speak" type="button">🔊 唸字</button>
         </div>
+        </div>
+
+        <!-- R4 自由描寫：照著淡灰範字寫，不評分、不存檔（只留在這個分頁的記憶體）。 -->
+        <div id="trace" hidden>
+          <h2>自由描寫<span class="t-sub">照著淡灰的字寫，不評分</span></h2>
+          <div class="pad t-mizi">
+            <canvas class="bg" id="tr-bg"></canvas>
+            <canvas class="ink" id="tr-ink"></canvas>
+          </div>
+          <div class="ctl">
+            <button class="t-btn t-btn-ghost" id="tr-undo" type="button">↶ 復原一筆</button>
+            <button class="t-btn t-btn-ghost" id="tr-clear" type="button">清除重寫</button>
+            <button class="t-btn t-btn-ghost" id="tr-ghost" type="button"
+                    aria-pressed="true">淡灰範字</button>
+          </div>
+          <div class="hint" style="text-align:center;">寫的字不會上傳、也不會存檔；換字時會先記著，重新整理就清空。</div>
+        </div>
       </section>
 
-      <section class="t-card">
+      <section class="t-card" id="steps-card">
         <h2>逐筆分解圖
           <a class="t-btn t-btn-ghost" id="dl-steps" href="#"
              style="margin-left:auto;">⬇ 分解圖 PDF</a></h2>
@@ -128,7 +173,7 @@
         <div id="senses"></div>
       </section>
 
-      <section class="t-card">
+      <section class="t-card" id="words-card">
         <h2>造詞<span class="t-sub">點一下換查這個詞</span></h2>
         <div class="t-chips" id="words"></div>
       </section>
@@ -136,6 +181,8 @@
   </div>
 </div>
 </main>
+
+<button class="t-btn" id="proj-exit" type="button" hidden>✕ 離開投影（Esc）</button>
 
 <footer class="t-footer" id="attrib">
   字義／注音／部首／常用詞取自教育部《國語辭典簡編本》開放資料（創用CC-姓名標示-
@@ -146,11 +193,16 @@
 <script type="module">
 import { StrokePlayer } from '/static/teacher/player.mjs?v=__V__';
 import { esc, sensesHtml } from '/static/teacher/dictcard.mjs?v=__V__';
-import { parseQuery, gridUrl, stepsUrl, findWord }
+import { parseQuery, gridUrl, stepsUrl, findWord, projectionKey }
   from '/static/teacher/classcore.mjs?v=__V__';
+import { WritingCanvas } from '/static/handwriting/canvas.js?v=__V__';
+import { fetchReference, drawReference }
+  from '/static/handwriting/reference.js?v=__V__';
 
 const $ = id => document.getElementById(id);
-const S = { q: '', chars: [], idx: 0, cache: new Map() };
+const S = { q: '', chars: [], idx: 0, cache: new Map(),
+            mode: 'demo', traces: new Map() };
+let pad = null;   // WritingCanvas：第一次進描寫模式才建（隱藏時量不到尺寸）
 
 const player = new StrokePlayer($('glyph'), {
   onChange: (n, total) => {
@@ -188,7 +240,8 @@ async function load(ch){
 async function go(text){
   const chars = parseQuery(text);
   if(!chars.length){ $('status').textContent = '請輸入一個字或一個詞'; return; }
-  S.q = chars.join(''); S.chars = chars; S.idx = 0;
+  S.q = chars.join(''); S.chars = chars; S.idx = 0; S.traces.clear();
+  if(pad) pad.clear();
   $('q').value = S.q;
   $('status').textContent = '載入中…';
   $('go').disabled = true;
@@ -201,6 +254,7 @@ async function go(text){
     const g = $('dl-grid');
     g.href = gridUrl(S.q); g.removeAttribute('aria-disabled');
     g.setAttribute('download', '');
+    $('proj').disabled = false;
     $('status').textContent = '';
   }catch(err){ $('status').textContent = '載入失敗：' + err.message; }
   finally{ $('go').disabled = false; }
@@ -226,7 +280,9 @@ function renderWord(first){
 }
 
 async function show(i){
+  if(pad && S.chars[S.idx]) S.traces.set(S.chars[S.idx], pad.strokes);
   S.idx = i; renderChips();
+  if(pad){ pad.loadStrokes(S.traces.get(S.chars[i]) || []); renderTraceBg(); }
   const v = await load(S.chars[i]);
   $('card-ch').textContent = v.ch;
   if(v.strokes && v.strokes.length){
@@ -253,6 +309,78 @@ async function show(i){
   $('dl-steps').href = stepsUrl(v.ch, 'pdf', sc);
   $('dl-steps').setAttribute('download', '');
 }
+
+/* ---- R4 自由描寫：淡灰範字在底層 canvas，筆跡在上層；不判對錯 ---- */
+async function renderTraceBg(){
+  if(!pad) return;
+  const ctx = pad.bgContext(); const [w, h] = pad.bgSize();
+  ctx.clearRect(0, 0, w, h);
+  const ch = S.chars[S.idx];
+  if(!ch || $('tr-ghost').getAttribute('aria-pressed') !== 'true') return;
+  const strokes = await fetchReference(ch, 'kaishu').catch(() => null);
+  if(S.chars[S.idx] === ch && $('tr-ghost').getAttribute('aria-pressed') === 'true'){
+    ctx.clearRect(0, 0, w, h);
+    drawReference(ctx, w, h, strokes);
+  }
+}
+
+function setMode(m){
+  S.mode = m;
+  $('demo').hidden = m !== 'demo';
+  $('trace').hidden = m !== 'trace';
+  $('mode-demo').setAttribute('aria-pressed', String(m === 'demo'));
+  $('mode-trace').setAttribute('aria-pressed', String(m === 'trace'));
+  $('mode-demo').classList.toggle('t-btn-primary', m === 'demo');
+  $('mode-trace').classList.toggle('t-btn-practice', m === 'trace');
+  if(m === 'trace'){
+    player.stop();
+    if(!pad){
+      pad = new WritingCanvas({ ink: $('tr-ink'), bg: $('tr-bg') });
+      pad.on('resize', renderTraceBg);
+      pad.loadStrokes(S.traces.get(S.chars[S.idx]) || []);
+    }
+    renderTraceBg();
+  }
+}
+
+/* ---- R4 投影模式：全螢幕＋放大；Esc／按鈕離開。瀏覽器不給全螢幕時
+   （如 iPhone Safari）仍套放大版面，只是不蓋掉網址列。 ---- */
+function setProjecting(on){
+  document.body.classList.toggle('projecting', on);
+  $('proj-exit').hidden = !on;
+  if(on && document.documentElement.requestFullscreen && !document.fullscreenElement){
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+  if(!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+document.addEventListener('fullscreenchange', () => {
+  if(!document.fullscreenElement && document.body.classList.contains('projecting'))
+    setProjecting(false);
+});
+document.addEventListener('keydown', e => {
+  if(!document.body.classList.contains('projecting')) return;
+  const act = projectionKey(e.key);
+  if(!act) return;
+  e.preventDefault();
+  if(act === 'exit') setProjecting(false);
+  else if(act === 'play' && S.mode === 'demo') player.play();
+  else if(act === 'step' && S.mode === 'demo') player.step();
+  else if(act === 'prev' && S.idx > 0) show(S.idx - 1);
+  else if(act === 'next' && S.idx < S.chars.length - 1) show(S.idx + 1);
+  else if(act === 'trace') setMode(S.mode === 'trace' ? 'demo' : 'trace');
+});
+
+$('mode-demo').addEventListener('click', () => setMode('demo'));
+$('mode-trace').addEventListener('click', () => setMode('trace'));
+$('tr-undo').addEventListener('click', () => pad && pad.popLastStroke());
+$('tr-clear').addEventListener('click', () => pad && pad.clear());
+$('tr-ghost').addEventListener('click', e => {
+  const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
+  e.currentTarget.setAttribute('aria-pressed', String(on));
+  renderTraceBg();
+});
+$('proj').addEventListener('click', () => setProjecting(true));
+$('proj-exit').addEventListener('click', () => setProjecting(false));
 
 $('go').addEventListener('click', () => go($('q').value));
 $('q').addEventListener('keydown', e => { if(e.key === 'Enter') go($('q').value); });

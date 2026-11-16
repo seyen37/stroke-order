@@ -119,3 +119,16 @@ test('gridChars：補滿至少 6 行、詞序不亂、長詞不截', () => {
   assert.equal(gridChars(''), '');
   assert.ok(gridChars('一'.repeat(MAX_CHARS)).length <= 40);   // /api/grid 上限
 });
+
+import { projectionKey } from '../src/stroke_order/web/static/teacher/classcore.mjs';
+
+test('projectionKey：簡報筆／鍵盤對應、未知鍵回 null', () => {
+  assert.equal(projectionKey(' '), 'play');
+  assert.equal(projectionKey('PageDown'), 'step');
+  assert.equal(projectionKey('ArrowRight'), 'step');
+  assert.equal(projectionKey('ArrowUp'), 'prev');
+  assert.equal(projectionKey('ArrowDown'), 'next');
+  assert.equal(projectionKey('W'), 'trace');
+  assert.equal(projectionKey('Escape'), 'exit');
+  assert.equal(projectionKey('a'), null);
+});

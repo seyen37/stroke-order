@@ -59,3 +59,17 @@ export function findWord(dict, word) {
   if (!dict || !dict.found) return null;
   return (dict.words || []).find(w => w.word === word) || null;
 }
+
+/** R4 投影模式鍵盤：遙控簡報筆多半送 PageUp/PageDown 與方向鍵。
+ *  空白＝播放、→／PageDown＝下一筆、↑↓＝換字、W＝描寫切換、Esc＝離開。 */
+export function projectionKey(key) {
+  switch (key) {
+    case ' ': case 'Enter': return 'play';
+    case 'ArrowRight': case 'PageDown': return 'step';
+    case 'ArrowUp': return 'prev';
+    case 'ArrowDown': return 'next';
+    case 'w': case 'W': return 'trace';
+    case 'Escape': return 'exit';
+    default: return null;
+  }
+}

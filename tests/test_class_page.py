@@ -92,3 +92,39 @@ def test_grid_and_steps_urls_are_valid_requests(client):
 def test_metrics_bucket(client):
     client.get("/class")
     assert client.get("/api/metrics").json()["mode"]["class_page"] == 1
+
+
+# ---------------------------------------------------------------------------
+# v0.14.303 R4：自由描寫、投影模式、/guide 入口
+# ---------------------------------------------------------------------------
+
+
+def test_free_trace_reuses_canvas_and_never_uploads(client):
+    """自由描寫＝WritingCanvas＋淡灰範字；不評分、不存檔、不送伺服器。"""
+    page = _PAGE.read_text("utf-8")
+    assert "WritingCanvas" in page and "drawReference" in page
+    r = client.get("/class").text
+    assert re.search(r"handwriting/canvas\.js\?v=\d", r)
+    assert re.search(r"handwriting/reference\.js\?v=\d", r)
+    # 不存檔（不碰 IndexedDB 練習紀錄）、不上傳（無 POST）、不評分
+    assert "storage.js" not in page and "saveTrace" not in page
+    assert "method" not in page and "POST" not in page
+    assert not re.search(r"\bscore\b", page)    # \b：classcore.mjs 不算
+    for banned in ("評分：", "正確率", "錯誤筆順"):
+        assert banned not in page
+    assert "不評分" in page and "不會存檔" in page
+
+
+def test_projection_mode_contract():
+    page = _PAGE.read_text("utf-8")
+    assert 'id="proj"' in page and 'id="proj-exit"' in page
+    assert "requestFullscreen" in page and "fullscreenchange" in page
+    assert "body.projecting" in page and "projectionKey" in page
+    i = page.index('id="proj"')
+    assert "disabled" in page[i:i + 60]          # 載入前不能投影空頁
+
+
+def test_guide_links_class_page(client):
+    t = client.get("/guide").text
+    assert 'href="/class"' in t and "課堂筆順" in t
+    assert 'href="/teach"' in t and 'href="/myfont"' in t   # 既有入口仍在
