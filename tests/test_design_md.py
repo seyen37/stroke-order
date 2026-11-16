@@ -181,3 +181,71 @@ def test_info_box_stray_blues_never_return():
     assert not offenders, (
         "已 token 化的識別色散寫回流（一律引用 --info-*/--chip-*/"
         "--callout-*/--warn-bg/--decor-ink）：\n" + "\n".join(offenders))
+
+
+# ---------------------------------------------------------------------------
+# v0.14.300：§10 教師主題（第二套正式主題）
+# ---------------------------------------------------------------------------
+
+_STATIC = ROOT / "src/stroke_order/web/static"
+_THEME = _STATIC / "teacher" / "theme.css"
+# 已切換到教師主題的頁面（R2 起加入 teach.html、R3 起加入 class.html）
+TEACHER_PAGES = ["guide.html", "myfont.html"]
+# 主工作頁：維持 §2 藍色主題，不得載入教師主題
+MAIN_PAGES = ["index.html", "handwriting.html", "gallery.html", "card.html",
+              "popup.html", "sutra-editor.html"]
+
+
+def test_teacher_pages_load_shared_theme():
+    """教師頁一律載入共用 theme.css（帶版本）＋ body.t-page；
+    不得自訂 §2 的 --primary/--accent（同名異義，5gd 教訓）。"""
+    bad = []
+    for name in TEACHER_PAGES:
+        src = (_STATIC / name).read_text(encoding="utf-8")
+        if "/static/teacher/theme.css?v=__V__" not in src:
+            bad.append(f"{name}: 未載入 teacher/theme.css?v=__V__")
+        if 'class="t-page"' not in src:
+            bad.append(f"{name}: body 缺 t-page")
+        if re.search(r"--(primary|accent)\s*:", src):
+            bad.append(f"{name}: 自訂了 §2 的 --primary/--accent")
+    assert not bad, "\n".join(bad)
+
+
+def test_teacher_pages_no_scattered_hex():
+    """教師頁的頁面局部 <style> 只用 --t-* token，不散寫色值。"""
+    bad = []
+    for name in TEACHER_PAGES:
+        src = (_STATIC / name).read_text(encoding="utf-8")
+        for block in re.findall(r"<style>(.*?)</style>", src, re.S):
+            for m in re.finditer(r"#[0-9a-fA-F]{3,8}\b", block):
+                bad.append(f"{name}: {m.group(0)}")
+    assert not bad, "教師頁散寫色值（改用 --t-* token）：\n" + "\n".join(bad)
+
+
+def test_teacher_red_only_in_teacher_theme():
+    """朱紅主鈕值只准出現在 theme.css——主工作頁不得借用（紅＝破壞性）。"""
+    red = "#c8382f"
+    hits = [str(p.relative_to(ROOT)) for p in _STATIC.rglob("*")
+            if p.suffix in (".html", ".css", ".js", ".mjs") and p != _THEME
+            and red in p.read_text(encoding="utf-8", errors="ignore").lower()]
+    assert not hits, f"教師朱紅外流到：{hits}"
+
+
+def test_main_pages_never_load_teacher_theme():
+    bad = [n for n in MAIN_PAGES
+           if "teacher/theme.css" in (_STATIC / n).read_text(encoding="utf-8")]
+    assert not bad, f"主工作頁載入了教師主題（兩套不混用）：{bad}"
+
+
+def test_teacher_theme_destructive_never_filled():
+    """§10.1：教師主題沒有填色的破壞性鈕；ghost 透明底；不定義 --accent。"""
+    css = re.sub(r"/\*.*?\*/", "", _THEME.read_text(encoding="utf-8"),
+                 flags=re.S)                       # 註解可提及，規則不得定義
+    assert "--accent" not in css and "danger" not in css
+    m = re.search(r"\.t-btn-ghost\s*\{([^}]*)\}", css)
+    assert m and "background: transparent" in m.group(1)
+    assert "[hidden] { display: none !important; }" in css
+    # 不散寫色值：:root token 定義行以外不得出現 hex
+    root_end = css.index("}", css.index(":root"))
+    stray = re.findall(r"#[0-9a-fA-F]{3,8}\b", css[root_end:])
+    assert not stray, f"theme.css token 區外散寫色值：{stray}"

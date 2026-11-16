@@ -27,6 +27,8 @@
 
 **鐵則：藍＝主要動作；紅＝破壞性專用。**（5fq 定案）
 紅色按鈕永遠不是「送出」；主要動作永遠不是紅色。
+**適用範圍：主工作頁**（字帖/手寫/分享庫/卡片/經文/立體字…）。教師
+面向頁另有第二套主題、語意不同——見 **§10 教師主題**；兩套不混用。
 
 同一套色值在各頁面作用域各有前綴或同名定義（主頁 `--*`／筆順練習
 `--hw-*`／分享庫 `--gl-*`／卡片・經文編輯・立體字直用 `--primary`）——
@@ -150,7 +152,8 @@ shadow）→ `<dialog>`（原生遮罩）。分享庫卡片 shadow
 - ✅ 訊息文字會換行——佈局測試用元素 id 錨定、幾何斷言留換行餘裕。
 - ✅ HTML/CSS/JS 自包含單檔或本站模組；靜態資產 import 帶 `?v=`。
 - ❌ 不引 CSS 框架、webfont、UI 元件庫（Bootstrap/Tailwind 等一律不用）。
-- ❌ 不用紅色做肯定/送出動作；不做無確認的不可復原操作。
+- ❌ 不用紅色做肯定/送出動作（主工作頁；教師主題的朱紅主鈕見 §10）；
+  不做無確認的不可復原操作。
 - ❌ 不手寫十六進位色值散在元件裡——一律引用 token；新色先進本檔
   色表再使用。
 - ❌ localStorage 以外不落任何本機儲存新機制（草稿既有慣例除外）。
@@ -178,3 +181,79 @@ shadow）→ `<dialog>`（原生遮罩）。分享庫卡片 shadow
 4. 新頁面 checklist：`_versioned_page` 注入、`[hidden]` guard、
    系統字疊、640px 斷點、回主頁導覽。
 5. 佈局變更 → 更新終局測試（§61），斷言用 id 錨定。
+6. 先判斷頁面屬於哪套主題：教師面向頁（/teach、/guide、/myfont、/class）
+   → §10 教師主題、載入 `teacher/theme.css`、只用 `--t-*`；其餘 → §2 藍色
+   主題。**同一頁不混兩套**。
+
+## 10. 教師主題（Teacher Theme，v0.14.300 起）
+
+第二套正式主題，**只套在教師面向頁**：`/teach`、`/guide`、`/myfont`、
+`/class`。主工作頁維持 §2 藍色主題。來源：2026-11 借鏡「國字筆順與字詞
+寶典」（Gemini Canvas 教師作品）的美工與版面——老師社群對「同樣內容、
+成品感包裝」的反應是需求證據（§90）；色值與元件為本站自訂，非複製。
+
+**視覺氣質：「溫暖的課本，清楚的示範。」** 給投影與課堂用：暖米紙面
+＋淡點狀網格、白色大圓角卡片、大字、大按鈕配圖示；主角是**米字格裡的
+那個字**。不加漸層、不加裝飾動畫（筆順動畫是內容，不是裝飾）。
+
+### 10.1 色彩語意（與 §2 不同，不混用）
+
+- **朱紅 `--t-primary`＝主要動作與筆順重點**（產生、播放；動畫中「目前
+  這一筆」）。每個表單仍**恰一顆**主要動作。
+- **墨綠 `--t-practice`＝練習與下載**（描紅練習、下載寫字格／字型）。
+- **暖黃 `--t-hint-*`＝提示與例句**（資料來源徽章、例句左緣線、提示框）。
+- **破壞性動作一律 `.t-btn-ghost`＋二次確認，永不填色**——避免與朱紅
+  主鈕混淆。
+- token 一律 `--t-` 前綴，與 §2 的 `--primary`/`--accent` 不同名
+  （5gd 同名異義教訓）。
+
+| 角色 | Token | 色值 | 定義處 |
+|---|---|---|---|
+| 暖米紙面 | `--t-bg` | `#f7f4ee` | `src/stroke_order/web/static/teacher/theme.css` |
+| 紙面點狀網格 | `--t-dot` | `#e6dfd2` | `src/stroke_order/web/static/teacher/theme.css` |
+| 卡片表面 | `--t-surface` | `#fff` | `src/stroke_order/web/static/teacher/theme.css` |
+| 墨（主文字） | `--t-fg` | `#2b2622` | `src/stroke_order/web/static/teacher/theme.css` |
+| 輔助文字 | `--t-muted` | `#6b6158` | `src/stroke_order/web/static/teacher/theme.css` |
+| 卡片邊線 | `--t-line` | `#ebe5da` | `src/stroke_order/web/static/teacher/theme.css` |
+| **朱紅（主要動作）** | `--t-primary` | `#c8382f` | `src/stroke_order/web/static/teacher/theme.css` |
+| **墨綠（練習/下載）** | `--t-practice` | `#2f6b4f` | `src/stroke_order/web/static/teacher/theme.css` |
+| 提示徽章底 | `--t-hint-bg` | `#fff6d8` | `src/stroke_order/web/static/teacher/theme.css` |
+| 例句左緣線 | `--t-hint-line` | `#f2c94c` | `src/stroke_order/web/static/teacher/theme.css` |
+| 提示字 | `--t-hint-fg` | `#7a4f00` | `src/stroke_order/web/static/teacher/theme.css` |
+| 字片／次要鈕底 | `--t-soft` | `#f3efe8` | `src/stroke_order/web/static/teacher/theme.css` |
+| 字義卡底 | `--t-sense-bg` | `#faf8f4` | `src/stroke_order/web/static/teacher/theme.css` |
+| 米字格外框 | `--t-mizi` | `#e0a39e` | `src/stroke_order/web/static/teacher/theme.css` |
+| 米字格虛線 | `--t-mizi-guide` | `#ebbcb7` | `src/stroke_order/web/static/teacher/theme.css` |
+| 焦點圈 | `--t-focus` | `#e07a72` | `src/stroke_order/web/static/teacher/theme.css` |
+
+對比實測（WCAG AA ≥4.5:1）：白字/朱紅 5.17、白字/墨綠 6.29、輔助字/
+米底 5.50、提示字/黃底 6.59、朱紅字/米底 4.71。
+
+### 10.2 元件（class 皆 `.t-` 前綴，定義在 `teacher/theme.css`）
+
+- **頁面**：`<body class="t-page">`；**頂列** `.t-header`＝`.t-logo`（朱紅
+  方塊白字）＋`.t-title`（h1＋一句用途）＋`.t-badge`（資料來源，如
+  「教育部資料」）＋`.t-right`（範例字片、回主頁）。
+- **按鈕**：`.t-btn`（radius 10、600 字重、可配圖示字元）＋
+  `-primary`（朱紅）／`-practice`（墨綠）／預設柔和底／`-ghost`；
+  `.t-btn-lg` 用於頁面級主動作。切換型按鈕用 `aria-pressed`。
+- **卡片** `.t-card`：白底、radius 16、`--t-shadow`；卡片標題 h2 可帶
+  右側 `.t-sub` 說明。
+- **字片** `.t-chip`（可點的字/詞；`.big` 用於單字切換、`.on` 目前、
+  `.done` 已完成）。
+- **米字格** `.t-mizi`：紅框＋十字與對角虛線，內容放 SVG/canvas。
+- **字義卡** `.t-sense`：`.n` 編號＋釋義＋`.ex` 例句（暖黃左緣線）。
+- **提示框** `.t-note`、狀態列 `.t-status`（`.ok` 墨綠／`.warn` 暖黃字）、
+  頁尾 `.t-footer`（資料來源一行）。
+
+### 10.3 版面
+
+- 頂列全寬；內容 `.t-main` 1080px 置中（說明頁 `.narrow` 760px）。
+- 工具頁兩欄 `.t-cols`：**左＝示範（米字格＋播放控制＋分解圖）、右＝
+  查字（字卡＋字義＋造詞）**；760px 以下折單欄（示範在上）。
+- 頁面級主動作（產生／下載寫字格）放在頂部輸入列、大按鈕；其餘控制
+  就近放在所屬卡片內。
+- §1 的「無大圓角」「樸素」只約束主工作頁；教師主題以本節為準。其餘
+  護欄（不引 webfont/框架、token 不散寫、`[hidden]` guard、版本注入、
+  下載鈕產生前 disabled、動詞規範）**兩套主題共用**。
+

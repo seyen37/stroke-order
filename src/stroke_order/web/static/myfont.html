@@ -8,106 +8,86 @@
      筆跡只存在使用者瀏覽器（IndexedDB 練習紀錄，與筆順練習頁共用）；
      按「產生字型」時才把筆跡送 POST /api/handfont，伺服器算完即丟、
      不保存（P0 關了共用字庫、P1 無狀態端點）。自包含：無外連資源。 -->
+<link rel="stylesheet" href="/static/teacher/theme.css?v=__V__">
 <style>
-  :root {
-    --ink:#222; --muted:#666; --line:#ddd; --bg:#fafafa;
-    --primary:#2c5cb8; --primary-ink:#fff; --focus:#2c5cb8;
-    --info-bg:#f1f5fc; --info-fg:#334; --ok:#1d7a3a; --warn:#8a5a00;
-  }
-  * { box-sizing:border-box; }
-  body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",
-         sans-serif; color:var(--ink); background:var(--bg); margin:0;
-         line-height:1.5; font-size:14px; }
-  main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
-  h1 { font-size:22px; margin:0 0 4px; }
-  .sub { color:var(--muted); font-size:13px; margin-bottom:16px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:8px;
-          box-shadow:0 1px 2px rgba(0,0,0,.04); padding:16px; margin:12px 0; }
-  .card[aria-disabled="true"] { opacity:.45; pointer-events:none; }
-  .step { font-size:14px; letter-spacing:.5px; color:var(--muted);
-          margin:0 0 8px; }
-  .step b { color:var(--ink); }
+  /* 頁面局部樣式：只用 --t-* token（DESIGN.md §10） */
+  .t-card[aria-disabled="true"] { opacity:.45; pointer-events:none; }
+  .step { font-size:16px; font-weight:600; margin:0 0 10px;
+          display:flex; align-items:center; gap:10px; }
+  .step b { flex:0 0 auto; width:28px; height:28px; border-radius:50%;
+            display:grid; place-items:center; font-size:14px;
+            background:var(--t-primary); color:var(--t-primary-ink); }
   .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center;
          margin:8px 0; }
-  input[type=text] { font-size:18px; padding:6px 10px; border:1px solid
-         var(--line); border-radius:4px; min-width:0; flex:1 1 180px; }
-  .btn { padding:7px 16px; border-radius:4px; font-size:14px; cursor:pointer;
-         border:1px solid var(--line); background:#fff; color:var(--ink);
-         text-decoration:none; display:inline-block; }
-  .btn:hover { filter:brightness(.96); }
-  .btn:disabled, .btn[aria-disabled="true"] { opacity:.5; cursor:default;
-         pointer-events:none; }
-  .btn:focus-visible { outline:2px solid var(--focus); outline-offset:1px; }
-  .btn-primary { background:var(--primary); color:var(--primary-ink);
-         border-color:var(--primary); font-weight:600; }
-  .btn-ghost { border-color:transparent; background:transparent;
-         color:var(--muted); }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 10px; }
-  .chip { min-width:40px; height:40px; font-size:20px; border-radius:6px;
-          border:1px solid var(--line); background:#fff; cursor:pointer; }
-  .chip.done { border-color:var(--ok); color:var(--ok); }
-  .chip.done::after { content:"✓"; font-size:11px; vertical-align:super; }
-  .chip.cur { outline:2px solid var(--primary); outline-offset:1px; }
-  .pad { position:relative; width:min(100%, 360px); aspect-ratio:1;
-         margin:4px auto 8px; background:#fff; border:1px solid #bbb;
-         border-radius:4px; touch-action:none; }
+  input[type=text] { font:inherit; font-size:18px; padding:8px 12px;
+         border:1px solid var(--t-line); border-radius:var(--t-radius-btn);
+         background:var(--t-surface); color:var(--t-fg);
+         min-width:0; flex:1 1 180px; }
+  input[type=text]:focus-visible { outline:2px solid var(--t-focus);
+         outline-offset:1px; }
+  .t-chip.done::after { content:"✓"; font-size:11px; vertical-align:super; }
+  .pad.t-mizi { width:min(100%, 360px); max-width:none; margin:4px auto 8px;
+         touch-action:none; }
   .pad canvas { position:absolute; inset:0; width:100%; height:100%; }
   .pad canvas.ink { touch-action:none; cursor:crosshair; }
-  .status { min-height:1.5em; font-size:13px; color:var(--muted); }
-  .status.ok { color:var(--ok); } .status.warn { color:var(--warn); }
-  .info { background:var(--info-bg); border-left:3px solid var(--primary);
-          color:var(--info-fg); padding:8px 12px; font-size:13px;
-          border-radius:4px; margin:8px 0; }
   .preview { font-family:"MyHandFont", serif; font-size:64px; line-height:1.3;
              min-height:1.3em; text-align:center; margin:8px 0;
              word-break:break-all; }
-  .preview.empty { font-family:inherit; font-size:13px; color:var(--muted); }
+  .preview.empty { font-family:inherit; font-size:13px; color:var(--t-muted); }
+  .lbl { font-size:13px; color:var(--t-muted); }
   details { margin-top:8px; font-size:13px; }
   details li { margin:2px 0; }
-  select { font-size:14px; padding:4px 6px; }
-  footer { margin-top:24px; font-size:12px; color:var(--muted); }
+  select { font:inherit; font-size:14px; padding:4px 6px;
+           border:1px solid var(--t-line); border-radius:6px;
+           background:var(--t-surface); color:var(--t-fg); }
 </style>
 </head>
-<body>
-<main>
-<h1>寫你的名字，做成你的字型</h1>
-<div class="sub">大約三分鐘、免登入。你寫的筆跡只存在<b>這台裝置的瀏覽器</b>裡；
-按「產生字型」時才送到伺服器算成字型檔，伺服器不保存。</div>
+<body class="t-page">
+<header class="t-header">
+  <div class="t-logo" aria-hidden="true">字</div>
+  <div class="t-title">
+    <h1>寫你的名字，做成你的字型</h1>
+    <p>大約三分鐘、免登入。你寫的筆跡只存在<b>這台裝置的瀏覽器</b>裡；
+按「產生字型」時才送到伺服器算成字型檔，伺服器不保存。</p>
+  </div>
+  <div class="t-right"><a href="/guide">給老師的說明</a></div>
+</header>
+<main class="t-main narrow">
 
 <!-- 第 1 步 -->
-<section class="card" id="mf-step1">
+<section class="t-card" id="mf-step1">
   <p class="step"><b>1.</b> 輸入名字（最多 6 個不同的字）</p>
   <div class="row">
     <input type="text" id="mf-name" maxlength="20" placeholder="例：王小明"
            autocomplete="off">
-    <button class="btn btn-primary" id="mf-start" type="button">開始寫</button>
+    <button class="t-btn t-btn-primary" id="mf-start" type="button">開始寫</button>
   </div>
-  <div class="status" id="mf-name-status"></div>
+  <div class="t-status" id="mf-name-status"></div>
 </section>
 
 <!-- 第 2 步 -->
-<section class="card" id="mf-step2" aria-disabled="true">
+<section class="t-card" id="mf-step2" aria-disabled="true">
   <p class="step"><b>2.</b> 一個字一個字寫在格子裡</p>
-  <div class="chips" id="mf-chips"></div>
-  <div class="pad">
+  <div class="t-chips" id="mf-chips"></div>
+  <div class="pad t-mizi">
     <canvas class="bg" id="mf-bg"></canvas>
     <canvas class="ink" id="mf-ink"></canvas>
   </div>
   <div class="row" style="justify-content:center;">
-    <button class="btn btn-ghost" id="mf-undo" type="button">↶ 復原一筆</button>
-    <button class="btn btn-ghost" id="mf-clear" type="button">清除這字</button>
-    <label style="font-size:13px;color:var(--muted);">
+    <button class="t-btn t-btn-ghost" id="mf-undo" type="button">↶ 復原一筆</button>
+    <button class="t-btn t-btn-ghost" id="mf-clear" type="button">清除這字</button>
+    <label class="lbl">
       <input type="checkbox" id="mf-ghost" checked> 顯示淡灰範字</label>
   </div>
   <div class="row" style="justify-content:center;">
-    <button class="btn" id="mf-prev" type="button">◀ 上一字</button>
-    <button class="btn btn-primary" id="mf-next" type="button">這字寫好了 ▶</button>
+    <button class="t-btn" id="mf-prev" type="button">◀ 上一字</button>
+    <button class="t-btn t-btn-primary" id="mf-next" type="button">這字寫好了 ▶</button>
   </div>
-  <div class="status" id="mf-status"></div>
+  <div class="t-status" id="mf-status"></div>
 </section>
 
 <!-- 第 3 步 -->
-<section class="card" id="mf-step3" aria-disabled="true">
+<section class="t-card" id="mf-step3" aria-disabled="true">
   <p class="step"><b>3.</b> 產生字型、預覽、下載</p>
   <div class="row">
     <label>筆畫粗細
@@ -116,22 +96,22 @@
         <option value="120" selected>中</option>
         <option value="180">粗</option>
       </select></label>
-    <label style="font-size:13px;color:var(--muted);">
+    <label class="lbl">
       <input type="checkbox" id="mf-owner" checked>
       把名字寫進字型檔的著作權欄（只在你下載的檔案裡）</label>
   </div>
   <div class="row">
-    <button class="btn btn-primary" id="mf-build" type="button">產生字型</button>
-    <a class="btn" id="mf-download" aria-disabled="true" href="#"
+    <button class="t-btn t-btn-primary" id="mf-build" type="button">產生字型</button>
+    <a class="t-btn t-btn-practice" id="mf-download" aria-disabled="true" href="#"
        download="手寫字型.ttf">↓ 下載 TTF 字型</a>
   </div>
-  <div class="status" id="mf-build-status"></div>
+  <div class="t-status" id="mf-build-status"></div>
   <div class="preview empty" id="mf-preview">（寫完名字後按「產生字型」以顯示）</div>
   <div class="row">
     <input type="text" id="mf-sample" placeholder="打字試試看（只有寫過的字會是你的筆跡）"
            style="font-size:14px;">
   </div>
-  <div class="info">字型裡<b>只有你寫過的字</b>——每個字都是你親手寫的。沒寫過的字
+  <div class="t-note">字型裡<b>只有你寫過的字</b>——每個字都是你親手寫的。沒寫過的字
     會由電腦改用內建字型顯示（這是字型的正常行為）。想要更多字，就到第 4 步再寫幾個。</div>
   <details>
     <summary>怎麼安裝字型？</summary>
@@ -146,22 +126,22 @@
 </section>
 
 <!-- 第 4 步 -->
-<section class="card" id="mf-step4" aria-disabled="true">
+<section class="t-card" id="mf-step4" aria-disabled="true">
   <p class="step"><b>4.</b> 再多寫幾個字（選做；一顆字型最多 100 字）</p>
   <div class="row">
     <input type="text" id="mf-more" maxlength="200" placeholder="例：你好謝謝老師"
            autocomplete="off" style="font-size:16px;">
-    <button class="btn" id="mf-add" type="button">加進來寫</button>
+    <button class="t-btn" id="mf-add" type="button">加進來寫</button>
   </div>
-  <div class="status" id="mf-more-status"></div>
+  <div class="t-status" id="mf-more-status"></div>
 </section>
 
-<footer>
+</main>
+<footer class="t-footer">
 字形著作權歸書寫者本人。寫過的字也會出現在「筆順練習」的練習紀錄裡
 （同一台裝置、同一個瀏覽器）；換裝置不會跟著走。淡灰範字取自教育部標準楷書。
 <a href="/guide">給老師的說明</a>・<a href="/handwriting">筆順練習</a>
 </footer>
-</main>
 
 <script type="module">
   import { WritingCanvas } from '/static/handwriting/canvas.js?v=__V__';
@@ -175,7 +155,7 @@
 
   const $ = id => document.getElementById(id);
   const st = (id, msg, kind = '') => {
-    const el = $(id); el.textContent = msg; el.className = 'status ' + kind;
+    const el = $(id); el.textContent = msg; el.className = 't-status ' + kind;
   };
   const enable = (id, on) => $(id).setAttribute('aria-disabled', on ? 'false' : 'true');
 
@@ -185,7 +165,8 @@
   async function renderBg() {
     const ctx = canvas.bgContext();
     const [w, h] = canvas.bgSize();
-    drawGrid(ctx, w, h, 'mizi');
+    // 米字格由 CSS .t-mizi 畫（教師主題紅框）；canvas 只清空，避免雙層格線
+    drawGrid(ctx, w, h, 'none');
     const ch = S.chars[S.idx];
     if (ch && $('mf-ghost').checked) {
       const strokes = await fetchReference(ch, 'kaishu');
@@ -198,9 +179,9 @@
     $('mf-chips').innerHTML = '';
     S.chars.forEach((ch, i) => {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'chip';
+      b.type = 'button'; b.className = 't-chip big';
       if (S.written[ch]) b.classList.add('done');
-      if (i === S.idx) b.classList.add('cur');
+      if (i === S.idx) b.classList.add('on');
       b.textContent = ch;
       b.addEventListener('click', () => goTo(i));
       $('mf-chips').appendChild(b);
