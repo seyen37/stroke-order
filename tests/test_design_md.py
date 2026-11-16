@@ -184,70 +184,141 @@ def test_info_box_stray_blues_never_return():
 
 # ---------------------------------------------------------------------------
 # v0.14.300：§10 教師主題（第二套正式主題）
+# v0.14.304：改成 THEMES 登記表——§11「新增主題的做法」第 8 步：新主題在此
+#            登記一筆，以下守門測試自動套上。
 # ---------------------------------------------------------------------------
 
+import pytest
+
 _STATIC = ROOT / "src/stroke_order/web/static"
-_THEME = _STATIC / "teacher" / "theme.css"
-# 已切換到教師主題的頁面（R2 起加入 teach.html、R3 起加入 class.html）
-TEACHER_PAGES = ["guide.html", "myfont.html", "teach.html", "class.html"]
-# 主工作頁：維持 §2 藍色主題，不得載入教師主題
+
+THEMES = {
+    "teacher": {
+        "css": _STATIC / "teacher" / "theme.css",
+        "prefix": "t",                 # token --t-*、class .t-*
+        "body_class": "t-page",
+        "pages": ["guide.html", "myfont.html", "teach.html", "class.html"],
+        "signature": ["#c8382f"],      # 專屬色：不得外流到他處
+        "component_table": "### 10.4",  # DESIGN.md 元件使用時機表所在節
+    },
+}
+_THEME_IDS = list(THEMES)
+# 主工作頁：維持 §2 藍色主題，不得載入任何主題檔
 MAIN_PAGES = ["index.html", "handwriting.html", "gallery.html", "card.html",
               "popup.html", "sutra-editor.html"]
 
 
-def test_teacher_pages_load_shared_theme():
-    """教師頁一律載入共用 theme.css（帶版本）＋ body.t-page；
+def _theme_link(th):
+    rel = th["css"].relative_to(_STATIC).as_posix()
+    return f"/static/{rel}?v=__V__"
+
+
+def _strip_comments(css):
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
+@pytest.mark.parametrize("name", _THEME_IDS)
+def test_theme_pages_load_shared_theme(name):
+    """主題頁一律載入共用主題檔（帶版本）＋ body class；
     不得自訂 §2 的 --primary/--accent（同名異義，5gd 教訓）。"""
+    th = THEMES[name]
     bad = []
-    for name in TEACHER_PAGES:
-        src = (_STATIC / name).read_text(encoding="utf-8")
-        if "/static/teacher/theme.css?v=__V__" not in src:
-            bad.append(f"{name}: 未載入 teacher/theme.css?v=__V__")
-        if 'class="t-page"' not in src:
-            bad.append(f"{name}: body 缺 t-page")
+    for page in th["pages"]:
+        src = (_STATIC / page).read_text(encoding="utf-8")
+        if _theme_link(th) not in src:
+            bad.append(f"{page}: 未載入 {_theme_link(th)}")
+        if f'class="{th["body_class"]}"' not in src:
+            bad.append(f"{page}: body 缺 {th['body_class']}")
         if re.search(r"--(primary|accent)\s*:", src):
-            bad.append(f"{name}: 自訂了 §2 的 --primary/--accent")
+            bad.append(f"{page}: 自訂了 §2 的 --primary/--accent")
     assert not bad, "\n".join(bad)
 
 
-def test_teacher_pages_no_scattered_hex():
-    """教師頁的頁面局部 <style> 只用 --t-* token，不散寫色值。
+@pytest.mark.parametrize("name", _THEME_IDS)
+def test_theme_pages_no_scattered_hex(name):
+    """主題頁的頁面局部 <style> 只用該主題 token，不散寫色值。
 
     只看 <head>：teach.html 的離線教學單檔模板（buildDoc）自帶獨立樣式，
     是下載出去的另一份文件，不屬本頁主題。"""
     bad = []
-    for name in TEACHER_PAGES:
-        src = (_STATIC / name).read_text(encoding="utf-8").split("</head>")[0]
+    for page in THEMES[name]["pages"]:
+        src = (_STATIC / page).read_text(encoding="utf-8").split("</head>")[0]
         for block in re.findall(r"<style>(.*?)</style>", src, re.S):
             for m in re.finditer(r"#[0-9a-fA-F]{3,8}\b", block):
-                bad.append(f"{name}: {m.group(0)}")
-    assert not bad, "教師頁散寫色值（改用 --t-* token）：\n" + "\n".join(bad)
+                bad.append(f"{page}: {m.group(0)}")
+    assert not bad, "主題頁散寫色值（改用主題 token）：\n" + "\n".join(bad)
 
 
-def test_teacher_red_only_in_teacher_theme():
-    """朱紅主鈕值只准出現在 theme.css——主工作頁不得借用（紅＝破壞性）。"""
-    red = "#c8382f"
-    hits = [str(p.relative_to(ROOT)) for p in _STATIC.rglob("*")
-            if p.suffix in (".html", ".css", ".js", ".mjs") and p != _THEME
-            and red in p.read_text(encoding="utf-8", errors="ignore").lower()]
-    assert not hits, f"教師朱紅外流到：{hits}"
+@pytest.mark.parametrize("name", _THEME_IDS)
+def test_theme_signature_colors_stay_in_theme(name):
+    """主題專屬色只准出現在該主題檔（教師朱紅不外流；主工作頁紅＝破壞性）。"""
+    th = THEMES[name]
+    hits = []
+    for p in _STATIC.rglob("*"):
+        if p.suffix not in (".html", ".css", ".js", ".mjs") or p == th["css"]:
+            continue
+        text = p.read_text(encoding="utf-8", errors="ignore").lower()
+        for c in th["signature"]:
+            if c in text:
+                hits.append(f"{p.relative_to(ROOT)}: {c}")
+    assert not hits, f"{name} 主題專屬色外流到：{hits}"
 
 
-def test_main_pages_never_load_teacher_theme():
+@pytest.mark.parametrize("name", _THEME_IDS)
+def test_main_pages_never_load_theme(name):
+    rel = THEMES[name]["css"].relative_to(_STATIC).as_posix()
     bad = [n for n in MAIN_PAGES
-           if "teacher/theme.css" in (_STATIC / n).read_text(encoding="utf-8")]
-    assert not bad, f"主工作頁載入了教師主題（兩套不混用）：{bad}"
+           if rel in (_STATIC / n).read_text(encoding="utf-8")]
+    assert not bad, f"主工作頁載入了 {name} 主題（兩套不混用）：{bad}"
 
 
-def test_teacher_theme_destructive_never_filled():
-    """§10.1：教師主題沒有填色的破壞性鈕；ghost 透明底；不定義 --accent。"""
-    css = re.sub(r"/\*.*?\*/", "", _THEME.read_text(encoding="utf-8"),
-                 flags=re.S)                       # 註解可提及，規則不得定義
+@pytest.mark.parametrize("name", _THEME_IDS)
+def test_theme_destructive_never_filled(name):
+    """§10.1／§11：無填色破壞鈕；ghost 透明底；不定義 --accent；
+    [hidden] guard；:root 以外不散寫色值。"""
+    th = THEMES[name]
+    x = th["prefix"]
+    css = _strip_comments(th["css"].read_text(encoding="utf-8"))
     assert "--accent" not in css and "danger" not in css
-    m = re.search(r"\.t-btn-ghost\s*\{([^}]*)\}", css)
+    m = re.search(r"\." + x + r"-btn-ghost\s*\{([^}]*)\}", css)
     assert m and "background: transparent" in m.group(1)
     assert "[hidden] { display: none !important; }" in css
-    # 不散寫色值：:root token 定義行以外不得出現 hex
     root_end = css.index("}", css.index(":root"))
     stray = re.findall(r"#[0-9a-fA-F]{3,8}\b", css[root_end:])
-    assert not stray, f"theme.css token 區外散寫色值：{stray}"
+    assert not stray, f"{name} 主題檔 :root 區外散寫色值：{stray}"
+
+
+@pytest.mark.parametrize("name", _THEME_IDS)
+def test_theme_component_table_in_sync(name):
+    """v0.14.304：主題檔裡每個 .<x>- class 都要出現在 DESIGN.md 的元件
+    使用時機表（§10.4 等），反之表上列的 class 也必須真的存在——給人和 AI
+    看的清單不會跟程式脫節。"""
+    th = THEMES[name]
+    x = th["prefix"]
+    css = _strip_comments(th["css"].read_text(encoding="utf-8"))
+    in_css = set(re.findall(r"\.(" + x + r"-[a-z][\w-]*)", css))
+    text = DESIGN.read_text(encoding="utf-8")
+    start = text.index(th["component_table"])
+    nxt = re.search(r"^#{2,3} ", text[start + 4:], re.M)
+    section = text[start: start + 4 + nxt.start()] if nxt else text[start:]
+    rows = [ln for ln in section.splitlines() if ln.startswith("|")]
+    in_table = set()
+    for ln in rows:
+        cells = ln.split("|")
+        if len(cells) > 2:
+            in_table |= set(re.findall(r"`\.(" + x + r"-[a-z][\w-]*)`",
+                                       cells[2]))
+    missing = sorted(in_css - in_table)
+    ghost = sorted(in_table - in_css)
+    assert not missing, f"{name} 元件沒寫進使用時機表：{missing}"
+    assert not ghost, f"使用時機表列了不存在的 class：{ghost}"
+
+
+def test_theme_recipe_documented():
+    """§11 新增主題的做法：九步清單存在，且指回本測試的 THEMES 登記表。"""
+    text = DESIGN.read_text(encoding="utf-8")
+    i = text.index("## 11. 新增一套主題的做法")
+    sec = text[i:]
+    for n in range(1, 10):
+        assert re.search(rf"^{n}\. \*\*", sec, re.M), f"§11 缺第 {n} 步"
+    assert "THEMES" in sec and "tests/test_design_md.py" in sec
