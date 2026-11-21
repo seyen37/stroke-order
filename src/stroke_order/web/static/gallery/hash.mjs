@@ -32,7 +32,7 @@ export const EXPORT_KINDS = [
   'doodle', 'patch', 'stamp', 'stencil', 'wordart', 'zentangle',
 ];
 export const KIND_LABELS = {
-  psd: '抄經軌跡', mandala: '曼陀羅', popup: '立體字',
+  psd: '筆順字跡', mandala: '曼陀羅', popup: '立體字',
   single: '單字筆順', grid: '字帖', manuscript: '稿紙',
   notebook: '筆記', letter: '信紙', sutra: '抄經字帖',
   doodle: '塗鴉', patch: '布章', stamp: '印章', stencil: '鏤空字',

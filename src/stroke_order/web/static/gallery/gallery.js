@@ -332,9 +332,10 @@ function _hiddenLabel(reason) {
 }
 
 function _kindBadge(kind) {
-  // 5fw：標籤改單一事實源 KIND_LABELS（hash.mjs）；psd 沿用短標「抄經」
+  // 5fw：標籤單一事實源 KIND_LABELS（hash.mjs）。v0.14.305：psd 原短標「抄經」
+  // 與篩選選單、空狀態不一致——/handwriting 叫「筆順練習」，一律稱「筆順字跡」
   const k = kind || 'psd';
-  const label = k === 'psd' ? '抄經' : (KIND_LABELS[k] || k);
+  const label = KIND_LABELS[k] || k;
   return `<span class="gl-card-kind gl-card-kind-${_escape(k)}">${
     _escape(label)
   }</span>`;

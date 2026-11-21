@@ -2,7 +2,7 @@
 // gallery/uploader.js — upload dialog with client-side schema preview.
 //
 // Phase 5b r28: 支援兩種 upload kind
-//   - psd     : .json (schema=stroke-order-psd-v1, 抄經軌跡)
+//   - psd     : .json (schema=stroke-order-psd-v1, 筆順練習頁匯出的筆順字跡)
 //   - mandala : .mandala.md frontmatter 或 .svg 內嵌 metadata
 //                (schema=stroke-order-mandala-v1)
 //
@@ -153,7 +153,7 @@ async function _renderPreview(file) {
     let hashPrefix = '';
     try { hashPrefix = await _sha256HexPrefix(file); } catch (_) {}
     box.innerHTML = (
-      `<b>✓ 抄經軌跡 (${PSD_SCHEMA})</b><br>` +
+      `<b>✓ 筆順字跡 (${PSD_SCHEMA})</b><br>` +
       `<b>${stats.trace_count}</b> 筆軌跡 · ` +
       `<b>${stats.unique_chars}</b> 不重複字<br>` +
       `字型：${stats.styles_used.length
@@ -312,7 +312,7 @@ async function _renderPreview(file) {
   box.classList.add('error');
   box.innerHTML = (
     '<b>⚠ 無法判斷檔案種類</b><br>' +
-    '請使用：抄經軌跡 (.json)、曼陀羅 (.mandala.md / 含 metadata 的 .svg)、' +
+    '請使用：筆順字跡 (.json)、曼陀羅 (.mandala.md / 含 metadata 的 .svg)、' +
     '立體字（含 metadata 的 .svg）。'
   );
   _selectedAnalysis = { ok: false };

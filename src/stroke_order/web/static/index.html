@@ -252,13 +252,13 @@
 <div class="wakeup-overlay" id="wakeup-overlay" role="status" aria-live="polite" aria-hidden="true">
   <div class="wakeup-card">
     <h2>正在喚醒伺服器</h2>
-    <p class="wakeup-sub">約需 30 秒，請稍候</p>
+    <p class="wakeup-sub">約需 30 秒，請稍候 · 已等待 <b id="wakeup-elapsed">0</b> 秒</p>
     <div class="wakeup-progress"><span class="wakeup-progress-bar"></span></div>
     <p class="wakeup-sub wakeup-stage-extra">
       Render 免費主機閒置 15 分鐘會休眠，這是正常現象
     </p>
     <p class="wakeup-sub wakeup-stage-late">
-      比預期久，可能正在重新部署中
+      比預期久，可能正在重新部署中。超過 60 秒仍沒反應，可以重新整理頁面再試一次
     </p>
   </div>
 </div>
@@ -282,7 +282,7 @@
            曼陀羅上傳鈕與 gallery 頁內，初次使用者找不到 -->
       <a href="/gallery" class="mode-tab"
          style="text-decoration:none;display:inline-block;"
-         title="公眾分享庫——瀏覽與分享大家上傳的抄經軌跡、曼陀羅作品"><span
+         title="公眾分享庫——瀏覽與分享大家上傳的筆順字跡、曼陀羅作品"><span
          class="dot" style="background:#b05c7a"></span>公眾分享庫</a>
     </div>
 
@@ -432,7 +432,7 @@
               cursor:pointer;color:var(--muted);">✕</button>
     </div>
     <p style="color:var(--muted);font-size:12px;margin:4px 0 14px;">
-      存放於本機 <code id="ud-path">~/.stroke-order/user-dict/</code>。
+      存放位置：<code id="ud-path">（載入中…）</code>
       自訂字會優先於 g0v / MMH 內建字源 — 也可拿來 override 不喜歡的標準字形。
     </p>
 
@@ -512,7 +512,7 @@
           </div>
           <div style="flex:1;min-width:180px;color:var(--muted);font-size:12px;">
             <p>用滑鼠或觸控筆在畫布上書寫。每按一次 = 一筆畫。</p>
-            <p>米字格背景僅供參考；筆畫會 normalise 到 2048 em 框。</p>
+            <p>米字格背景僅供參考；寫好的筆畫會自動縮放到本站的標準字框。</p>
             <p>送出後，這個字會被加進使用者字典，並在所有模式優先於內建字源。</p>
           </div>
         </div>
@@ -540,7 +540,7 @@
                     placeholder='{"strokes":[{"track":[[100,200],[400,200]]}]}'></textarea>
           <span style="color:var(--muted);font-size:11px;">
             最小欄位：<code>{"strokes":[{"track":[[x,y],...]}]}</code>。
-            座標系為 0–2048 em frame。
+            座標範圍 0–2048（本站標準字框，左上角為 0,0）。
           </span>
         </div>
       </div>
@@ -739,11 +739,11 @@
         <span id="grid-font-name"
               style="color:var(--muted);font-size:12px;"></span>
         <label style="margin-left:10px;font-size:12px;"
-               title="自訂字型 G-code 骨架化中心線的 RDP 節點簡化強度（px）：0=不簡化（節點最多）；1.5=預設；越大節點越少、G-code 越短但轉角越粗略">簡化</label>
+               title="自訂字型 G-code 單線描的節點簡化強度（px）：0=不簡化（點最多）；1.5=預設；越大點越少、G-code 越短，但轉角越粗略">簡化</label>
         <input id="gf-simplify" type="number" value="1.5" min="0" max="10"
                step="0.1" style="width:55px;">
         <label style="margin-left:8px;font-size:12px;"
-               title="自訂字型 G-code 骨架化中心線的 Chaikin 削角平滑迭代：0=關閉（原鋸齒階梯）；2=預設（讀來平滑）；越大越平滑、點數約每級×2（G-code 變長）">平滑</label>
+               title="自訂字型 G-code 單線描的轉角平滑次數：0=關閉（保留鋸齒）；2=預設（看起來平滑）；越大越平滑，每加一級點數約翻倍（G-code 變長）">平滑</label>
         <input id="gf-smooth" type="number" value="2" min="0" max="4"
                step="1" style="width:55px;">
       </span>
@@ -752,7 +752,7 @@
       <select id="grid-cns-mode">
         <option value="skip" selected>跳過</option>
         <option value="trace">描輪廓</option>
-        <option value="skeleton">骨架化</option>
+        <option value="skeleton">單線描</option>
       </select>
       <label style="margin-left:16px;"
              title="字格右側加注音窄欄（2:1）。注音符號有完整筆順資料，跟著層樣式描紅——注音也能練筆順。讀音採教育部體系（McBopomofo 資料）；破音字預設常用讀音、可在下方下拉改選">
@@ -811,7 +811,7 @@
     <div class="row">
       <button id="grid-render" class="btn-primary">產生字帖</button>
       <span id="grid-download-group" style="display:none;">
-        <a id="grid-download-pdf" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);" title="多頁合成單一 PDF，可直接列印（頁數多時解析度會自動下修，實際值見回應標頭）">🖨 PDF</a><a id="grid-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
+        <a id="grid-download-pdf" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);" title="多頁合成單一 PDF，可直接列印（頁數多時會自動降低圖片解析度，讓檔案產生得快一點）">🖨 PDF</a><a id="grid-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
         <a id="grid-download-gcode" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ G-code</a>
         <a id="grid-download-json" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ JSON</a>
       </span>
@@ -892,7 +892,7 @@
       </span>
     </div>
     <div class="row" style="color:var(--muted);font-size:11px;margin-top:2px;">
-      <span>留空用 preset 預設；填「每頁行數」會**優先**於「行高/字寬」。</span>
+      <span>留空用 preset 預設；填「每頁行數」會<strong>優先</strong>於「行高/字寬」。</span>
     </div>
     <!-- Capacity display -->
     <div id="nb-capacity" style="padding:8px 10px;margin:6px 0;background:var(--info-bg);
@@ -925,7 +925,7 @@
       <select id="nb-cns-mode">
         <option value="skip" selected>跳過 (G-code 不寫)</option>
         <option value="trace">描輪廓</option>
-        <option value="skeleton">骨架化 (alpha)</option>
+        <option value="skeleton">單線描（試驗中）</option>
       </select>
       <label style="margin-left:12px;">資料源</label>
       <select id="nb-source">
@@ -945,7 +945,7 @@
     <div class="row" style="color:var(--muted);font-size:11px;margin-top:-4px;">
       <span>
         勾選後預覽上可 <b>拖曳移動</b> / <b>四角縮放</b>；多區並存、各自可匯入向量。
-        拉伸填滿用於原向量內含 outlier 元素、fit-within 留白太多的情況。
+        原圖周圍有零星雜點、或等比放進來後空白太多時，可以勾「拉伸填滿」。
       </span>
     </div>
     <div id="nb-zones-list" style="display:none;margin:4px 0;padding:6px 10px;
@@ -961,7 +961,7 @@
     <div class="row">
       <button id="nb-render" class="btn-primary">產生筆記</button>
       <span id="nb-download-group" style="display:none;">
-        <a id="nb-download-pdf" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);" title="多頁合成單一 PDF，可直接列印（頁數多時解析度會自動下修，實際值見回應標頭）">🖨 PDF</a><a id="nb-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
+        <a id="nb-download-pdf" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);" title="多頁合成單一 PDF，可直接列印（頁數多時會自動降低圖片解析度，讓檔案產生得快一點）">🖨 PDF</a><a id="nb-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
         <a id="nb-download-gcode" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ G-code</a>
         <a id="nb-download-json" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ JSON</a>
       </span>
@@ -1112,7 +1112,7 @@
       <select id="lt-cns-mode">
         <option value="skip" selected>跳過</option>
         <option value="trace">描輪廓</option>
-        <option value="skeleton">骨架化</option>
+        <option value="skeleton">單線描</option>
       </select>
     </div>
     <div class="row">
@@ -1127,7 +1127,7 @@
     <div class="row">
       <button id="lt-render" class="btn-primary">產生信紙</button>
       <span id="lt-download-group" style="display:none;">
-        <a id="lt-download-pdf" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);" title="多頁合成單一 PDF，可直接列印（頁數多時解析度會自動下修，實際值見回應標頭）">🖨 PDF</a><a id="lt-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
+        <a id="lt-download-pdf" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);" title="多頁合成單一 PDF，可直接列印（頁數多時會自動降低圖片解析度，讓檔案產生得快一點）">🖨 PDF</a><a id="lt-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
         <a id="lt-download-gcode" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ G-code</a>
         <a id="lt-download-json" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ JSON</a>
       </span>
@@ -1219,7 +1219,7 @@
       <select id="ms-cns-mode">
         <option value="skip" selected>跳過</option>
         <option value="trace">描輪廓</option>
-        <option value="skeleton">骨架化</option>
+        <option value="skeleton">單線描</option>
       </select>
       <label style="margin-left:12px;">資料源</label>
       <select id="ms-source">
@@ -1232,7 +1232,7 @@
     <div class="row">
       <button id="ms-render" class="btn-primary">產生稿紙</button>
       <span id="ms-download-group" style="display:none;">
-        <a id="ms-download-pdf" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);" title="多頁合成單一 PDF，可直接列印（頁數多時解析度會自動下修，實際值見回應標頭）">🖨 PDF</a><a id="ms-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
+        <a id="ms-download-pdf" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);" title="多頁合成單一 PDF，可直接列印（頁數多時會自動降低圖片解析度，讓檔案產生得快一點）">🖨 PDF</a><a id="ms-download-svg" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ SVG</a>
         <a id="ms-download-gcode" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ G-code</a>
         <a id="ms-download-json" href="#" style="text-decoration:none;padding:6px 10px;margin-left:4px;border:1px solid var(--border);border-radius:4px;color:var(--fg);">⤓ JSON</a>
       </span>
@@ -1282,7 +1282,7 @@
       <label>OpenCV</label>
       <select id="dd-cv-mode">
         <option value="outline" selected>輪廓（描外形，雷切友善）</option>
-        <option value="centerline">中心線（骨架化，每線只切一次）</option>
+        <option value="centerline">中心線（單線，每線只切一次）</option>
         <option value="canny">邊緣（Canny，沿用邊緣門檻）</option>
       </select>
       <label style="margin-left:8px;" title="自適應二值化區塊大小（奇數）">區塊</label>
@@ -1290,9 +1290,9 @@
       <label style="margin-left:8px;" title="二值化常數 C（越大越乾淨、越易斷線）">C</label>
       <input id="dd-cv-c" type="number" value="10" min="-20" max="20" style="width:55px;">
       <label style="margin-left:8px;"><input type="checkbox" id="dd-cv-invert"> 反相</label>
-      <label style="margin-left:8px;" title="RDP 節點簡化強度（px，0=不簡化）">簡化</label>
+      <label style="margin-left:8px;" title="節點簡化強度（px，0=不簡化；越大點越少、轉角越粗略）">簡化</label>
       <input id="dd-cv-simplify" type="number" value="1.5" min="0" max="10" step="0.1" style="width:60px;">
-      <label style="margin-left:8px;" title="中心線 Chaikin 削角平滑迭代（僅中心線模式生效）：0=關閉（原鋸齒階梯）；2=預設（讀來平滑）；越大越平滑、點數約每級×2">平滑</label>
+      <label style="margin-left:8px;" title="中心線的轉角平滑次數（僅中心線模式生效）：0=關閉（保留鋸齒）；2=預設（看起來平滑）；越大越平滑、點數約每級×2">平滑</label>
       <input id="dd-cv-chaikin" type="number" value="2" min="0" max="4" step="1" style="width:55px;">
       <label style="margin-left:8px;" title="忽略小於此面積（輪廓）/長度（邊緣）的雜點">去斑</label>
       <input id="dd-cv-minarea" type="number" value="30" min="0" max="500" style="width:60px;">
@@ -2109,7 +2109,7 @@
          border:1px solid #e8c060;border-radius:4px;padding:8px 12px;
          margin-bottom:8px;font-size:12px;color:#704000;">
       <b>⚠ 隸書／篆書 SVG 為骨架線條輸出</b>
-      （centerline tracks）。受限於骨架化演算法，部分字形可能不完整或筆畫缺失；另部分罕用字未收錄於字型，無法呈現，請見諒。建議優先使用「↓ 整本 PDF」列印描紅；若需提供給寫字機器人，請先在預覽中確認字形完整度。
+      （centerline tracks）。受限於「自動取中心線」的處理方式，部分字形可能不完整或筆畫缺失；另部分罕用字未收錄於字型，無法呈現，請見諒。建議優先使用「↓ 整本 PDF」列印描紅；若需提供給寫字機器人，請先在預覽中確認字形完整度。
     </div>
 
     <div class="row">
@@ -2388,7 +2388,7 @@
       <select id="wa-cns-mode">
         <option value="skip" selected>跳過</option>
         <option value="trace">描輪廓</option>
-        <option value="skeleton">骨架化</option>
+        <option value="skeleton">單線描</option>
       </select>
       <!-- 5fu：共用控制列統一——資料源自下方獨立列併入本列
            （全站順序：字型風格→罕用字→資料源） -->
@@ -3019,7 +3019,7 @@
       <select id="md-cns-mode">
         <option value="skip" selected>跳過</option>
         <option value="trace">描輪廓</option>
-        <option value="skeleton">骨架化</option>
+        <option value="skeleton">單線描</option>
       </select>
       <label style="margin-left:12px;">資料源</label>
       <select id="md-source">

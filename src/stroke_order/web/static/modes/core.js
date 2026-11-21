@@ -16,6 +16,15 @@ import { renderCnsDecomposition } from "./fonts.js?v=__V__";
   const originalFetch = window.fetch.bind(window);
   let inFlight = 0;
   let showTimer = null, stage2Timer = null, stage3Timer = null;
+  let tickTimer = null, shownAt = 0;
+  const elapsedEl = document.getElementById('wakeup-elapsed');
+
+  // 已等待秒數：從「開始等伺服器」算起（含顯示前的 SHOW_DELAY），
+  // 讓老師知道不是當機、也知道等多久了。
+  function tick() {
+    if (elapsedEl) elapsedEl.textContent =
+      String(Math.floor((Date.now() - shownAt) / 1000));
+  }
 
   function isAwake() {
     try { return sessionStorage.getItem('wakeupSeen') === '1'; }
@@ -29,6 +38,8 @@ import { renderCnsDecomposition } from "./fonts.js?v=__V__";
     overlay.classList.remove('stage-2', 'stage-3');
     overlay.classList.add('show');
     overlay.setAttribute('aria-hidden', 'false');
+    tick();
+    tickTimer = setInterval(tick, 1000);
     stage2Timer = setTimeout(() => overlay.classList.add('stage-2'), STAGE_2_AT);
     stage3Timer = setTimeout(() => overlay.classList.add('stage-3'), STAGE_3_AT);
   }
@@ -36,7 +47,8 @@ import { renderCnsDecomposition } from "./fonts.js?v=__V__";
     overlay.classList.remove('show', 'stage-2', 'stage-3');
     overlay.setAttribute('aria-hidden', 'true');
     clearTimeout(showTimer); clearTimeout(stage2Timer); clearTimeout(stage3Timer);
-    showTimer = stage2Timer = stage3Timer = null;
+    clearInterval(tickTimer);
+    showTimer = stage2Timer = stage3Timer = tickTimer = null;
   }
 
   window.fetch = function(...args) {
@@ -44,6 +56,7 @@ import { renderCnsDecomposition } from "./fonts.js?v=__V__";
 
     if (inFlight === 0) {
       // 第一個請求 — 啟動延遲顯示計時
+      shownAt = Date.now();
       showTimer = setTimeout(showOverlay, SHOW_DELAY);
     }
     inFlight++;
